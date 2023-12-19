@@ -4,6 +4,9 @@ pragma solidity ^0.8.13;
 
 import {IERC20, ISwapAdapter} from "src/interfaces/ISwapAdapter.sol";
 
+// FraxSwapV2 handles arbirary amounts, but we limit the amount to 10x just in case
+uint256 constant RESERVE_LIMIT_FACTOR = 10;
+
 /// @title Integral Swap Adapter
 /// @dev Frax contracts do not use interfaces this much
 /// therefore copying the whole code would fill the file with 1000+ lines,
@@ -34,11 +37,23 @@ contract FraxSwapV2SwapAdapter is ISwapAdapter {
         revert NotImplemented("FraxSwapV2SwapAdapter.swap");
     }
 
+    /// @inheritdoc ISwapAdapter
     function getLimits(bytes32 poolId, IERC20 sellToken, IERC20 buyToken)
         external
+        view
+        override
         returns (uint256[] memory limits)
     {
-        revert NotImplemented("FraxSwapV2SwapAdapter.getLimits");
+        IUniswapV2Pair pair = IUniswapV2Pair(address(bytes20(poolId)));
+        limits = new uint256[](2);
+        (uint256 r0, uint256 r1,) = pair.getReserves();
+        if (address(sellToken) == pair.token0()) {
+            limits[0] = r0 / RESERVE_LIMIT_FACTOR;
+            limits[1] = r1 / RESERVE_LIMIT_FACTOR;
+        } else {
+            limits[0] = r1 / RESERVE_LIMIT_FACTOR;
+            limits[1] = r0 / RESERVE_LIMIT_FACTOR;
+        }
     }
 
     function getCapabilities(bytes32 poolId, IERC20 sellToken, IERC20 buyToken)
