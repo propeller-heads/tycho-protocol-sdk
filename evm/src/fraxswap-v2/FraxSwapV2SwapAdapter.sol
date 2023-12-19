@@ -52,11 +52,21 @@ contract FraxSwapV2SwapAdapter is ISwapAdapter {
         revert NotImplemented("FraxSwapV2SwapAdapter.getTokens");
     }
 
+    /// @inheritdoc ISwapAdapter
     function getPoolIds(uint256 offset, uint256 limit)
         external
+        view
+        override
         returns (bytes32[] memory ids)
     {
-        revert NotImplemented("FraxSwapV2SwapAdapter.getPoolIds");
+        uint256 endIdx = offset + limit;
+        if (endIdx > factory.allPairsLength()) {
+            endIdx = factory.allPairsLength();
+        }
+        ids = new bytes32[](endIdx - offset);
+        for (uint256 i = 0; i < ids.length; i++) {
+            ids[i] = bytes20(factory.allPairs(offset + i));
+        }
     }
 }
 
