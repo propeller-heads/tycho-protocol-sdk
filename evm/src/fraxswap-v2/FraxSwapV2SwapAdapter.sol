@@ -3,6 +3,7 @@ pragma experimental ABIEncoderV2;
 pragma solidity ^0.8.13;
 
 import {IERC20, ISwapAdapter} from "src/interfaces/ISwapAdapter.sol";
+import {SafeERC20} from "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 
 // FraxSwapV2 handles arbirary amounts, but we limit the amount to 10x just in case
 uint256 constant RESERVE_LIMIT_FACTOR = 10;
@@ -40,6 +41,7 @@ contract FraxSwapV2SwapAdapter is ISwapAdapter {
         }
     }
 
+    /// @inheritdoc ISwapAdapter
     function swap(
         bytes32 poolId,
         IERC20 sellToken,
@@ -139,6 +141,56 @@ contract FraxSwapV2SwapAdapter is ISwapAdapter {
             newReserveOut * 10000, 
             newReserveIn * feeBP
         );
+    }
+
+    /// @notice Executes a sell order on a given pool.
+    /// @param pair The pair to trade on.
+    /// @param sellToken The token being sold.
+    /// @param buyToken The token being bought.
+    /// @param amount The amount to be traded.
+    /// @return calculatedAmount The amount of tokens received.
+    function sell(
+        IUniswapV2PairPartialV5 pair,
+        IERC20 sellToken,
+        IERC20 buyToken,
+        uint256 amount
+    ) internal returns (uint256) {
+        address swapper = msg.sender;
+        uint256 amountOut = pair.getAmountOut(amount, address(sellToken));
+
+        SafeERC20.safeTransferFrom(sellToken, swapper, address(pair), amount);
+        if(address(buyToken) == pair.token0()) {
+            pair.swap(amountOut, 0, swapper, "");
+        }
+        else {
+            pair.swap(0, amountOut, swapper, "");
+        }
+        return amountOut;
+    }
+
+    /// @notice Executes a buy order on a given pool.
+    /// @param pair The pair to trade on.
+    /// @param sellToken The token being sold.
+    /// @param buyToken The token being bought.
+    /// @param amountBought The amount of buyToken tokens to buy.
+    /// @return calculatedAmount The amount of tokens received.
+    function buy(
+        IUniswapV2PairPartialV5 pair,
+        IERC20 sellToken,
+        IERC20 buyToken,
+        uint256 amountBought
+    ) internal returns (uint256) {
+        address swapper = msg.sender;
+        uint256 amountIn = pair.getAmountIn(amountBought, address(buyToken));
+
+        SafeERC20.safeTransferFrom(sellToken, swapper, address(pair), amountIn);
+        if(address(buyToken) == pair.token0()) {
+            pair.swap(amountBought, 0, swapper, "");
+        }
+        else {
+            pair.swap(0, amountBought, swapper, "");
+        }
+        return amountIn;
     }
 }
 
