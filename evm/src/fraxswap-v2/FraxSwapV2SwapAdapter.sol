@@ -7,7 +7,7 @@ import {IERC20, ISwapAdapter} from "src/interfaces/ISwapAdapter.sol";
 /// @title Integral Swap Adapter
 /// @dev Frax contracts do not use interfaces this much
 /// therefore copying the whole code would fill the file with 1000+ lines,
-/// but IUniswapV2Pair fits as interface for Pairs, so we use it as interface.
+/// but IUniswapV2Pair and IUniswapV2FactoryV5 perfectly fit as interfaces, so we can use them directly.
 contract FraxSwapV2SwapAdapter is ISwapAdapter {
     IUniswapV2FactoryV5 immutable factory;
 
