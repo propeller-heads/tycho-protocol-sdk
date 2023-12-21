@@ -9,9 +9,6 @@ import {SafeERC20} from "openzeppelin-contracts/contracts/token/ERC20/utils/Safe
 uint256 constant RESERVE_LIMIT_FACTOR = 10;
 
 /// @title Frax Swap Adapter
-/// @dev Frax contracts do not use interfaces this much
-/// therefore copying the whole code would fill the file with 1000+ lines,
-/// but IUniswapV2PairPartialV5 and IUniswapV2FactoryV5 perfectly fit as interfaces, so we can use them directly.
 contract FraxSwapV2SwapAdapter is ISwapAdapter {
     IUniswapV2FactoryV5 immutable factory;
 
@@ -49,7 +46,28 @@ contract FraxSwapV2SwapAdapter is ISwapAdapter {
         OrderSide side,
         uint256 specifiedAmount
     ) external returns (Trade memory trade) {
-        revert NotImplemented("FraxSwapV2SwapAdapter.swap");
+        if (specifiedAmount == 0) {
+            return trade;
+        }
+
+        IUniswapV2PairPartialV5 pair = IUniswapV2PairPartialV5(address(bytes20(poolId)));
+        uint112 r0;
+        uint112 r1;
+        if (address(sellToken) == pair.token0()) {
+            (r0, r1,) = pair.getReserves();
+        } else {
+            (r1, r0,) = pair.getReserves();
+        }
+        uint256 gasBefore = gasleft();
+        if (side == OrderSide.Sell) {
+            trade.calculatedAmount =
+                sell(pair, sellToken, buyToken, specifiedAmount);
+        } else {
+            trade.calculatedAmount =
+                buy(pair, sellToken, buyToken, specifiedAmount);
+        }
+        trade.gasUsed = gasBefore - gasleft();
+        trade.price = getPriceAt(specifiedAmount, r0, r1, pair);
     }
 
     /// @inheritdoc ISwapAdapter
