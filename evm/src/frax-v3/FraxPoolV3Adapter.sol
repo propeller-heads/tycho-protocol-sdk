@@ -4,7 +4,6 @@ pragma solidity ^0.8.13;
 import {IERC20, ISwapAdapter} from "src/interfaces/ISwapAdapter.sol";
 import {SafeERC20} from "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 
-/// FRAX-defined constants
 address constant FRAX_ADDRESS = 0x853d955aCEf822Db058eb8505911ED77F175b99e;
 uint256 constant PRICE_PRECISION = 1e6;
 
@@ -15,20 +14,11 @@ contract FraxPoolV3Adapter is ISwapAdapter {
     using SafeERC20 for IERC20;
 
     IFraxPoolV3 immutable pool;
-    IFRAX immutable FRAX;
+    IFrax immutable FRAX;
 
     constructor(IFraxPoolV3 _pool) {
         pool = _pool;
         FRAX = IFrax(FRAX_ADDRESS);
-    }
-
-    function price(
-        bytes32 _poolId,
-        IERC20 _sellToken,
-        IERC20 _buyToken,
-        uint256[] memory _specifiedAmounts
-    ) external view override returns (Fraction[] memory _prices) {
-        revert NotImplemented("TemplateSwapAdapter.price");
     }
 
     function swap(
@@ -77,14 +67,14 @@ contract FraxPoolV3Adapter is ISwapAdapter {
         uint256 receivedAmountFRAX
     ) internal {
 
-        if(!pool.enabledCollaterals(sellTokenAddress)) {
+        if(!pool.enabled_collaterals(sellTokenAddress)) {
             revert Unavailable("The input token is not available as buy method");
         }
 
         uint256 collateralID = pool.collateralAddrToIdx(sellTokenAddress);
 
         uint256 fraxAmountWithFeeAdded = getAmountWithFee(receivedAmountFRAX, collateralID, true);
-        uint256 collateralNeeded = getTotalCollateralNeeded(fraxAmountWithFeeAdded, collateralID);
+        uint256 collateralNeeded = pool.getFRAXInCollateral(collateralID, fraxAmountWithFeeAdded);
 
         IERC20(sellTokenAddress).safeTransferFrom(msg.sender, address(this), collateralNeeded);
         IERC20(sellTokenAddress).approve(address(pool), collateralNeeded);
@@ -101,31 +91,21 @@ contract FraxPoolV3Adapter is ISwapAdapter {
         uint256 amount
     ) internal {
 
-        if(!pool.enabledCollaterals(sellTokenAddress)) {
+        if(!pool.enabled_collaterals(receiveToken)) {
             revert Unavailable("The input token is not available as buy method");
         }
 
-        if(FRAX.global_collateral_ratio() < FRAX.PRICE_PRECISION) {
+        if(FRAX.global_collateral_ratio() < PRICE_PRECISION) {
             revert Unavailable("Cannot sell FRAX while global_collateral_ratio < PRICE_PRECISION");
         }
 
-        uint256 collateralID = pool.collateralAddrToIdx(sellTokenAddress);
+        uint256 collateralID = pool.collateralAddrToIdx(receiveToken);
 
-        FRAX.approve(address(pool), collateralNeeded);
+        FRAX.approve(address(pool), amount);
         SafeERC20.safeTransferFrom(FRAX, msg.sender, address(this), amount);
 
         pool.redeemFrax(collateralID, amount, 0, 0);
         pool.collectRedemption(collateralID);
-
-    }
-
-    /// @notice Get collateral (amount of tokens to spend) needed to buy 'receivedAmountFrax' FRAX
-    /// @param fraxAmountWithFeeAdded amount of FRAX tokens to receive, with fee added
-    /// @param collateralID ID of the collateral to use
-    /// @return uint256 amount to spend to buy fraxAmount - fee
-    function getTotalCollateralNeeded(uint256 fraxAmountWithFeeAdded, uint256 collateralID) internal view returns (uint256) {
-
-        return pool.getFRAXInCollateral(collateralID, fraxAmountWithFeeAdded) ;
 
     }
 
@@ -158,7 +138,7 @@ interface IFraxPoolV3 {
         uint256 frax_amt,
         uint256 frax_out_min,
         bool one_to_one_override
-    ) external collateralEnabled(col_idx) returns (
+    ) external returns (
         uint256 total_frax_mint, 
         uint256 collat_needed, 
         uint256 fxs_needed
@@ -169,10 +149,26 @@ interface IFraxPoolV3 {
         uint256 frax_amount, 
         uint256 fxs_out_min, 
         uint256 col_out_min
-    ) external collateralEnabled(col_idx) returns (
+    ) external returns (
         uint256 collat_out, 
         uint256 fxs_out
     );
+
+    function collectRedemption(uint256 col_idx) external returns (uint256 fxs_amount, uint256 collateral_amount);
+
+    function enabled_collaterals(
+        address collateralAddress
+    ) external view returns (bool);
+
+    function collateralAddrToIdx(
+        address collateralAddress
+    ) external view returns (uint256);
+
+    function collateral_prices(
+        uint256 collateralID
+    ) external view returns (uint256);
+
+    function getFRAXInCollateral(uint256 col_idx, uint256 frax_amount) external view returns (uint256);
 
 }
 
