@@ -21,6 +21,35 @@ contract FraxPoolV3Adapter is ISwapAdapter {
         FRAX = IFrax(FRAX_ADDRESS);
     }
 
+    /// @inheritdoc ISwapAdapter
+    /// @dev output amounts are in FRAX units(10**6)
+    function price(
+        bytes32 _poolId,
+        IERC20 _sellToken,
+        IERC20 _buyToken,
+        uint256[] memory _specifiedAmounts
+    ) external view override returns (Fraction[] memory _prices) {
+        _prices = new Fraction[](_specifiedAmounts.length);
+        address sellTokenAddress = address(_sellToken);
+
+        if(!pool.enabled_collaterals(sellTokenAddress) || !pool.enabled_collaterals(address(_buyToken))) {
+            revert Unavailable("This sell or buy token is not available");
+        }
+
+        uint256 collateralID = pool.collateralAddrToIdx(sellTokenAddress);
+
+        if(sellTokenAddress != address(FRAX)) {
+            for(uint256 i = 0; i < _specifiedAmounts.length; i++) {
+                _prices[i] = Fraction(pool.getFRAXInCollateral(collateralID, _specifiedAmounts[i]), 1);
+            }
+        }
+        else {
+            for(uint256 i = 0; i < _specifiedAmounts.length; i++) {
+                _prices[i] = Fraction(pool.collateral_prices(collateralID), 1);
+            }
+        }
+    }
+
     function swap(
         bytes32 poolId,
         IERC20 sellToken,
@@ -102,7 +131,7 @@ contract FraxPoolV3Adapter is ISwapAdapter {
         uint256 collateralID = pool.collateralAddrToIdx(receiveToken);
 
         FRAX.approve(address(pool), amount);
-        SafeERC20.safeTransferFrom(FRAX, msg.sender, address(this), amount);
+        IERC20(address(FRAX)).safeTransferFrom(msg.sender, address(this), amount);
 
         pool.redeemFrax(collateralID, amount, 0, 0);
         pool.collectRedemption(collateralID);
@@ -116,7 +145,7 @@ contract FraxPoolV3Adapter is ISwapAdapter {
     /// @return uint256 amount plus or minus the fee
     function getAmountWithFee(uint256 amount, uint256 collateralID, bool isSubtraction) internal view returns (uint256) {
 
-        uint256 fee = FRAX.minting_fee(collateralID);
+        uint256 fee = FRAX.minting_fee();
         if(isSubtraction) {
             return amount - (amount * fee / PRICE_PRECISION);
         }
