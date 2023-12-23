@@ -57,35 +57,35 @@ contract FraxPoolV3Adapter is ISwapAdapter {
         OrderSide side,
         uint256 specifiedAmount
     ) external returns (Trade memory trade) {
-        revert NotImplemented("TemplateSwapAdapter.swap");
+        revert NotImplemented("FraxPoolV3Adapter.swap");
     }
 
     function getLimits(bytes32 poolId, IERC20 sellToken, IERC20 buyToken)
         external
         returns (uint256[] memory limits)
     {
-        revert NotImplemented("TemplateSwapAdapter.getLimits");
+        revert NotImplemented("FraxPoolV3Adapter.getLimits");
     }
 
     function getCapabilities(bytes32 poolId, IERC20 sellToken, IERC20 buyToken)
         external
         returns (Capability[] memory capabilities)
     {
-        revert NotImplemented("TemplateSwapAdapter.getCapabilities");
+        revert NotImplemented("FraxPoolV3Adapter.getCapabilities");
     }
 
     function getTokens(bytes32 poolId)
         external
         returns (IERC20[] memory tokens)
     {
-        revert NotImplemented("TemplateSwapAdapter.getTokens");
+        revert NotImplemented("FraxPoolV3Adapter.getTokens");
     }
 
     function getPoolIds(uint256 offset, uint256 limit)
         external
         returns (bytes32[] memory ids)
     {
-        revert NotImplemented("TemplateSwapAdapter.getPoolIds");
+        revert NotImplemented("FraxPoolV3Adapter.getPoolIds");
     }
 
     /// @notice Buy(Mint) FRAX token
