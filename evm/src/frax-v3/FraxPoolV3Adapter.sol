@@ -74,18 +74,41 @@ contract FraxPoolV3Adapter is ISwapAdapter {
         revert NotImplemented("FraxPoolV3Adapter.getCapabilities");
     }
 
+    /// @inheritdoc ISwapAdapter
+    /// @dev Since FraxV3 has only one pool, and the tokens are therefore collaterals, this function returns available tokens addresses.
+    /// @return tokens available tokens in the FraxPoolV3 contract
     function getTokens(bytes32 poolId)
         external
+        view
+        override
         returns (IERC20[] memory tokens)
     {
-        revert NotImplemented("FraxPoolV3Adapter.getTokens");
+        address[] memory collateralAddresses = pool.allCollaterals();
+        tokens = new IERC20[](collateralAddresses.length);
+
+        for(uint256 i = 0; i < collateralAddresses.length; i++) {
+            tokens[i] = IERC20(collateralAddresses[i]);
+        }
     }
 
+    /// @inheritdoc ISwapAdapter
+    /// @dev Since FraxV3 has only one pool, and the tokens are therefore collaterals, this function returns available collaterals ids.
+    /// @return ids IDs of the collaterals available in the FraxPoolV3 contract
     function getPoolIds(uint256 offset, uint256 limit)
         external
+        view
+        override
         returns (bytes32[] memory ids)
     {
-        revert NotImplemented("FraxPoolV3Adapter.getPoolIds");
+        uint256 endIdx = offset + limit;
+        address[] memory allCollaterals = pool.allCollaterals();
+        if (endIdx > allCollaterals.length) {
+            endIdx = allCollaterals.length;
+        }
+        ids = new bytes32[](endIdx - offset);
+        for(uint256 i = offset; i < ids.length; i++) {
+            ids[i] = bytes32(pool.collateralAddrToIdx(allCollaterals[offset + i]));
+        }
     }
 
     /// @notice Buy(Mint) FRAX token
@@ -198,6 +221,8 @@ interface IFraxPoolV3 {
     ) external view returns (uint256);
 
     function getFRAXInCollateral(uint256 col_idx, uint256 frax_amount) external view returns (uint256);
+
+    function allCollaterals() external view returns (address[] memory);
 
 }
 
