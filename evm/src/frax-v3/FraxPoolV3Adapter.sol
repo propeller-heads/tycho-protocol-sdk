@@ -60,11 +60,31 @@ contract FraxPoolV3Adapter is ISwapAdapter {
         revert NotImplemented("FraxPoolV3Adapter.swap");
     }
 
+    /// @inheritdoc ISwapAdapter
+    /// @dev Only limit in FraxV3 is the one applied to the collateral(pool_ceiling); Selling FRAX(redeem) has no limits
     function getLimits(bytes32 poolId, IERC20 sellToken, IERC20 buyToken)
         external
+        view
+        override
         returns (uint256[] memory limits)
     {
-        revert NotImplemented("FraxPoolV3Adapter.getLimits");
+        limits = new uint256[](2);
+        uint256 collateralID;
+        address sellTokenAddress = address(sellToken);
+
+        if(sellTokenAddress == address(FRAX)) {
+            collateralID = pool.collateralAddrToIdx(address(buyToken));
+            limits[0] = type(uint256).max;
+            limits[1] = pool.pool_ceilings(collateralID);
+            return limits;
+        }
+
+        if(!pool.enabled_collaterals(sellTokenAddress)) {
+            revert Unavailable("This sell token is not available");
+        }
+        collateralID = pool.collateralAddrToIdx(sellTokenAddress);
+        limits[0] = pool.pool_ceilings(collateralID);
+        limits[1] = type(uint256).max;
     }
 
     /// @inheritdoc ISwapAdapter
@@ -229,6 +249,8 @@ interface IFraxPoolV3 {
     function getFRAXInCollateral(uint256 col_idx, uint256 frax_amount) external view returns (uint256);
 
     function allCollaterals() external view returns (address[] memory);
+
+    function pool_ceilings(uint256 poolId) external view returns (uint256);
 
 }
 
