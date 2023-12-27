@@ -22,6 +22,7 @@ contract FraxPoolV3Adapter is ISwapAdapter {
     }
 
     /// @inheritdoc ISwapAdapter
+    /// @dev FraxPoolV3 only supports FRAX<=>Token pairs
     /// @dev output amounts are in FRAX units(10**6)
     function price(
         bytes32 _poolId,
@@ -31,19 +32,27 @@ contract FraxPoolV3Adapter is ISwapAdapter {
     ) external view override returns (Fraction[] memory _prices) {
         _prices = new Fraction[](_specifiedAmounts.length);
         address sellTokenAddress = address(_sellToken);
+        address buyTokenAddress = address(_buyToken);
+        uint256 collateralID;
 
-        if(!pool.enabled_collaterals(sellTokenAddress) || !pool.enabled_collaterals(address(_buyToken))) {
-            revert Unavailable("This sell or buy token is not available");
+        if(sellTokenAddress != address(FRAX) && buyTokenAddress != address(FRAX)) {
+            revert Unavailable("Buy or Sell token should be FRAX");
         }
 
-        uint256 collateralID = pool.collateralAddrToIdx(sellTokenAddress);
-
         if(sellTokenAddress != address(FRAX)) {
+            if(!pool.enabled_collaterals(sellTokenAddress)) {
+                revert Unavailable("This sell token is not available");
+            }
+            collateralID = pool.collateralAddrToIdx(sellTokenAddress);
             for(uint256 i = 0; i < _specifiedAmounts.length; i++) {
                 _prices[i] = Fraction(pool.getFRAXInCollateral(collateralID, _specifiedAmounts[i]), 1);
             }
         }
         else {
+            if(!pool.enabled_collaterals(buyTokenAddress)) {
+                revert Unavailable("This buy token is not available");
+            }
+            collateralID = pool.collateralAddrToIdx(buyTokenAddress);
             for(uint256 i = 0; i < _specifiedAmounts.length; i++) {
                 _prices[i] = Fraction(pool.collateral_prices(collateralID), 1);
             }
