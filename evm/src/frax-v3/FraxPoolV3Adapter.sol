@@ -23,7 +23,7 @@ contract FraxPoolV3Adapter is ISwapAdapter {
 
     /// @inheritdoc ISwapAdapter
     /// @dev FraxPoolV3 only supports FRAX<=>Token pairs
-    /// @dev output amounts are in FRAX units(10**6)
+    /// @dev output amounts in case (buyToken == FRAX) are in TOKEN units(e.g. 10**6)
     function price(
         bytes32 _poolId,
         IERC20 _sellToken,
@@ -39,22 +39,36 @@ contract FraxPoolV3Adapter is ISwapAdapter {
             revert Unavailable("Buy or Sell token should be FRAX");
         }
 
-        if(sellTokenAddress != address(FRAX)) {
-            if(!pool.enabled_collaterals(sellTokenAddress)) {
+        if(sellTokenAddress == address(FRAX)) { // in: FRAX(10**18), out: TOKEN(e.g. 10**6) - FEE; redeemFrax function
+            if(!pool.enabled_collaterals(buyTokenAddress)) {
                 revert Unavailable("This sell token is not available");
             }
             collateralID = pool.collateralAddrToIdx(sellTokenAddress);
             for(uint256 i = 0; i < _specifiedAmounts.length; i++) {
-                _prices[i] = Fraction(pool.getFRAXInCollateral(collateralID, _specifiedAmounts[i]), 1);
+                _prices[i] = Fraction(
+                    getAmountWithFee(
+                        pool.getFRAXInCollateral(collateralID, _specifiedAmounts[i]),
+                        true,
+                        true
+                    ),
+                    1
+                );
             }
         }
         else {
-            if(!pool.enabled_collaterals(buyTokenAddress)) {
+            if(!pool.enabled_collaterals(sellTokenAddress)) { // out: FRAX(10**18) - FEE, in: TOKEN(e.g. 10**6); mintFrax function
                 revert Unavailable("This buy token is not available");
             }
-            collateralID = pool.collateralAddrToIdx(buyTokenAddress);
+            collateralID = pool.collateralAddrToIdx(sellTokenAddress);
             for(uint256 i = 0; i < _specifiedAmounts.length; i++) {
-                _prices[i] = Fraction(pool.collateral_prices(collateralID), 1);
+                _prices[i] = Fraction(
+                    getAmountWithFee(
+                        pool.collateral_prices(collateralID) * (10**pool.missing_decimals(collateralID)),
+                        true,
+                        false
+                    ),
+                    1
+                );
             }
         }
     }
@@ -160,7 +174,7 @@ contract FraxPoolV3Adapter is ISwapAdapter {
 
         uint256 collateralID = pool.collateralAddrToIdx(sellTokenAddress);
 
-        uint256 fraxAmountWithFeeAdded = getAmountWithFee(receivedAmountFRAX, collateralID, true);
+        uint256 fraxAmountWithFeeAdded = getAmountWithFee(receivedAmountFRAX, true, false);
         uint256 collateralNeeded = pool.getFRAXInCollateral(collateralID, fraxAmountWithFeeAdded);
 
         IERC20(sellTokenAddress).safeTransferFrom(msg.sender, address(this), collateralNeeded);
@@ -170,10 +184,10 @@ contract FraxPoolV3Adapter is ISwapAdapter {
 
     }
 
-    /// @notice Sell(redeem) collateral FRAX token
+    /// @notice Sell(redeem) collateral FRAX token for Token
     /// @param receiveToken Address of the token to receive (to sell FRAX for)
     /// @param amount Amount of FRAX tokens to spend
-    function sellFrax(
+    function sellFraxForToken(
         address receiveToken,
         uint256 amount
     ) internal {
@@ -198,18 +212,18 @@ contract FraxPoolV3Adapter is ISwapAdapter {
 
     /// @notice Returns an amount (of tokens), with fee included
     /// @param amount amount of tokens(e.g. FRAX) to get add/remove the fee by
-    /// @param collateralID ID of the collateral to use to get fee
     /// @param isSubtraction determine if output amount should be the amount +(false) or -(true) the fee
+    /// @param isRedemption determine if the fee to use is redemption_fee(true) or minting_fee(false)
     /// @return uint256 amount plus or minus the fee
-    function getAmountWithFee(uint256 amount, uint256 collateralID, bool isSubtraction) internal view returns (uint256) {
+    function getAmountWithFee(uint256 amount, bool isSubtraction, bool isRedemption) internal view returns (uint256) {
 
-        uint256 fee = FRAX.minting_fee();
+        uint256 fee = isRedemption ? FRAX.redemption_fee() : FRAX.minting_fee();
         if(isSubtraction) {
-            return amount - (amount * fee / PRICE_PRECISION);
+            return amount - (amount * (PRICE_PRECISION - fee) / PRICE_PRECISION);
         }
         else {
-            return amount + (amount * fee / PRICE_PRECISION);
-        } 
+            return amount + (amount * (PRICE_PRECISION - fee) / PRICE_PRECISION);
+        }
 
     }
 
@@ -260,6 +274,8 @@ interface IFraxPoolV3 {
     function allCollaterals() external view returns (address[] memory);
 
     function pool_ceilings(uint256 poolId) external view returns (uint256);
+
+    function collateral_prices(uint256 col_idx) external view returns (uint256);
 
 }
 
