@@ -52,6 +52,23 @@ contract FraxSwapV2SwapAdapterTest is Test, ISwapAdapterTypes {
         }
     }
 
+    function testPriceDecreasingFrax() public {
+        bytes32 pair = bytes32(bytes20(FRAX_WETH_PAIR));
+        uint256[] memory amounts = new uint256[](TEST_ITERATIONS);
+
+        for (uint256 i = 0; i < TEST_ITERATIONS; i++) {
+            amounts[i] = 1000 * i * 10**18;
+        }
+
+        Fraction[] memory prices = adapter.price(pair, FRAX, WETH, amounts);
+
+        for (uint256 i = 0; i < TEST_ITERATIONS - 1; i++) {
+            assertEq(prices[i].compareFractions(prices[i + 1]), 1);
+            assertGt(prices[i].denominator, 0);
+            assertGt(prices[i + 1].denominator, 0);
+        }
+    }
+
     function testGetCapabilitiesFrax(bytes32 pair, address t0, address t1) public {
         Capability[] memory res =
             adapter.getCapabilities(pair, IERC20(t0), IERC20(t1));
