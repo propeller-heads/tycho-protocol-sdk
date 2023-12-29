@@ -34,6 +34,13 @@ contract FraxSwapV2SwapAdapterTest is Test, ISwapAdapterTypes {
         vm.label(address(FRAX_WETH_PAIR), "FRAX_WETH_PAIR");
     }
 
+    function testGetCapabilitiesFrax(bytes32 pair, address t0, address t1) public {
+        Capability[] memory res =
+            adapter.getCapabilities(pair, IERC20(t0), IERC20(t1));
+
+        assertEq(res.length, 3);
+    }
+
     function testGetLimitsFrax() public {
         bytes32 pair = bytes32(bytes20(FRAX_WETH_PAIR));
         uint256[] memory limits = adapter.getLimits(pair, FRAX, WETH);
