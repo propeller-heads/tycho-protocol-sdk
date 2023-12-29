@@ -69,6 +69,53 @@ contract FraxSwapV2SwapAdapterTest is Test, ISwapAdapterTypes {
         }
     }
 
+    function testSwapFuzzFrax(uint256 specifiedAmount, bool isBuy) public {
+        OrderSide side = isBuy ? OrderSide.Buy : OrderSide.Sell;
+
+        bytes32 pair = bytes32(bytes20(FRAX_WETH_PAIR));
+        uint256[] memory limits = adapter.getLimits(pair, FRAX, WETH);
+
+        if (side == OrderSide.Buy) {
+            vm.assume(specifiedAmount < limits[1]);
+
+            deal(address(FRAX), address(this), type(uint256).max);
+            FRAX.approve(address(adapter), type(uint256).max);
+        } else {
+            vm.assume(specifiedAmount < limits[0]);
+
+            deal(address(FRAX), address(this), specifiedAmount);
+            FRAX.approve(address(adapter), specifiedAmount);
+        }
+
+        uint256 frax_balance_before = FRAX.balanceOf(address(this));
+        uint256 weth_balance_before = WETH.balanceOf(address(this));
+
+        Trade memory trade =
+            adapter.swap(pair, FRAX, WETH, side, specifiedAmount);
+
+        if (trade.calculatedAmount > 0) {
+            if (side == OrderSide.Buy) {
+                assertEq(
+                    specifiedAmount,
+                    WETH.balanceOf(address(this)) - weth_balance_before
+                );
+                assertEq(
+                    trade.calculatedAmount,
+                    frax_balance_before - FRAX.balanceOf(address(this))
+                );
+            } else {
+                assertEq(
+                    specifiedAmount,
+                    frax_balance_before - FRAX.balanceOf(address(this))
+                );
+                assertEq(
+                    trade.calculatedAmount,
+                    WETH.balanceOf(address(this)) - weth_balance_before
+                );
+            }
+        }
+    }
+
     function testGetCapabilitiesFrax(bytes32 pair, address t0, address t1) public {
         Capability[] memory res =
             adapter.getCapabilities(pair, IERC20(t0), IERC20(t1));
