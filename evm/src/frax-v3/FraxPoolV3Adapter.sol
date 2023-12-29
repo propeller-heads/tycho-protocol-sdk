@@ -43,6 +43,7 @@ contract FraxPoolV3Adapter is ISwapAdapter {
         }
     }
 
+    /// @inheritdoc ISwapAdapter
     function swap(
         bytes32 poolId,
         IERC20 sellToken,
@@ -50,7 +51,40 @@ contract FraxPoolV3Adapter is ISwapAdapter {
         OrderSide side,
         uint256 specifiedAmount
     ) external returns (Trade memory trade) {
-        revert NotImplemented("FraxPoolV3Adapter.swap");
+        if(specifiedAmount == 0) {
+            return trade;
+        }
+
+        address sellTokenAddress = address(sellToken);
+        address buyTokenAddress = address(buyToken);
+        address fraxAddress = address(FRAX);
+
+        if(sellTokenAddress != fraxAddress && buyTokenAddress != fraxAddress) {
+            revert Unavailable("Buy or Sell token should be FRAX");
+        }
+
+        uint256 gasBefore = gasleft();
+        if (side == OrderSide.Sell) {
+            if(sellTokenAddress == fraxAddress) {
+                trade.calculatedAmount =
+                    sellFraxForToken(buyTokenAddress, specifiedAmount);
+            }
+            else {
+                trade.calculatedAmount =
+                    sellTokenForFrax(sellTokenAddress, specifiedAmount);
+            }
+        } else {
+            if(sellTokenAddress == fraxAddress) {
+                trade.calculatedAmount =
+                    buyTokenWithFrax(buyTokenAddress, specifiedAmount);
+            }
+            else {
+                trade.calculatedAmount =
+                    buyFraxWithToken(sellTokenAddress, specifiedAmount);
+            }
+        }
+        trade.gasUsed = gasBefore - gasleft();
+        trade.price = getPriceAt(specifiedAmount, sellTokenAddress, buyTokenAddress);
     }
 
     /// @inheritdoc ISwapAdapter
@@ -130,13 +164,13 @@ contract FraxPoolV3Adapter is ISwapAdapter {
         }
     }
 
-    /// @notice Buy(Mint) FRAX token
+    /// @notice Buy FRAX with token
     /// @param sellTokenAddress Address of the token to sell
     /// @param receivedAmountFRAX Amount of FRAX tokens in(collateral) to receive
-    function buyFrax(
+    function buyFraxWithToken(
         address sellTokenAddress,
         uint256 receivedAmountFRAX
-    ) internal returns (Fraction memory) {
+    ) internal returns (uint256) {
 
         if(!pool.enabled_collaterals(sellTokenAddress)) {
             revert Unavailable("The input token is not available as buy method");
@@ -144,15 +178,49 @@ contract FraxPoolV3Adapter is ISwapAdapter {
 
         uint256 collateralID = pool.collateralAddrToIdx(sellTokenAddress);
 
-        uint256 fraxAmountWithFeeAdded = getAmountWithFee(receivedAmountFRAX, true, false);
-        uint256 collateralNeeded = pool.getFRAXInCollateral(collateralID, fraxAmountWithFeeAdded);
+        uint256 fraxAmountWithFeeAdded = getAmountWithFee(receivedAmountFRAX, false, false);
+        uint256 collateralNeeded = pool.getFRAXInCollateral(collateralID, fraxAmountWithFeeAdded); // amountIn
 
         IERC20(sellTokenAddress).safeTransferFrom(msg.sender, address(this), collateralNeeded);
         IERC20(sellTokenAddress).approve(address(pool), collateralNeeded);
 
         pool.mintFrax(collateralID, fraxAmountWithFeeAdded, receivedAmountFRAX, true);
 
-        return getPriceAt(collateralNeeded, sellTokenAddress, address(FRAX));
+        return collateralNeeded;
+
+    }
+
+    /// @notice Buy token with FRAX
+    /// @param receiveTokenAddress Address of the token to receive
+    /// @param receivedAmountTokens Amount of tokens to receive
+    function buyTokenWithFrax(
+        address receiveTokenAddress,
+        uint256 receivedAmountTokens
+    ) internal returns (uint256) {
+
+        if(!pool.enabled_collaterals(receiveTokenAddress)) {
+            revert Unavailable("The input token is not available as buy method");
+        }
+
+        if(FRAX.global_collateral_ratio() < PRICE_PRECISION) {
+            revert Unavailable("Cannot sell FRAX while global_collateral_ratio < PRICE_PRECISION");
+        }
+
+        uint256 collateralID = pool.collateralAddrToIdx(receiveTokenAddress);
+
+        uint256 fraxToSpendWithoutFee =
+            receivedAmountTokens *
+            (10**pool.missing_decimals(collateralID)) /
+            pool.collateral_prices(collateralID);
+        uint256 fraxToSpend = getAmountWithFee(fraxToSpendWithoutFee, false, true);
+
+        FRAX.approve(address(pool), fraxToSpend);
+        IERC20(address(FRAX)).safeTransferFrom(msg.sender, address(this), fraxToSpend);
+
+        pool.redeemFrax(collateralID, fraxToSpend, 0, 0);
+        pool.collectRedemption(collateralID);
+
+        return fraxToSpend;
 
     }
 
@@ -162,7 +230,7 @@ contract FraxPoolV3Adapter is ISwapAdapter {
     function sellFraxForToken(
         address receiveTokenAddress,
         uint256 frax_amount
-    ) internal returns (Fraction memory) {
+    ) internal returns (uint256) {
 
         if(!pool.enabled_collaterals(receiveTokenAddress)) {
             revert Unavailable("The input token is not available as buy method");
@@ -178,9 +246,9 @@ contract FraxPoolV3Adapter is ISwapAdapter {
         IERC20(address(FRAX)).safeTransferFrom(msg.sender, address(this), frax_amount);
 
         pool.redeemFrax(collateralID, frax_amount, 0, 0);
-        pool.collectRedemption(collateralID);
+        (, uint256 amountOut) = pool.collectRedemption(collateralID);
 
-        return getPriceAt(frax_amount, address(FRAX), receiveTokenAddress);
+        return amountOut;
 
     }
 
@@ -190,7 +258,7 @@ contract FraxPoolV3Adapter is ISwapAdapter {
     function sellTokenForFrax(
         address sellTokenAddress,
         uint256 collateralNeeded
-    ) internal returns (Fraction memory) {
+    ) internal returns (uint256) {
 
         if(!pool.enabled_collaterals(sellTokenAddress)) {
             revert Unavailable("The input token is not available as sell method");
@@ -209,9 +277,9 @@ contract FraxPoolV3Adapter is ISwapAdapter {
         IERC20(sellTokenAddress).safeTransferFrom(msg.sender, address(this), collateralNeeded);
         IERC20(sellTokenAddress).approve(address(pool), collateralNeeded);
 
-        pool.mintFrax(collateralID, fraxReceivedAmountWithoutFee, 0, true);
+        (uint256 amountOut, ,) = pool.mintFrax(collateralID, fraxReceivedAmountWithoutFee, 0, true);
 
-        return getPriceAt(collateralNeeded, sellTokenAddress, address(FRAX));
+        return amountOut;
 
     }
 
