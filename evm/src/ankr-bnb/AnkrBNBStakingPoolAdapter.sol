@@ -47,11 +47,38 @@ contract AnkrBNBStakingPoolAdapter is ISwapAdapter {
         revert NotImplemented("AnkrBNBStakingPoolAdapter.swap");
     }
 
+    /// @inheritdoc ISwapAdapter
+    /// @dev only limit in this pool is the min. amount of ether that can be swapped/spent
+    /// @return limits [4]: [0, 1]: max. amounts(BNB, ankrBNB), [2, 3]: min. amounts(BNB, ankrBNB); values are inverted if sellToken is certificateTokenAddress
     function getLimits(bytes32 poolId, IERC20 sellToken, IERC20 buyToken)
         external
+        view
+        override
         returns (uint256[] memory limits)
     {
-        revert NotImplemented("AnkrBNBStakingPoolAdapter.getLimits");
+        limits = new uint256[](4);
+        address certificateTokenAddress = getCertificateTokenAddress();
+        ICertificateToken certificateToken = ICertificateToken(certificateTokenAddress);
+        address sellTokenAddress = address(sellToken);
+        if(sellTokenAddress != certificateTokenAddress && address(buyToken) != certificateTokenAddress) {
+            revert Unavailable("This contract only supports ankrBNB<=>BNB swaps");
+        }
+
+        uint256 minBNBAmount = pool.getMinUnstake();
+        uint256 maxBNBAmount = pool.flashPoolCapacity();
+        uint256 ratio = certificateToken.ratio();
+        if(sellTokenAddress == certificateTokenAddress) {
+            limits[0] = certificateToken.bondsToShares(maxBNBAmount);
+            limits[1] = maxBNBAmount;
+            limits[2] = certificateToken.bondsToShares(minBNBAmount);
+            limits[3] = minBNBAmount;
+        }
+        else {
+            limits[0] = maxBNBAmount;
+            limits[1] = certificateToken.bondsToShares(maxBNBAmount);
+            limits[2] = minBNBAmount;
+            limits[3] = certificateToken.bondsToShares(minBNBAmount);
+        }
     }
 
     function getCapabilities(bytes32 poolId, IERC20 sellToken, IERC20 buyToken)
@@ -153,6 +180,59 @@ interface ICertificateToken is IERC20 {
     function burn(address account, uint256 amount) external;
 }
 
+library MathUtils {
+
+    function saturatingMultiply(uint256 a, uint256 b) internal pure returns (uint256) {
+    unchecked {
+        if (a == 0) return 0;
+        uint256 c = a * b;
+        if (c / a != b) return type(uint256).max;
+        return c;
+    }
+    }
+
+    function saturatingAdd(uint256 a, uint256 b) internal pure returns (uint256) {
+    unchecked {
+        uint256 c = a + b;
+        if (c < a) return type(uint256).max;
+        return c;
+    }
+    }
+
+    // Preconditions:
+    //  1. a may be arbitrary (up to 2 ** 256 - 1)
+    //  2. b * c < 2 ** 256
+    // Returned value: min(floor((a * b) / c), 2 ** 256 - 1)
+    function multiplyAndDivideFloor(
+        uint256 a,
+        uint256 b,
+        uint256 c
+    ) internal pure returns (uint256) {
+        return
+        saturatingAdd(
+            saturatingMultiply(a / c, b),
+            ((a % c) * b) / c // can't fail because of assumption 2.
+        );
+    }
+
+    // Preconditions:
+    //  1. a may be arbitrary (up to 2 ** 256 - 1)
+    //  2. b * c < 2 ** 256
+    // Returned value: min(ceil((a * b) / c), 2 ** 256 - 1)
+    function multiplyAndDivideCeil(
+        uint256 a,
+        uint256 b,
+        uint256 c
+    ) internal pure returns (uint256) {
+        require(c != 0, "c == 0");
+        return
+        saturatingAdd(
+            saturatingMultiply(a / c, b),
+            ((a % c) * b + (c - 1)) / c // can't fail because of assumption 2.
+        );
+    }
+}
+
 /// @notice Custom wrapped interface containing additional functions to ILiquidTokenStakingPool not included in the interface
 /// but implemented and required by the pool contract
 interface IAnkrBNBStakingPool is ILiquidTokenStakingPool {
@@ -160,5 +240,7 @@ interface IAnkrBNBStakingPool is ILiquidTokenStakingPool {
     function swap(uint256 shares, address receiverAddress) external;
 
     function getTokens() external view returns (address, address);
+
+    function flashPoolCapacity() external view returns (uint256);
 
 }
