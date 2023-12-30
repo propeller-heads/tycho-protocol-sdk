@@ -48,7 +48,6 @@ contract AnkrBNBStakingPoolAdapter is ISwapAdapter {
     }
 
     /// @inheritdoc ISwapAdapter
-    /// @dev only limit in this pool is the min. amount of ether that can be swapped/spent
     /// @return limits [4]: [0, 1]: max. amounts(BNB, ankrBNB), [2, 3]: min. amounts(BNB, ankrBNB); values are inverted if sellToken is certificateTokenAddress
     function getLimits(bytes32 poolId, IERC20 sellToken, IERC20 buyToken)
         external
