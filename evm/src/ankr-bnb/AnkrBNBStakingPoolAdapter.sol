@@ -14,13 +14,27 @@ contract AnkrBNBStakingPoolAdapter is ISwapAdapter {
         pool = _pool;
     }
 
+    /// @inheritdoc ISwapAdapter
+    /// @dev This pool only supports BNB(ether)<=>ankrBNB(certificateToken) operations, and thus prices
     function price(
         bytes32 _poolId,
         IERC20 _sellToken,
         IERC20 _buyToken,
         uint256[] memory _specifiedAmounts
     ) external view override returns (Fraction[] memory _prices) {
-        revert NotImplemented("AnkrBNBStakingPoolAdapter.price");
+        _prices = new Fraction[](_specifiedAmounts.length);
+        address sellTokenAddress = address(_sellToken);
+        address certificateTokenAddress = getCertificateTokenAddress();
+        if(sellTokenAddress != certificateTokenAddress && address(_buyToken) != certificateTokenAddress) {
+            revert Unavailable("This contract only supports ankrBNB<=>BNB swaps");
+        }
+
+        for(uint256 i = 0; i < _specifiedAmounts.length; i++) {
+            _prices[i] = Fraction(
+                getPriceAt(_specifiedAmounts[i], ICertificateToken(certificateTokenAddress), sellTokenAddress != certificateTokenAddress),
+                1
+            );
+        }
     }
 
     function swap(
@@ -59,6 +73,23 @@ contract AnkrBNBStakingPoolAdapter is ISwapAdapter {
         returns (bytes32[] memory ids)
     {
         revert NotImplemented("AnkrBNBStakingPoolAdapter.getPoolIds");
+    }
+
+    /// @notice Get swap price at `amount`
+    /// @param amount amount to check price at
+    /// @param certificateToken instance of the pool's certificateToken(ankrBNB)
+    /// @param inputTokenIsEther true: input: ether, output = `amount` ether to certificateToken; false: input: certificateToken, output = `amount` certificateToken to ether
+    function getPriceAt(uint256 amount, ICertificateToken certificateToken, bool inputTokenIsEther) internal view returns (uint256) {
+        if(inputTokenIsEther) {
+            return certificateToken.bondsToShares(amount);
+        }
+        return certificateToken.sharesToBonds(amount);
+    }
+
+    /// @notice Get ankrBNB(certificateToken) address
+    /// @dev as contract includes a function to change this token at any time, we load it from contract directly instead of declaring as static.
+    function getCertificateTokenAddress() internal view returns (address certificateTokenAddress) {
+        (, certificateTokenAddress) = pool.getTokens();
     }
 }
 
