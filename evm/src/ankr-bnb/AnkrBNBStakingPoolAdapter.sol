@@ -14,6 +14,22 @@ contract AnkrBNBStakingPoolAdapter is ISwapAdapter {
         pool = _pool;
     }
 
+    /// @notice Internal check for input and output tokens
+    /// @dev This contract only supports swaps between ankrBNB<=>BNB
+    /// We also check that input or output token is address(0) as BNB, to assure no wrong path prices or swaps can be executed
+    modifier checkInputTokens(IERC20 sellToken, IERC20 buyToken) {
+        address sellTokenAddress = address(sellToken);
+        address buyTokenAddress = address(buyToken);
+        address certificateTokenAddress = getCertificateTokenAddress();
+        if(sellTokenAddress != certificateTokenAddress && buyTokenAddress != certificateTokenAddress) {
+            revert Unavailable("This contract only supports ankrBNB<=>BNB(address(0)) swaps");
+        }
+        if(sellTokenAddress != address(0) && buyTokenAddress != address(0)) {
+            revert Unavailable("This contract only supports ankrBNB<=>BNB(address(0)) swaps");
+        }
+        _;
+    }
+
     /// @inheritdoc ISwapAdapter
     /// @dev This pool only supports BNB(ether)<=>ankrBNB(certificateToken) operations, and thus prices
     function price(
@@ -21,13 +37,10 @@ contract AnkrBNBStakingPoolAdapter is ISwapAdapter {
         IERC20 _sellToken,
         IERC20 _buyToken,
         uint256[] memory _specifiedAmounts
-    ) external view override returns (Fraction[] memory _prices) {
+    ) checkInputTokens(_sellToken, _buyToken) external view override returns (Fraction[] memory _prices) {
         _prices = new Fraction[](_specifiedAmounts.length);
         address sellTokenAddress = address(_sellToken);
         address certificateTokenAddress = getCertificateTokenAddress();
-        if(sellTokenAddress != certificateTokenAddress && address(_buyToken) != certificateTokenAddress) {
-            revert Unavailable("This contract only supports ankrBNB<=>BNB swaps");
-        }
 
         for(uint256 i = 0; i < _specifiedAmounts.length; i++) {
             _prices[i] = Fraction(
@@ -43,13 +56,14 @@ contract AnkrBNBStakingPoolAdapter is ISwapAdapter {
         IERC20 buyToken,
         OrderSide side,
         uint256 specifiedAmount
-    ) external returns (Trade memory trade) {
+    ) checkInputTokens(sellToken, buyToken) external returns (Trade memory trade) {
         revert NotImplemented("AnkrBNBStakingPoolAdapter.swap");
     }
 
     /// @inheritdoc ISwapAdapter
     /// @return limits [4]: [0, 1]: max. amounts(BNB, ankrBNB), [2, 3]: min. amounts(BNB, ankrBNB); values are inverted if sellToken is certificateTokenAddress
     function getLimits(bytes32 poolId, IERC20 sellToken, IERC20 buyToken)
+        checkInputTokens(sellToken, buyToken)
         external
         view
         override
