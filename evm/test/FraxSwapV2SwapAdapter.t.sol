@@ -125,6 +125,7 @@ contract FraxSwapV2SwapAdapterTest is Test, ISwapAdapterTypes {
         // Sell Token: Frax
         // Limits 0: 217713898138681734190265
         // Reserve 0: 2177138981386817341902658
+        // 100000000000
         console.log("Limits 1:", limits[1]);
         // Buy Token: WETH
         // Limits 1: 91521379004493510150
@@ -195,6 +196,48 @@ contract FraxSwapV2SwapAdapterTest is Test, ISwapAdapterTypes {
                 );
             }
         }
+    }
+
+    function testSwapSellIncreasingFrax() public {
+        executeIncreasingSwapsFrax(OrderSide.Sell);
+    }
+
+    function executeIncreasingSwapsFrax(OrderSide side) internal {
+        
+        bytes32 pair = bytes32(bytes20(FRAX_WETH_PAIR));
+
+        uint256[] memory amounts = new uint256[](TEST_ITERATIONS);
+        for (uint256 i = 0; i < TEST_ITERATIONS; i++) {
+            amounts[i] = 1000 * i * 10 ** 6;
+        }
+
+        Trade[] memory trades = new Trade[](TEST_ITERATIONS);
+        uint256 beforeSwap;
+        for (uint256 i = 0; i < TEST_ITERATIONS; i++) {
+            beforeSwap = vm.snapshot();
+
+            if(side == OrderSide.Buy) {
+                deal(address(FRAX), address(this), type(uint256).max);
+                FRAX.approve(address(adapter), type(uint256).max);
+            } else {
+                deal(address(FRAX), address(this), amounts[i]);
+                FRAX.approve(address(adapter), amounts[i]);
+            }
+
+
+            trades[i] = adapter.swap(pair, FRAX, WETH, side, amounts[i]);
+            vm.revertTo(beforeSwap);
+        }
+
+        for (uint256 i = 1; i < TEST_ITERATIONS - 1; i++) {
+            assertLe(trades[i].calculatedAmount, trades[i + 1].calculatedAmount);
+            assertLe(trades[i].gasUsed, trades[i + 1].gasUsed);
+            assertEq(trades[i].price.compareFractions(trades[i + 1].price), 1);
+        }
+    }
+
+    function testSwapBuyIncreasingFrax() public {
+        executeIncreasingSwapsFrax(OrderSide.Buy);
     }
 
     function testGetCapabilitiesFrax(bytes32 pair, address t0, address t1) public {
