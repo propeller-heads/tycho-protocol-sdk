@@ -69,86 +69,6 @@ contract FraxSwapV2SwapAdapterTest is Test, ISwapAdapterTypes {
         }
     }
 
-    function testSwapBuyFrax() public {
-        uint256 specifiedAmount = 1 ether;
-        OrderSide side = OrderSide.Buy;
-
-        bytes32 pair = bytes32(bytes20(FRAX_WETH_PAIR));
-        uint256[] memory limits = adapter.getLimits(pair, FRAX, WETH);
-
-        deal(address(FRAX), address(this), type(uint256).max);
-        /// @notice Sets `amount` as the allowance of `spender` over the caller's tokens.
-        /// @dev Be aware of front-running risks: https://github.com/ethereum/EIPs/issues/20#issuecomment-263524729
-        /// function approve(address spender, uint256 amount) external returns (bool);
-        FRAX.approve(address(adapter), type(uint256).max); // By changing type(uint256).max to specified amount we get a "revert: ERC20: transfer amount exceeds allowance;"
-        
-
-        console.log("Limits 0:", limits[0]);
-        // Sell Token: Frax
-        // Limits 0: 217713898138681734190265
-        // Reserve 0: 2177138981386817341902658
-        console.log("Limits 1:", limits[1]);
-        // Buy Token: WETH
-        // Limits 1: 91521379004493510150
-        // Reserve 1: 915213790044935101508
-        vm.assume(specifiedAmount < limits[1]);
-
-        uint256 frax_balance_before = FRAX.balanceOf(address(this));
-        uint256 weth_balance_before = WETH.balanceOf(address(this));
-
-        Trade memory trade = adapter.swap(pair, FRAX, WETH, side, specifiedAmount);
-
-        assertEq(
-            specifiedAmount,
-            WETH.balanceOf(address(this)) - weth_balance_before
-        );
-        assertEq(
-            trade.calculatedAmount,
-            frax_balance_before - FRAX.balanceOf(address(this))
-        );
-
-    }
-
-    function testSwapSellFrax(uint256 specifiedAmount) public {
-        OrderSide side = OrderSide.Sell;
-
-        bytes32 pair = bytes32(bytes20(FRAX_WETH_PAIR));
-        uint256[] memory limits = adapter.getLimits(pair, FRAX, WETH);
-
-        deal(address(FRAX), address(this), specifiedAmount);
-
-        /// function approve(address spender, uint256 amount) external returns (bool);
-        FRAX.approve(address(adapter), specifiedAmount); // By changing type(uint256).max to specified amount we get a "revert: ERC20: transfer amount exceeds allowance;"
-        
-
-        console.log("Limits 0:", limits[0]);
-        // Sell Token: Frax
-        // Limits 0: 217713898138681734190265
-        // Reserve 0: 2177138981386817341902658
-        // 100000000000
-        console.log("Limits 1:", limits[1]);
-        // Buy Token: WETH
-        // Limits 1: 91521379004493510150
-        // Reserve 1: 915213790044935101508
-        vm.assume(specifiedAmount < limits[0]);
-        vm.assume(specifiedAmount > 0.0001 ether);
-
-        uint256 frax_balance_before = FRAX.balanceOf(address(this));
-        uint256 weth_balance_before = WETH.balanceOf(address(this));
-
-        Trade memory trade = adapter.swap(pair, FRAX, WETH, side, specifiedAmount);
-
-        assertEq(
-            specifiedAmount,
-            frax_balance_before - FRAX.balanceOf(address(this))
-        );
-        assertEq(
-            trade.calculatedAmount,
-            WETH.balanceOf(address(this)) - weth_balance_before
-        );
-
-    }
-
     function testSwapFuzzFrax(uint256 specifiedAmount, bool isBuy) public {
         OrderSide side = isBuy ? OrderSide.Buy : OrderSide.Sell;
 
@@ -163,7 +83,7 @@ contract FraxSwapV2SwapAdapterTest is Test, ISwapAdapterTypes {
         } else {
             vm.assume(specifiedAmount < limits[0]);
             ///@dev Need to find the minimum specified amount acceptable
-            vm.assume(specifiedAmount > 0.0001 ether);
+            vm.assume(specifiedAmount > 0.000001 ether);
 
             deal(address(FRAX), address(this), specifiedAmount);
             FRAX.approve(address(adapter), specifiedAmount);
@@ -252,10 +172,6 @@ contract FraxSwapV2SwapAdapterTest is Test, ISwapAdapterTypes {
         uint256[] memory limits = adapter.getLimits(pair, FRAX, WETH);
 
         assertEq(limits.length, 2);
-        console.logString("Sell FRAX Limit");
-        console.logUint(limits[0]);
-        console.logString("Buy WETH Limit");
-        console.logUint(limits[1]);
     }   
 
 }
