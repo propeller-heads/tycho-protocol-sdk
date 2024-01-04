@@ -169,11 +169,14 @@ contract AnkrBNBStakingPoolAdapter is ISwapAdapter {
         capabilities[2] = Capability.PriceFunction;
     }
 
+    /// @inheritdoc ISwapAdapter
     function getTokens(bytes32 poolId)
         external
         returns (IERC20[] memory tokens)
     {
-        revert NotImplemented("AnkrBNBStakingPoolAdapter.getTokens");
+        tokens = new IERC20[](2);
+        tokens[0] = IERC20(address(0));
+        tokens[1] = IERC20(getCertificateTokenAddress());
     }
 
     function getPoolIds(uint256 offset, uint256 limit)
