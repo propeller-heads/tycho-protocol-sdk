@@ -97,12 +97,16 @@ contract FraxPoolV3Adapter is ISwapAdapter {
     {
         limits = new uint256[](2);
         uint256 collateralID;
+        uint256 collateralLimit;
         address sellTokenAddress = address(sellToken);
 
         if(sellTokenAddress == address(FRAX)) {
             collateralID = pool.collateralAddrToIdx(address(buyToken));
-            limits[0] = type(uint256).max;
-            limits[1] = pool.pool_ceilings(collateralID);
+            collateralLimit = pool.pool_ceilings(collateralID);
+            limits[0] = collateralLimit *
+                (10**pool.missing_decimals(collateralID)) /
+                pool.collateral_prices(collateralID);
+            limits[1] = collateralLimit;
             return limits;
         }
 
@@ -110,8 +114,11 @@ contract FraxPoolV3Adapter is ISwapAdapter {
             revert Unavailable("This sell token is not available");
         }
         collateralID = pool.collateralAddrToIdx(sellTokenAddress);
+        collateralLimit = pool.pool_ceilings(collateralID);
         limits[0] = pool.pool_ceilings(collateralID);
-        limits[1] = type(uint256).max;
+        limits[1] = collateralLimit *
+            (10**pool.missing_decimals(collateralID)) /
+            pool.collateral_prices(collateralID);
     }
 
     /// @inheritdoc ISwapAdapter
