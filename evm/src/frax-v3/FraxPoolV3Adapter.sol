@@ -3,6 +3,7 @@ pragma solidity ^0.8.13;
 
 import {IERC20, ISwapAdapter} from "src/interfaces/ISwapAdapter.sol";
 import {SafeERC20} from "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
+import {ERC20} from "openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
 
 address constant FRAX_ADDRESS = 0x853d955aCEf822Db058eb8505911ED77F175b99e;
 uint256 constant PRICE_PRECISION = 1e6;
@@ -329,8 +330,8 @@ contract FraxPoolV3Adapter is ISwapAdapter {
                     pool.getFRAXInCollateral(collateralID, specifiedAmount),
                     true,
                     true
-                ),
-                1
+                ) * 10^(ERC20(sellTokenAddress).decimals()) / 10^18,
+                10**(ERC20(buyTokenAddress).decimals())
             );
         }
         else {
@@ -338,13 +339,18 @@ contract FraxPoolV3Adapter is ISwapAdapter {
                 revert Unavailable("This buy token is not available");
             }
             collateralID = pool.collateralAddrToIdx(sellTokenAddress);
+            /**
+         * @dev once we get reply from propeller about return values in price() function and in every Fraction
+         * Fraction[0] = relayer.getPriceByTokenAddresses(address(sellToken), address(buyToken)) * 10^(IERC20(sellToken).decimals) / 10^18
+         * Fraction[1] = 10^(IERC20(buyToken).decimals)
+         */
             return Fraction(
                 getAmountWithFee(
                     specifiedAmount * pool.collateral_prices(collateralID) / (10**(18 - pool.missing_decimals(collateralID))),
                     true,
                     false
-                ),
-                1
+                ) * 10^(ERC20(sellTokenAddress).decimals()) / 10^18,
+                10**(ERC20(buyTokenAddress).decimals())
             );
         }
 
