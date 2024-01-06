@@ -48,7 +48,7 @@ contract AnkrBNBStakingPoolAdapter is ISwapAdapter {
         for(uint256 i = 0; i < _specifiedAmounts.length; i++) {
             _prices[i] = Fraction(
                 getPriceAt(_specifiedAmounts[i], ICertificateToken(certificateTokenAddress), sellTokenAddress != certificateTokenAddress),
-                1
+                10**18
             );
         }
     }
@@ -83,7 +83,7 @@ contract AnkrBNBStakingPoolAdapter is ISwapAdapter {
         }
 
         trade.gasUsed = gasBefore - gasleft();
-        trade.price = Fraction(getPriceAt(specifiedAmount, certificateToken, false), 1);
+        trade.price = Fraction(getPriceAt(specifiedAmount, certificateToken, false), 10**18);
     }
 
     /// @notice Swap function(payable) to support Ether
@@ -119,7 +119,7 @@ contract AnkrBNBStakingPoolAdapter is ISwapAdapter {
         }
 
         trade.gasUsed = gasBefore - gasleft();
-        trade.price = Fraction(getPriceAt(specifiedAmount, certificateToken, true), 1);
+        trade.price = Fraction(getPriceAt(specifiedAmount, certificateToken, true), 10**18);
     }
 
     /// @inheritdoc ISwapAdapter
