@@ -10,6 +10,9 @@ uint256 constant RESERVE_LIMIT_FACTOR = 10;
 
 /// @title Frax Swap Adapter
 contract FraxSwapV2SwapAdapter is ISwapAdapter {
+
+    using SafeERC20 for IERC20;
+
     IUniswapV2FactoryV5 immutable factory;
 
     constructor(address factory_) {
@@ -173,15 +176,14 @@ contract FraxSwapV2SwapAdapter is ISwapAdapter {
         IERC20 buyToken,
         uint256 amount
     ) internal returns (uint256) {
-        address swapper = msg.sender;
         uint256 amountOut = pair.getAmountOut(amount, address(sellToken));
 
-        SafeERC20.safeTransferFrom(sellToken, swapper, address(pair), amount);
+        sellToken.safeTransferFrom(msg.sender, address(pair), amount);
         if(address(buyToken) == pair.token0()) {
-            pair.swap(amountOut, 0, swapper, "");
+            pair.swap(amountOut, 0, msg.sender, "");
         }
         else {
-            pair.swap(0, amountOut, swapper, "");
+            pair.swap(0, amountOut, msg.sender, "");
         }
         return amountOut;
     }
@@ -198,15 +200,14 @@ contract FraxSwapV2SwapAdapter is ISwapAdapter {
         IERC20 buyToken,
         uint256 amountBought
     ) internal returns (uint256) {
-        address swapper = msg.sender;
         uint256 amountIn = pair.getAmountIn(amountBought, address(buyToken));
 
-        SafeERC20.safeTransferFrom(sellToken, swapper, address(pair), amountIn);
+        sellToken.safeTransferFrom(msg.sender, address(pair), amountIn);
         if(address(buyToken) == pair.token0()) {
-            pair.swap(amountBought, 0, swapper, "");
+            pair.swap(amountBought, 0, msg.sender, "");
         }
         else {
-            pair.swap(0, amountBought, swapper, "");
+            pair.swap(0, amountBought, msg.sender, "");
         }
         return amountIn;
     }
