@@ -138,7 +138,7 @@ contract RocketPoolAdapter is ISwapAdapter {
         }
         else {
             return Fraction(
-                rocketETH.getRethValue(specifiedAmount),
+                rocketETH.getEthValue(specifiedAmount),
                 10**18
             );
         }
