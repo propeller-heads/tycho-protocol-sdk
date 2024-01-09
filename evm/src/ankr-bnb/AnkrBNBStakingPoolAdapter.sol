@@ -36,7 +36,7 @@ contract AnkrBNBStakingPoolAdapter is ISwapAdapter {
     /// @inheritdoc ISwapAdapter
     /// @dev This pool only supports BNB(ether)<=>ankrBNB(certificateToken) operations, and thus prices
     function price(
-        bytes32 _poolId,
+        bytes32,
         IERC20 _sellToken,
         IERC20 _buyToken,
         uint256[] memory _specifiedAmounts
@@ -56,7 +56,7 @@ contract AnkrBNBStakingPoolAdapter is ISwapAdapter {
     /// @inheritdoc ISwapAdapter
     /// @dev this Swap function only supports ankrBNB to BNB swap, the opposite is available in swapPayable functio.
     function swap(
-        bytes32 poolId,
+        bytes32,
         IERC20 sellToken,
         IERC20 buyToken,
         OrderSide side,
@@ -89,7 +89,7 @@ contract AnkrBNBStakingPoolAdapter is ISwapAdapter {
     /// @notice Swap function(payable) to support Ether
     /// @dev to buy ankrBNB, the input amount should is took in msg.value as spending BNB
     function swapPayable(
-        bytes32 poolId,
+        bytes32,
         IERC20 sellToken,
         IERC20 buyToken,
         OrderSide side,
@@ -124,7 +124,7 @@ contract AnkrBNBStakingPoolAdapter is ISwapAdapter {
 
     /// @inheritdoc ISwapAdapter
     /// @return limits [4]: [0, 1]: max. amounts(BNB, ankrBNB), [2, 3]: min. amounts(BNB, ankrBNB); values are inverted if sellToken is certificateTokenAddress
-    function getLimits(bytes32 poolId, IERC20 sellToken, IERC20 buyToken)
+    function getLimits(bytes32, IERC20 sellToken, IERC20 buyToken)
         checkInputTokens(sellToken, buyToken)
         external
         view
@@ -141,7 +141,6 @@ contract AnkrBNBStakingPoolAdapter is ISwapAdapter {
 
         uint256 minBNBAmount = pool.getMinUnstake();
         uint256 maxBNBAmount = pool.flashPoolCapacity();
-        uint256 ratio = certificateToken.ratio();
         if(sellTokenAddress == certificateTokenAddress) {
             limits[0] = certificateToken.bondsToShares(maxBNBAmount);
             limits[1] = maxBNBAmount;
@@ -170,8 +169,10 @@ contract AnkrBNBStakingPoolAdapter is ISwapAdapter {
     }
 
     /// @inheritdoc ISwapAdapter
-    function getTokens(bytes32 poolId)
+    function getTokens(bytes32)
         external
+        view
+        override
         returns (IERC20[] memory tokens)
     {
         tokens = new IERC20[](2);
@@ -179,9 +180,11 @@ contract AnkrBNBStakingPoolAdapter is ISwapAdapter {
         tokens[1] = IERC20(getCertificateTokenAddress());
     }
 
-    function getPoolIds(uint256 offset, uint256 limit)
+    function getPoolIds(uint256, uint256)
         external
-        returns (bytes32[] memory ids)
+        pure
+        override
+        returns (bytes32[] memory)
     {
         revert NotImplemented("AnkrBNBStakingPoolAdapter.getPoolIds");
     }
