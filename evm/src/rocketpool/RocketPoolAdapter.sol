@@ -48,14 +48,32 @@ contract RocketPoolAdapter is ISwapAdapter {
         revert NotImplemented("TemplateSwapAdapter.swap");
     }
 
-    function getLimits(bytes32 poolId, IERC20 sellToken, IERC20 buyToken)
+    /// @inheritdoc ISwapAdapter
+    function getLimits(bytes32, IERC20 sellToken, IERC20 buyToken)
+        checkInputTokens(sellToken, buyToken)
         external
+        view
+        override
         returns (uint256[] memory limits)
     {
-        revert NotImplemented("TemplateSwapAdapter.getLimits");
+        RocketDepositPoolInterface rocketPool = _getRocketPool();
+        RocketDAOProtocolSettingsDepositInterface rocketDaoSettings = _getRocketDaoSettings();
+        RocketTokenRETHInterface rocketETH = RocketTokenRETHInterface(_getrEthTokenAddress());
+        uint256 maximumDepositPoolSize = rocketDaoSettings.getMaximumDepositPoolSize();
+        uint256 rocketPoolBalance = rocketPool.getBalance();
+
+        limits = new uint256[](2);
+        if(address(sellToken) == address(0)) {
+            limits[0] = maximumDepositPoolSize > rocketPoolBalance ? maximumDepositPoolSize - rocketPool.getBalance() : 0;
+            limits[1] = rocketETH.getTotalCollateral();
+        }
+        else {
+            limits[0] = rocketETH.getTotalCollateral();
+            limits[1] = maximumDepositPoolSize > rocketPoolBalance ? maximumDepositPoolSize - rocketPool.getBalance() : 0;
+        }
     }
 
-    function getCapabilities(bytes32 poolId, IERC20 sellToken, IERC20 buyToken)
+    function getCapabilities(bytes32, IERC20, IERC20)
         external
         returns (Capability[] memory capabilities)
     {
@@ -63,7 +81,7 @@ contract RocketPoolAdapter is ISwapAdapter {
     }
 
     /// @inheritdoc ISwapAdapter
-    function getTokens(bytes32 poolId)
+    function getTokens(bytes32)
         external
         view
         override
@@ -90,6 +108,13 @@ contract RocketPoolAdapter is ISwapAdapter {
     function _getrEthTokenAddress() internal view returns (address) {
         address rEthTokenAddress = rocketStorage.getAddress(keccak256(abi.encodePacked("contract.address", "rocketTokenRETH")));
         return rEthTokenAddress;
+    }
+
+    function _getRocketDaoSettings() internal view returns (RocketDAOProtocolSettingsDepositInterface) {
+        RocketDAOProtocolSettingsDepositInterface rocketDAOProtocolSettingsDeposit = RocketDAOProtocolSettingsDepositInterface(
+            rocketStorage.getAddress(keccak256(abi.encodePacked("contract.address", "rocketDAOProtocolSettingsDeposit")))
+        );
+        return rocketDAOProtocolSettingsDeposit;
     }
 }
 
@@ -168,4 +193,14 @@ interface RocketDepositPoolInterface {
     function assignDeposits() external;
     function maybeAssignDeposits() external returns (bool);
     function withdrawExcessBalance(uint256 _amount) external;
+}
+
+interface RocketDAOProtocolSettingsDepositInterface {
+    function getDepositEnabled() external view returns (bool);
+    function getAssignDepositsEnabled() external view returns (bool);
+    function getMinimumDeposit() external view returns (uint256);
+    function getMaximumDepositPoolSize() external view returns (uint256);
+    function getMaximumDepositAssignments() external view returns (uint256);
+    function getMaximumDepositSocialisedAssignments() external view returns (uint256);
+    function getDepositFee() external view returns (uint256);
 }
