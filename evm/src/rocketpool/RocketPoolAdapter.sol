@@ -29,13 +29,18 @@ contract RocketPoolAdapter is ISwapAdapter {
         _;
     }
 
+    /// @inheritdoc ISwapAdapter
     function price(
-        bytes32 _poolId,
+        bytes32,
         IERC20 _sellToken,
         IERC20 _buyToken,
         uint256[] memory _specifiedAmounts
-    ) external view override returns (Fraction[] memory _prices) {
-        revert NotImplemented("TemplateSwapAdapter.price");
+    ) checkInputTokens(_sellToken, _buyToken) external view override returns (Fraction[] memory _prices) {
+        _prices = new Fraction[](_specifiedAmounts.length);
+        
+        for (uint256 i = 0; i < _specifiedAmounts.length; i++) {
+            _prices[i] = getPriceAt(_specifiedAmounts[i], _sellToken);
+        }
     }
 
     function swap(
@@ -115,6 +120,28 @@ contract RocketPoolAdapter is ISwapAdapter {
             rocketStorage.getAddress(keccak256(abi.encodePacked("contract.address", "rocketDAOProtocolSettingsDeposit")))
         );
         return rocketDAOProtocolSettingsDeposit;
+    }
+
+    /// @notice Get swap price including fee
+    /// @dev RocketPool only supports rETH<=>ETH swaps, thus we can check just one token to retrieve the price
+    /// @param sellToken token to sell
+    function getPriceAt(uint256 specifiedAmount, IERC20 sellToken) internal view returns (Fraction memory) {
+        RocketTokenRETHInterface rocketETH = RocketTokenRETHInterface(_getrEthTokenAddress());
+        RocketDAOProtocolSettingsDepositInterface rocketDaoSettings = _getRocketDaoSettings();
+
+        if(address(sellToken) == address(0)) {
+            uint256 depositFee = specifiedAmount * rocketDaoSettings.getDepositFee() / 10**18;
+            return Fraction(
+                specifiedAmount - depositFee,
+                10**18
+            );
+        }
+        else {
+            return Fraction(
+                rocketETH.getRethValue(specifiedAmount),
+                10**18
+            );
+        }
     }
 }
 
