@@ -7,11 +7,11 @@ import {IERC20, ISwapAdapter} from "src/interfaces/ISwapAdapter.sol";
 /// @title Lido DAO Adapter
 contract LidoAdapter is ISwapAdapter {
 
-    IwstETH wstEth;
+    IwstETH wstETH;
     IStETH stETH;
 
     constructor(IwstETH _wstETH) {
-        wstEth = _wstETH;
+        wstETH = _wstETH;
         stETH = _wstETH.stETH();
     }
 
@@ -20,7 +20,7 @@ contract LidoAdapter is ISwapAdapter {
     modifier checkInputTokens(IERC20 sellToken, IERC20 buyToken) {
         address sellTokenAddress = address(sellToken);
         address buyTokenAddress = address(buyToken);
-        address wstETHAddress = address(wstEth);
+        address wstETHAddress = address(wstETH);
         address stETHAddress = address(stETH);
         bool supported = true;
 
@@ -46,12 +46,13 @@ contract LidoAdapter is ISwapAdapter {
         _;
     }
 
+    /// @inheritdoc ISwapAdapter
     function price(
-        bytes32 _poolId,
+        bytes32,
         IERC20 _sellToken,
         IERC20 _buyToken,
         uint256[] memory _specifiedAmounts
-    ) external view override returns (Fraction[] memory _prices) {
+    ) checkInputTokens(_sellToken, _buyToken) external view override returns (Fraction[] memory _prices) {
         revert NotImplemented("LidoAdapter.price");
     }
 
@@ -104,7 +105,7 @@ contract LidoAdapter is ISwapAdapter {
     {
         tokens = new IERC20[](3);
         tokens[0] = IERC20(address(0));
-        tokens[1] = IERC20(address(wstEth));
+        tokens[1] = IERC20(address(wstETH));
         tokens[2] = IERC20(address(stETH));
     }
 
@@ -113,6 +114,37 @@ contract LidoAdapter is ISwapAdapter {
         returns (bytes32[] memory ids)
     {
         revert NotImplemented("LidoAdapter.getPoolIds");
+    }
+
+    /// @notice Get swap price between two tokens with a given specifiedAmount
+    /// @param specifiedAmount amount to swap
+    /// @param sellTokenAddress address of the token to sell
+    /// @param buyTokenAddress address of the token to buy
+    /// @return uint256 swap price
+    function _getPriceAt(uint256 specifiedAmount, address sellTokenAddress, address buyTokenAddress) internal view returns (uint256) {
+        address wstETHAddress = address(wstETH);
+        address stETHAddress = address(stETH);
+
+        if(sellTokenAddress == stETHAddress) {
+            if(buyTokenAddress == wstETHAddress) {
+                return wstETH.getWstETHByStETH(specifiedAmount);
+            }
+            else {
+                return stETH.getSharesByPooledEth(specifiedAmount);
+            }
+        }
+        else if(sellTokenAddress == wstETHAddress) {
+            if(buyTokenAddress == stETHAddress) {
+                return wstETH.getStETHByWstETH(specifiedAmount);
+            }
+            else {
+                uint256 stETHAmount = stETH.getPooledEthByShares(specifiedAmount);
+                return stETH.getSharesByPooledEth(stETHAmount);
+            }
+        }
+        else { // ETH (address(0))
+            return stETH.getSharesByPooledEth(specifiedAmount);
+        }
     }
 }
 
