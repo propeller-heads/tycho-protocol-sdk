@@ -318,20 +318,20 @@ contract FraxPoolV3Adapter is ISwapAdapter {
         address sellTokenAddress,
         address buyTokenAddress
     ) internal view returns (Fraction memory) {
-
         uint256 collateralID;
+        uint256 specifiedAmountWithFee = getAmountWithFee(
+            pool.getFRAXInCollateral(collateralID, specifiedAmount),
+            true,
+            true
+        );
         if(sellTokenAddress == address(FRAX)) {
             if(!pool.enabled_collaterals(buyTokenAddress)) {
                 revert Unavailable("This sell token is not available");
             }
             collateralID = pool.collateralAddrToIdx(buyTokenAddress);
             return Fraction(
-                getAmountWithFee(
-                    pool.getFRAXInCollateral(collateralID, specifiedAmount),
-                    true,
-                    true
-                ) * 10^(ERC20(sellTokenAddress).decimals()) / 10^18,
-                10**(ERC20(buyTokenAddress).decimals())
+                specifiedAmountWithFee,
+                specifiedAmountWithFee * pool.collateral_prices(collateralID) / (10**(18 - pool.missing_decimals(collateralID)))
             );
         }
         else {
@@ -339,18 +339,9 @@ contract FraxPoolV3Adapter is ISwapAdapter {
                 revert Unavailable("This buy token is not available");
             }
             collateralID = pool.collateralAddrToIdx(sellTokenAddress);
-            /**
-         * @dev once we get reply from propeller about return values in price() function and in every Fraction
-         * Fraction[0] = relayer.getPriceByTokenAddresses(address(sellToken), address(buyToken)) * 10^(IERC20(sellToken).decimals) / 10^18
-         * Fraction[1] = 10^(IERC20(buyToken).decimals)
-         */
             return Fraction(
-                getAmountWithFee(
-                    specifiedAmount * pool.collateral_prices(collateralID) / (10**(18 - pool.missing_decimals(collateralID))),
-                    true,
-                    false
-                ) * 10^(ERC20(sellTokenAddress).decimals()) / 10^18,
-                10**(ERC20(buyTokenAddress).decimals())
+                specifiedAmountWithFee * pool.collateral_prices(collateralID) / (10**(18 - pool.missing_decimals(collateralID))),
+                specifiedAmountWithFee
             );
         }
 
