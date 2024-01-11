@@ -192,15 +192,17 @@ contract RocketPoolAdapter is ISwapAdapter {
 
         if(address(sellToken) == address(0)) {
             uint256 depositFee = specifiedAmount * rocketDaoSettings.getDepositFee() / 10**18;
+            uint256 amountReth = rocketETH.getRethValue(specifiedAmount - depositFee);
             return Fraction(
-                rocketETH.getRethValue(specifiedAmount - depositFee),
-                10**18
+                amountReth,
+                rocketETH.getEthValue(amountReth)
             );
         }
         else {
+            uint256 amountEth = rocketETH.getEthValue(specifiedAmount);
             return Fraction(
-                rocketETH.getEthValue(specifiedAmount),
-                10**18
+                amountEth,
+                rocketETH.getRethValue(amountEth)
             );
         }
     }
