@@ -53,7 +53,13 @@ contract LidoAdapter is ISwapAdapter {
         IERC20 _buyToken,
         uint256[] memory _specifiedAmounts
     ) checkInputTokens(_sellToken, _buyToken) external view override returns (Fraction[] memory _prices) {
-        revert NotImplemented("LidoAdapter.price");
+        _prices = new Fraction[](_specifiedAmounts.length);
+        address sellTokenAddress = address(_sellToken);
+        address buyTokenAddress = address(_buyToken);
+
+        for(uint256 i = 0; i < _specifiedAmounts.length; i++) {
+            _prices[i] = _getPriceAt(_specifiedAmounts[i], sellTokenAddress, buyTokenAddress);
+        }
     }
 
     function swap(
@@ -121,30 +127,49 @@ contract LidoAdapter is ISwapAdapter {
     /// @param sellTokenAddress address of the token to sell
     /// @param buyTokenAddress address of the token to buy
     /// @return uint256 swap price
-    function _getPriceAt(uint256 specifiedAmount, address sellTokenAddress, address buyTokenAddress) internal view returns (uint256) {
+    function _getPriceAt(uint256 specifiedAmount, address sellTokenAddress, address buyTokenAddress) internal view returns (Fraction memory) {
         address wstETHAddress = address(wstETH);
         address stETHAddress = address(stETH);
+        uint256 amount0;
+        uint256 amount1;
 
         if(sellTokenAddress == stETHAddress) {
             if(buyTokenAddress == wstETHAddress) {
-                return wstETH.getWstETHByStETH(specifiedAmount);
+                amount0 = wstETH.getWstETHByStETH(specifiedAmount);
+                amount1 = wstETH.getStETHByWstETH(amount0);
             }
             else {
-                return stETH.getSharesByPooledEth(specifiedAmount);
+                amount0 = stETH.getPooledEthByShares(specifiedAmount);
+                amount1 = stETH.getSharesByPooledEth(amount0);
             }
         }
         else if(sellTokenAddress == wstETHAddress) {
             if(buyTokenAddress == stETHAddress) {
-                return wstETH.getStETHByWstETH(specifiedAmount);
+                amount0 = wstETH.getStETHByWstETH(specifiedAmount);
+                amount1 = wstETH.getWstETHByStETH(amount0);
             }
             else {
-                uint256 stETHAmount = stETH.getPooledEthByShares(specifiedAmount);
-                return stETH.getSharesByPooledEth(stETHAmount);
+                uint256 stETHAmount = wstETH.getStETHByWstETH(specifiedAmount);
+                amount0 = stETH.getPooledEthByShares(stETHAmount);
+                amount1 = wstETH.getWstETHByStETH(stETH.getSharesByPooledEth(amount0));
             }
         }
         else { // ETH (address(0))
-            return stETH.getSharesByPooledEth(specifiedAmount);
+            if(buyTokenAddress == stETHAddress) {
+                amount0 = stETH.getSharesByPooledEth(specifiedAmount);
+                amount1 = stETH.getPooledEthByShares(amount0);
+            }
+            else {
+                uint256 stETHAmount = stETH.getSharesByPooledEth(specifiedAmount);
+                amount0 = wstETH.getWstETHByStETH(stETHAmount);
+                amount1 = stETH.getPooledEthByShares(wstETH.getStETHByWstETH(amount0));
+            }
         }
+
+        return Fraction(
+            amount0,
+            amount1
+        );
     }
 }
 
