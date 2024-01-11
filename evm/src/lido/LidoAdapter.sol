@@ -95,11 +95,17 @@ contract LidoAdapter is ISwapAdapter {
         revert NotImplemented("LidoAdapter.getCapabilities");
     }
 
-    function getTokens(bytes32 poolId)
+    /// @inheritdoc ISwapAdapter
+    function getTokens(bytes32)
         external
+        view
+        override
         returns (IERC20[] memory tokens)
     {
-        revert NotImplemented("LidoAdapter.getTokens");
+        tokens = new IERC20[](3);
+        tokens[0] = IERC20(address(0));
+        tokens[1] = IERC20(address(wstEth));
+        tokens[2] = IERC20(address(stETH));
     }
 
     function getPoolIds(uint256 offset, uint256 limit)
