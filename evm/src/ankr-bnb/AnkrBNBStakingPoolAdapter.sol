@@ -46,10 +46,7 @@ contract AnkrBNBStakingPoolAdapter is ISwapAdapter {
         address certificateTokenAddress = getCertificateTokenAddress();
 
         for(uint256 i = 0; i < _specifiedAmounts.length; i++) {
-            _prices[i] = Fraction(
-                getPriceAt(_specifiedAmounts[i], ICertificateToken(certificateTokenAddress), sellTokenAddress != certificateTokenAddress),
-                10**18
-            );
+            _prices[i] = getPriceAt(_specifiedAmounts[i], ICertificateToken(certificateTokenAddress), sellTokenAddress != certificateTokenAddress);
         }
     }
 
@@ -83,7 +80,7 @@ contract AnkrBNBStakingPoolAdapter is ISwapAdapter {
         }
 
         trade.gasUsed = gasBefore - gasleft();
-        trade.price = Fraction(getPriceAt(specifiedAmount, certificateToken, false), 10**18);
+        trade.price = getPriceAt(specifiedAmount, certificateToken, false);
     }
 
     /// @notice Swap function(payable) to support Ether
@@ -119,7 +116,7 @@ contract AnkrBNBStakingPoolAdapter is ISwapAdapter {
         }
 
         trade.gasUsed = gasBefore - gasleft();
-        trade.price = Fraction(getPriceAt(specifiedAmount, certificateToken, true), 10**18);
+        trade.price = getPriceAt(specifiedAmount, certificateToken, true);
     }
 
     /// @inheritdoc ISwapAdapter
@@ -193,11 +190,19 @@ contract AnkrBNBStakingPoolAdapter is ISwapAdapter {
     /// @param amount amount to check price at
     /// @param certificateToken instance of the pool's certificateToken(ankrBNB)
     /// @param inputTokenIsEther true: input: ether, output = `amount` ether to certificateToken; false: input: certificateToken, output = `amount` certificateToken to ether
-    function getPriceAt(uint256 amount, ICertificateToken certificateToken, bool inputTokenIsEther) internal view returns (uint256) {
+    function getPriceAt(uint256 amount, ICertificateToken certificateToken, bool inputTokenIsEther) internal view returns (Fraction memory) {
         if(inputTokenIsEther) {
-            return certificateToken.bondsToShares(amount);
+            uint256 amountToShares = certificateToken.bondsToShares(amount);
+            return Fraction(
+                amountToShares,
+                certificateToken.sharesToBonds(amountToShares)
+            );
         }
-        return certificateToken.sharesToBonds(amount);
+        uint256 amountToBonds = certificateToken.sharesToBonds(amount);
+        return Fraction(
+            amountToBonds,
+            certificateToken.bondsToShares(amountToBonds)
+        );
     }
 
     /// @notice Get ankrBNB(certificateToken) address
