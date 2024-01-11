@@ -194,14 +194,14 @@ contract AnkrBNBStakingPoolAdapter is ISwapAdapter {
         if(inputTokenIsEther) {
             uint256 amountToShares = certificateToken.bondsToShares(amount);
             return Fraction(
-                amountToShares,
-                certificateToken.sharesToBonds(amountToShares)
+                certificateToken.sharesToBonds(amountToShares),
+                amountToShares
             );
         }
         uint256 amountToBonds = certificateToken.sharesToBonds(amount);
         return Fraction(
-            amountToBonds,
-            certificateToken.bondsToShares(amountToBonds)
+            certificateToken.bondsToShares(amountToBonds),
+            amountToBonds
         );
     }
 
