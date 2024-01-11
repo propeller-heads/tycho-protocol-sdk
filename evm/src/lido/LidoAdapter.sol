@@ -115,9 +115,11 @@ contract LidoAdapter is ISwapAdapter {
         tokens[2] = IERC20(address(stETH));
     }
 
-    function getPoolIds(uint256 offset, uint256 limit)
+    function getPoolIds(uint256, uint256)
         external
-        returns (bytes32[] memory ids)
+        pure
+        override
+        returns (bytes32[] memory)
     {
         revert NotImplemented("LidoAdapter.getPoolIds");
     }
