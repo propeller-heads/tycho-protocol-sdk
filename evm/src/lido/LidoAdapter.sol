@@ -35,11 +35,25 @@ contract LidoAdapter is ISwapAdapter {
     }
 
     /// @inheritdoc ISwapAdapter
-    function getLimits(bytes32 poolId, IERC20 sellToken, IERC20 buyToken)
+    function getLimits(bytes32, IERC20 sellToken, IERC20 buyToken)
         external
+        view
+        override
         returns (uint256[] memory limits)
     {
-        revert NotImplemented("LidoAdapter.getCapabilities");
+        limits = new uint256[](2);
+        if(address(sellToken) == address(stETH)) {
+            limits[0] = stETH.getCurrentStakeLimit();
+            limits[1] = type(uint256).max;
+        }
+        else if(address(buyToken) == address(stETH)) {
+            limits[0] = type(uint256).max;
+            limits[1] = stETH.getCurrentStakeLimit();
+        }
+        else {
+            limits[0] = type(uint256).max;
+            limits[1] = type(uint256).max;
+        }
     }
 
     function getCapabilities(bytes32 poolId, IERC20 sellToken, IERC20 buyToken)
@@ -64,12 +78,15 @@ contract LidoAdapter is ISwapAdapter {
     }
 }
 
+/// @dev Wrapped and extended interface for stETH
 interface IStETH is IERC20 {
     function getPooledEthByShares(uint256 _sharesAmount) external view returns (uint256);
 
     function getSharesByPooledEth(uint256 _pooledEthAmount) external view returns (uint256);
 
     function submit(address _referral) external payable returns (uint256);
+
+    function getCurrentStakeLimit() external view returns (uint256);
 }
 
 /// @dev Wrapped interface for wstETH
