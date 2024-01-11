@@ -15,6 +15,37 @@ contract LidoAdapter is ISwapAdapter {
         stETH = _wstETH.stETH();
     }
 
+    /// @notice Internal check for input and output tokens
+    /// @dev This contract only supports swaps of tokens: ETH(address(0)), stETH and wstETH
+    modifier checkInputTokens(IERC20 sellToken, IERC20 buyToken) {
+        address sellTokenAddress = address(sellToken);
+        address buyTokenAddress = address(buyToken);
+        address wstETHAddress = address(wstEth);
+        address stETHAddress = address(stETH);
+        bool supported = true;
+
+        if(sellTokenAddress == wstETHAddress) {
+            if(buyTokenAddress != stETHAddress && buyTokenAddress != address(0)) {
+                supported = false;
+            }
+        }
+        else if(sellTokenAddress == stETHAddress) {
+            if(buyTokenAddress != wstETHAddress && buyTokenAddress != address(0)) {
+                supported = false;
+            }
+        }
+        else if(sellTokenAddress == address(0)) {
+            if(buyTokenAddress != wstETHAddress && buyTokenAddress != stETHAddress) {
+                supported = false;
+            }
+        }
+        
+        if(!supported) {
+            revert Unavailable("This contract only supports wstETH, ETH(address(0)) and stETH tokens");
+        }
+        _;
+    }
+
     function price(
         bytes32 _poolId,
         IERC20 _sellToken,
@@ -36,6 +67,7 @@ contract LidoAdapter is ISwapAdapter {
 
     /// @inheritdoc ISwapAdapter
     function getLimits(bytes32, IERC20 sellToken, IERC20 buyToken)
+        checkInputTokens(sellToken, buyToken)
         external
         view
         override
