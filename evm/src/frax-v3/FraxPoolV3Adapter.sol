@@ -22,6 +22,17 @@ contract FraxPoolV3Adapter is ISwapAdapter {
         FRAX = IFrax(FRAX_ADDRESS);
     }
 
+    /// @notice check if a swap can be performed for FRAX to tokenAddress
+    modifier canSellFraxFor(address tokenAddress) {
+        if(!pool.enabled_collaterals(tokenAddress)) {
+            revert Unavailable("The input token is not available as sell or buy method");
+        }
+        if(FRAX.global_collateral_ratio() < PRICE_PRECISION) {
+            revert Unavailable("Cannot sell FRAX while global_collateral_ratio < PRICE_PRECISION");
+        }
+        _;
+    }
+
     /// @inheritdoc ISwapAdapter
     /// @dev FraxPoolV3 only supports FRAX<=>Token pairs
     /// @dev output amounts in case (buyToken == FRAX) are in TOKEN units(e.g. 10**6)
@@ -204,15 +215,7 @@ contract FraxPoolV3Adapter is ISwapAdapter {
     function buyTokenWithFrax(
         address receiveTokenAddress,
         uint256 receivedAmountTokens
-    ) internal returns (uint256) {
-
-        if(!pool.enabled_collaterals(receiveTokenAddress)) {
-            revert Unavailable("The input token is not available as buy method");
-        }
-
-        if(FRAX.global_collateral_ratio() < PRICE_PRECISION) {
-            revert Unavailable("Cannot sell FRAX while global_collateral_ratio < PRICE_PRECISION");
-        }
+    ) canSellFraxFor(receiveTokenAddress) internal returns (uint256) {
 
         uint256 collateralID = pool.collateralAddrToIdx(receiveTokenAddress);
 
@@ -238,15 +241,7 @@ contract FraxPoolV3Adapter is ISwapAdapter {
     function sellFraxForToken(
         address receiveTokenAddress,
         uint256 frax_amount
-    ) internal returns (uint256) {
-
-        if(!pool.enabled_collaterals(receiveTokenAddress)) {
-            revert Unavailable("The input token is not available as buy method");
-        }
-
-        if(FRAX.global_collateral_ratio() < PRICE_PRECISION) {
-            revert Unavailable("Cannot sell FRAX while global_collateral_ratio < PRICE_PRECISION");
-        }
+    ) canSellFraxFor(receiveTokenAddress) internal returns (uint256) {
 
         uint256 collateralID = pool.collateralAddrToIdx(receiveTokenAddress);
 
@@ -267,14 +262,6 @@ contract FraxPoolV3Adapter is ISwapAdapter {
         address sellTokenAddress,
         uint256 collateralNeeded
     ) internal returns (uint256) {
-
-        if(!pool.enabled_collaterals(sellTokenAddress)) {
-            revert Unavailable("The input token is not available as sell method");
-        }
-
-        if(FRAX.global_collateral_ratio() < PRICE_PRECISION) {
-            revert Unavailable("Cannot sell FRAX while global_collateral_ratio < PRICE_PRECISION");
-        }
 
         uint256 collateralID = pool.collateralAddrToIdx(sellTokenAddress);
         uint256 fraxReceivedAmountWithoutFee = 
