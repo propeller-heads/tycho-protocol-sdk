@@ -62,14 +62,44 @@ contract LidoAdapter is ISwapAdapter {
         }
     }
 
+    /// @inheritdoc ISwapAdapter
     function swap(
-        bytes32 poolId,
+        bytes32,
         IERC20 sellToken,
         IERC20 buyToken,
         OrderSide side,
         uint256 specifiedAmount
-    ) external returns (Trade memory trade) {
-        revert NotImplemented("LidoAdapter.swap");
+    ) checkInputTokens(sellToken, buyToken) external returns (Trade memory trade) {
+        if (specifiedAmount == 0) {
+            return trade;
+        }
+
+        address buyTokenAddress = address(buyToken);
+        address sellTokenAddress = address(sellToken);
+        if(buyTokenAddress == address(0)) {
+            revert Unavailable("Cannot swap for ETH since withdrawal is processed externally");
+        }
+        if(sellTokenAddress == address(0)) {
+            revert Unavailable("This function only supports wstETH<=>stETH swaps, use swapPayable() to swap ETH for wstETH or stETH");
+        }
+
+        if(side == OrderSide.Buy) {
+
+        }
+        else {
+            if(sellTokenAddress == address(stETH)) {
+                wstETH.wrap(specifiedAmount);
+            }
+            else {
+                wstETH.unwrap(specifiedAmount);
+            }
+        }
+        /**
+            stETH to wstETH = wrap(stETHAmount)
+            wstETH to stETH = unwrap(wstETHAmount)
+            ETH to stETH = receive() <--- send Ether directly with contract.call{value: ethAmount}("")
+            ETH to wstETH = receive() -> stETHReceived = stETH.getSharesByPooledEth(ethAmount) -> wrap(stETHReceived)
+         */
     }
 
     /// @inheritdoc ISwapAdapter
