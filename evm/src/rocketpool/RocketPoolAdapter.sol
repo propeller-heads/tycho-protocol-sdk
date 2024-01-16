@@ -29,6 +29,9 @@ contract RocketPoolAdapter is ISwapAdapter {
         _;
     }
 
+    /// @dev enable receive to fill the contract with ether for payable swaps
+    receive() external payable {}    
+
     /// @inheritdoc ISwapAdapter
     function price(
         bytes32,
@@ -44,62 +47,40 @@ contract RocketPoolAdapter is ISwapAdapter {
     }
 
     /// @inheritdoc ISwapAdapter
-    /// @dev this Swap function only supports ETH to rETH swap, the opposite is available in swapPayable functio.
     function swap(
         bytes32,
         IERC20 sellToken,
         IERC20 buyToken,
         OrderSide side,
         uint256 specifiedAmount
-    ) external returns (Trade memory trade) {
+    ) checkInputTokens(sellToken, buyToken) external returns (Trade memory trade) {
         if (specifiedAmount == 0) {
             return trade;
         }
-        if(address(buyToken) != address(0) && address(sellToken) != _getrEthTokenAddress()) {
-            revert Unavailable("This function only supports rETH to ETH swap, use swapPayable() to swap ETH to rETH");
-        }
+
         uint256 gasBefore = gasleft();
         RocketTokenRETHInterface rocketETH = RocketTokenRETHInterface(_getrEthTokenAddress());
-
-        if(side == OrderSide.Buy) {
-            uint256 amountToSpend = rocketETH.getRethValue(specifiedAmount);
-            rocketETH.burn(amountToSpend);
-        }
-        else {
-            rocketETH.transferFrom(msg.sender, address(this), specifiedAmount);
-            rocketETH.burn(specifiedAmount);
-        }
-
-        trade.gasUsed = gasBefore - gasleft();
-        trade.price = getPriceAt(specifiedAmount, sellToken);
-    }
-
-    /// @notice Swap function(payable) to support Ether
-    /// @dev to buy rETH, the input amount should is took in msg.value as spending ETH
-    function swapPayable(
-        bytes32,
-        IERC20 sellToken,
-        IERC20 buyToken,
-        OrderSide side,
-        uint256 specifiedAmount
-    ) external payable returns (Trade memory trade) {
-        if (specifiedAmount == 0) {
-            return trade;
-        }
-        if(address(sellToken) != address(0) && address(buyToken) != _getrEthTokenAddress()) {
-            revert Unavailable("This function only supports ETH to rETH swap, use swap() to swap rETH to ETH");
-        }
-        uint256 gasBefore = gasleft();
         RocketDepositPoolInterface rocketPool = _getRocketPool();
-        RocketTokenRETHInterface rocketETH = RocketTokenRETHInterface(_getrEthTokenAddress());
         RocketDAOProtocolSettingsDepositInterface rocketDaoSettings = _getRocketDaoSettings();
 
-        if(side == OrderSide.Buy) {
-            uint256 amountIn = rocketETH.getEthValue(specifiedAmount + (specifiedAmount * rocketDaoSettings.getDepositFee() / 10^18));
-            rocketPool.deposit{value: amountIn}();
+        if(address(sellToken) != address(0)) {
+            if(side == OrderSide.Buy) {
+                uint256 amountToSpend = rocketETH.getRethValue(specifiedAmount);
+                rocketETH.burn(amountToSpend);
+            }
+            else {
+                rocketETH.transferFrom(msg.sender, address(this), specifiedAmount);
+                rocketETH.burn(specifiedAmount);
+            }
         }
         else {
-            rocketPool.deposit{value: msg.value}();
+            if(side == OrderSide.Buy) {
+                uint256 amountIn = rocketETH.getEthValue(specifiedAmount + (specifiedAmount * rocketDaoSettings.getDepositFee() / 10^18));
+                rocketPool.deposit{value: amountIn}();
+            }
+            else {
+                rocketPool.deposit{value: specifiedAmount}();
+            }
         }
 
         trade.gasUsed = gasBefore - gasleft();
