@@ -53,6 +53,17 @@ contract AnkrBNBStakingPoolAdapter is ISwapAdapter {
         }
     }
 
+    /// @notice Get swap price at `amount`
+    /// @param amount amount to check price at
+    /// @param certificateToken instance of the pool's certificateToken(ankrBNB)
+    /// @param inputTokenIsEther true: input: ether, output = `amount` ether to certificateToken; false: input: certificateToken, output = `amount` certificateToken to ether
+    function getPriceAt(uint256 amount, ICertificateToken certificateToken, bool inputTokenIsEther) internal view returns (uint256) {
+        if(inputTokenIsEther) {
+            return certificateToken.bondsToShares(amount);
+        }
+        return certificateToken.sharesToBonds(amount);
+    }
+
     /// @inheritdoc ISwapAdapter
     /// @dev this Swap function only supports ankrBNB to BNB swap, the opposite is available in swapPayable functio.
     function swap(
@@ -184,17 +195,6 @@ contract AnkrBNBStakingPoolAdapter is ISwapAdapter {
         returns (bytes32[] memory ids)
     {
         revert NotImplemented("AnkrBNBStakingPoolAdapter.getPoolIds");
-    }
-
-    /// @notice Get swap price at `amount`
-    /// @param amount amount to check price at
-    /// @param certificateToken instance of the pool's certificateToken(ankrBNB)
-    /// @param inputTokenIsEther true: input: ether, output = `amount` ether to certificateToken; false: input: certificateToken, output = `amount` certificateToken to ether
-    function getPriceAt(uint256 amount, ICertificateToken certificateToken, bool inputTokenIsEther) internal view returns (uint256) {
-        if(inputTokenIsEther) {
-            return certificateToken.bondsToShares(amount);
-        }
-        return certificateToken.sharesToBonds(amount);
     }
 
     /// @notice Get ankrBNB(certificateToken) address
