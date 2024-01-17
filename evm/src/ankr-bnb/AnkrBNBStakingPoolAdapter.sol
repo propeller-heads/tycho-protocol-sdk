@@ -33,10 +33,13 @@ contract AnkrBNBStakingPoolAdapter is ISwapAdapter {
         _;
     }
 
+    /// @dev enable receive() to swap ether in payable functions
+    receive() external payable {}
+
     /// @inheritdoc ISwapAdapter
     /// @dev This pool only supports BNB(ether)<=>ankrBNB(certificateToken) operations, and thus prices
     function price(
-        bytes32 _poolId,
+        bytes32,
         IERC20 _sellToken,
         IERC20 _buyToken,
         uint256[] memory _specifiedAmounts
@@ -67,70 +70,44 @@ contract AnkrBNBStakingPoolAdapter is ISwapAdapter {
     /// @inheritdoc ISwapAdapter
     /// @dev this Swap function only supports ankrBNB to BNB swap, the opposite is available in swapPayable functio.
     function swap(
-        bytes32 poolId,
+        bytes32,
         IERC20 sellToken,
         IERC20 buyToken,
         OrderSide side,
         uint256 specifiedAmount
-    ) external returns (Trade memory trade) {
+    ) checkInputTokens(sellToken, buyToken) external returns (Trade memory trade) {
         if (specifiedAmount == 0) {
             return trade;
         }
-        if(address(buyToken) != address(0) && address(sellToken) != getCertificateTokenAddress()) {
-            revert Unavailable("This function only supports ankrBNB to BNB swap, use swapPayable() to swap BNB to ankrBNB");
-        }
-        uint256 gasBefore = gasleft();
-        ICertificateToken certificateToken = ICertificateToken(address(sellToken));
 
-        if(side == OrderSide.Buy) {
-            uint256 amountToSpendWithoutSwapFee = certificateToken.bondsToShares(specifiedAmount);
-            uint256 amountToSpend = amountToSpendWithoutSwapFee + (amountToSpendWithoutSwapFee * pool.getFlashUnstakeFee() / FEE_MAX);
-            certificateToken.transferFrom(msg.sender, address(this), amountToSpend);
-            pool.swap(amountToSpend, address(msg.sender));
+        uint256 gasBefore = gasleft();
+        address certificateTokenAddress = getCertificateTokenAddress();
+        ICertificateToken certificateToken = ICertificateToken(certificateTokenAddress);
+
+        if(address(sellToken) == certificateTokenAddress) {
+            if(side == OrderSide.Buy) {
+                uint256 amountToSpendWithoutSwapFee = certificateToken.bondsToShares(specifiedAmount);
+                uint256 amountToSpend = amountToSpendWithoutSwapFee + (amountToSpendWithoutSwapFee * pool.getFlashUnstakeFee() / FEE_MAX);
+                certificateToken.transferFrom(msg.sender, address(this), amountToSpend);
+                pool.swap(amountToSpend, address(msg.sender));
+            }
+            else {
+                certificateToken.transferFrom(msg.sender, address(this), specifiedAmount);
+                pool.swap(specifiedAmount, address(msg.sender));
+            }
         }
         else {
-            certificateToken.transferFrom(msg.sender, address(this), specifiedAmount);
-            pool.swap(specifiedAmount, address(msg.sender));
+            if(side == OrderSide.Buy) {
+                uint256 amountToSpend = certificateToken.sharesToBonds(specifiedAmount);
+                pool.stakeCerts{value: amountToSpend}();
+            }
+            else {
+                pool.stakeCerts{value: specifiedAmount}();
+            }
         }
 
         trade.gasUsed = gasBefore - gasleft();
         trade.price = Fraction(getPriceAt(specifiedAmount, certificateToken, false), 10**18);
-    }
-
-    /// @notice Swap function(payable) to support Ether
-    /// @dev to buy ankrBNB, the input amount should is took in msg.value as spending BNB
-    function swapPayable(
-        bytes32 poolId,
-        IERC20 sellToken,
-        IERC20 buyToken,
-        OrderSide side,
-        uint256 specifiedAmount
-    ) external payable returns (Trade memory trade) {
-        if (specifiedAmount == 0) {
-            return trade;
-        }
-        if(address(sellToken) != address(0) && address(buyToken) != getCertificateTokenAddress()) {
-            revert Unavailable("This function only supports BNB to ankrBNB swap, use swap() to swap ankrBNB to BNB");
-        }
-        uint256 gasBefore = gasleft();
-        ICertificateToken certificateToken = ICertificateToken(address(buyToken));
-
-        if(side == OrderSide.Buy) {
-            uint256 amountToSpend = certificateToken.sharesToBonds(specifiedAmount);
-            if(msg.value < amountToSpend) {
-                revert Unavailable("msg.value is too low to buy this specifiedAmount");
-            } 
-            pool.stakeCerts{value: amountToSpend}();
-        }
-        else {
-            if(specifiedAmount != msg.value) {
-                revert Unavailable("specifiedAmount should be equal to msg.value");
-            }
-            pool.stakeCerts{value: msg.value}();
-        }
-
-        trade.gasUsed = gasBefore - gasleft();
-        trade.price = Fraction(getPriceAt(specifiedAmount, certificateToken, true), 10**18);
     }
 
     /// @inheritdoc ISwapAdapter
