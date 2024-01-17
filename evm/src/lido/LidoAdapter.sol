@@ -46,6 +46,9 @@ contract LidoAdapter is ISwapAdapter {
         _;
     }
 
+    /// @dev enable receive to deposit ether for payable swaps
+    receive() external payable {}
+
     /// @inheritdoc ISwapAdapter
     function price(
         bytes32,
@@ -76,30 +79,48 @@ contract LidoAdapter is ISwapAdapter {
 
         address buyTokenAddress = address(buyToken);
         address sellTokenAddress = address(sellToken);
+        address stETHAddress = address(stETH);
+        address wstETHAddress = address(wstETH);
         if(buyTokenAddress == address(0)) {
             revert Unavailable("Cannot swap for ETH since withdrawal is processed externally");
         }
-        if(sellTokenAddress == address(0)) {
-            revert Unavailable("This function only supports wstETH<=>stETH swaps, use swapPayable() to swap ETH for wstETH or stETH");
-        }
 
         if(side == OrderSide.Buy) {
-
-        }
-        else {
-            if(sellTokenAddress == address(stETH)) {
-                wstETH.wrap(specifiedAmount);
+            if(sellTokenAddress == stETHAddress) {
+                uint256 amountIn = wstETH.getStETHByWstETH(specifiedAmount);
+                stETH.transferFrom(msg.sender, address(this), amountIn);
+                stETH.approve(wstETHAddress, amountIn);
+                wstETH.wrap(amountIn);
             }
             else {
+                uint256 amountIn = wstETH.getWstETHByStETH(specifiedAmount);
+                wstETH.transferFrom(msg.sender, address(this), amountIn);
                 wstETH.unwrap(specifiedAmount);
             }
         }
-        /**
-            stETH to wstETH = wrap(stETHAmount)
-            wstETH to stETH = unwrap(wstETHAmount)
-            ETH to stETH = receive() <--- send Ether directly with contract.call{value: ethAmount}("")
-            ETH to wstETH = receive() -> stETHReceived = stETH.getSharesByPooledEth(ethAmount) -> wrap(stETHReceived)
-         */
+        else {
+            if(sellTokenAddress == stETHAddress) {
+                stETH.transferFrom(msg.sender, address(this), specifiedAmount);
+                stETH.approve(wstETHAddress, specifiedAmount);
+                wstETH.wrap(specifiedAmount);
+            }
+            else if(sellTokenAddress == address(0)) {
+                if(buyTokenAddress == stETHAddress) {
+                    (bool sent_, ) = wstETHAddress.call{value: specifiedAmount}("");
+                    if(!sent_) { revert Unavailable("Ether transfer failed"); }
+                    uint256 wstETHAmountReceived = stETH.getSharesByPooledEth(specifiedAmount);
+                    wstETH.unwrap(wstETHAmountReceived);
+                }
+                else {
+                    (bool sent_, ) = wstETHAddress.call{value: specifiedAmount}("");
+                    if(!sent_) { revert Unavailable("Ether transfer failed"); }
+                }
+            }
+            else {
+                wstETH.transferFrom(msg.sender, address(this), specifiedAmount);
+                wstETH.unwrap(specifiedAmount);
+            }
+        }
     }
 
     /// @inheritdoc ISwapAdapter
@@ -217,7 +238,7 @@ interface IStETH is IERC20 {
 }
 
 /// @dev Wrapped interface for wstETH
-interface IwstETH {
+interface IwstETH is IERC20 {
 
     function stETH() external view returns (IStETH);
 
