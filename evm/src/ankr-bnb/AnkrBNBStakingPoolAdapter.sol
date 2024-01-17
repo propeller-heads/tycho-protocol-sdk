@@ -53,6 +53,25 @@ contract AnkrBNBStakingPoolAdapter is ISwapAdapter {
         }
     }
 
+    /// @notice Get swap price at `amount`
+    /// @param amount amount to check price at
+    /// @param certificateToken instance of the pool's certificateToken(ankrBNB)
+    /// @param inputTokenIsEther true: input: ether, output = `amount` ether to certificateToken; false: input: certificateToken, output = `amount` certificateToken to ether
+    function getPriceAt(uint256 amount, ICertificateToken certificateToken, bool inputTokenIsEther) internal view returns (Fraction memory) {
+        if(inputTokenIsEther) {
+            uint256 amountToShares = certificateToken.bondsToShares(amount);
+            return Fraction(
+                certificateToken.sharesToBonds(amountToShares),
+                amountToShares
+            );
+        }
+        uint256 amountToBonds = certificateToken.sharesToBonds(amount);
+        return Fraction(
+            certificateToken.bondsToShares(amountToBonds),
+            amountToBonds
+        );
+    }
+
     /// @inheritdoc ISwapAdapter
     function swap(
         bytes32,
@@ -159,25 +178,6 @@ contract AnkrBNBStakingPoolAdapter is ISwapAdapter {
         returns (bytes32[] memory)
     {
         revert NotImplemented("AnkrBNBStakingPoolAdapter.getPoolIds");
-    }
-
-    /// @notice Get swap price at `amount`
-    /// @param amount amount to check price at
-    /// @param certificateToken instance of the pool's certificateToken(ankrBNB)
-    /// @param inputTokenIsEther true: input: ether, output = `amount` ether to certificateToken; false: input: certificateToken, output = `amount` certificateToken to ether
-    function getPriceAt(uint256 amount, ICertificateToken certificateToken, bool inputTokenIsEther) internal view returns (Fraction memory) {
-        if(inputTokenIsEther) {
-            uint256 amountToShares = certificateToken.bondsToShares(amount);
-            return Fraction(
-                certificateToken.sharesToBonds(amountToShares),
-                amountToShares
-            );
-        }
-        uint256 amountToBonds = certificateToken.sharesToBonds(amount);
-        return Fraction(
-            certificateToken.bondsToShares(amountToBonds),
-            amountToBonds
-        );
     }
 
     /// @notice Get ankrBNB(certificateToken) address
