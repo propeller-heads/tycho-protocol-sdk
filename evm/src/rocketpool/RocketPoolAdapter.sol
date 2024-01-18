@@ -4,6 +4,8 @@ pragma solidity ^0.8.13;
 
 import {IERC20, ISwapAdapter} from "src/interfaces/ISwapAdapter.sol";
 
+uint256 constant STANDARD_TOKEN_DECIMALS = 10**18;
+
 /// @title RocketPool Adapter
 contract RocketPoolAdapter is ISwapAdapter {
 
@@ -75,7 +77,7 @@ contract RocketPoolAdapter is ISwapAdapter {
         }
         else {
             if(side == OrderSide.Buy) {
-                uint256 amountIn = rocketETH.getEthValue(specifiedAmount + (specifiedAmount * rocketDaoSettings.getDepositFee() / 10^18));
+                uint256 amountIn = rocketETH.getEthValue(specifiedAmount + (specifiedAmount * rocketDaoSettings.getDepositFee() / STANDARD_TOKEN_DECIMALS));
                 rocketPool.deposit{value: amountIn}();
             }
             else {
@@ -172,7 +174,7 @@ contract RocketPoolAdapter is ISwapAdapter {
         RocketDAOProtocolSettingsDepositInterface rocketDaoSettings = _getRocketDaoSettings();
 
         if(address(sellToken) == address(0)) {
-            uint256 depositFee = specifiedAmount * rocketDaoSettings.getDepositFee() / 10**18;
+            uint256 depositFee = specifiedAmount * rocketDaoSettings.getDepositFee() / STANDARD_TOKEN_DECIMALS;
             uint256 amountReth = rocketETH.getRethValue(specifiedAmount - depositFee);
             return Fraction(
                 amountReth,
