@@ -5,7 +5,7 @@ libs = ["lib"]
 
 [rpc_endpoints]
 mainnet = "${ETH_RPC_URL}"
-
+bsc = "${BSC_RPC_URL}"
 
 [fmt]
 line_length = 80
