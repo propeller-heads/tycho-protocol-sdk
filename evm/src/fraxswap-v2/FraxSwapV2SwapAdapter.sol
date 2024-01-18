@@ -41,35 +41,6 @@ contract FraxSwapV2SwapAdapter is ISwapAdapter {
         }
     }
 
-    /// @notice Calculates pool prices after trade for specified amounts
-    /// @param amountIn The amount of the token being sold.
-    /// @param reserveIn The reserve of the token being sold.
-    /// @param reserveOut The reserve of the token being bought.
-    /// @param pair (IUniswapV2PairPartialV5) The pair where to execute the swap in.
-    /// @dev Basis points(BP) is 10,000 for Frax
-    function getPriceAt(uint256 amountIn, uint256 reserveIn, uint256 reserveOut, IUniswapV2PairPartialV5 pair)
-        internal
-        view
-        returns (Fraction memory)
-    {
-        if (reserveIn == 0 || reserveOut == 0) {
-            revert Unavailable("At least one reserve is zero!");
-        }
-        uint256 feeBP = pair.fee();
-
-        uint256 amountInWithFee = amountIn * feeBP;
-        uint256 numerator = amountInWithFee * reserveOut;
-        uint256 denominator = (reserveIn * 10000) + amountInWithFee;
-        uint256 amountOut = numerator / denominator;
-        uint256 newReserveOut = reserveOut - amountOut;
-        uint256 newReserveIn = reserveIn + amountIn;
-
-        return Fraction(
-            newReserveOut * 10000, 
-            newReserveIn * feeBP
-        );
-    }
-
     /// @inheritdoc ISwapAdapter
     function swap(
         bytes32 poolId,
@@ -210,6 +181,35 @@ contract FraxSwapV2SwapAdapter is ISwapAdapter {
             pair.swap(0, amountBought, msg.sender, "");
         }
         return amountIn;
+    }
+
+    /// @notice Calculates pool prices after trade for specified amounts
+    /// @param amountIn The amount of the token being sold.
+    /// @param reserveIn The reserve of the token being sold.
+    /// @param reserveOut The reserve of the token being bought.
+    /// @param pair (IUniswapV2PairPartialV5) The pair where to execute the swap in.
+    /// @dev Basis points(BP) is 10,000 for Frax
+    function getPriceAt(uint256 amountIn, uint256 reserveIn, uint256 reserveOut, IUniswapV2PairPartialV5 pair)
+        internal
+        view
+        returns (Fraction memory)
+    {
+        if (reserveIn == 0 || reserveOut == 0) {
+            revert Unavailable("At least one reserve is zero!");
+        }
+        uint256 feeBP = pair.fee();
+
+        uint256 amountInWithFee = amountIn * feeBP;
+        uint256 numerator = amountInWithFee * reserveOut;
+        uint256 denominator = (reserveIn * 10000) + amountInWithFee;
+        uint256 amountOut = numerator / denominator;
+        uint256 newReserveOut = reserveOut - amountOut;
+        uint256 newReserveIn = reserveIn + amountIn;
+
+        return Fraction(
+            newReserveOut * 10000, 
+            newReserveIn * feeBP
+        );
     }
 }
 
