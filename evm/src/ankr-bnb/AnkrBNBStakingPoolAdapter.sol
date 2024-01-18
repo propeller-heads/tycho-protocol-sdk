@@ -103,7 +103,7 @@ contract AnkrBNBStakingPoolAdapter is ISwapAdapter {
         override
         returns (uint256[] memory limits)
     {
-        limits = new uint256[](4);
+        limits = new uint256[](2);
         address certificateTokenAddress = getCertificateTokenAddress();
         ICertificateToken certificateToken = ICertificateToken(certificateTokenAddress);
         address sellTokenAddress = address(sellToken);
@@ -111,19 +111,14 @@ contract AnkrBNBStakingPoolAdapter is ISwapAdapter {
             revert Unavailable("This contract only supports ankrBNB<=>BNB swaps");
         }
 
-        uint256 minBNBAmount = pool.getMinUnstake();
         uint256 maxBNBAmount = pool.flashPoolCapacity();
         if(sellTokenAddress == certificateTokenAddress) {
             limits[0] = certificateToken.bondsToShares(maxBNBAmount);
             limits[1] = maxBNBAmount;
-            limits[2] = certificateToken.bondsToShares(minBNBAmount);
-            limits[3] = minBNBAmount;
         }
         else {
             limits[0] = maxBNBAmount;
             limits[1] = certificateToken.bondsToShares(maxBNBAmount);
-            limits[2] = minBNBAmount;
-            limits[3] = certificateToken.bondsToShares(minBNBAmount);
         }
     }
 
