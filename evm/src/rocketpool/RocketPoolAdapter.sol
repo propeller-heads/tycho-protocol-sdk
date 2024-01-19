@@ -106,12 +106,12 @@ contract RocketPoolAdapter is ISwapAdapter {
 
         limits = new uint256[](2);
         if(address(sellToken) == address(0)) {
-            limits[0] = maximumDepositPoolSize > rocketPoolBalance ? maximumDepositPoolSize - rocketPool.getBalance() : 0;
+            limits[0] = maximumDepositPoolSize > rocketPoolBalance ? maximumDepositPoolSize - rocketPool.getBalance() : rocketPool.getBalance();
             limits[1] = rocketETH.getTotalCollateral();
         }
         else {
             limits[0] = rocketETH.getTotalCollateral();
-            limits[1] = maximumDepositPoolSize > rocketPoolBalance ? maximumDepositPoolSize - rocketPool.getBalance() : 0;
+            limits[1] = maximumDepositPoolSize > rocketPoolBalance ? maximumDepositPoolSize - rocketPool.getBalance() : rocketPool.getBalance();
         }
     }
 
