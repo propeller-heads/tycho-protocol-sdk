@@ -66,7 +66,7 @@ contract AnkrBNBStakingPoolAdapter is ISwapAdapter {
         }
 
         uint256 gasBefore = gasleft();
-        ICertificateToken certificateToken = ICertificateToken(address(sellToken));
+        ICertificateToken certificateToken = ICertificateToken(getCertificateTokenAddress());
 
         if(address(sellToken) != address(0)) {
             if(side == OrderSide.Buy) {
@@ -129,7 +129,7 @@ contract AnkrBNBStakingPoolAdapter is ISwapAdapter {
         override
         returns (Capability[] memory capabilities)
     {
-        capabilities = new Capability[](2);
+        capabilities = new Capability[](3);
         capabilities[0] = Capability.SellOrder;
         capabilities[1] = Capability.BuyOrder;
         capabilities[2] = Capability.PriceFunction;
