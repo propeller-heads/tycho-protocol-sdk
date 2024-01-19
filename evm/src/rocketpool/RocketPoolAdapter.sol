@@ -99,17 +99,26 @@ contract RocketPoolAdapter is ISwapAdapter {
         returns (uint256[] memory limits)
     {
         RocketTokenRETHInterface rocketETH = RocketTokenRETHInterface(_getrEthTokenAddress());
-        uint256 totalCollateral = rocketETH.getTotalCollateral();
-        uint256 totalCollateralReth = rocketETH.getRethValue(totalCollateral);
+        RocketDAOProtocolSettingsDepositInterface rocketDao = _getRocketDaoSettings();
+        RocketMinipoolQueueInterface rocketMiniPoolQueue = _getRocketMiniPoolQueue();
+        RocketDepositPoolInterface rocketPool = _getRocketPool();
+
+        uint256 ETHLimit = rocketPool.getMaximumDepositAmount();
+        if(rocketDao.getAssignDepositsEnabled()) {
+            ETHLimit = ETHLimit + rocketMiniPoolQueue.getEffectiveCapacity();
+        }
+        uint256 rETHLimit = rocketETH.getRethValue(ETHLimit);
 
         limits = new uint256[](2);
         /**
          * @dev About MAX limits:
-         * Rocketpool also implicitly implements a secondary limit applied on deposits, which is:
+         * ETH Deposit limit is:
          * depositPoolMaxCapacity - depositPoolBalance (ref: RocketDepositPool.sol:173),
-         * But we use with totalCollateral and its conversion to rEETH since using the above
-         * won't meet requirements when using OrderSide == Buy, as the output amount is in rETH or viceversa,
-         * and the final method burn() will revert since higher. (ref: RocketTokenRETH.sol:140)
+         * But if rocketDao.getAssignDepositsEnabled() is true, an additional limit of:
+         * rocketMiniPoolQueue.getEffectiveCapacity()
+         * is added. (ref: RocketDepositPool.sol:138)
+         * rETH Deposit Limit is rETH.totalCollateral(), but we getRethValue(ETH deposit limit) to make a better
+         * estimate, as the swap would revert in (Side = Buy, sellToken = ETH) if exceeding the ETH maxDepositAmount.
          * 
          * @dev About MIN limits:
          * minLimits for rocketPool can be get via the function rocketDao.getMinimumDeposit(),
@@ -118,12 +127,12 @@ contract RocketPoolAdapter is ISwapAdapter {
          * 
          */
         if(address(sellToken) == address(0)) {
-            limits[0] = totalCollateral;
-            limits[1] = totalCollateralReth;
+            limits[0] = ETHLimit;
+            limits[1] = rETHLimit;
         }
         else {
-            limits[0] = totalCollateralReth;
-            limits[1] = totalCollateral;
+            limits[0] = rETHLimit;
+            limits[1] = ETHLimit;
         }
     }
 
@@ -177,6 +186,13 @@ contract RocketPoolAdapter is ISwapAdapter {
             rocketStorage.getAddress(keccak256(abi.encodePacked("contract.address", "rocketDAOProtocolSettingsDeposit")))
         );
         return rocketDAOProtocolSettingsDeposit;
+    }
+
+    function _getRocketMiniPoolQueue() internal view returns (RocketMinipoolQueueInterface) {
+        RocketMinipoolQueueInterface rocketMiniPoolQueue = RocketMinipoolQueueInterface(
+            rocketStorage.getAddress(keccak256(abi.encodePacked("contract.address", "rocketMinipoolQueue")))
+        );
+        return rocketMiniPoolQueue;
     }
 
     /// @notice Get swap price including fee
@@ -289,4 +305,29 @@ interface RocketDAOProtocolSettingsDepositInterface {
     function getMaximumDepositAssignments() external view returns (uint256);
     function getMaximumDepositSocialisedAssignments() external view returns (uint256);
     function getDepositFee() external view returns (uint256);
+}
+
+enum MinipoolDeposit {
+    None,       // Marks an invalid deposit type
+    Full,       // The minipool requires 32 ETH from the node operator, 16 ETH of which will be refinanced from user deposits
+    Half,       // The minipool required 16 ETH from the node operator to be matched with 16 ETH from user deposits
+    Empty,      // The minipool requires 0 ETH from the node operator to be matched with 32 ETH from user deposits (trusted nodes only)
+    Variable    // Indicates this minipool is of the new generation that supports a variable deposit amount
+}
+
+interface RocketMinipoolQueueInterface {
+    function getTotalLength() external view returns (uint256);
+    function getContainsLegacy() external view returns (bool);
+    function getLengthLegacy(MinipoolDeposit _depositType) external view returns (uint256);
+    function getLength() external view returns (uint256);
+    function getTotalCapacity() external view returns (uint256);
+    function getEffectiveCapacity() external view returns (uint256);
+    function getNextCapacityLegacy() external view returns (uint256);
+    function getNextDepositLegacy() external view returns (MinipoolDeposit, uint256);
+    function enqueueMinipool(address _minipool) external;
+    function dequeueMinipoolByDepositLegacy(MinipoolDeposit _depositType) external returns (address minipoolAddress);
+    function dequeueMinipools(uint256 _maxToDequeue) external returns (address[] memory minipoolAddress);
+    function removeMinipool(MinipoolDeposit _depositType) external;
+    function getMinipoolAt(uint256 _index) external view returns(address);
+    function getMinipoolPosition(address _minipool) external view returns (int256);
 }
