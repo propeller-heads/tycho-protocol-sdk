@@ -77,16 +77,14 @@ contract LidoAdapter is ISwapAdapter {
             return trade;
         }
 
-        address buyTokenAddress = address(buyToken);
-        address sellTokenAddress = address(sellToken);
         address stETHAddress = address(stETH);
         address wstETHAddress = address(wstETH);
-        if(buyTokenAddress == address(0)) {
+        if(address(buyToken) == address(0)) {
             revert Unavailable("Cannot swap for ETH since withdrawal is processed externally");
         }
 
         if(side == OrderSide.Buy) {
-            if(sellTokenAddress == stETHAddress) {
+            if(address(sellToken) == stETHAddress) {
                 uint256 amountIn = wstETH.getStETHByWstETH(specifiedAmount);
                 stETH.transferFrom(msg.sender, address(this), amountIn);
                 stETH.approve(wstETHAddress, amountIn);
@@ -99,13 +97,13 @@ contract LidoAdapter is ISwapAdapter {
             }
         }
         else {
-            if(sellTokenAddress == stETHAddress) {
+            if(address(sellToken) == stETHAddress) {
                 stETH.transferFrom(msg.sender, address(this), specifiedAmount);
                 stETH.approve(wstETHAddress, specifiedAmount);
                 wstETH.wrap(specifiedAmount);
             }
-            else if(sellTokenAddress == address(0)) {
-                if(buyTokenAddress == stETHAddress) {
+            else if(address(sellToken) == address(0)) {
+                if(address(buyToken) == stETHAddress) {
                     (bool sent_, ) = wstETHAddress.call{value: specifiedAmount}("");
                     if(!sent_) { revert Unavailable("Ether transfer failed"); }
                     uint256 wstETHAmountReceived = stETH.getSharesByPooledEth(specifiedAmount);
