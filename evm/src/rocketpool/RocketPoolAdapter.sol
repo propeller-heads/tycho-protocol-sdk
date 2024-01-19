@@ -68,6 +68,7 @@ contract RocketPoolAdapter is ISwapAdapter {
         if(address(sellToken) != address(0)) {
             if(side == OrderSide.Buy) {
                 uint256 amountToSpend = rocketETH.getRethValue(specifiedAmount);
+                rocketETH.transferFrom(msg.sender, address(this), amountToSpend);
                 rocketETH.burn(amountToSpend);
             }
             else {

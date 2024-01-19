@@ -21,7 +21,7 @@ instances:
       name: mainnet
       id: 0
     arguments:
-      - "0x9e347Af362059bf2E55839002c699F7A5BaFE86E"
+      - "0x1d8f8f00cfa6758d7bE78336684788Fb0ee0Fa46"
 
 # Specify some automatic test cases in case getPoolIds and
 # getTokens are not implemented.
