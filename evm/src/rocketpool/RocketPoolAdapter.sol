@@ -98,20 +98,18 @@ contract RocketPoolAdapter is ISwapAdapter {
         override
         returns (uint256[] memory limits)
     {
-        RocketDepositPoolInterface rocketPool = _getRocketPool();
-        RocketDAOProtocolSettingsDepositInterface rocketDaoSettings = _getRocketDaoSettings();
         RocketTokenRETHInterface rocketETH = RocketTokenRETHInterface(_getrEthTokenAddress());
-        uint256 maximumDepositPoolSize = rocketDaoSettings.getMaximumDepositPoolSize();
-        uint256 rocketPoolBalance = rocketPool.getBalance();
+        uint256 totalCollateral = rocketETH.getTotalCollateral();
+        uint256 totalCollateralReth = rocketETH.getRethValue(totalCollateral);
 
         limits = new uint256[](2);
         if(address(sellToken) == address(0)) {
-            limits[0] = maximumDepositPoolSize > rocketPoolBalance ? maximumDepositPoolSize - rocketPool.getBalance() : rocketPool.getBalance();
-            limits[1] = rocketETH.getTotalCollateral();
+            limits[0] = totalCollateral;
+            limits[1] = totalCollateralReth;
         }
         else {
-            limits[0] = rocketETH.getTotalCollateral();
-            limits[1] = maximumDepositPoolSize > rocketPoolBalance ? maximumDepositPoolSize - rocketPool.getBalance() : rocketPool.getBalance();
+            limits[0] = totalCollateralReth;
+            limits[1] = totalCollateral;
         }
     }
 
