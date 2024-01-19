@@ -11,7 +11,7 @@ contract AnkrBNBStakingPoolAdapterTest is Test, ISwapAdapterTypes {
     using FractionMath for Fraction;
 
     AnkrBNBStakingPoolAdapter adapter;
-    ICertificateToken constant ankrBNB = ICertificateToken(0x52F24a5e03aee338Da5fd9Df68D2b6FAe1178827);
+    ICertificateToken ankrBNB;
     IERC20 constant BNB = IERC20(address(0));
     IAnkrBNBStakingPool constant pool = IAnkrBNBStakingPool(0x9e347Af362059bf2E55839002c699F7A5BaFE86E);
     uint256 constant TEST_ITERATIONS = 100;
@@ -21,6 +21,8 @@ contract AnkrBNBStakingPoolAdapterTest is Test, ISwapAdapterTypes {
         vm.createSelectFork(vm.rpcUrl("bsc"), forkBlock);
         adapter = new
             AnkrBNBStakingPoolAdapter(pool);
+        (, address ankrBNBAddress_) = pool.getTokens();
+        ankrBNB = ICertificateToken(ankrBNBAddress_);
 
         vm.label(address(adapter), "AnkrBNBStakingPoolAdapter");
         vm.label(address(0), "BNB");
