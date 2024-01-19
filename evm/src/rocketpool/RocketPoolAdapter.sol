@@ -103,6 +103,20 @@ contract RocketPoolAdapter is ISwapAdapter {
         uint256 totalCollateralReth = rocketETH.getRethValue(totalCollateral);
 
         limits = new uint256[](2);
+        /**
+         * @dev About MAX limits:
+         * Rocketpool also implicitly implements a secondary limit applied on deposits, which is:
+         * depositPoolMaxCapacity - depositPoolBalance (ref: RocketDepositPool.sol:173),
+         * But we use with totalCollateral and its conversion to rEETH since using the above
+         * won't meet requirements when using OrderSide == Buy, as the output amount is in rETH or viceversa,
+         * and the final method burn() will revert since higher. (ref: RocketTokenRETH.sol:140)
+         * 
+         * @dev About MIN limits:
+         * minLimits for rocketPool can be get via the function rocketDao.getMinimumDeposit(),
+         * it returns the min. amount in ETH;
+         * to get minimum rETH amount, use rocketETH.getRethValue(min. amount in ETH);
+         * 
+         */
         if(address(sellToken) == address(0)) {
             limits[0] = totalCollateral;
             limits[1] = totalCollateralReth;
