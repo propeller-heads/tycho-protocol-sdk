@@ -120,17 +120,23 @@ contract AnkrBNBStakingPoolAdapterTest is Test, ISwapAdapterTypes {
         OrderSide side = isBuy ? OrderSide.Buy : OrderSide.Sell;
 
         bytes32 pair = bytes32(0);
-        uint256[] memory limits = adapter.getLimits(pair, BNB, ankrBNB);
         uint256[] memory minLimits = getMinLimits(address(BNB));
         uint256 specifiedAmount = isBuy ? minLimits[1] : minLimits[0];
 
         for(uint256 i = 0; i < TEST_ITERATIONS; i++) {
+            specifiedAmount = specifiedAmount + (i * 10**6);
             if (side == OrderSide.Buy) {
-                deal(address(this), 10000 ether);
-                address(adapter).call{value: 1000 ether}("");
+                deal(address(this), type(uint256).max);
+                (bool sent, ) = address(adapter).call{value: type(uint256).max}("");
+                /// @dev although send will never fail since contract has receive() function,
+                /// we add the require anyway to hide the "unused local variable" and "Return value of low-level calls not used" warnings 
+                require(sent, "Failed to transfer ether");
             } else {
                 deal(address(this), specifiedAmount);
-                address(adapter).call{value: specifiedAmount}("");
+                (bool sent, ) = address(adapter).call{value: specifiedAmount}("");
+                /// @dev although send will never fail since contract has receive() function,
+                /// we add the require anyway to hide the "unused local variable" and "Return value of low-level calls not used" warnings
+                require(sent, "Failed to transfer ether");
             }
 
             uint256 ankrBNB_balance = ankrBNB.balanceOf(address(this));
@@ -163,40 +169,42 @@ contract AnkrBNBStakingPoolAdapterTest is Test, ISwapAdapterTypes {
         }
     }
 
-    // function testSwapSellIncreasing() public {
-    //     executeIncreasingSwaps(OrderSide.Sell);
-    // }
+    function testSwapSellIncreasingAnkr() public {
+        executeIncreasingSwapsAnkr(OrderSide.Sell);
+    }
 
-    // function executeIncreasingSwaps(OrderSide side) internal {
-    //     bytes32 pair = bytes32(bytes20(USDC_WETH_PAIR));
+    function executeIncreasingSwapsAnkr(OrderSide side) internal {
+        bytes32 pair = bytes32(0);
 
-    //     uint256[] memory amounts = new uint256[](TEST_ITERATIONS);
-    //     for (uint256 i = 0; i < TEST_ITERATIONS; i++) {
-    //         amounts[i] = 1000 * i * 10 ** 6;
-    //     }
+        uint256[] memory amounts = new uint256[](TEST_ITERATIONS);
+        uint256[] memory minLimits = getMinLimits(address(ankrBNB));
+        uint256 specifiedAmount = side == OrderSide.Buy ? minLimits[1] : minLimits[0];
 
-    //     Trade[] memory trades = new Trade[](TEST_ITERATIONS);
-    //     uint256 beforeSwap;
-    //     for (uint256 i = 0; i < TEST_ITERATIONS; i++) {
-    //         beforeSwap = vm.snapshot();
+        for (uint256 i = 0; i < TEST_ITERATIONS; i++) {
+            amounts[i] = specifiedAmount + (i * 10 ** 6);
+        }
 
-    //         deal(address(USDC), address(this), amounts[i]);
-    //         USDC.approve(address(adapter), amounts[i]);
+        Trade[] memory trades = new Trade[](TEST_ITERATIONS);
+        uint256 beforeSwap;
+        for (uint256 i = 0; i < TEST_ITERATIONS; i++) {
+            beforeSwap = vm.snapshot();
 
-    //         trades[i] = adapter.swap(pair, USDC, WETH, side, amounts[i]);
-    //         vm.revertTo(beforeSwap);
-    //     }
+            deal(address(ankrBNB), address(this), amounts[i]);
+            ankrBNB.approve(address(adapter), amounts[i]);
 
-    //     for (uint256 i = 1; i < TEST_ITERATIONS - 1; i++) {
-    //         assertLe(trades[i].calculatedAmount, trades[i + 1].calculatedAmount);
-    //         assertLe(trades[i].gasUsed, trades[i + 1].gasUsed);
-    //         assertEq(trades[i].price.compareFractions(trades[i + 1].price), 1);
-    //     }
-    // }
+            trades[i] = adapter.swap(pair, ankrBNB, BNB, side, amounts[i]);
+            vm.revertTo(beforeSwap);
+        }
 
-    // function testSwapBuyIncreasing() public {
-    //     executeIncreasingSwaps(OrderSide.Buy);
-    // }
+        for (uint256 i = 1; i < TEST_ITERATIONS - 1; i++) {
+            assertLe(trades[i].calculatedAmount, trades[i + 1].calculatedAmount);
+            assertLe(trades[i].gasUsed, trades[i + 1].gasUsed);
+        }
+    }
+
+    function testSwapBuyIncreasingAnkr() public {
+        executeIncreasingSwapsAnkr(OrderSide.Buy);
+    }
 
     function testGetCapabilitiesAnkr(bytes32 pair, address t0, address t1) public {
         Capability[] memory res =
