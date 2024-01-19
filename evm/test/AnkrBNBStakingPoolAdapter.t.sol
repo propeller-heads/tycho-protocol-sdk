@@ -115,8 +115,7 @@ contract AnkrBNBStakingPoolAdapterTest is Test, ISwapAdapterTypes {
         }
     }
 
-    function testSwapFuzzAnkrWithBNB() public {
-        bool isBuy = false;
+    function testSwapFuzzAnkrWithBNB(bool isBuy) public {
         OrderSide side = isBuy ? OrderSide.Buy : OrderSide.Sell;
 
         bytes32 pair = bytes32(0);
@@ -126,8 +125,8 @@ contract AnkrBNBStakingPoolAdapterTest is Test, ISwapAdapterTypes {
         for(uint256 i = 0; i < TEST_ITERATIONS; i++) {
             specifiedAmount = specifiedAmount + (i * 10**6);
             if (side == OrderSide.Buy) {
-                deal(address(this), type(uint256).max);
-                (bool sent, ) = address(adapter).call{value: type(uint256).max}("");
+                deal(address(this), 10000 ether);
+                (bool sent, ) = address(adapter).call{value: 10000 ether}("");
                 /// @dev although send will never fail since contract has receive() function,
                 /// we add the require anyway to hide the "unused local variable" and "Return value of low-level calls not used" warnings 
                 require(sent, "Failed to transfer ether");
