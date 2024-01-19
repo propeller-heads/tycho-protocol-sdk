@@ -17,7 +17,7 @@ contract RocketPoolAdapterTest is Test, ISwapAdapterTypes {
     uint256 constant TEST_ITERATIONS = 100;
 
     function setUp() public {
-        uint256 forkBlock = 19021957;
+        uint256 forkBlock = 19011957;
         vm.createSelectFork(vm.rpcUrl("mainnet"), forkBlock);
         adapter = new
             RocketPoolAdapter(rocketStorage);
@@ -70,155 +70,156 @@ contract RocketPoolAdapterTest is Test, ISwapAdapterTypes {
         }
     }
 
-    // function testSwapFuzzAnkr(uint256 specifiedAmount, bool isBuy) public {
-    //     OrderSide side = isBuy ? OrderSide.Buy : OrderSide.Sell;
+    function testSwapFuzzRocketPool(uint256 specifiedAmount, bool isBuy) public {
+        OrderSide side = isBuy ? OrderSide.Buy : OrderSide.Sell;
 
-    //     bytes32 pair = bytes32(0);
-    //     uint256[] memory limits = adapter.getLimits(pair, ankrBNB, BNB);
-    //     uint256[] memory minLimits = getMinLimits(address(ankrBNB));
+        bytes32 pair = bytes32(0);
+        uint256[] memory limits = adapter.getLimits(pair, rocketETH, ETH);
+        uint256[] memory minLimits = getMinLimits(address(rocketETH));
 
-    //     if (side == OrderSide.Buy) {
-    //         vm.assume(specifiedAmount < limits[1] && specifiedAmount > minLimits[1]);
+        if (side == OrderSide.Buy) {
+            vm.assume(specifiedAmount < limits[1] && specifiedAmount > minLimits[1]);
 
-    //         deal(address(ankrBNB), address(this), type(uint256).max);
-    //         ankrBNB.approve(address(adapter), type(uint256).max);
-    //     } else {
-    //         vm.assume(specifiedAmount < limits[0] && specifiedAmount > minLimits[0]);
+            deal(address(rocketETH), address(this), type(uint256).max);
+            rocketETH.approve(address(adapter), type(uint256).max);
+        } else {
+            vm.assume(specifiedAmount < limits[0] && specifiedAmount > minLimits[0]);
 
-    //         deal(address(ankrBNB), address(this), specifiedAmount);
-    //         ankrBNB.approve(address(adapter), specifiedAmount);
-    //     }
+            deal(address(rocketETH), address(this), specifiedAmount);
+            rocketETH.approve(address(adapter), specifiedAmount);
+        }
 
-    //     uint256 ankrBNB_balance = ankrBNB.balanceOf(address(this));
-    //     uint256 BNB_balance = address(this).balance;
+        uint256 rocketETH_balance = rocketETH.balanceOf(address(this));
+        uint256 ETH_balance = address(this).balance;
 
-    //     Trade memory trade =
-    //         adapter.swap(pair, ankrBNB, BNB, side, specifiedAmount);
+        Trade memory trade =
+            adapter.swap(pair, rocketETH, ETH, side, specifiedAmount);
 
-    //     if (trade.calculatedAmount > 0) {
-    //         if (side == OrderSide.Buy) {
-    //             assertEq(
-    //                 specifiedAmount,
-    //                 address(this).balance - BNB_balance
-    //             );
-    //             assertEq(
-    //                 trade.calculatedAmount,
-    //                 ankrBNB_balance - ankrBNB.balanceOf(address(this))
-    //             );
-    //         } else {
-    //             assertEq(
-    //                 specifiedAmount,
-    //                 ankrBNB_balance - ankrBNB.balanceOf(address(this))
-    //             );
-    //             assertEq(
-    //                 trade.calculatedAmount,
-    //                 address(this).balance - BNB_balance
-    //             );
-    //         }
-    //     }
-    // }
+        if (trade.calculatedAmount > 0) {
+            if (side == OrderSide.Buy) {
+                assertEq(
+                    specifiedAmount,
+                    address(this).balance - ETH_balance
+                );
+                assertEq(
+                    trade.calculatedAmount,
+                    rocketETH_balance - rocketETH.balanceOf(address(this))
+                );
+            } else {
+                assertEq(
+                    specifiedAmount,
+                    rocketETH_balance - rocketETH.balanceOf(address(this))
+                );
+                assertEq(
+                    trade.calculatedAmount,
+                    address(this).balance - ETH_balance
+                );
+            }
+        }
+    }
 
-    // function testSwapFuzzAnkrWithBNB(bool isBuy) public {
-    //     OrderSide side = isBuy ? OrderSide.Buy : OrderSide.Sell;
+    function testSwapFuzzRocketpoolWithETH(uint256 specifiedAmount, bool isBuy) public {
+        OrderSide side = isBuy ? OrderSide.Buy : OrderSide.Sell;
 
-    //     bytes32 pair = bytes32(0);
-    //     uint256[] memory minLimits = getMinLimits(address(BNB));
-    //     uint256 specifiedAmount = isBuy ? minLimits[1] : minLimits[0];
+        bytes32 pair = bytes32(0);
+        uint256[] memory limits = adapter.getLimits(bytes32(0), ETH, rocketETH);
+        uint256[] memory minLimits = getMinLimits(address(ETH));
+ 
+        if (side == OrderSide.Buy) {
+            vm.assume(specifiedAmount < limits[1] && specifiedAmount > minLimits[1]);
 
-    //     for(uint256 i = 0; i < TEST_ITERATIONS; i++) {
-    //         specifiedAmount = specifiedAmount + (i * 10**6);
-    //         if (side == OrderSide.Buy) {
-    //             deal(address(this), 10000 ether);
-    //             (bool sent, ) = address(adapter).call{value: 10000 ether}("");
-    //             /// @dev although send will never fail since contract has receive() function,
-    //             /// we add the require anyway to hide the "unused local variable" and "Return value of low-level calls not used" warnings 
-    //             require(sent, "Failed to transfer ether");
-    //         } else {
-    //             deal(address(this), specifiedAmount);
-    //             (bool sent, ) = address(adapter).call{value: specifiedAmount}("");
-    //             /// @dev although send will never fail since contract has receive() function,
-    //             /// we add the require anyway to hide the "unused local variable" and "Return value of low-level calls not used" warnings
-    //             require(sent, "Failed to transfer ether");
-    //         }
+            deal(address(this), 10000 ether);
+            (bool sent, ) = address(adapter).call{value: 10000 ether}("");
+            /// @dev although send will never fail since contract has receive() function,
+            /// we add the require anyway to hide the "unused local variable" and "Return value of low-level calls not used" warnings 
+            require(sent, "Failed to transfer ether");
+        } else {
+            vm.assume(specifiedAmount < limits[0] && specifiedAmount > minLimits[0]);
 
-    //         uint256 ankrBNB_balance = ankrBNB.balanceOf(address(this));
-    //         uint256 BNB_balance = address(this).balance;
+            deal(address(this), specifiedAmount);
+            (bool sent, ) = address(adapter).call{value: specifiedAmount}("");
+            /// @dev although send will never fail since contract has receive() function,
+            /// we add the require anyway to hide the "unused local variable" and "Return value of low-level calls not used" warnings
+            require(sent, "Failed to transfer ether");
+        }
 
-    //         Trade memory trade =
-    //             adapter.swap(pair, BNB, ankrBNB, side, specifiedAmount);
+        uint256 rocketETH_balance = rocketETH.balanceOf(address(this));
+        uint256 ETH_balance = address(this).balance;
 
-    //         if (trade.calculatedAmount > 0) {
-    //             if (side == OrderSide.Buy) {
-    //                 assertEq(
-    //                     specifiedAmount,
-    //                     ankrBNB_balance - ankrBNB.balanceOf(address(this))
-    //                 );
-    //                 assertEq(
-    //                     trade.calculatedAmount,
-    //                     address(this).balance - BNB_balance
-    //                 );
-    //             } else {
-    //                 assertEq(
-    //                     specifiedAmount,
-    //                     address(this).balance - BNB_balance
-    //                 );
-    //                 assertEq(
-    //                     trade.calculatedAmount,
-    //                     ankrBNB_balance - ankrBNB.balanceOf(address(this))
-    //                 );
-    //             }
-    //         }
-    //     }
-    // }
+        Trade memory trade =
+            adapter.swap(pair, ETH, rocketETH, side, specifiedAmount);
 
-    // function testSwapSellIncreasingAnkr() public {
-    //     executeIncreasingSwapsAnkr(OrderSide.Sell);
-    // }
+        if (trade.calculatedAmount > 0) {
+            if (side == OrderSide.Buy) {
+                assertEq(
+                    specifiedAmount,
+                    rocketETH_balance - rocketETH.balanceOf(address(this))
+                );
+                assertEq(
+                    trade.calculatedAmount,
+                    address(this).balance - ETH_balance
+                );
+            } else {
+                assertEq(
+                    specifiedAmount,
+                    address(this).balance - ETH_balance
+                );
+                assertEq(
+                    trade.calculatedAmount,
+                    rocketETH_balance - rocketETH.balanceOf(address(this))
+                );
+            }
+        }
+    }
 
-    // function executeIncreasingSwapsAnkr(OrderSide side) internal {
-    //     bytes32 pair = bytes32(0);
+    function testSwapSellIncreasingRocketpool() public {
+        executeIncreasingSwapsRocketpool(OrderSide.Sell);
+    }
 
-    //     uint256[] memory amounts = new uint256[](TEST_ITERATIONS);
-    //     uint256[] memory minLimits = getMinLimits(address(ankrBNB));
-    //     uint256 specifiedAmount = side == OrderSide.Buy ? minLimits[1] : minLimits[0];
+    function executeIncreasingSwapsRocketpool(OrderSide side) internal {
+        bytes32 pair = bytes32(0);
 
-    //     for (uint256 i = 0; i < TEST_ITERATIONS; i++) {
-    //         amounts[i] = specifiedAmount + (i * 10 ** 6);
-    //     }
+        uint256[] memory amounts = new uint256[](TEST_ITERATIONS);
+        uint256[] memory minLimits = getMinLimits(address(rocketETH));
+        uint256 specifiedAmount = side == OrderSide.Buy ? minLimits[1] : minLimits[0];
 
-    //     Trade[] memory trades = new Trade[](TEST_ITERATIONS);
-    //     uint256 beforeSwap;
-    //     for (uint256 i = 0; i < TEST_ITERATIONS; i++) {
-    //         beforeSwap = vm.snapshot();
+        for (uint256 i = 0; i < TEST_ITERATIONS; i++) {
+            amounts[i] = specifiedAmount + (i * 10 ** 6);
+        }
 
-    //         deal(address(ankrBNB), address(this), amounts[i]);
-    //         ankrBNB.approve(address(adapter), amounts[i]);
+        Trade[] memory trades = new Trade[](TEST_ITERATIONS);
+        uint256 beforeSwap;
+        for (uint256 i = 0; i < TEST_ITERATIONS; i++) {
+            beforeSwap = vm.snapshot();
 
-    //         trades[i] = adapter.swap(pair, ankrBNB, BNB, side, amounts[i]);
-    //         vm.revertTo(beforeSwap);
-    //     }
+            deal(address(rocketETH), address(this), amounts[i]);
+            rocketETH.approve(address(adapter), amounts[i]);
 
-    //     for (uint256 i = 1; i < TEST_ITERATIONS - 1; i++) {
-    //         assertLe(trades[i].calculatedAmount, trades[i + 1].calculatedAmount);
-    //         assertLe(trades[i].gasUsed, trades[i + 1].gasUsed);
-    //     }
-    // }
+            trades[i] = adapter.swap(pair, rocketETH, ETH, side, amounts[i]);
+            vm.revertTo(beforeSwap);
+        }
 
-    // function testSwapBuyIncreasingAnkr() public {
-    //     executeIncreasingSwapsAnkr(OrderSide.Buy);
-    // }
+        for (uint256 i = 1; i < TEST_ITERATIONS - 1; i++) {
+            assertLe(trades[i].calculatedAmount, trades[i + 1].calculatedAmount);
+            assertLe(trades[i].gasUsed, trades[i + 1].gasUsed);
+        }
+    }
 
-    // function testGetCapabilitiesAnkr(bytes32 pair, address t0, address t1) public {
-    //     Capability[] memory res =
-    //         adapter.getCapabilities(pair, IERC20(t0), IERC20(t1));
+    function testSwapBuyIncreasingRocketpool() public {
+        executeIncreasingSwapsRocketpool(OrderSide.Buy);
+    }
 
-    //     assertEq(res.length, 3);
-    // }
+    function testGetCapabilitiesRocketpool(bytes32 pair, address t0, address t1) public {
+        Capability[] memory res =
+            adapter.getCapabilities(pair, IERC20(t0), IERC20(t1));
 
-    // function testGetLimitsAnkr() public {
-    //     bytes32 pair = bytes32(0);
-    //     uint256[] memory limits = adapter.getLimits(pair, IERC20(address(ankrBNB)), BNB);
+        assertEq(res.length, 3);
+    }
 
-    //     assertEq(limits.length, 2);
-    // }
+    function testGetLimitsRocketpool() public {
+        bytes32 pair = bytes32(0);
+        uint256[] memory limits = adapter.getLimits(pair, IERC20(address(rocketETH)), ETH);
+
+        assertEq(limits.length, 2);
+    }
 }
