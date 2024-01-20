@@ -144,7 +144,6 @@ contract FraxSwapV2SwapAdapterTest is Test, ISwapAdapterTypes {
                 FRAX.approve(address(adapter), amounts[i]);
             }
 
-
             trades[i] = adapter.swap(pair, FRAX, WETH, side, amounts[i]);
             vm.revertTo(beforeSwap);
         }

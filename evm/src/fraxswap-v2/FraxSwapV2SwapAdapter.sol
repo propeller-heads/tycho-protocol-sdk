@@ -9,6 +9,7 @@ import {SafeERC20} from "openzeppelin-contracts/contracts/token/ERC20/utils/Safe
 uint256 constant RESERVE_LIMIT_FACTOR = 10;
 
 /// @title Frax Swap Adapter
+/// @dev The fee() variable in FraxSwapV2 is ( 100%(10000) - fee(e.g. 5) ), so it is a net amount and not a fee
 contract FraxSwapV2SwapAdapter is ISwapAdapter {
 
     using SafeERC20 for IERC20;
@@ -23,13 +24,14 @@ contract FraxSwapV2SwapAdapter is ISwapAdapter {
     function price(
         bytes32 _poolId,
         IERC20 _sellToken,
-        IERC20 _buyToken,
+        IERC20,
         uint256[] memory _specifiedAmounts
     ) external view override returns (Fraction[] memory _prices) {
         _prices = new Fraction[](_specifiedAmounts.length);
         IUniswapV2PairPartialV5 pair = IUniswapV2PairPartialV5(address(bytes20(_poolId)));
         uint112 r0;
         uint112 r1;
+        uint256 unitLessFee = pair.fee();
         if (address(_sellToken) == pair.token0()) { // sell
             (r0, r1,) = pair.getReserves();
         } else { // buy
@@ -37,7 +39,7 @@ contract FraxSwapV2SwapAdapter is ISwapAdapter {
         }
 
         for (uint256 i = 0; i < _specifiedAmounts.length; i++) {
-            _prices[i] = getPriceAt(_specifiedAmounts[i], r0, r1, pair);
+            _prices[i] = getPriceAt(_specifiedAmounts[i], r0, r1, unitLessFee);
         }
     }
 
@@ -45,7 +47,7 @@ contract FraxSwapV2SwapAdapter is ISwapAdapter {
     function swap(
         bytes32 poolId,
         IERC20 sellToken,
-        IERC20 buyToken,
+        IERC20,
         OrderSide side,
         uint256 specifiedAmount
     ) external returns (Trade memory trade) {
@@ -56,7 +58,9 @@ contract FraxSwapV2SwapAdapter is ISwapAdapter {
         IUniswapV2PairPartialV5 pair = IUniswapV2PairPartialV5(address(bytes20(poolId)));
         uint112 r0;
         uint112 r1;
-        if (address(sellToken) == pair.token0()) {
+        uint256 unitLessFee = pair.fee();
+        bool zero2one = address(sellToken) == pair.token0();
+        if (zero2one) {
             (r0, r1,) = pair.getReserves();
         } else {
             (r1, r0,) = pair.getReserves();
@@ -64,17 +68,17 @@ contract FraxSwapV2SwapAdapter is ISwapAdapter {
         uint256 gasBefore = gasleft();
         if (side == OrderSide.Sell) {
             trade.calculatedAmount =
-                sell(pair, sellToken, buyToken, specifiedAmount);
+                sell(pair, sellToken, zero2one, r0, r1, specifiedAmount, unitLessFee);
         } else {
             trade.calculatedAmount =
-                buy(pair, sellToken, buyToken, specifiedAmount);
+                buy(pair, sellToken, zero2one, r0, r1, specifiedAmount, unitLessFee);
         }
         trade.gasUsed = gasBefore - gasleft();
-        trade.price = getPriceAt(specifiedAmount, r0, r1, pair);
+        trade.price = getPriceAt(specifiedAmount, r0, r1, unitLessFee);
     }
 
     /// @inheritdoc ISwapAdapter
-    function getLimits(bytes32 poolId, IERC20 sellToken, IERC20 buyToken)
+    function getLimits(bytes32 poolId, IERC20 sellToken, IERC20)
         external
         view
         override
@@ -93,7 +97,7 @@ contract FraxSwapV2SwapAdapter is ISwapAdapter {
     }
 
     /// @inheritdoc ISwapAdapter
-    function getCapabilities(bytes32 poolId, IERC20 sellToken, IERC20 buyToken)
+    function getCapabilities(bytes32, IERC20, IERC20)
         external
         pure
         override
@@ -138,47 +142,59 @@ contract FraxSwapV2SwapAdapter is ISwapAdapter {
     /// @notice Executes a sell order on a given pool.
     /// @param pair The pair to trade on.
     /// @param sellToken The token being sold.
-    /// @param buyToken The token being bought.
+    /// @param zero2one Whether the sell token is token0 or token1.
+    /// @param reserveIn The reserve of the token being sold.
+    /// @param reserveOut The reserve of the token being bought.
     /// @param amount The amount to be traded.
+    /// @param unitLessFee The 100% - fee for this pair
     /// @return calculatedAmount The amount of tokens received.
     function sell(
         IUniswapV2PairPartialV5 pair,
         IERC20 sellToken,
-        IERC20 buyToken,
-        uint256 amount
+        bool zero2one,
+        uint112 reserveIn,
+        uint112 reserveOut,
+        uint256 amount,
+        uint256 unitLessFee
     ) internal returns (uint256) {
-        uint256 amountOut = pair.getAmountOut(amount, address(sellToken));
+        uint256 amountOut = getAmountOut(amount, reserveIn, reserveOut, unitLessFee);
 
         sellToken.safeTransferFrom(msg.sender, address(pair), amount);
-        if(address(buyToken) == pair.token0()) {
-            pair.swap(amountOut, 0, msg.sender, "");
-        }
-        else {
+        if(zero2one) {
             pair.swap(0, amountOut, msg.sender, "");
+        }
+        else{
+            pair.swap(amountOut, 0, msg.sender, "");
         }
         return amountOut;
     }
 
-    /// @notice Executes a buy order on a given pool.
+    /// @notice Execute a buy order on a given pool.
     /// @param pair The pair to trade on.
     /// @param sellToken The token being sold.
-    /// @param buyToken The token being bought.
-    /// @param amountBought The amount of buyToken tokens to buy.
-    /// @return calculatedAmount The amount of tokens received.
+    /// @param zero2one Whether the sell token is token0 or token1.
+    /// @param reserveIn The reserve of the token being sold.
+    /// @param reserveOut The reserve of the token being bought.
+    /// @param amountOut The amount of tokens to be bought.
+    /// @param unitLessFee The 100% - fee for this pair
+    /// @return calculatedAmount The amount of tokens sold.
     function buy(
         IUniswapV2PairPartialV5 pair,
         IERC20 sellToken,
-        IERC20 buyToken,
-        uint256 amountBought
+        bool zero2one,
+        uint112 reserveIn,
+        uint112 reserveOut,
+        uint256 amountOut,
+        uint256 unitLessFee
     ) internal returns (uint256) {
-        uint256 amountIn = pair.getAmountIn(amountBought, address(buyToken));
+        uint256 amountIn = getAmountIn(amountOut, reserveIn, reserveOut, unitLessFee);
 
         sellToken.safeTransferFrom(msg.sender, address(pair), amountIn);
-        if(address(buyToken) == pair.token0()) {
-            pair.swap(amountBought, 0, msg.sender, "");
+        if(zero2one) {
+            pair.swap(0, amountOut, msg.sender, "");
         }
-        else {
-            pair.swap(0, amountBought, msg.sender, "");
+        else{
+            pair.swap(amountOut, 0, msg.sender, "");
         }
         return amountIn;
     }
@@ -187,19 +203,18 @@ contract FraxSwapV2SwapAdapter is ISwapAdapter {
     /// @param amountIn The amount of the token being sold.
     /// @param reserveIn The reserve of the token being sold.
     /// @param reserveOut The reserve of the token being bought.
-    /// @param pair (IUniswapV2PairPartialV5) The pair where to execute the swap in.
+    /// @param unitLessFee The 100% - fee for this pair
     /// @dev Basis points(BP) is 10,000 for Frax
-    function getPriceAt(uint256 amountIn, uint256 reserveIn, uint256 reserveOut, IUniswapV2PairPartialV5 pair)
+    function getPriceAt(uint256 amountIn, uint256 reserveIn, uint256 reserveOut, uint256 unitLessFee)
         internal
-        view
+        pure
         returns (Fraction memory)
     {
         if (reserveIn == 0 || reserveOut == 0) {
             revert Unavailable("At least one reserve is zero!");
         }
-        uint256 feeBP = pair.fee();
 
-        uint256 amountInWithFee = amountIn * feeBP;
+        uint256 amountInWithFee = amountIn * unitLessFee;
         uint256 numerator = amountInWithFee * reserveOut;
         uint256 denominator = (reserveIn * 10000) + amountInWithFee;
         uint256 amountOut = numerator / denominator;
@@ -208,8 +223,59 @@ contract FraxSwapV2SwapAdapter is ISwapAdapter {
 
         return Fraction(
             newReserveOut * 10000, 
-            newReserveIn * feeBP
+            newReserveIn * unitLessFee
         );
+    }
+
+    /// @notice Given an input amount of an asset and pair reserves, returns the
+    /// maximum output amount of the other asset
+    /// @param amountIn The amount of the token being sold.
+    /// @param reserveIn The reserve of the token being sold.
+    /// @param reserveOut The reserve of the token being bought.
+    /// @param unitLessFee The 100% - fee for this pair
+    /// @return amountOut The amount of tokens received.
+    function getAmountOut(
+        uint256 amountIn,
+        uint256 reserveIn,
+        uint256 reserveOut,
+        uint256 unitLessFee
+    ) internal pure returns (uint256 amountOut) {
+        if (amountIn == 0) {
+            return 0;
+        }
+        if (reserveIn == 0 || reserveOut == 0) {
+            revert Unavailable("At least one reserve is zero!");
+        }
+        uint256 amountInWithFee = amountIn * unitLessFee;
+        uint256 numerator = amountInWithFee * reserveOut;
+        uint denominator = (reserveIn * 10000) + amountInWithFee;
+        amountOut = numerator / denominator;
+    }
+
+    /// @notice Given an output amount of an asset and pair reserves, returns a
+    /// required input amount of the other asset
+    /// @param amountOut The amount of the token being bought.
+    /// @param reserveIn The reserve of the token being sold.
+    /// @param reserveOut The reserve of the token being bought.
+    /// @param unitLessFee The 100% - fee for this pair
+    function getAmountIn(
+        uint256 amountOut,
+        uint256 reserveIn,
+        uint256 reserveOut,
+        uint256 unitLessFee
+    ) internal pure returns (uint256 amountIn) {
+        if (amountOut == 0) {
+            return 0;
+        }
+        if (reserveIn == 0) {
+            revert Unavailable("reserveIn is zero");
+        }
+        if (reserveOut == 0) {
+            revert Unavailable("reserveOut is zero");
+        }
+        uint256 numerator = reserveIn * amountOut * 10000;
+        uint256 denominator = (reserveOut - amountOut) * unitLessFee;
+        amountIn = (numerator / denominator) + 1;
     }
 }
 
