@@ -144,11 +144,16 @@ contract LidoAdapter is ISwapAdapter {
         }
     }
 
-    function getCapabilities(bytes32 poolId, IERC20 sellToken, IERC20 buyToken)
+    function getCapabilities(bytes32, IERC20, IERC20)
         external
+        pure
+        override
         returns (Capability[] memory capabilities)
     {
-        revert NotImplemented("LidoAdapter.getCapabilities");
+        capabilities = new Capability[](3);
+        capabilities[0] = Capability.SellOrder;
+        capabilities[1] = Capability.BuyOrder;
+        capabilities[2] = Capability.PriceFunction;
     }
 
     /// @inheritdoc ISwapAdapter
