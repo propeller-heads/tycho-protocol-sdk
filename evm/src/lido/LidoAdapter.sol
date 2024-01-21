@@ -80,30 +80,44 @@ contract LidoAdapter is ISwapAdapter {
 
         address stETHAddress = address(stETH);
         address wstETHAddress = address(wstETH);
+        address sellTokenAddress = address(sellToken);
         if(address(buyToken) == address(0)) {
             revert Unavailable("Cannot swap for ETH since withdrawal is processed externally");
         }
 
         if(side == OrderSide.Buy) {
-            if(address(sellToken) == stETHAddress) {
+            if(sellTokenAddress == stETHAddress) { // stETH-wstETH
                 uint256 amountIn = wstETH.getStETHByWstETH(specifiedAmount);
                 stETH.transferFrom(msg.sender, address(this), amountIn);
                 stETH.approve(wstETHAddress, amountIn);
                 wstETH.wrap(amountIn);
             }
-            else {
+            else if(sellTokenAddress == wstETHAddress) { // wstETH-stETH
                 uint256 amountIn = wstETH.getWstETHByStETH(specifiedAmount);
                 wstETH.transferFrom(msg.sender, address(this), amountIn);
                 wstETH.unwrap(amountIn);
             }
+            else { // ETH-wstETH and ETH-stETH
+                if(address(buyToken) == stETHAddress) {
+                    uint256 amountIn = stETH.getPooledEthByShares(specifiedAmount);
+                    (bool sent_, ) = wstETHAddress.call{value: amountIn}("");
+                    if(!sent_) { revert Unavailable("Ether transfer failed"); }
+                    uint256 wstETHAmountReceived = stETH.getSharesByPooledEth(amountIn);
+                    wstETH.unwrap(wstETHAmountReceived);
+                }
+                else {
+                    (bool sent_, ) = wstETHAddress.call{value: specifiedAmount}("");
+                    if(!sent_) { revert Unavailable("Ether transfer failed"); }
+                }
+            }
         }
         else {
-            if(address(sellToken) == stETHAddress) {
+            if(sellTokenAddress == stETHAddress) {
                 stETH.transferFrom(msg.sender, address(this), specifiedAmount);
                 stETH.approve(wstETHAddress, specifiedAmount);
                 wstETH.wrap(specifiedAmount);
             }
-            else if(address(sellToken) == address(0)) {
+            else if(sellTokenAddress == address(0)) {
                 if(address(buyToken) == stETHAddress) {
                     (bool sent_, ) = wstETHAddress.call{value: specifiedAmount}("");
                     if(!sent_) { revert Unavailable("Ether transfer failed"); }
