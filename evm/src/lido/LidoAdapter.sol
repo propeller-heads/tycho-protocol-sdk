@@ -2,6 +2,7 @@
 pragma experimental ABIEncoderV2;
 pragma solidity ^0.8.13;
 
+import "forge-std/Test.sol";
 import {IERC20, ISwapAdapter} from "src/interfaces/ISwapAdapter.sol";
 
 /// @title Lido DAO Adapter
@@ -93,7 +94,7 @@ contract LidoAdapter is ISwapAdapter {
             else {
                 uint256 amountIn = wstETH.getWstETHByStETH(specifiedAmount);
                 wstETH.transferFrom(msg.sender, address(this), amountIn);
-                wstETH.unwrap(specifiedAmount);
+                wstETH.unwrap(amountIn);
             }
         }
         else {
@@ -129,18 +130,28 @@ contract LidoAdapter is ISwapAdapter {
         override
         returns (uint256[] memory limits)
     {
+        uint256 currentStakeLimitStETH = stETH.getCurrentStakeLimit(); // same as ETH stake limit
+        uint256 currentStakeLimitWstETH = wstETH.getWstETHByStETH(currentStakeLimitStETH);
+        address sellTokenAddress = address(sellToken);
+        address stETHAddress = address(stETH);
+
         limits = new uint256[](2);
-        if(address(sellToken) == address(stETH)) {
-            limits[0] = stETH.getCurrentStakeLimit();
-            limits[1] = type(uint256).max;
+        if(sellTokenAddress == stETHAddress) { // stETH-wstETH
+            limits[0] = currentStakeLimitStETH;
+            limits[1] = currentStakeLimitWstETH;
         }
-        else if(address(buyToken) == address(stETH)) {
-            limits[0] = type(uint256).max;
-            limits[1] = stETH.getCurrentStakeLimit();
+        else if(sellTokenAddress == address(wstETH)) { // wstETH-stETH
+            limits[0] = currentStakeLimitWstETH;
+            limits[1] = currentStakeLimitStETH;
         }
-        else {
-            limits[0] = type(uint256).max;
-            limits[1] = type(uint256).max;
+        else { // ETH-wstETH and ETH-stETH
+            limits[0] = currentStakeLimitStETH;
+            if(address(buyToken) == stETHAddress) {
+                limits[1] = currentStakeLimitStETH;
+            }
+            else {
+                limits[1] = currentStakeLimitWstETH;
+            }
         }
     }
 
