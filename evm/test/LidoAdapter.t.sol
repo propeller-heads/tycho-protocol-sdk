@@ -32,24 +32,6 @@ contract LidoAdapterTest is Test, ISwapAdapterTypes {
     /// @dev enable receive as ether will be sent to this address, and it is a contract, to prevent reverts
     receive() external payable {}
 
-    // function getMinLimits(address sellTokenAddress) internal view returns (uint256[] memory minLimits) {
-    //     minLimits = new uint256[](2);
-    //     address rocketETHAddress = address(rocketETH);
-    //     RocketDAOProtocolSettingsDepositInterface rocketDao = RocketDAOProtocolSettingsDepositInterface(
-    //         rocketStorage.getAddress(keccak256(abi.encodePacked("contract.address", "rocketDAOProtocolSettingsDeposit")))
-    //     );
-
-    //     uint256 minETHAmount = rocketDao.getMinimumDeposit();
-    //     if(sellTokenAddress == rocketETHAddress) {
-    //         minLimits[0] = rocketETH.getRethValue(minETHAmount);
-    //         minLimits[1] = minETHAmount;
-    //     }
-    //     else {
-    //         minLimits[0] = minETHAmount;
-    //         minLimits[1] = rocketETH.getRethValue(minETHAmount);
-    //     }
-    // }
-
     /// @dev custom function to mint stETH tokens as normal "deal" will revert due to stETH internal functions
     /// (ref: StETH.sol:375)
     /// @dev because of internal precision losses in Lido contracts, we unwrap the final amount - 1 to prevent overflows,
@@ -347,108 +329,53 @@ contract LidoAdapterTest is Test, ISwapAdapterTypes {
         }
     }
 
-    // function testSwapFuzzRocketpoolWithETH(uint256 specifiedAmount, bool isBuy) public {
-    //     OrderSide side = isBuy ? OrderSide.Buy : OrderSide.Sell;
+    function testSwapSellIncreasingLido() public {
+        executeIncreasingSwapsLido(OrderSide.Sell);
+    }
 
-    //     bytes32 pair = bytes32(0);
-    //     uint256[] memory limits = adapter.getLimits(bytes32(0), ETH, rocketETH);
-    //     uint256[] memory minLimits = getMinLimits(address(ETH));
- 
-    //     if (side == OrderSide.Buy) {
-    //         vm.assume(specifiedAmount < limits[1] && specifiedAmount > minLimits[1]);
+    function executeIncreasingSwapsLido(OrderSide side) internal {
+        bytes32 pair = bytes32(0);
 
-    //         deal(address(this), 10000 ether);
-    //         (bool sent, ) = address(adapter).call{value: 10000 ether}("");
-    //         /// @dev although send will never fail since contract has receive() function,
-    //         /// we add the require anyway to hide the "unused local variable" and "Return value of low-level calls not used" warnings 
-    //         require(sent, "Failed to transfer ether");
-    //     } else {
-    //         vm.assume(specifiedAmount < limits[0] && specifiedAmount > minLimits[0]);
+        uint256[] memory amounts = new uint256[](TEST_ITERATIONS);
+        uint256 specifiedAmount = 10;
 
-    //         deal(address(this), specifiedAmount);
-    //         (bool sent, ) = address(adapter).call{value: specifiedAmount}("");
-    //         /// @dev although send will never fail since contract has receive() function,
-    //         /// we add the require anyway to hide the "unused local variable" and "Return value of low-level calls not used" warnings
-    //         require(sent, "Failed to transfer ether");
-    //     }
+        for (uint256 i = 0; i < TEST_ITERATIONS; i++) {
+            amounts[i] = specifiedAmount + (i * 10 ** 6);
+        }
 
-    //     uint256 rocketETH_balance = rocketETH.balanceOf(address(this));
-    //     uint256 ETH_balance = address(this).balance;
+        Trade[] memory trades = new Trade[](TEST_ITERATIONS);
+        uint256 beforeSwap;
+        for (uint256 i = 0; i < TEST_ITERATIONS; i++) {
+            beforeSwap = vm.snapshot();
 
-    //     Trade memory trade =
-    //         adapter.swap(pair, ETH, rocketETH, side, specifiedAmount);
+            deal(address(wstETH), address(this), amounts[i]);
+            wstETH.approve(address(adapter), amounts[i]);
 
-    //     if (trade.calculatedAmount > 0) {
-    //         if (side == OrderSide.Buy) {
-    //             assertEq(
-    //                 specifiedAmount,
-    //                 rocketETH_balance - rocketETH.balanceOf(address(this))
-    //             );
-    //             assertEq(
-    //                 trade.calculatedAmount,
-    //                 address(this).balance - ETH_balance
-    //             );
-    //         } else {
-    //             assertEq(
-    //                 specifiedAmount,
-    //                 address(this).balance - ETH_balance
-    //             );
-    //             assertEq(
-    //                 trade.calculatedAmount,
-    //                 rocketETH_balance - rocketETH.balanceOf(address(this))
-    //             );
-    //         }
-    //     }
-    // }
+            trades[i] = adapter.swap(pair, wstETH, stETH, side, amounts[i]);
+            vm.revertTo(beforeSwap);
+        }
 
-    // function testSwapSellIncreasingRocketpool() public {
-    //     executeIncreasingSwapsRocketpool(OrderSide.Sell);
-    // }
+        for (uint256 i = 1; i < TEST_ITERATIONS - 1; i++) {
+            assertLe(trades[i].calculatedAmount, trades[i + 1].calculatedAmount);
+            assertLe(trades[i].gasUsed, trades[i + 1].gasUsed);
+        }
+    }
 
-    // function executeIncreasingSwapsRocketpool(OrderSide side) internal {
-    //     bytes32 pair = bytes32(0);
+    function testSwapBuyIncreasingLido() public {
+        executeIncreasingSwapsLido(OrderSide.Buy);
+    }
 
-    //     uint256[] memory amounts = new uint256[](TEST_ITERATIONS);
-    //     uint256[] memory minLimits = getMinLimits(address(rocketETH));
-    //     uint256 specifiedAmount = side == OrderSide.Buy ? minLimits[1] : minLimits[0];
+    function testGetCapabilitiesLido(bytes32 pair, address t0, address t1) public {
+        Capability[] memory res =
+            adapter.getCapabilities(pair, IERC20(t0), IERC20(t1));
 
-    //     for (uint256 i = 0; i < TEST_ITERATIONS; i++) {
-    //         amounts[i] = specifiedAmount + (i * 10 ** 6);
-    //     }
+        assertEq(res.length, 3);
+    }
 
-    //     Trade[] memory trades = new Trade[](TEST_ITERATIONS);
-    //     uint256 beforeSwap;
-    //     for (uint256 i = 0; i < TEST_ITERATIONS; i++) {
-    //         beforeSwap = vm.snapshot();
+    function testGetLimitsLido() public {
+        bytes32 pair = bytes32(0);
+        uint256[] memory limits = adapter.getLimits(pair, stETH, ETH);
 
-    //         deal(address(rocketETH), address(this), amounts[i]);
-    //         rocketETH.approve(address(adapter), amounts[i]);
-
-    //         trades[i] = adapter.swap(pair, rocketETH, ETH, side, amounts[i]);
-    //         vm.revertTo(beforeSwap);
-    //     }
-
-    //     for (uint256 i = 1; i < TEST_ITERATIONS - 1; i++) {
-    //         assertLe(trades[i].calculatedAmount, trades[i + 1].calculatedAmount);
-    //         assertLe(trades[i].gasUsed, trades[i + 1].gasUsed);
-    //     }
-    // }
-
-    // function testSwapBuyIncreasingRocketpool() public {
-    //     executeIncreasingSwapsRocketpool(OrderSide.Buy);
-    // }
-
-    // function testGetCapabilitiesRocketpool(bytes32 pair, address t0, address t1) public {
-    //     Capability[] memory res =
-    //         adapter.getCapabilities(pair, IERC20(t0), IERC20(t1));
-
-    //     assertEq(res.length, 3);
-    // }
-
-    // function testGetLimitsRocketpool() public {
-    //     bytes32 pair = bytes32(0);
-    //     uint256[] memory limits = adapter.getLimits(pair, IERC20(address(rocketETH)), ETH);
-
-    //     assertEq(limits.length, 2);
-    // }
+        assertEq(limits.length, 2);
+    }
 }
