@@ -95,19 +95,19 @@ contract CurveAdapter is ISwapAdapter {
     //     capabilities[2] = Capability.PriceFunction;
     // }
 
-    // /// @inheritdoc ISwapAdapter
-    // function getTokens(bytes32 poolId)
-    //     external
-    //     view
-    //     override
-    //     returns (IERC20[] memory tokens)
-    // {
-    //     address[8] memory coins = registry.get_coins(address(bytes20(poolId)));
-    //     tokens = new IERC20[](coins.length);
-    //     for(uint256 i = 0; i < coins.length; i++) {
-    //         tokens[i] = IERC20(coins[i]);
-    //     }
-    // }
+    /// @inheritdoc ISwapAdapter
+    function getTokens(bytes32 poolId)
+        external
+        view
+        override
+        returns (IERC20[] memory tokens)
+    {
+        address[8] memory coins = registry.get_coins(address(bytes20(poolId)));
+        tokens = new IERC20[](coins.length);
+        for(uint256 i = 0; i < coins.length; i++) {
+            tokens[i] = IERC20(coins[i]);
+        }
+    }
 
     /// @inheritdoc ISwapAdapter
     function getPoolIds(uint256 offset, uint256 limit)
