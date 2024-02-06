@@ -83,17 +83,17 @@ contract CurveAdapter is ISwapAdapter {
     //     limits[1] = poolBalances[buyTokenIndexFixed] / RESERVE_LIMIT_FACTOR;
     // }
 
-    // /// @inheritdoc ISwapAdapter
-    // function getCapabilities(bytes32, IERC20, IERC20)
-    //     external
-    //     pure
-    //     override
-    //     returns (Capability[] memory capabilities)
-    // {
-    //     capabilities = new Capability[](3);
-    //     capabilities[0] = Capability.SellOrder;
-    //     capabilities[2] = Capability.PriceFunction;
-    // }
+    /// @inheritdoc ISwapAdapter
+    function getCapabilities(bytes32, IERC20, IERC20)
+        external
+        pure
+        override
+        returns (Capability[] memory capabilities)
+    {
+        capabilities = new Capability[](3);
+        capabilities[0] = Capability.SellOrder;
+        capabilities[2] = Capability.PriceFunction;
+    }
 
     /// @inheritdoc ISwapAdapter
     function getTokens(bytes32 poolId)
