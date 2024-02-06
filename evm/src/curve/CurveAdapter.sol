@@ -36,33 +36,33 @@ contract CurveAdapter is ISwapAdapter {
         }
     }
 
-    // /// @inheritdoc ISwapAdapter
-    // function swap(
-    //     bytes32 poolId,
-    //     IERC20 sellToken,
-    //     IERC20 buyToken,
-    //     OrderSide side,
-    //     uint256 specifiedAmount
-    // ) external virtual override returns (Trade memory trade) {
-    //     if (specifiedAmount == 0) {
-    //         return trade;
-    //     }
-    //     address poolAddress = address(bytes20(poolId));
-    //     ICurvePlainPool pool = ICurvePlainPool(poolAddress);
-    //     (int128 sellTokenIndex, int128 buyTokenIndex,) =
-    //         registry.get_coin_indices(poolAddress, address(sellToken), address(buyToken));
-    //     uint256 gasBefore = gasleft();
+    /// @inheritdoc ISwapAdapter
+    function swap(
+        bytes32 poolId,
+        IERC20 sellToken,
+        IERC20 buyToken,
+        OrderSide side,
+        uint256 specifiedAmount
+    ) external virtual override returns (Trade memory trade) {
+        if (specifiedAmount == 0) {
+            return trade;
+        }
+        address poolAddress = address(bytes20(poolId));
+        ICurvePlainPool pool = ICurvePlainPool(poolAddress);
+        (int128 sellTokenIndex, int128 buyTokenIndex,) =
+            registry.get_coin_indices(poolAddress, address(sellToken), address(buyToken));
+        uint256 gasBefore = gasleft();
 
-    //     if(side == OrderSide.Sell) {
-    //         trade.calculatedAmount =
-    //             sell(pool, sellToken, buyToken, sellTokenIndex, buyTokenIndex, specifiedAmount);
-    //     }
-    //     else {
-    //         revert Unavailable("OrderSide.Buy is not available for this adapter");
-    //     }
-    //     trade.gasUsed = gasBefore - gasleft();
-    //     trade.price = getPriceAt(pool, specifiedAmount, sellTokenIndex, buyTokenIndex);
-    // }
+        if(side == OrderSide.Sell) {
+            trade.calculatedAmount =
+                sell(pool, sellToken, buyToken, sellTokenIndex, buyTokenIndex, specifiedAmount);
+        }
+        else {
+            revert Unavailable("OrderSide.Buy is not available for this adapter");
+        }
+        trade.gasUsed = gasBefore - gasleft();
+        trade.price = getPriceAt(pool, specifiedAmount, sellTokenIndex, buyTokenIndex);
+    }
 
     /// @inheritdoc ISwapAdapter
     function getLimits(bytes32 poolId, IERC20 sellToken, IERC20 buyToken)
@@ -144,31 +144,31 @@ contract CurveAdapter is ISwapAdapter {
 
     }
 
-    // /// @notice Executes a sell order on a given pool.
-    // /// @param pool The pool to trade on.
-    // /// @param sellToken IERC20 instance of the token being sold.
-    // /// @param buyToken IERC20 instance of the token being bought.
-    // /// @param sellTokenIndex The index of token in the pool being sold.
-    // /// @param buyTokenIndex The index of token being sold among the pool tokens
-    // /// @param amount The amount to be traded.
-    // /// @return calculatedAmount The amount of tokens received.
-    // function sell(
-    //     ICurvePlainPool pool,
-    //     IERC20 sellToken,
-    //     IERC20 buyToken,
-    //     int128 sellTokenIndex,
-    //     int128 buyTokenIndex,
-    //     uint256 amount
-    // ) internal returns (uint256 calculatedAmount) {
-    //     uint256 buyTokenBalBefore = buyToken.balanceOf(address(this));
+    /// @notice Executes a sell order on a given pool.
+    /// @param pool The pool to trade on.
+    /// @param sellToken IERC20 instance of the token being sold.
+    /// @param buyToken IERC20 instance of the token being bought.
+    /// @param sellTokenIndex The index of token in the pool being sold.
+    /// @param buyTokenIndex The index of token being sold among the pool tokens
+    /// @param amount The amount to be traded.
+    /// @return calculatedAmount The amount of tokens received.
+    function sell(
+        ICurvePlainPool pool,
+        IERC20 sellToken,
+        IERC20 buyToken,
+        int128 sellTokenIndex,
+        int128 buyTokenIndex,
+        uint256 amount
+    ) internal returns (uint256 calculatedAmount) {
+        uint256 buyTokenBalBefore = buyToken.balanceOf(address(this));
 
-    //     sellToken.approve(address(pool), amount);
-    //     sellToken.safeTransferFrom(msg.sender, address(this), amount);
+        sellToken.approve(address(pool), amount);
+        sellToken.safeTransferFrom(msg.sender, address(this), amount);
 
-    //     pool.exchange(sellTokenIndex, buyTokenIndex, amount, 0);
-    //     calculatedAmount = buyToken.balanceOf(address(this)) - buyTokenBalBefore;
-    //     buyToken.safeTransfer(address(msg.sender), calculatedAmount);
-    // }
+        pool.exchange(sellTokenIndex, buyTokenIndex, amount, 0);
+        calculatedAmount = buyToken.balanceOf(address(this)) - buyTokenBalBefore;
+        buyToken.safeTransfer(address(msg.sender), calculatedAmount);
+    }
 }
 
 /// @dev Wrapped ported version of Curve Plain Pool to Solidity
