@@ -64,24 +64,24 @@ contract CurveAdapter is ISwapAdapter {
     //     trade.price = getPriceAt(pool, specifiedAmount, sellTokenIndex, buyTokenIndex);
     // }
 
-    // /// @inheritdoc ISwapAdapter
-    // function getLimits(bytes32 poolId, IERC20 sellToken, IERC20 buyToken)
-    //     external
-    //     view
-    //     override
-    //     returns (uint256[] memory limits)
-    // {
-    //     address poolAddress = address(bytes20(poolId));
-    //     (int128 sellTokenIndex, int128 buyTokenIndex,) =
-    //         registry.get_coin_indices(poolAddress, address(sellToken), address(buyToken));
-    //     uint256[8] memory poolBalances = registry.get_balances(poolAddress);
+    /// @inheritdoc ISwapAdapter
+    function getLimits(bytes32 poolId, IERC20 sellToken, IERC20 buyToken)
+        external
+        view
+        override
+        returns (uint256[] memory limits)
+    {
+        address poolAddress = address(bytes20(poolId));
+        (int128 sellTokenIndex, int128 buyTokenIndex,) =
+            registry.get_coin_indices(poolAddress, address(sellToken), address(buyToken));
+        uint256[8] memory poolBalances = registry.get_balances(poolAddress);
         
-    //     limits = new uint256[](2);
-    //     uint256 sellTokenIndexFixed = uint256(uint128(sellTokenIndex));
-    //     uint256 buyTokenIndexFixed = uint256(uint128(buyTokenIndex));
-    //     limits[0] = poolBalances[sellTokenIndexFixed] / RESERVE_LIMIT_FACTOR;
-    //     limits[1] = poolBalances[buyTokenIndexFixed] / RESERVE_LIMIT_FACTOR;
-    // }
+        limits = new uint256[](2);
+        uint256 sellTokenIndexFixed = uint256(uint128(sellTokenIndex));
+        uint256 buyTokenIndexFixed = uint256(uint128(buyTokenIndex));
+        limits[0] = poolBalances[sellTokenIndexFixed] / RESERVE_LIMIT_FACTOR;
+        limits[1] = poolBalances[buyTokenIndexFixed] / RESERVE_LIMIT_FACTOR;
+    }
 
     /// @inheritdoc ISwapAdapter
     function getCapabilities(bytes32, IERC20, IERC20)
