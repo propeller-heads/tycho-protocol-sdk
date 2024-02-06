@@ -109,22 +109,22 @@ contract CurveAdapter is ISwapAdapter {
     //     }
     // }
 
-    // /// @inheritdoc ISwapAdapter
-    // function getPoolIds(uint256 offset, uint256 limit)
-    //     external
-    //     view
-    //     override
-    //     returns (bytes32[] memory ids)
-    // {
-    //     uint256 endIdx = offset + limit;
-    //     if (endIdx > registry.pool_count()) {
-    //         endIdx = registry.pool_count();
-    //     }
-    //     ids = new bytes32[](endIdx - offset);
-    //     for (uint256 i = 0; i < ids.length; i++) {
-    //         ids[i] = bytes20(registry.pool_list(offset + i));
-    //     }
-    // }
+    /// @inheritdoc ISwapAdapter
+    function getPoolIds(uint256 offset, uint256 limit)
+        external
+        view
+        override
+        returns (bytes32[] memory ids)
+    {
+        uint256 endIdx = offset + limit;
+        if (endIdx > registry.pool_count()) {
+            endIdx = registry.pool_count();
+        }
+        ids = new bytes32[](endIdx - offset);
+        for (uint256 i = 0; i < ids.length; i++) {
+            ids[i] = bytes20(registry.pool_list(offset + i));
+        }
+    }
 
     /// @notice Calculates pool prices for specified amounts
     /// @param pool The pool to calculate token prices in.
