@@ -73,11 +73,11 @@ contract FraxV3Adapter is ISwapAdapter {
         tokens[tokens.length - 1] = IERC20(address(sFRAX));
     }
 
-    function getPoolIds(uint256 offset, uint256 limit)
+    function getPoolIds(uint256, uint256)
         external
-        returns (bytes32[] memory ids)
+        returns (bytes32[] memory)
     {
-        revert NotImplemented("TemplateSwapAdapter.getPoolIds");
+        revert NotImplemented("FraxV3Adapter.getPoolIds");
     }
 }
 
