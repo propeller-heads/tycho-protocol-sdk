@@ -42,18 +42,35 @@ contract FraxV3Adapter is ISwapAdapter {
         revert NotImplemented("TemplateSwapAdapter.getLimits");
     }
 
-    function getCapabilities(bytes32 poolId, IERC20 sellToken, IERC20 buyToken)
+    /// @inheritdoc ISwapAdapter
+    function getCapabilities(bytes32, IERC20, IERC20)
         external
+        pure
+        override
         returns (Capability[] memory capabilities)
     {
-        revert NotImplemented("TemplateSwapAdapter.getCapabilities");
+        capabilities = new Capability[](3);
+        capabilities[0] = Capability.SellOrder;
+        capabilities[1] = Capability.BuyOrder;
+        capabilities[2] = Capability.PriceFunction;
     }
 
-    function getTokens(bytes32 poolId)
+    /// @inheritdoc ISwapAdapter
+    function getTokens(bytes32)
         external
         returns (IERC20[] memory tokens)
     {
-        revert NotImplemented("TemplateSwapAdapter.getTokens");
+        FXBFactory factory = fxbAmo.iFxbFactory();
+        uint256 fxbsLength = factory.fxbsLength();
+
+        tokens = IERC20[](2 + fxbsLength);
+
+        for(uint256 i = 0; i < fxbsLength; i++) {
+            tokens[i] = IERC20(factory.fxbs(i));
+        }
+
+        tokens[tokens.length - 2] = IERC20(address(0));
+        tokens[tokens.length - 1] = IERC20(address(sFRAX));
     }
 
     function getPoolIds(uint256 offset, uint256 limit)
@@ -103,5 +120,15 @@ interface IFxbAmo {
     function withdrawFrax(address _recipient, uint256 _amount) external;
 
     function withdrawBonds(address _fxb, address _recipient, uint256 _amount) external;
+
+    function iFxbFactory() external view returns (FXBFactory);
+
+}
+
+interface FXBFactory {
+
+    function fxbs(uint256 i) external view returns (address);
+
+    function fxbsLength() external view returns (uint256);
 
 }
