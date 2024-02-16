@@ -3,9 +3,11 @@ pragma experimental ABIEncoderV2;
 pragma solidity ^0.8.13;
 
 import {IERC20, ISwapAdapter} from "src/interfaces/ISwapAdapter.sol";
+import {ERC20} from "openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
 
 /// @title FraxV3 Adapter
 /// @dev Adapter for FraxV3 protocol, supports sFRAX<->FRAX and FRAX<->FXBs
+/// @dev in sFrax contract: FRAX = assets, sFRAX = shares
 contract FraxV3Adapter is ISwapAdapter {
 
     ISFrax sFrax;
@@ -35,11 +37,36 @@ contract FraxV3Adapter is ISwapAdapter {
         revert NotImplemented("TemplateSwapAdapter.swap");
     }
 
-    function getLimits(bytes32 poolId, IERC20 sellToken, IERC20 buyToken)
+    /// @inheritdoc ISwapAdapter
+    function getLimits(bytes32, IERC20 sellToken, IERC20 buyToken)
         external
         returns (uint256[] memory limits)
     {
-        revert NotImplemented("TemplateSwapAdapter.getLimits");
+        limits = new uint256[](2);
+
+        ERC20 FRAX = sFrax.asset();
+
+        if(address(sellToken) == address(sFrax)) { // SFRAX->FRAX
+            limits[0] = sFrax.totalSupply();
+            limits[1] = sFrax.previewRedeem(limits[0]);
+        }
+        else{
+            if(address(buyToken) == address(sFrax)) { // FRAX->SFRAX
+                uint256 totalSfraxSupply = sFrax.totalSupply();
+                limits[0] = sFrax.previewRedeem(totalSfraxSupply);
+                limits[1] = sFrax.totalSupply(totalSfraxSupply);
+            }
+            else { // FXBs
+                if(address(sellToken) == address(FRAX)) { // FRAX->FXB(any)
+
+                }
+                else { // FXB(any)->FRAX
+
+                }
+
+            }
+        }
+        
     }
 
     /// @inheritdoc ISwapAdapter
@@ -92,6 +119,10 @@ interface ISFrax {
     function previewWithdraw(uint256 assets) external view returns (uint256);
 
     function pricePerShare() external view returns (uint256);
+
+    function asset() external view returns (ERC20); // FRAX
+
+    function totalSupply() external view returns (uint256);
 
     function deposit(uint256 assets, address receiver) external returns (uint256 shares);
 
