@@ -6,9 +6,9 @@ import {IERC20, ISwapAdapter} from "src/interfaces/ISwapAdapter.sol";
 import {ERC20} from "openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
 import {SafeERC20} from "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 
-/// @title FraxV3Adapter
+/// @title FraxV3SFraxAdapter
 /// @dev Adapter for FraxV3 protocol, supports Frax --> sFrax and sFrax --> Frax
-contract FraxV3Adapter is ISwapAdapter {
+contract FraxV3SFraxAdapter is ISwapAdapter {
 
     using SafeERC20 for IERC20;
 
@@ -35,9 +35,9 @@ contract FraxV3Adapter is ISwapAdapter {
     }
 
     function swap(
-        bytes32 poolId,
+        bytes32,
         IERC20 sellToken,
-        IERC20 buyToken,
+        IERC20,
         OrderSide side,
         uint256 specifiedAmount
     ) external returns (Trade memory trade) {
@@ -61,6 +61,7 @@ contract FraxV3Adapter is ISwapAdapter {
     /// @dev there is no hard capped limit 
     function getLimits(bytes32, IERC20 sellToken, IERC20 buyToken)
         external
+        view
         returns (uint256[] memory limits)
     {
         limits = new uint256[](2);
@@ -90,16 +91,18 @@ contract FraxV3Adapter is ISwapAdapter {
     /// @inheritdoc ISwapAdapter
     function getTokens(bytes32)
         external
+        view
         returns (IERC20[] memory tokens)
     {
         tokens = new IERC20[](2);
 
         tokens[0] = frax;
-        tokens[1] = IERC20(address(sFRAX));
+        tokens[1] = IERC20(address(sFrax));
     }
 
     function getPoolIds(uint256, uint256)
         external
+        pure
         returns (bytes32[] memory)
     {
         revert NotImplemented("FraxV3Adapter.getPoolIds");
@@ -142,7 +145,7 @@ contract FraxV3Adapter is ISwapAdapter {
     /// @return (fraction) price as a fraction corresponding to the provided amount.
     function getPriceAt(IERC20 sellToken, uint256 amountIn)
         internal
-        pure
+        view
         returns (Fraction memory)
     {
         if(address(sellToken) == address(sFrax)) {
@@ -167,7 +170,7 @@ contract FraxV3Adapter is ISwapAdapter {
         IERC20 sellToken,
         uint256 amount
     ) internal returns (uint256 calculatedAmount) {
-        uint256 amountOut = getAmountOut(sellToken, amount);
+        uint256 amountOut = getAmountOut(address(sellToken), amount);
 
         sellToken.safeTransferFrom(msg.sender, address(this), amount);
         if(address(sellToken) == address(sFrax)) {
@@ -175,20 +178,20 @@ contract FraxV3Adapter is ISwapAdapter {
         }
         else {
             sellToken.approve(address(sFrax), amount);
-            sellToken.deposit(amount, msg.sender);
+            sFrax.deposit(amount, msg.sender);
         }
         return amountOut;
     }
 
     /// @notice Executes a buy order on the contract.
     /// @param sellToken The token being sold.
-    /// @param amountOut The amount of buyToken to receive.
+    /// @param amount The amount of buyToken to receive.
     /// @return calculatedAmount The amount of tokens received.
     function buy(
         IERC20 sellToken,
-        uint256 amountOut
+        uint256 amount
     ) internal returns (uint256 calculatedAmount) {
-        uint256 amountIn = getAmountIn(sellToken, amount);
+        uint256 amountIn = getAmountIn(address(sellToken), amount);
 
         sellToken.safeTransferFrom(msg.sender, address(this), amount);
         if(address(sellToken) == address(sFrax)) {
@@ -196,7 +199,7 @@ contract FraxV3Adapter is ISwapAdapter {
         }
         else {
             sellToken.approve(address(sFrax), amount);
-            sellToken.mint(amount, msg.sender);
+            sFrax.mint(amount, msg.sender);
         }
         return amountIn;
     }
@@ -219,7 +222,7 @@ interface ISFrax {
 
     function totalSupply() external view returns (uint256);
 
-    function totalAssets() public view virtual returns (uint256);
+    function totalAssets() external view returns (uint256);
 
     function deposit(uint256 assets, address receiver) external returns (uint256 shares);
 
