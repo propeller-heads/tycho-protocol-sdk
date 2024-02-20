@@ -20,17 +20,95 @@ contract FraxV3SFraxAdapterTest is Test, ISwapAdapterTypes {
     ISFrax constant ISFRAX = ISFrax(0xA663B02CF0a4b149d2aD41910CB81e23e1c41c32);
     IERC20 constant FRAX = IERC20(0x853d955aCEf822Db058eb8505911ED77F175b99e);
     IERC20 constant SFRAX = IERC20(address(ISFRAX));
+    address constant FRAX_ADDRESS = address(FRAX);
+    address constant SFRAX_ADDRESS = address(SFRAX);
+    uint256 constant AMOUNT0 = 1000000000000000000;
 
     function setUp() public {
-        uint256 forkBlock = 19268842;
+        uint256 forkBlock = 19270612;
         vm.createSelectFork(vm.rpcUrl("mainnet"), forkBlock);
 
         adapter = new FraxV3SFraxAdapter(ISFRAX);
     }
 
+    function testPriceFuzzFraxV3SFrax(uint256 amount0, uint256 amount1) public {
+        uint256[] memory limits = adapter.getLimits(bytes32(0), FRAX, SFRAX);
+        vm.assume(amount0 < limits[0]);
+        vm.assume(amount0 > 0);
+        vm.assume(amount1 < limits[1]);
+        vm.assume(amount1 > 0);
+
+        uint256[] memory amounts = new uint256[](2);
+        amounts[0] = amount0;
+        amounts[1] = amount1;
+
+        Fraction[] memory prices = adapter.price(bytes32(0), FRAX, SFRAX, amounts);
+
+        for (uint256 i = 0; i < prices.length; i++) {
+            assertGt(prices[i].numerator, 0);
+            assertGt(prices[i].denominator, 0);
+        }
+    }
+
     function testGetLimitsFraxV3SFrax() public {
         uint256[] memory limits = adapter.getLimits(bytes32(0), FRAX, SFRAX);
+        console.logUint(limits[0]);
+        console.logUint(limits[1]);
         assertEq(limits.length, 2);
+    }
+
+    function testGetTokensFraxV3SFrax() public {
+        IERC20[] memory tokens = adapter.getTokens(bytes32(0));
+
+        assertEq(address(tokens[0]), FRAX_ADDRESS);
+        assertEq(address(tokens[1]), SFRAX_ADDRESS);
+    }
+
+    function testGetCapabilitiesFraxV3SFrax() public {
+    Capability[] memory res =
+        adapter.getCapabilities(bytes32(0), FRAX, SFRAX);
+
+    assertEq(res.length, 3);
+    }
+
+    function testGetAmountOutSFrax() public view {
+        uint256 amountInFrax = AMOUNT0;
+        uint256 amountOutSFrax = ISFRAX.previewDeposit(amountInFrax);
+
+        console.log("FRAX in:", amountInFrax);
+        console.log("SFRAX out:", amountOutSFrax);
+
+        assert(amountOutSFrax > 0);
+    }
+
+    function testGetAmountOutFrax() public view {
+        uint256 amountInSFrax = AMOUNT0;
+        uint256 amountOutFrax = ISFRAX.previewRedeem(amountInSFrax);
+
+        console.log("SFRAX in:", amountInSFrax);
+        console.log("FRAX out:", amountOutFrax);
+
+        assert(amountOutFrax > 0);
+    }
+
+    function testGetAmountInFrax() public view {
+        uint256 amountOutSFrax = AMOUNT0;
+        uint256 amountInFrax = ISFRAX.previewMint(amountOutSFrax);
+
+        console.log("SFRAX out:", amountOutSFrax);
+        console.log("FRAX in:", amountInFrax);
+
+        assert(amountInFrax > 0);
+    }
+
+    function testGetAmountInSFrax() public view {
+        uint256 amountOutFrax = AMOUNT0;
+        uint256 amountInSFrax = ISFRAX.previewWithdraw(amountOutFrax);
+
+        console.log("FRAX out:", amountOutFrax);
+        console.log("SFRAX in:", amountInSFrax);
+
+        assert(amountInSFrax > 0);
     }
 
 }
