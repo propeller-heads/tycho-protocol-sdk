@@ -17,18 +17,18 @@ contract FraxV3Adapter is ISwapAdapter {
         frax = IERC20(address(sFrax.asset()));
     }
 
+    /// @inheritdoc ISwapAdapter
     function price(
-        bytes32 _poolId,
+        bytes32,
         IERC20 _sellToken,
-        IERC20 _buyToken,
+        IERC20,
         uint256[] memory _specifiedAmounts
     ) external view override returns (Fraction[] memory _prices) {
         _prices = new Fraction[](_specifiedAmounts.length);
-        if (address(_sellToken) == address(sFRAX) && address(_buyToken) == address(frax)) {
-
+        
+        for(uint256 i = 0; i < _specifiedAmounts.length; i++) {
+            _prices[i] = getPriceAt(_sellToken, _specifiedAmounts[i]);
         }
-
-        revert NotImplemented("TemplateSwapAdapter.price");
     }
 
     function swap(
@@ -90,11 +90,11 @@ contract FraxV3Adapter is ISwapAdapter {
     }
 
 
-    /// @notice Get FRAX or SFRAX price
+    /// @notice Get amountIn
     /// @param sellToken token to sell(frax or sfrax)
     /// @param amountOut the amount of buyToken to buy
     /// @return amountIn of sellToken to spend
-    function getAmountInForSfrax(address sellToken, uint256 amountOut) internal view returns (uint256) {
+    function getAmountIn(address sellToken, uint256 amountOut) internal view returns (uint256) {
 
         if(sellToken == address(frax)) { // FRAX-SFRAX
             return sFrax.previewMint(amountOut);
@@ -105,11 +105,11 @@ contract FraxV3Adapter is ISwapAdapter {
 
     }
 
-    /// @notice Get FRAX or SFRAX price
+    /// @notice Get amountOut
     /// @param sellToken token to sell(frax or sfrax)
     /// @param amountIn the amount sellToken to spend
     /// @return amountOut of buyToken to buy(received)
-    function getAmountOutForSfrax(address sellToken, uint256 amountIn) internal view returns (uint256) {
+    function getAmountOut(address sellToken, uint256 amountIn) internal view returns (uint256) {
 
         if(sellToken == address(frax)) { // FRAX-SFRAX
             return sFrax.previewDeposit(amountIn);
@@ -118,6 +118,29 @@ contract FraxV3Adapter is ISwapAdapter {
             return sFrax.previewRedeem(amountIn);
         }
 
+    }
+
+    /// @notice Calculates prices for a specified amount
+    /// @param sellToken The token to sell(frax or sFrax)
+    /// @param amountIn The amount of the token being sold.
+    /// @return (fraction) price as a fraction corresponding to the provided amount.
+    function getPriceAt(IERC20 sellToken, uint256 amountIn)
+        internal
+        pure
+        returns (Fraction memory)
+    {
+        if(address(sellToken) == address(sFrax)) {
+            return Fraction(
+                sFrax.previewRedeem(amountIn),
+                amountIn
+            );
+        }
+        else {
+            return Fraction(
+                sFrax.previewDeposit(amountIn),
+                amountIn
+            );
+        }
     }
 
 }
