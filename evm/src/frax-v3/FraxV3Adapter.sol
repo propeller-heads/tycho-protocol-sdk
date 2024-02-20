@@ -4,10 +4,13 @@ pragma solidity ^0.8.13;
 
 import {IERC20, ISwapAdapter} from "src/interfaces/ISwapAdapter.sol";
 import {ERC20} from "openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
+import {SafeERC20} from "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 
 /// @title FraxV3Adapter
 /// @dev Adapter for FraxV3 protocol, supports Frax --> sFrax and sFrax --> Frax
 contract FraxV3Adapter is ISwapAdapter {
+
+    using SafeERC20 for IERC20;
 
     ISFrax sFrax;
     IERC20 frax;
@@ -38,7 +41,20 @@ contract FraxV3Adapter is ISwapAdapter {
         OrderSide side,
         uint256 specifiedAmount
     ) external returns (Trade memory trade) {
-        revert NotImplemented("TemplateSwapAdapter.swap");
+        if (specifiedAmount == 0) {
+            return trade;
+        }
+
+        uint256 gasBefore = gasleft();
+        if (side == OrderSide.Sell) { // sell
+            trade.calculatedAmount =
+                sell(sellToken, specifiedAmount);
+        } else { // buy
+            trade.calculatedAmount =
+                buy(sellToken, specifiedAmount);
+        }
+        trade.gasUsed = gasBefore - gasleft();
+        trade.price = side == OrderSide.Sell ? getPriceAt(sellToken, specifiedAmount) : getPriceAt(sellToken, trade.calculatedAmount);
     }
 
     /// @inheritdoc ISwapAdapter
@@ -141,6 +157,48 @@ contract FraxV3Adapter is ISwapAdapter {
                 amountIn
             );
         }
+    }
+
+    /// @notice Executes a sell order on the contract.
+    /// @param sellToken The token being sold.
+    /// @param amount The amount to be traded.
+    /// @return calculatedAmount The amount of tokens received.
+    function sell(
+        IERC20 sellToken,
+        uint256 amount
+    ) internal returns (uint256 calculatedAmount) {
+        uint256 amountOut = getAmountOut(sellToken, amount);
+
+        sellToken.safeTransferFrom(msg.sender, address(this), amount);
+        if(address(sellToken) == address(sFrax)) {
+            sFrax.redeem(amount, msg.sender, address(this));
+        }
+        else {
+            sellToken.approve(address(sFrax), amount);
+            sellToken.deposit(amount, msg.sender);
+        }
+        return amountOut;
+    }
+
+    /// @notice Executes a buy order on the contract.
+    /// @param sellToken The token being sold.
+    /// @param amountOut The amount of buyToken to receive.
+    /// @return calculatedAmount The amount of tokens received.
+    function buy(
+        IERC20 sellToken,
+        uint256 amountOut
+    ) internal returns (uint256 calculatedAmount) {
+        uint256 amountIn = getAmountIn(sellToken, amount);
+
+        sellToken.safeTransferFrom(msg.sender, address(this), amount);
+        if(address(sellToken) == address(sFrax)) {
+            sFrax.withdraw(amount, msg.sender, address(this));
+        }
+        else {
+            sellToken.approve(address(sFrax), amount);
+            sellToken.mint(amount, msg.sender);
+        }
+        return amountIn;
     }
 
 }
