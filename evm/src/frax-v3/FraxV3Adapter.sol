@@ -5,17 +5,16 @@ pragma solidity ^0.8.13;
 import {IERC20, ISwapAdapter} from "src/interfaces/ISwapAdapter.sol";
 import {ERC20} from "openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
 
-/// @title FraxV3 Adapter
-/// @dev Adapter for FraxV3 protocol, supports sFRAX<->FRAX and FRAX<->FXBs
-/// @dev in sFrax contract: FRAX = assets, sFRAX = shares
+/// @title FraxV3Adapter
+/// @dev Adapter for FraxV3 protocol, supports Frax --> sFrax and sFrax --> Frax
 contract FraxV3Adapter is ISwapAdapter {
 
     ISFrax sFrax;
-    IFxbAmo fxbAmo;
+    IERC20 frax;
 
-    constructor(ISFrax _sFrax, IFxbAmo _fxbAmo) {
+    constructor(ISFrax _sFrax) {
         sFrax = _sFrax;
-        fxbAmo = _fxbAmo;
+        frax = IERC20(address(sFrax.asset()));
     }
 
     function price(
@@ -24,6 +23,11 @@ contract FraxV3Adapter is ISwapAdapter {
         IERC20 _buyToken,
         uint256[] memory _specifiedAmounts
     ) external view override returns (Fraction[] memory _prices) {
+        _prices = new Fraction[](_specifiedAmounts.length);
+        if (address(_sellToken) == address(sFRAX) && address(_buyToken) == address(frax)) {
+
+        }
+
         revert NotImplemented("TemplateSwapAdapter.price");
     }
 
@@ -38,35 +42,20 @@ contract FraxV3Adapter is ISwapAdapter {
     }
 
     /// @inheritdoc ISwapAdapter
+    /// @dev there is no hard capped limit 
     function getLimits(bytes32, IERC20 sellToken, IERC20 buyToken)
         external
         returns (uint256[] memory limits)
     {
         limits = new uint256[](2);
 
-        ERC20 FRAX = sFrax.asset();
-
-        if(address(sellToken) == address(sFrax)) { // SFRAX->FRAX
-            limits[0] = sFrax.totalSupply();
+        if(address(sellToken) == address(frax)) { // Frax --> sFrax
+            limits[0] = frax.totalSupply();
+            limits[1] = sFrax.previewDeposit(limits[0]);
+        } else {
+            limits[0] = sFrax.totalSupply(); 
             limits[1] = sFrax.previewRedeem(limits[0]);
         }
-        else{
-            if(address(buyToken) == address(sFrax)) { // FRAX->SFRAX
-                uint256 totalSfraxSupply = sFrax.totalSupply();
-                limits[0] = sFrax.previewRedeem(totalSfraxSupply);
-                limits[1] = sFrax.totalSupply(totalSfraxSupply);
-            }
-            else { // FXBs
-                if(address(sellToken) == address(FRAX)) { // FRAX->FXB(any)
-
-                }
-                else { // FXB(any)->FRAX
-
-                }
-
-            }
-        }
-        
     }
 
     /// @inheritdoc ISwapAdapter
@@ -87,17 +76,10 @@ contract FraxV3Adapter is ISwapAdapter {
         external
         returns (IERC20[] memory tokens)
     {
-        FXBFactory factory = fxbAmo.iFxbFactory();
-        uint256 fxbsLength = factory.fxbsLength();
+        tokens = new IERC20[](2);
 
-        tokens = IERC20[](2 + fxbsLength);
-
-        for(uint256 i = 0; i < fxbsLength; i++) {
-            tokens[i] = IERC20(factory.fxbs(i));
-        }
-
-        tokens[tokens.length - 2] = IERC20(address(0));
-        tokens[tokens.length - 1] = IERC20(address(sFRAX));
+        tokens[0] = frax;
+        tokens[1] = IERC20(address(sFRAX));
     }
 
     function getPoolIds(uint256, uint256)
@@ -106,6 +88,38 @@ contract FraxV3Adapter is ISwapAdapter {
     {
         revert NotImplemented("FraxV3Adapter.getPoolIds");
     }
+
+
+    /// @notice Get FRAX or SFRAX price
+    /// @param sellToken token to sell(frax or sfrax)
+    /// @param amountOut the amount of buyToken to buy
+    /// @return amountIn of sellToken to spend
+    function getAmountInForSfrax(address sellToken, uint256 amountOut) internal view returns (uint256) {
+
+        if(sellToken == address(frax)) { // FRAX-SFRAX
+            return sFrax.previewMint(amountOut);
+        }
+        else { // SFRAX-FRAX
+            return sFrax.previewWithdraw(amountOut);
+        }
+
+    }
+
+    /// @notice Get FRAX or SFRAX price
+    /// @param sellToken token to sell(frax or sfrax)
+    /// @param amountIn the amount sellToken to spend
+    /// @return amountOut of buyToken to buy(received)
+    function getAmountOutForSfrax(address sellToken, uint256 amountIn) internal view returns (uint256) {
+
+        if(sellToken == address(frax)) { // FRAX-SFRAX
+            return sFrax.previewDeposit(amountIn);
+        }
+        else { // SFRAX-FRAX
+            return sFrax.previewRedeem(amountIn);
+        }
+
+    }
+
 }
 
 interface ISFrax {
@@ -124,6 +138,8 @@ interface ISFrax {
 
     function totalSupply() external view returns (uint256);
 
+    function totalAssets() public view virtual returns (uint256);
+
     function deposit(uint256 assets, address receiver) external returns (uint256 shares);
 
     function mint(uint256 shares, address receiver) external returns (uint256 assets);
@@ -139,27 +155,5 @@ interface ISFrax {
         address receiver,
         address owner
     ) external returns (uint256 assets);
-
-}
-
-interface IFxbAmo {
-
-    function mintBonds(address _fxb, uint256 _amount) external;
-
-    function redeemBonds(address _fxb, address _recipient, uint256 _amount) external;
-
-    function withdrawFrax(address _recipient, uint256 _amount) external;
-
-    function withdrawBonds(address _fxb, address _recipient, uint256 _amount) external;
-
-    function iFxbFactory() external view returns (FXBFactory);
-
-}
-
-interface FXBFactory {
-
-    function fxbs(uint256 i) external view returns (address);
-
-    function fxbsLength() external view returns (uint256);
 
 }
