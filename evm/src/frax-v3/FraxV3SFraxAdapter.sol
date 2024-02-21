@@ -6,14 +6,39 @@ import {IERC20, ISwapAdapter} from "src/interfaces/ISwapAdapter.sol";
 import {ERC20} from "openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
 import {SafeERC20} from "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 
+library FixedPointMathLib {
+
+    uint256 internal constant MAX_UINT256 = 2**256 - 1;
+
+    function mulDivDown(
+        uint256 x,
+        uint256 y,
+        uint256 denominator
+    ) internal pure returns (uint256 z) {
+        /// @solidity memory-safe-assembly
+        assembly {
+            // Equivalent to require(denominator != 0 && (y == 0 || x <= type(uint256).max / y))
+            if iszero(mul(denominator, iszero(mul(y, gt(x, div(MAX_UINT256, y)))))) {
+                revert(0, 0)
+            }
+
+            // Divide x * y by the denominator.
+            z := div(mul(x, y), denominator)
+        }
+    }
+}
+
 /// @title FraxV3SFraxAdapter
 /// @dev Adapter for FraxV3 protocol, supports Frax --> sFrax and sFrax --> Frax
 contract FraxV3SFraxAdapter is ISwapAdapter {
 
     using SafeERC20 for IERC20;
+    using FixedPointMathLib for uint256;
 
-    ISFrax sFrax;
-    IERC20 frax;
+    uint256 constant PRECISE_UNIT = 1e18;
+
+    ISFrax immutable sFrax;
+    IERC20 immutable frax;
 
     constructor(ISFrax _sFrax) {
         sFrax = _sFrax;
@@ -23,14 +48,23 @@ contract FraxV3SFraxAdapter is ISwapAdapter {
     /// @inheritdoc ISwapAdapter
     function price(
         bytes32,
-        IERC20 _sellToken,
+        IERC20 sellToken,
         IERC20,
         uint256[] memory _specifiedAmounts
     ) external view override returns (Fraction[] memory _prices) {
+        if (sellToken != address(frax) && sellToken != address(sFrax)) {
+            revert("Sell token not supported");
+        }
+        
         _prices = new Fraction[](_specifiedAmounts.length);
+
+        bool isSellFrax;
+        if(address(sellToken) == address(frax)) {
+            isSellFrax = true;
+        }
         
         for(uint256 i = 0; i < _specifiedAmounts.length; i++) {
-            _prices[i] = getPriceAt(_sellToken, _specifiedAmounts[i]);
+            _prices[i] = getPriceAt(isSellFrax, _specifiedAmounts[i]);
         }
     }
 
@@ -140,30 +174,52 @@ contract FraxV3SFraxAdapter is ISwapAdapter {
     }
 
     /// @notice Calculates prices for a specified amount
-    /// @param sellToken The token to sell(frax or sFrax)
+    /// @param isSellFrax True if selling frax, false if selling sFrax
     /// @param amountIn The amount of the token being sold.
     /// @return (fraction) price as a fraction corresponding to the provided amount.
     /// @dev change from internal to public for debugging purposes
-    function getPriceAt(IERC20 sellToken, uint256 amountIn)
+    function getPriceAt(bool isSellFrax, uint256 amountIn)
         public
         view
         returns (Fraction memory)
     {
-        if(address(sellToken) == address(sFrax)) {
-            return Fraction(
-                sFrax.previewRedeem(amountIn),
-                amountIn
-            );
-        }
-        else {
+        if(isSellFrax = true) {
 
             if(amountIn < 2) {
             revert("Amount In must be greater than 1");
             }
 
+            uint256 totStoredAssets = sFrax.storedTotalAssets();
+            uint256 totMintedShares = sFrax.totalSupply();
+            uint256 rewards = sFrax.previewDistributeRewards();
+            uint256 newMintedShares = sFrax.previewDeposit(amountIn);
+
+            totStoredAssets += amountIn + rewards;
+            totMintedShares += newMintedShares;
+
+            uint256 numerator = PRECISE_UNIT.mulDivDown(totMintedShares, totStoredAssets);
+
             return Fraction(
-                sFrax.previewDeposit(amountIn),
-                amountIn
+                numerator,
+                PRECISE_UNIT
+            );
+        }
+        else {
+
+            uint256 totStoredAssets = sFrax.storedTotalAssets();
+            uint256 totMintedShares = sFrax.totalSupply();
+            uint256 rewards = sFrax.previewDistributeRewards();
+            uint256 fraxAmountRedeemed = sFrax.previewRedeem(amountIn);
+
+            totStoredAssets = totStoredAssets + rewards - fraxAmountRedeemed;
+            totMintedShares -= amountIn;
+
+            uint256 numerator = PRECISE_UNIT.mulDivDown(totStoredAssets, totMintedShares);
+            
+
+            return Fraction(
+                numerator,
+                PRECISE_UNIT
             );
         }
     }
@@ -222,6 +278,8 @@ interface ISFrax {
 
     function previewWithdraw(uint256 assets) external view returns (uint256);
 
+    function previewDistributeRewards() public view virtual returns (uint256 _rewardToDistribute);
+
     function pricePerShare() external view returns (uint256);
 
     function asset() external view returns (ERC20); // FRAX
@@ -233,6 +291,8 @@ interface ISFrax {
     function deposit(uint256 assets, address receiver) external returns (uint256 shares);
 
     function mint(uint256 shares, address receiver) external returns (uint256 assets);
+
+    function storedTotalAssets() external view returns (uint256);
 
     function withdraw(
         uint256 assets,

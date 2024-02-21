@@ -147,6 +147,43 @@ contract FraxV3SFraxAdapterTest is Test, ISwapAdapterTypes {
 
     }
 
+    function testSwapSellIncreasingFraxV3SFrax() public {
+        executeIncreasingSwapsFraxV3SFrax(OrderSide.Sell);
+    }
+
+    function testSwapBuyIncreasingFraxV3SFrax() public {
+        executeIncreasingSwapsFraxV3SFrax(OrderSide.Buy);
+    }
+
+    function executeIncreasingSwapsFraxV3SFrax(OrderSide side) internal {
+        bytes32 pair = bytes32(0);
+
+        uint256[] memory amounts = new uint256[](TEST_ITERATIONS);
+
+        for (uint256 i = 1; i < TEST_ITERATIONS + 1; i++) {
+            amounts[i-1] = 1000 * i * 10 ** 18;
+        }
+
+        Trade[] memory trades = new Trade[](TEST_ITERATIONS);
+        uint256 beforeSwap;
+        for (uint256 i = 0; i < TEST_ITERATIONS; i++) {
+            beforeSwap = vm.snapshot();
+
+            deal(address(FRAX), address(this), amounts[i]);
+            FRAX.approve(address(adapter), amounts[i]);
+
+            trades[i] = adapter.swap(pair, FRAX, SFRAX, side, amounts[i]);
+            vm.revertTo(beforeSwap);
+        }
+
+        for (uint256 i = 1; i < TEST_ITERATIONS - 1; i++) {
+            assertLe(trades[i].calculatedAmount, trades[i + 1].calculatedAmount);
+            assertLe(trades[i].gasUsed, trades[i + 1].gasUsed);
+            /// @dev price is not always increasing 
+            // assertEq(trades[i].price.compareFractions(trades[i + 1].price), 1);
+        }
+    }
+
 
     function testGetLimitsFraxV3SFrax() public {
         uint256[] memory limits = adapter.getLimits(bytes32(0), FRAX, SFRAX);
