@@ -19,7 +19,7 @@ contract FraxV3SFraxAdapterTest is Test, ISwapAdapterTypes {
     FraxV3SFraxAdapter adapter;
     ISFrax constant ISFRAX = ISFrax(0xA663B02CF0a4b149d2aD41910CB81e23e1c41c32);
     IERC20 constant FRAX = IERC20(0x853d955aCEf822Db058eb8505911ED77F175b99e);
-    IERC20 constant SFRAX = IERC20(address(ISFRAX));
+    IERC20 constant SFRAX = IERC20(0xA663B02CF0a4b149d2aD41910CB81e23e1c41c32);
     address constant FRAX_ADDRESS = address(FRAX);
     address constant SFRAX_ADDRESS = address(SFRAX);
 
@@ -31,6 +31,8 @@ contract FraxV3SFraxAdapterTest is Test, ISwapAdapterTypes {
         vm.createSelectFork(vm.rpcUrl("mainnet"), forkBlock);
 
         adapter = new FraxV3SFraxAdapter(ISFRAX);
+        vm.label(address(FRAX), "FRAX");
+        vm.label(address(SFRAX), "SFRAX");
     }
 
     /// @dev set lower limit to greater than 1, because previewDeposit returns 0
@@ -79,6 +81,72 @@ contract FraxV3SFraxAdapterTest is Test, ISwapAdapterTypes {
         assertTrue(foundIncreasingPrice, "No increasing price found");
 
     }
+
+
+    function testSwapFuzzFraxV3SFrax() public {
+        // OrderSide side = isBuy ? OrderSide.Buy : OrderSide.Sell;
+        uint256 specifiedAmount = 10e18;
+        bool isBuy = true;
+        OrderSide side = isBuy ? OrderSide.Buy : OrderSide.Sell;
+
+        uint256[] memory limits = adapter.getLimits(bytes32(0), FRAX, SFRAX);
+        uint256 approvalAmount = 1000e18;
+
+        if (side == OrderSide.Buy) {
+            vm.assume(specifiedAmount < limits[0]);
+            vm.assume(specifiedAmount > 1);
+
+            deal(address(FRAX), address(this), type(uint256).max);
+            FRAX.approve(address(adapter), approvalAmount);
+        } else {
+            vm.assume(specifiedAmount < limits[1]);
+            vm.assume(specifiedAmount > 1);
+
+            deal(address(FRAX), address(this), specifiedAmount);
+            FRAX.approve(address(adapter), specifiedAmount);
+        }
+
+        uint256 frax_balance_before = FRAX.balanceOf(address(this));
+        uint256 sFrax_balance_before = SFRAX.balanceOf(address(this));
+
+        console.log("Frax Balance before Swap: ", frax_balance_before);
+        console.log("SFrax Balance before Swap: ", sFrax_balance_before);
+
+
+        Trade memory trade =
+            adapter.swap(bytes32(0), FRAX, SFRAX, side, specifiedAmount);
+
+        // Refresh balances after the swap
+        uint256 frax_balance_after = FRAX.balanceOf(address(this));
+        uint256 sFrax_balance_after = SFRAX.balanceOf(address(this));
+        console.log("Frax Balance after Swap: ", frax_balance_after);
+        console.log("SFrax Balance after Swap: ", sFrax_balance_after);
+
+        if (trade.calculatedAmount > 0) {
+            if (side == OrderSide.Buy) {
+                assertEq(
+                    specifiedAmount,
+                    SFRAX.balanceOf(address(this)) - sFrax_balance_before
+                );
+                assertEq(
+                    trade.calculatedAmount,
+                    frax_balance_before - FRAX.balanceOf(address(this))
+                );
+            } else {
+                assertEq(
+                    specifiedAmount,
+                    frax_balance_before - FRAX.balanceOf(address(this))
+                );
+                assertEq(
+                    trade.calculatedAmount,
+                    SFRAX.balanceOf(address(this)) - sFrax_balance_before
+                );
+            }
+
+        }
+
+    }
+
 
     function testGetLimitsFraxV3SFrax() public {
         uint256[] memory limits = adapter.getLimits(bytes32(0), FRAX, SFRAX);
