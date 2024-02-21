@@ -22,6 +22,8 @@ contract FraxV3SFraxAdapterTest is Test, ISwapAdapterTypes {
     IERC20 constant SFRAX = IERC20(address(ISFRAX));
     address constant FRAX_ADDRESS = address(FRAX);
     address constant SFRAX_ADDRESS = address(SFRAX);
+
+    uint256 constant TEST_ITERATIONS = 100;
     uint256 constant AMOUNT0 = 1000000000000000000;
 
     function setUp() public {
@@ -50,6 +52,32 @@ contract FraxV3SFraxAdapterTest is Test, ISwapAdapterTypes {
             assertGt(prices[i].numerator, 0);
             assertGt(prices[i].denominator, 0);
         }
+    }
+
+    function testOneIncreasingPriceFoundFraxV3SFrax() public {
+        
+        uint256[] memory amounts = new uint256[](TEST_ITERATIONS);
+
+        for (uint256 i = 1; i < TEST_ITERATIONS + 1; i++) {
+            amounts[i-1] = 1000 * i * 10 ** 18;
+        }
+
+        Fraction[] memory prices = adapter.price(bytes32(0), FRAX, SFRAX, amounts);
+
+        bool foundIncreasingPrice = false; // Flag variable to track if increasing price is found
+
+        for (uint256 i = 0; i < TEST_ITERATIONS - 1; i++) {
+            if (prices[i].compareFractions(prices[i + 1]) == 1) {
+                foundIncreasingPrice = true;
+                break; // If one increasing price is found, we can exit the loop
+            }
+            assertGt(prices[i].denominator, 0);
+            assertGt(prices[i + 1].denominator, 0);
+        }
+
+        // Assert that at least one increasing price is found
+        assertTrue(foundIncreasingPrice, "No increasing price found");
+
     }
 
     function testGetLimitsFraxV3SFrax() public {
