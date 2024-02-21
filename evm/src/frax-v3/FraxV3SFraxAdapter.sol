@@ -143,8 +143,9 @@ contract FraxV3SFraxAdapter is ISwapAdapter {
     /// @param sellToken The token to sell(frax or sFrax)
     /// @param amountIn The amount of the token being sold.
     /// @return (fraction) price as a fraction corresponding to the provided amount.
+    /// @dev change from internal to public for debugging purposes
     function getPriceAt(IERC20 sellToken, uint256 amountIn)
-        internal
+        public
         view
         returns (Fraction memory)
     {
@@ -155,6 +156,11 @@ contract FraxV3SFraxAdapter is ISwapAdapter {
             );
         }
         else {
+
+            if(amountIn < 2) {
+            revert("Amount In must be greater than 1");
+            }
+
             return Fraction(
                 sFrax.previewDeposit(amountIn),
                 amountIn

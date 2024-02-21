@@ -31,12 +31,14 @@ contract FraxV3SFraxAdapterTest is Test, ISwapAdapterTypes {
         adapter = new FraxV3SFraxAdapter(ISFRAX);
     }
 
+    /// @dev set lower limit to greater than 1, because previewDeposit returns 0
+    /// with an amountIn == 1
     function testPriceFuzzFraxV3SFrax(uint256 amount0, uint256 amount1) public {
         uint256[] memory limits = adapter.getLimits(bytes32(0), FRAX, SFRAX);
         vm.assume(amount0 < limits[0]);
-        vm.assume(amount0 > 0);
+        vm.assume(amount0 > 1);
         vm.assume(amount1 < limits[1]);
-        vm.assume(amount1 > 0);
+        vm.assume(amount1 > 1);
 
         uint256[] memory amounts = new uint256[](2);
         amounts[0] = amount0;
@@ -72,7 +74,7 @@ contract FraxV3SFraxAdapterTest is Test, ISwapAdapterTypes {
     }
 
     function testGetAmountOutSFrax() public view {
-        uint256 amountInFrax = AMOUNT0;
+        uint256 amountInFrax = 1;
         uint256 amountOutSFrax = ISFRAX.previewDeposit(amountInFrax);
 
         console.log("FRAX in:", amountInFrax);
@@ -109,6 +111,27 @@ contract FraxV3SFraxAdapterTest is Test, ISwapAdapterTypes {
         console.log("SFRAX in:", amountInSFrax);
 
         assert(amountInSFrax > 0);
+    }
+
+    function testGetPriceAtFraxV3SFrax() public {
+
+        uint256 amountInFrax = AMOUNT0;
+        Fraction memory fractionFraxIn = adapter.getPriceAt(FRAX, amountInFrax);
+
+        uint256 amountInSFrax = AMOUNT0;
+        Fraction memory fractionSFraxIn = adapter.getPriceAt(SFRAX, amountInSFrax);
+
+        console.log("Numerator Frax In: ", fractionFraxIn.numerator);
+        console.log("Denominator Frax In: ", fractionFraxIn.denominator);
+        console.log("---------------------SFRAX IN--------------------------------");
+        console.log("Numerator SFrax In: ", fractionSFraxIn.numerator);
+        console.log("Denominator SFrax In: ", fractionSFraxIn.denominator);
+
+        assertGt(fractionFraxIn.numerator, 0);
+        assertGt(fractionFraxIn.denominator, 0);
+
+        assertGt(fractionSFraxIn.numerator, 0);
+        assertGt(fractionSFraxIn.denominator, 0);
     }
 
 }
