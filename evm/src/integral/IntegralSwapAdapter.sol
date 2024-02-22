@@ -2,12 +2,18 @@
 pragma solidity ^0.8.13;
 
 import {IERC20, ISwapAdapter} from "src/interfaces/ISwapAdapter.sol";
+import {ERC20} from "openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
+import {SafeERC20} from "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 
-/// @dev Integral submitted deadline of 3600 seconds (1 hour) to Paraswap
-uint32 constant SWAP_DEADLINE_SEC = 1000;
+/// @dev Integral submitted deadline of 3600 seconds (1 hour) to Paraswap, but it is not strictly necessary to be this long
+/// as the contract allows less durations, we use 1000 seconds (15 minutes) as a deadline
+uint256 constant SWAP_DEADLINE_SEC = 1000;
+uint256 constant STANDARD_TOKEN_DECIMALS = 10**18;
 
 /// @title Integral Swap Adapter
 contract IntegralSwapAdapter is ISwapAdapter {
+    using SafeERC20 for IERC20;
+
     ITwapRelayer immutable relayer;
 
     constructor(address relayer_) {
@@ -15,90 +21,88 @@ contract IntegralSwapAdapter is ISwapAdapter {
     }
 
     /// @inheritdoc ISwapAdapter
+    /// @dev Integral always relies on a single pool linked to the factory to map two pairs, and does not use routing
+    /// we can then use getPriceByTokenAddresses() instead of getPriceByPairAddresses() 
+    /// as they both return the same value and the first also handles the order of tokens inside.
+    /// @dev Since the price of a token is determined externally by Integral Oracles and not by reserves
+    /// it will always be the same (pre and post trade) and independent of the amounts swapped,
+    /// but we still return an array of length=specifiedAmounts.length with same values to make sure the return value is the expected from caller.
     function price(
-        bytes32 _poolId,
+        bytes32,
         IERC20 _sellToken,
         IERC20 _buyToken,
         uint256[] memory _specifiedAmounts
     ) external view override returns (Fraction[] memory _prices) {
         _prices = new Fraction[](_specifiedAmounts.length);
-        ITwapPair pair = ITwapPair(address(bytes20(_poolId)));
-        uint112 r0;
-        uint112 r1;
-        if (address(_sellToken) == pair.token0()) { // sell
-            (r0, r1) = pair.getReserves();
-        } else { // buy
-            (r1, r0) = pair.getReserves();
-        }
-
+        Fraction memory price = getPriceAt(address(_sellToken), address(_buyToken));
+        
         for (uint256 i = 0; i < _specifiedAmounts.length; i++) {
-            _prices[i] = getPriceAt(_specifiedAmounts[i], r0, r1, pair);
+            _prices[i] = price;
         }
     }
 
+    /// @inheritdoc ISwapAdapter
     function swap(
-        bytes32 poolId,
+        bytes32,
         IERC20 sellToken,
         IERC20 buyToken,
         OrderSide side,
         uint256 specifiedAmount
-    ) external returns (Trade memory trade) {
+    ) external override returns (Trade memory trade) {
         if (specifiedAmount == 0) {
             return trade;
         }
 
-        ITwapPair pair = ITwapPair(address(bytes20(poolId)));
-        uint112 r0;
-        uint112 r1;
-        if (address(sellToken) == pair.token0()) {
-            (r0, r1) = pair.getReserves();
-        } else {
-            (r1, r0) = pair.getReserves();
-        }
         uint256 gasBefore = gasleft();
         if (side == OrderSide.Sell) { // sell
             trade.calculatedAmount =
-                sell(address(sellToken), address(buyToken), specifiedAmount);
+                sell(sellToken, buyToken, specifiedAmount);
         } else { // buy
             trade.calculatedAmount =
-                buy(address(sellToken), address(buyToken), specifiedAmount);
+                buy(sellToken, buyToken, specifiedAmount);
         }
         trade.gasUsed = gasBefore - gasleft();
-        trade.price = getPriceAt(specifiedAmount, r0, r1, pair);
+        trade.price = getPriceAt(address(sellToken), address(buyToken));
     }
 
     /// @inheritdoc ISwapAdapter
-    function getLimits(bytes32 poolId, IERC20 sellToken, IERC20 buyToken)
+    function getLimits(bytes32, IERC20 sellToken, IERC20 buyToken)
         external
         view
         override
         returns (uint256[] memory limits)
     {
         (
-            uint256 price_,
-            uint256 fee,
-            uint256 limitMin0,
+            ,
+            ,
+            ,
             uint256 limitMax0,
-            uint256 limitMin1,
+            ,
             uint256 limitMax1
         ) = relayer.getPoolState(address(sellToken), address(buyToken));
 
         limits = new uint256[](2);
         limits[0] = limitMax0;
         limits[1] = limitMax1;
+        /** 
+         * @dev minLimits in integral are the args: 2(for sellToken, the one before limitMax0)
+         * and 4(for buyToken, the one before limitMax1) of the function relayer.getPoolState(sellToken, buyToken);
+         * an implementation of them can be found in the test of this adapter
+         */
     }
 
     /// @inheritdoc ISwapAdapter
-    function getCapabilities(bytes32 poolId, IERC20 sellToken, IERC20 buyToken)
+    function getCapabilities(bytes32, IERC20, IERC20)
         external
         pure
         override
         returns (Capability[] memory capabilities)
     {
-        capabilities = new Capability[](3);
+        capabilities = new Capability[](4);
         capabilities[0] = Capability.SellOrder;
         capabilities[1] = Capability.BuyOrder;
         capabilities[2] = Capability.PriceFunction;
+        capabilities[3] = Capability.ConstantPrice;
     }
 
     /// @inheritdoc ISwapAdapter
@@ -132,60 +136,30 @@ contract IntegralSwapAdapter is ISwapAdapter {
         }
     }
 
-    /// @notice Calculates pool prices after trade for specified amounts
-    /// @param amountIn The amount of the token being sold.
-    /// @param reserveIn The reserve of the token being sold.
-    /// @param reserveOut The reserve of the token being bought.
-    /// @param pair (ITwapPair) The pair where to execute the swap in.
-    /// @dev Although Integral declares in its Docs that the fee is 1 BP(0.01%, 0.0001 multiplier),
-    /// it can be changed at any time by calling a function of the contract by its owner or operator,
-    /// therefore it is obtained dynamically to ensure this function output remains reliable over time
-    /// @return The price as a fraction corresponding to the provided amount.
-    function getPriceAt(uint256 amountIn, uint256 reserveIn, uint256 reserveOut, ITwapPair pair)
-        internal
-        view
-        returns (Fraction memory)
-    {
-        if (reserveIn == 0 || reserveOut == 0) {
-            revert Unavailable("At least one reserve is zero!");
-        }
-        uint256 feeBP = relayer.swapFee(address(pair));
-
-        uint256 amountInWithFee = amountIn - ( (amountIn * feeBP) / 10**18 );
-        uint256 numerator = amountInWithFee * reserveOut;
-        uint256 denominator = (reserveIn * 1000) + amountInWithFee;
-        uint256 amountOut = numerator / denominator;
-        uint256 newReserveOut = reserveOut - amountOut;
-        uint256 newReserveIn = reserveIn + amountIn;
-
-        return Fraction(
-            newReserveOut * 1000, 
-            newReserveIn - ( (newReserveIn * feeBP) / 10**18 )
-        );
-    }
-
     /// @notice Executes a sell order on a given pool.
     /// @param sellToken The address of the token being sold.
     /// @param buyToken The address of the token being bought.
     /// @param amount The amount to be traded.
     /// @return uint256 The amount of tokens received.
     function sell(
-        address sellToken,
-        address buyToken,
+        IERC20 sellToken,
+        IERC20 buyToken,
         uint256 amount
     ) internal returns (uint256) {
-        address swapper = msg.sender;
-        uint256 amountOut = relayer.quoteSell(sellToken, buyToken, amount);
-
+        uint256 amountOut = relayer.quoteSell(address(sellToken), address(buyToken), amount);
         if (amountOut == 0) {
             revert Unavailable("AmountOut is zero!");
         }
+
+        sellToken.safeTransferFrom(msg.sender, address(this), amount);
+        sellToken.safeIncreaseAllowance(address(relayer), amount);
+
         relayer.sell(ITwapRelayer.SellParams({
-            tokenIn: sellToken,
-            tokenOut: buyToken,
+            tokenIn: address(sellToken),
+            tokenOut: address(buyToken),
             wrapUnwrap: false,
-            to: swapper,
-            submitDeadline: SWAP_DEADLINE_SEC,
+            to: msg.sender,
+            submitDeadline: uint32(block.timestamp + SWAP_DEADLINE_SEC),
             amountIn: amount,
             amountOutMin: amountOut
         }));
@@ -199,27 +173,59 @@ contract IntegralSwapAdapter is ISwapAdapter {
     /// @param amountBought The amount of buyToken tokens to buy.
     /// @return uint256 The amount of tokens received.
     function buy(
-        address sellToken,
-        address buyToken,
+        IERC20 sellToken,
+        IERC20 buyToken,
         uint256 amountBought
     ) internal returns (uint256) {
-        address swapper = msg.sender;
-        uint256 amountIn = relayer.quoteBuy(sellToken, buyToken, amountBought);
-
+        uint256 amountIn = relayer.quoteBuy(address(sellToken), address(buyToken), amountBought);
         if (amountIn == 0) {
             revert Unavailable("AmountIn is zero!");
         }
+
+        sellToken.safeTransferFrom(msg.sender, address(this), amountIn);
+        sellToken.safeIncreaseAllowance(address(relayer), amountIn);
+
         relayer.buy(ITwapRelayer.BuyParams({
-            tokenIn: sellToken,
-            tokenOut: buyToken,
+            tokenIn: address(sellToken),
+            tokenOut: address(buyToken),
             wrapUnwrap: false,
-            to: swapper,
-            submitDeadline: SWAP_DEADLINE_SEC,
+            to: msg.sender,
+            submitDeadline: uint32(block.timestamp + SWAP_DEADLINE_SEC),
             amountInMax: amountIn,
             amountOut: amountBought
         }));
 
         return amountIn;
+    }
+
+    /// @notice Get swap price including fee
+    /// @param sellToken token to sell
+    /// @param buyToken token to buy
+    function getPriceAt(address sellToken, address buyToken) internal view returns(Fraction memory) {
+        uint256 priceWithoutFee = relayer.getPriceByTokenAddresses(address(sellToken), address(buyToken));
+        ITwapFactory factory = ITwapFactory(relayer.factory());
+        address pairAddress = factory.getPair(address(sellToken), address(buyToken));
+
+        // get swapFee formatted; swapFee is a constant
+        uint256 swapFeeFormatted = (STANDARD_TOKEN_DECIMALS - relayer.swapFee(pairAddress));
+
+        // get token decimals
+        uint256 sellTokenDecimals = 10**ERC20(sellToken).decimals();
+        uint256 buyTokenDecimals = 10**ERC20(buyToken).decimals();
+
+        /**
+         * @dev
+         * Denominator works as a "standardizer" for the price rather than a reserve value
+         * as Integral takes prices from oracles and do not operate with reserves;
+         * it is therefore used to maintain integrity for the Fraction division,
+         * as numerator and denominator could have different token decimals(es. ETH(18)-USDC(6)).
+         * Both numerator and denominator are also multiplied by STANDARD_TOKEN_DECIMALS
+         * to ensure that precision losses are minimized or null.
+         */
+        return Fraction(
+            priceWithoutFee * STANDARD_TOKEN_DECIMALS,
+            STANDARD_TOKEN_DECIMALS * sellTokenDecimals * swapFeeFormatted / buyTokenDecimals
+        );
     }
 }
 
