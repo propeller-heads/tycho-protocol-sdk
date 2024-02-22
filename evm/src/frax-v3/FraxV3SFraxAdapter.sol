@@ -52,7 +52,7 @@ contract FraxV3SFraxAdapter is ISwapAdapter {
         IERC20,
         uint256[] memory _specifiedAmounts
     ) external view override returns (Fraction[] memory _prices) {
-        if (sellToken != address(frax) && sellToken != address(sFrax)) {
+        if (address(sellToken) != address(frax) && address(sellToken) != address(sFrax)) {
             revert("Sell token not supported");
         }
         
@@ -88,7 +88,12 @@ contract FraxV3SFraxAdapter is ISwapAdapter {
                 buy(sellToken, specifiedAmount);
         }
         trade.gasUsed = gasBefore - gasleft();
-        trade.price = side == OrderSide.Sell ? getPriceAt(sellToken, specifiedAmount) : getPriceAt(sellToken, trade.calculatedAmount);
+        if(sellToken == frax) {
+            trade.price = getPriceAt(true, specifiedAmount);
+        }
+        else {
+            trade.price = getPriceAt(false, specifiedAmount);
+        }
     }
 
     /// @inheritdoc ISwapAdapter
@@ -278,7 +283,7 @@ interface ISFrax {
 
     function previewWithdraw(uint256 assets) external view returns (uint256);
 
-    function previewDistributeRewards() public view virtual returns (uint256 _rewardToDistribute);
+    function previewDistributeRewards() external view returns (uint256 _rewardToDistribute);
 
     function pricePerShare() external view returns (uint256);
 
