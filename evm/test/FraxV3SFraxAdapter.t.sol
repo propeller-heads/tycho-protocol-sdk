@@ -8,11 +8,12 @@ import "src/libraries/FractionMath.sol";
 import "src/libraries/FractionMath.sol";
 import "src/frax-v3/FraxV3SFraxAdapter.sol";
 
-
 /// @title TemplateSwapAdapterTest
 /// @dev This is a template for a swap adapter test.
-/// Test all functions that are implemented in your swap adapter, the two test included here are just an example.
-/// Feel free to use UniswapV2SwapAdapterTest and BalancerV2SwapAdapterTest as a reference.
+/// Test all functions that are implemented in your swap adapter, the two test
+/// included here are just an example.
+/// Feel free to use UniswapV2SwapAdapterTest and BalancerV2SwapAdapterTest as a
+/// reference.
 contract FraxV3SFraxAdapterTest is Test, ISwapAdapterTypes {
     using FractionMath for Fraction;
 
@@ -34,259 +35,242 @@ contract FraxV3SFraxAdapterTest is Test, ISwapAdapterTypes {
         vm.label(address(SFRAX), "SFRAX");
     }
 
-    function testScemo() public {
-        deal(address(FRAX), address(this), type(uint256).max);
-        FRAX.approve(address(adapter), type(uint256).max);
-        console.log("BALANCE 0",IERC20(address(SFRAX)).balanceOf(address(this)));
-        console.log("EXP price contract", SFRAX.previewDeposit(10 ether), 10 ether);
-
-        Fraction memory atPrice = adapter.getPriceAt(true, 10 ether);
-        console.log("EXP price getPriceAt", atPrice.numerator, atPrice.denominator);
-        Trade memory trade = adapter.swap(bytes32(0), FRAX, IERC20(SFRAX_ADDRESS), OrderSide.Sell, 10 ether);
-
-        console.log("FIRST");
-        // console.log(trade.price.numerator, trade.price.denominator);
-        // console.log(SFRAX.previewDeposit(10 ether));
-        console.log("BALANCE 1", IERC20(SFRAX_ADDRESS).balanceOf(address(this)));
-
-        console.log("2222 EXP price contract", SFRAX.previewDeposit(10 ether), 10 ether);
-        atPrice = adapter.getPriceAt(true, 10 ether);
-        console.log("2222 EXP price getPriceAt", atPrice.numerator, atPrice.denominator);
-        Trade memory trade2 = adapter.swap(bytes32(0), FRAX, IERC20(SFRAX_ADDRESS), OrderSide.Sell, 100 ether);
-        console.log("BALANCE 2", IERC20(SFRAX_ADDRESS).balanceOf(address(this)));
-
-        
-    }
-
     /// @dev set lower limit to greater than 1, because previewDeposit returns 0
     /// with an amountIn == 1
-    // function testPriceFuzzFraxV3SFrax(uint256 amount0, uint256 amount1) public {
-    //     uint256[] memory limits = adapter.getLimits(bytes32(0), FRAX, SFRAX);
-    //     vm.assume(amount0 < limits[0]);
-    //     vm.assume(amount0 > 1);
-    //     vm.assume(amount1 < limits[1]);
-    //     vm.assume(amount1 > 1);
+    function testPriceFuzzFraxV3SFrax(uint256 amount0, uint256 amount1)
+        public
+    {
+        uint256[] memory limits =
+            adapter.getLimits(bytes32(0), FRAX, IERC20(SFRAX_ADDRESS));
+        vm.assume(amount0 < limits[0]);
+        vm.assume(amount0 > 1);
+        vm.assume(amount1 < limits[1]);
+        vm.assume(amount1 > 1);
 
-    //     uint256[] memory amounts = new uint256[](2);
-    //     amounts[0] = amount0;
-    //     amounts[1] = amount1;
+        uint256[] memory amounts = new uint256[](2);
+        amounts[0] = amount0;
+        amounts[1] = amount1;
 
-    //     Fraction[] memory prices = adapter.price(bytes32(0), FRAX, SFRAX, amounts);
+        Fraction[] memory prices =
+            adapter.price(bytes32(0), FRAX, IERC20(SFRAX_ADDRESS), amounts);
 
-    //     for (uint256 i = 0; i < prices.length; i++) {
-    //         assertGt(prices[i].numerator, 0);
-    //         assertGt(prices[i].denominator, 0);
-    //     }
-    // }
+        for (uint256 i = 0; i < prices.length; i++) {
+            assertGt(prices[i].numerator, 0);
+            assertGt(prices[i].denominator, 0);
+        }
+    }
 
-    // function testOneIncreasingPriceFoundFraxV3SFrax() public {
-        
-    //     uint256[] memory amounts = new uint256[](TEST_ITERATIONS);
+    /// @dev The price is kept among swaps if no FRAX rewards are distributed in
+    /// the contract during time
+    function testPriceKeepingSellFrax() public {
+        bytes32 pair = bytes32(0);
+        uint256[] memory amounts = new uint256[](TEST_ITERATIONS);
 
-    //     for (uint256 i = 1; i < TEST_ITERATIONS + 1; i++) {
-    //         amounts[i-1] = 1000 * i * 10 ** 18;
-    //     }
+        for (uint256 i = 0; i < TEST_ITERATIONS; i++) {
+            amounts[i] = 1000 * (i + 1) * 10 ** 18;
+        }
 
-    //     Fraction[] memory prices = adapter.price(bytes32(0), FRAX, SFRAX, amounts);
+        Fraction[] memory prices =
+            adapter.price(pair, FRAX, IERC20(SFRAX_ADDRESS), amounts);
 
-    //     bool foundIncreasingPrice = false; // Flag variable to track if increasing price is found
+        for (uint256 i = 0; i < TEST_ITERATIONS - 1; i++) {
+            assertEq(prices[i].compareFractions(prices[i + 1]), 0);
+            assertGt(prices[i].denominator, 0);
+            assertGt(prices[i + 1].denominator, 0);
+        }
+    }
 
-    //     for (uint256 i = 0; i < TEST_ITERATIONS - 1; i++) {
-    //         if (prices[i].compareFractions(prices[i + 1]) == 1) {
-    //             foundIncreasingPrice = true;
-    //             break; // If one increasing price is found, we can exit the loop
-    //         }
-    //         assertGt(prices[i].denominator, 0);
-    //         assertGt(prices[i + 1].denominator, 0);
-    //     }
+    /// @dev The price is kept among swaps if no FRAX rewards are distributed in
+    /// the contract during time
+    function testPriceKeepingSellSFrax() public {
+        bytes32 pair = bytes32(0);
+        uint256[] memory amounts = new uint256[](TEST_ITERATIONS);
 
-    //     // Assert that at least one increasing price is found
-    //     assertTrue(foundIncreasingPrice, "No increasing price found");
+        for (uint256 i = 0; i < TEST_ITERATIONS; i++) {
+            amounts[i] = 1000 * (i + 1) * 10 ** 18;
+        }
 
-    // }
+        Fraction[] memory prices =
+            adapter.price(pair, IERC20(SFRAX_ADDRESS), FRAX, amounts);
 
+        for (uint256 i = 0; i < TEST_ITERATIONS - 1; i++) {
+            assertEq(prices[i].compareFractions(prices[i + 1]), 0);
+            assertGt(prices[i].denominator, 0);
+            assertGt(prices[i + 1].denominator, 0);
+        }
+    }
 
-    // function testSwapFuzzFraxV3SFrax() public {
-    //     // OrderSide side = isBuy ? OrderSide.Buy : OrderSide.Sell;
-    //     uint256 specifiedAmount = 10e18;
-    //     bool isBuy = true;
-    //     OrderSide side = isBuy ? OrderSide.Buy : OrderSide.Sell;
+    function testSwapFuzzFraxV3WithFrax(uint256 specifiedAmount, bool isBuy)
+        public
+    {
+        OrderSide side = isBuy ? OrderSide.Buy : OrderSide.Sell;
 
-    //     uint256[] memory limits = adapter.getLimits(bytes32(0), FRAX, SFRAX);
-    //     uint256 approvalAmount = 1000e18;
+        bytes32 pair = bytes32(0);
+        uint256[] memory limits =
+            adapter.getLimits(pair, FRAX, IERC20(SFRAX_ADDRESS));
 
-    //     if (side == OrderSide.Buy) {
-    //         vm.assume(specifiedAmount < limits[0]);
-    //         vm.assume(specifiedAmount > 1);
+        if (side == OrderSide.Buy) {
+            vm.assume(specifiedAmount < limits[1]);
 
-    //         deal(address(FRAX), address(this), type(uint256).max);
-    //         FRAX.approve(address(adapter), approvalAmount);
-    //     } else {
-    //         vm.assume(specifiedAmount < limits[1]);
-    //         vm.assume(specifiedAmount > 1);
+            deal(address(FRAX), address(this), type(uint256).max);
+            FRAX.approve(address(adapter), type(uint256).max);
+        } else {
+            vm.assume(specifiedAmount < limits[0]);
 
-    //         deal(address(FRAX), address(this), specifiedAmount);
-    //         FRAX.approve(address(adapter), specifiedAmount);
-    //     }
+            deal(address(FRAX), address(this), specifiedAmount);
+            FRAX.approve(address(adapter), specifiedAmount);
+        }
 
-    //     uint256 frax_balance_before = FRAX.balanceOf(address(this));
-    //     uint256 sFrax_balance_before = SFRAX.balanceOf(address(this));
+        uint256 frax_balance = FRAX.balanceOf(address(this));
+        uint256 sfrax_balance = IERC20(SFRAX_ADDRESS).balanceOf(address(this));
 
-    //     console.log("Frax Balance before Swap: ", frax_balance_before);
-    //     console.log("SFrax Balance before Swap: ", sFrax_balance_before);
+        Trade memory trade = adapter.swap(
+            pair, FRAX, IERC20(SFRAX_ADDRESS), side, specifiedAmount
+        );
 
+        if (trade.calculatedAmount > 0) {
+            if (side == OrderSide.Buy) {
+                assertEq(
+                    specifiedAmount,
+                    IERC20(SFRAX_ADDRESS).balanceOf(address(this))
+                        - sfrax_balance
+                );
+                assertEq(
+                    trade.calculatedAmount,
+                    frax_balance - FRAX.balanceOf(address(this))
+                );
+            } else {
+                assertEq(
+                    specifiedAmount,
+                    frax_balance - FRAX.balanceOf(address(this))
+                );
+                assertEq(
+                    trade.calculatedAmount,
+                    IERC20(SFRAX_ADDRESS).balanceOf(address(this))
+                        - sfrax_balance
+                );
+            }
+        }
+    }
 
-    //     Trade memory trade =
-    //         adapter.swap(bytes32(0), FRAX, SFRAX, side, specifiedAmount);
+    function testSwapFuzzFraxV3WithSFrax(uint256 specifiedAmount, bool isBuy)
+        public
+    {
+        OrderSide side = isBuy ? OrderSide.Buy : OrderSide.Sell;
 
-    //     // Refresh balances after the swap
-    //     uint256 frax_balance_after = FRAX.balanceOf(address(this));
-    //     uint256 sFrax_balance_after = SFRAX.balanceOf(address(this));
-    //     console.log("Frax Balance after Swap: ", frax_balance_after);
-    //     console.log("SFrax Balance after Swap: ", sFrax_balance_after);
+        bytes32 pair = bytes32(0);
+        uint256[] memory limits =
+            adapter.getLimits(pair, IERC20(SFRAX_ADDRESS), FRAX);
 
-    //     if (trade.calculatedAmount > 0) {
-    //         if (side == OrderSide.Buy) {
-    //             assertEq(
-    //                 specifiedAmount,
-    //                 SFRAX.balanceOf(address(this)) - sFrax_balance_before
-    //             );
-    //             assertEq(
-    //                 trade.calculatedAmount,
-    //                 frax_balance_before - FRAX.balanceOf(address(this))
-    //             );
-    //         } else {
-    //             assertEq(
-    //                 specifiedAmount,
-    //                 frax_balance_before - FRAX.balanceOf(address(this))
-    //             );
-    //             assertEq(
-    //                 trade.calculatedAmount,
-    //                 SFRAX.balanceOf(address(this)) - sFrax_balance_before
-    //             );
-    //         }
+        if (side == OrderSide.Buy) {
+            vm.assume(specifiedAmount < limits[1]);
 
-    //     }
+            deal(SFRAX_ADDRESS, address(this), type(uint256).max);
+            IERC20(SFRAX_ADDRESS).approve(address(adapter), type(uint256).max);
+        } else {
+            vm.assume(specifiedAmount < limits[0]);
 
-    // }
+            deal(address(SFRAX_ADDRESS), address(this), specifiedAmount);
+            IERC20(SFRAX_ADDRESS).approve(address(adapter), specifiedAmount);
+        }
 
-    // function testSwapSellIncreasingFraxV3SFrax() public {
-    //     executeIncreasingSwapsFraxV3SFrax(OrderSide.Sell);
-    // }
+        uint256 sfrax_balance = IERC20(SFRAX_ADDRESS).balanceOf(address(this));
+        uint256 frax_balance = FRAX.balanceOf(address(this));
 
-    // function testSwapBuyIncreasingFraxV3SFrax() public {
-    //     executeIncreasingSwapsFraxV3SFrax(OrderSide.Buy);
-    // }
+        Trade memory trade = adapter.swap(
+            pair, IERC20(SFRAX_ADDRESS), FRAX, side, specifiedAmount
+        );
 
-    // function executeIncreasingSwapsFraxV3SFrax(OrderSide side) internal {
-    //     bytes32 pair = bytes32(0);
+        if (trade.calculatedAmount > 0) {
+            if (side == OrderSide.Buy) {
+                assertEq(
+                    specifiedAmount,
+                    FRAX.balanceOf(address(this)) - frax_balance
+                );
+                assertEq(
+                    trade.calculatedAmount,
+                    sfrax_balance
+                        - IERC20(SFRAX_ADDRESS).balanceOf(address(this))
+                );
+            } else {
+                assertEq(
+                    specifiedAmount,
+                    sfrax_balance
+                        - IERC20(SFRAX_ADDRESS).balanceOf(address(this))
+                );
+                assertEq(
+                    trade.calculatedAmount,
+                    FRAX.balanceOf(address(this)) - frax_balance
+                );
+            }
+        }
+    }
 
-    //     uint256[] memory amounts = new uint256[](TEST_ITERATIONS);
+    function testSwapSellIncreasingFraxV3() public {
+        executeIncreasingSwapsFraxV3(OrderSide.Sell, true);
+        executeIncreasingSwapsFraxV3(OrderSide.Sell, false);
+    }
 
-    //     for (uint256 i = 1; i < TEST_ITERATIONS + 1; i++) {
-    //         amounts[i-1] = 1000 * i * 10 ** 18;
-    //     }
+    function testSwapBuyIncreasingFraxV3() public {
+        executeIncreasingSwapsFraxV3(OrderSide.Buy, true);
+        executeIncreasingSwapsFraxV3(OrderSide.Buy, false);
+    }
 
-    //     Trade[] memory trades = new Trade[](TEST_ITERATIONS);
-    //     uint256 beforeSwap;
-    //     for (uint256 i = 0; i < TEST_ITERATIONS; i++) {
-    //         beforeSwap = vm.snapshot();
+    function executeIncreasingSwapsFraxV3(OrderSide side, bool isFrax)
+        internal
+    {
+        bytes32 pair = bytes32(0);
 
-    //         deal(address(FRAX), address(this), amounts[i]);
-    //         FRAX.approve(address(adapter), amounts[i]);
+        uint256[] memory amounts = new uint256[](TEST_ITERATIONS);
+        for (uint256 i = 0; i < TEST_ITERATIONS; i++) {
+            amounts[i] = 1000 * (i + 1) * 10 ** 18;
+        }
 
-    //         trades[i] = adapter.swap(pair, FRAX, SFRAX, side, amounts[i]);
-    //         vm.revertTo(beforeSwap);
-    //     }
+        Trade[] memory trades = new Trade[](TEST_ITERATIONS);
+        uint256 beforeSwap;
+        for (uint256 i = 0; i < TEST_ITERATIONS; i++) {
+            beforeSwap = vm.snapshot();
 
-    //     for (uint256 i = 1; i < TEST_ITERATIONS - 1; i++) {
-    //         assertLe(trades[i].calculatedAmount, trades[i + 1].calculatedAmount);
-    //         assertLe(trades[i].gasUsed, trades[i + 1].gasUsed);
-    //         /// @dev price is not always increasing 
-    //         // assertEq(trades[i].price.compareFractions(trades[i + 1].price), 1);
-    //     }
-    // }
+            if (isFrax) {
+                deal(FRAX_ADDRESS, address(this), type(uint256).max);
+                FRAX.approve(address(adapter), type(uint256).max);
+                trades[i] = adapter.swap(
+                    pair, FRAX, IERC20(SFRAX_ADDRESS), side, amounts[i]
+                );
+            } else {
+                deal(SFRAX_ADDRESS, address(this), amounts[i]);
+                IERC20(SFRAX_ADDRESS).approve(address(adapter), amounts[i]);
+                trades[i] = adapter.swap(
+                    pair, IERC20(SFRAX_ADDRESS), FRAX, side, amounts[i]
+                );
+            }
 
-    // function testGetLimitsFraxV3SFrax() public {
-    //     uint256[] memory limits = adapter.getLimits(bytes32(0), FRAX, SFRAX);
-    //     console.logUint(limits[0]);
-    //     console.logUint(limits[1]);
-    //     assertEq(limits.length, 2);
-    // }
+            vm.revertTo(beforeSwap);
+        }
 
-    // function testGetTokensFraxV3SFrax() public {
-    //     IERC20[] memory tokens = adapter.getTokens(bytes32(0));
+        for (uint256 i = 1; i < TEST_ITERATIONS - 1; i++) {
+            assertLe(trades[i].calculatedAmount, trades[i + 1].calculatedAmount);
+            assertLe(trades[i].gasUsed, trades[i + 1].gasUsed);
+        }
+    }
 
-    //     assertEq(address(tokens[0]), FRAX_ADDRESS);
-    //     assertEq(address(tokens[1]), SFRAX_ADDRESS);
-    // }
+    function testGetLimitsFraxV3() public {
+        uint256[] memory limits =
+            adapter.getLimits(bytes32(0), FRAX, IERC20(SFRAX_ADDRESS));
+        assertEq(limits.length, 2);
+    }
 
-    // function testGetCapabilitiesFraxV3SFrax() public {
-    // Capability[] memory res =
-    //     adapter.getCapabilities(bytes32(0), FRAX, SFRAX);
+    function testGetTokensFraxV3() public {
+        IERC20[] memory tokens = adapter.getTokens(bytes32(0));
 
-    // assertEq(res.length, 3);
-    // }
+        assertEq(address(tokens[0]), FRAX_ADDRESS);
+        assertEq(address(tokens[1]), SFRAX_ADDRESS);
+    }
 
-    // function testGetAmountOutSFrax() public view {
-    //     uint256 amountInFrax = 1;
-    //     uint256 amountOutSFrax = SFRAX.previewDeposit(amountInFrax);
+    function testGetCapabilitiesFraxV3SFrax() public {
+        Capability[] memory res =
+            adapter.getCapabilities(bytes32(0), FRAX, IERC20(SFRAX_ADDRESS));
 
-    //     console.log("FRAX in:", amountInFrax);
-    //     console.log("SFRAX out:", amountOutSFrax);
-
-    //     assert(amountOutSFrax > 0);
-    // }
-
-    // function testGetAmountOutFrax() public view {
-    //     uint256 amountInSFrax = AMOUNT0;
-    //     uint256 amountOutFrax = SFRAX.previewRedeem(amountInSFrax);
-
-    //     console.log("SFRAX in:", amountInSFrax);
-    //     console.log("FRAX out:", amountOutFrax);
-
-    //     assert(amountOutFrax > 0);
-    // }
-
-    // function testGetAmountInFrax() public view {
-    //     uint256 amountOutSFrax = AMOUNT0;
-    //     uint256 amountInFrax = SFRAX.previewMint(amountOutSFrax);
-
-    //     console.log("SFRAX out:", amountOutSFrax);
-    //     console.log("FRAX in:", amountInFrax);
-
-    //     assert(amountInFrax > 0);
-    // }
-
-    // function testGetAmountInSFrax() public view {
-    //     uint256 amountOutFrax = AMOUNT0;
-    //     uint256 amountInSFrax = SFRAX.previewWithdraw(amountOutFrax);
-
-    //     console.log("FRAX out:", amountOutFrax);
-    //     console.log("SFRAX in:", amountInSFrax);
-
-    //     assert(amountInSFrax > 0);
-    // }
-
-    // function testGetPriceAtFraxV3SFrax() public {
-
-    //     uint256 amountInFrax = AMOUNT0;
-    //     Fraction memory fractionFraxIn = adapter.getPriceAt(FRAX, amountInFrax);
-
-    //     uint256 amountInSFrax = AMOUNT0;
-    //     Fraction memory fractionSFraxIn = adapter.getPriceAt(SFRAX, amountInSFrax);
-
-    //     console.log("Numerator Frax In: ", fractionFraxIn.numerator);
-    //     console.log("Denominator Frax In: ", fractionFraxIn.denominator);
-    //     console.log("---------------------SFRAX IN--------------------------------");
-    //     console.log("Numerator SFrax In: ", fractionSFraxIn.numerator);
-    //     console.log("Denominator SFrax In: ", fractionSFraxIn.denominator);
-
-    //     assertGt(fractionFraxIn.numerator, 0);
-    //     assertGt(fractionFraxIn.denominator, 0);
-
-    //     assertGt(fractionSFraxIn.numerator, 0);
-    //     assertGt(fractionSFraxIn.denominator, 0);
-    // }
-
+        assertEq(res.length, 3);
+    }
 }
