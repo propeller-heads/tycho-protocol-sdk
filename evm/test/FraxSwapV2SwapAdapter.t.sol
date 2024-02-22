@@ -57,7 +57,7 @@ contract FraxSwapV2SwapAdapterTest is Test, ISwapAdapterTypes {
         uint256[] memory amounts = new uint256[](TEST_ITERATIONS);
 
         for (uint256 i = 0; i < TEST_ITERATIONS; i++) {
-            amounts[i] = 1000 * i * 10**18;
+            amounts[i] = 1000 * i * 10 ** 18;
         }
 
         Fraction[] memory prices = adapter.price(pair, FRAX, WETH, amounts);
@@ -123,7 +123,6 @@ contract FraxSwapV2SwapAdapterTest is Test, ISwapAdapterTypes {
     }
 
     function executeIncreasingSwapsFrax(OrderSide side) internal {
-        
         bytes32 pair = bytes32(bytes20(FRAX_WETH_PAIR));
 
         uint256[] memory amounts = new uint256[](TEST_ITERATIONS);
@@ -136,7 +135,7 @@ contract FraxSwapV2SwapAdapterTest is Test, ISwapAdapterTypes {
         for (uint256 i = 0; i < TEST_ITERATIONS; i++) {
             beforeSwap = vm.snapshot();
 
-            if(side == OrderSide.Buy) {
+            if (side == OrderSide.Buy) {
                 deal(address(FRAX), address(this), type(uint256).max);
                 FRAX.approve(address(adapter), type(uint256).max);
             } else {
@@ -159,7 +158,9 @@ contract FraxSwapV2SwapAdapterTest is Test, ISwapAdapterTypes {
         executeIncreasingSwapsFrax(OrderSide.Buy);
     }
 
-    function testGetCapabilitiesFrax(bytes32 pair, address t0, address t1) public {
+    function testGetCapabilitiesFrax(bytes32 pair, address t0, address t1)
+        public
+    {
         Capability[] memory res =
             adapter.getCapabilities(pair, IERC20(t0), IERC20(t1));
 
@@ -171,6 +172,5 @@ contract FraxSwapV2SwapAdapterTest is Test, ISwapAdapterTypes {
         uint256[] memory limits = adapter.getLimits(pair, FRAX, WETH);
 
         assertEq(limits.length, 2);
-    }   
-
+    }
 }
