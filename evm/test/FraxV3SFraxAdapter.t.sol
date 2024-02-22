@@ -17,9 +17,8 @@ contract FraxV3SFraxAdapterTest is Test, ISwapAdapterTypes {
     using FractionMath for Fraction;
 
     FraxV3SFraxAdapter adapter;
-    ISFrax constant ISFRAX = ISFrax(0xA663B02CF0a4b149d2aD41910CB81e23e1c41c32);
+    ISFrax constant SFRAX = ISFrax(0xA663B02CF0a4b149d2aD41910CB81e23e1c41c32);
     IERC20 constant FRAX = IERC20(0x853d955aCEf822Db058eb8505911ED77F175b99e);
-    IERC20 constant SFRAX = IERC20(0xA663B02CF0a4b149d2aD41910CB81e23e1c41c32);
     address constant FRAX_ADDRESS = address(FRAX);
     address constant SFRAX_ADDRESS = address(SFRAX);
 
@@ -30,7 +29,7 @@ contract FraxV3SFraxAdapterTest is Test, ISwapAdapterTypes {
         uint256 forkBlock = 19270612;
         vm.createSelectFork(vm.rpcUrl("mainnet"), forkBlock);
 
-        adapter = new FraxV3SFraxAdapter(ISFRAX);
+        adapter = new FraxV3SFraxAdapter(SFRAX);
         vm.label(address(FRAX), "FRAX");
         vm.label(address(SFRAX), "SFRAX");
     }
@@ -38,23 +37,23 @@ contract FraxV3SFraxAdapterTest is Test, ISwapAdapterTypes {
     function testScemo() public {
         deal(address(FRAX), address(this), type(uint256).max);
         FRAX.approve(address(adapter), type(uint256).max);
-        console.log("BALANCE 0",IERC20(address(ISFRAX)).balanceOf(address(this)));
-        console.log("EXP price contract", ISFRAX.previewDeposit(10 ether), 10 ether);
+        console.log("BALANCE 0",IERC20(address(SFRAX)).balanceOf(address(this)));
+        console.log("EXP price contract", SFRAX.previewDeposit(10 ether), 10 ether);
 
         Fraction memory atPrice = adapter.getPriceAt(true, 10 ether);
         console.log("EXP price getPriceAt", atPrice.numerator, atPrice.denominator);
-        Trade memory trade = adapter.swap(bytes32(0), FRAX, SFRAX, OrderSide.Sell, 10 ether);
+        Trade memory trade = adapter.swap(bytes32(0), FRAX, IERC20(SFRAX_ADDRESS), OrderSide.Sell, 10 ether);
 
         console.log("FIRST");
         // console.log(trade.price.numerator, trade.price.denominator);
-        // console.log(ISFRAX.previewDeposit(10 ether));
-        console.log("BALANCE 1", IERC20(address(ISFRAX)).balanceOf(address(this)));
+        // console.log(SFRAX.previewDeposit(10 ether));
+        console.log("BALANCE 1", IERC20(SFRAX_ADDRESS).balanceOf(address(this)));
 
-        console.log("2222 EXP price contract", ISFRAX.previewDeposit(10 ether), 10 ether);
+        console.log("2222 EXP price contract", SFRAX.previewDeposit(10 ether), 10 ether);
         atPrice = adapter.getPriceAt(true, 10 ether);
         console.log("2222 EXP price getPriceAt", atPrice.numerator, atPrice.denominator);
-        Trade memory trade2 = adapter.swap(bytes32(0), FRAX, SFRAX, OrderSide.Sell, 100 ether);
-        console.log("BALANCE 2", IERC20(address(ISFRAX)).balanceOf(address(this)));
+        Trade memory trade2 = adapter.swap(bytes32(0), FRAX, IERC20(SFRAX_ADDRESS), OrderSide.Sell, 100 ether);
+        console.log("BALANCE 2", IERC20(SFRAX_ADDRESS).balanceOf(address(this)));
 
         
     }
@@ -231,7 +230,7 @@ contract FraxV3SFraxAdapterTest is Test, ISwapAdapterTypes {
 
     // function testGetAmountOutSFrax() public view {
     //     uint256 amountInFrax = 1;
-    //     uint256 amountOutSFrax = ISFRAX.previewDeposit(amountInFrax);
+    //     uint256 amountOutSFrax = SFRAX.previewDeposit(amountInFrax);
 
     //     console.log("FRAX in:", amountInFrax);
     //     console.log("SFRAX out:", amountOutSFrax);
@@ -241,7 +240,7 @@ contract FraxV3SFraxAdapterTest is Test, ISwapAdapterTypes {
 
     // function testGetAmountOutFrax() public view {
     //     uint256 amountInSFrax = AMOUNT0;
-    //     uint256 amountOutFrax = ISFRAX.previewRedeem(amountInSFrax);
+    //     uint256 amountOutFrax = SFRAX.previewRedeem(amountInSFrax);
 
     //     console.log("SFRAX in:", amountInSFrax);
     //     console.log("FRAX out:", amountOutFrax);
@@ -251,7 +250,7 @@ contract FraxV3SFraxAdapterTest is Test, ISwapAdapterTypes {
 
     // function testGetAmountInFrax() public view {
     //     uint256 amountOutSFrax = AMOUNT0;
-    //     uint256 amountInFrax = ISFRAX.previewMint(amountOutSFrax);
+    //     uint256 amountInFrax = SFRAX.previewMint(amountOutSFrax);
 
     //     console.log("SFRAX out:", amountOutSFrax);
     //     console.log("FRAX in:", amountInFrax);
@@ -261,7 +260,7 @@ contract FraxV3SFraxAdapterTest is Test, ISwapAdapterTypes {
 
     // function testGetAmountInSFrax() public view {
     //     uint256 amountOutFrax = AMOUNT0;
-    //     uint256 amountInSFrax = ISFRAX.previewWithdraw(amountOutFrax);
+    //     uint256 amountInSFrax = SFRAX.previewWithdraw(amountOutFrax);
 
     //     console.log("FRAX out:", amountOutFrax);
     //     console.log("SFRAX in:", amountInSFrax);

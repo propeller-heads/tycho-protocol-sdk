@@ -96,14 +96,14 @@ contract FraxV3SFraxAdapter is ISwapAdapter {
 
     /// @inheritdoc ISwapAdapter
     /// @dev there is no hard capped limit 
-    function getLimits(bytes32, IERC20 sellToken, IERC20 buyToken)
+    function getLimits(bytes32, IERC20 sellToken, IERC20)
         external
         view
         returns (uint256[] memory limits)
     {
         limits = new uint256[](2);
 
-        if(address(sellToken) == address(frax)) { // Frax --> sFrax
+        if(address(sellToken) == address(frax)) {
             limits[0] = frax.totalSupply();
             limits[1] = sFrax.previewDeposit(limits[0]);
         } else {
@@ -214,7 +214,6 @@ contract FraxV3SFraxAdapter is ISwapAdapter {
             totMintedShares -= amountIn;
 
             uint256 numerator = amountIn.mulDivDown(totStoredAssets, totMintedShares);
-            
 
             return Fraction(
                 numerator,
