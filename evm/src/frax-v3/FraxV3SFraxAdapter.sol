@@ -35,8 +35,6 @@ contract FraxV3SFraxAdapter is ISwapAdapter {
     using SafeERC20 for IERC20;
     using FixedPointMathLib for uint256;
 
-    uint256 constant PRECISE_UNIT = 1e18;
-
     ISFrax immutable sFrax;
     IERC20 immutable frax;
 
@@ -190,10 +188,6 @@ contract FraxV3SFraxAdapter is ISwapAdapter {
     {
         if(isSellFrax = true) {
 
-            if(amountIn < 2) {
-            revert("Amount In must be greater than 1");
-            }
-
             uint256 totStoredAssets = sFrax.storedTotalAssets();
             uint256 totMintedShares = sFrax.totalSupply();
             uint256 rewards = sFrax.previewDistributeRewards();
@@ -202,11 +196,11 @@ contract FraxV3SFraxAdapter is ISwapAdapter {
             totStoredAssets += amountIn + rewards;
             totMintedShares += newMintedShares;
 
-            uint256 numerator = PRECISE_UNIT.mulDivDown(totMintedShares, totStoredAssets);
+            uint256 numerator = amountIn.mulDivDown(totMintedShares, totStoredAssets);
 
             return Fraction(
                 numerator,
-                PRECISE_UNIT
+                amountIn
             );
         }
         else {
@@ -219,12 +213,12 @@ contract FraxV3SFraxAdapter is ISwapAdapter {
             totStoredAssets = totStoredAssets + rewards - fraxAmountRedeemed;
             totMintedShares -= amountIn;
 
-            uint256 numerator = PRECISE_UNIT.mulDivDown(totStoredAssets, totMintedShares);
+            uint256 numerator = amountIn.mulDivDown(totStoredAssets, totMintedShares);
             
 
             return Fraction(
                 numerator,
-                PRECISE_UNIT
+                amountIn
             );
         }
     }
