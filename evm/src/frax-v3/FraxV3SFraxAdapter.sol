@@ -72,13 +72,10 @@ contract FraxV3SFraxAdapter is ISwapAdapter {
     {
         _prices = new Fraction[](_specifiedAmounts.length);
 
-        bool isSellFrax;
-        if (address(sellToken) == address(frax)) {
-            isSellFrax = true;
-        }
-
         for (uint256 i = 0; i < _specifiedAmounts.length; i++) {
-            _prices[i] = getPriceAt(isSellFrax, _specifiedAmounts[i]);
+            _prices[i] = getPriceAt(
+                address(sellToken) == address(frax), _specifiedAmounts[i]
+            );
         }
     }
 
@@ -204,11 +201,14 @@ contract FraxV3SFraxAdapter is ISwapAdapter {
         internal
         returns (uint256 calculatedAmount)
     {
-        sellToken.safeTransferFrom(msg.sender, address(this), amount);
         if (address(sellToken) == address(sFrax)) {
+            uint256 amountIn = sFrax.previewWithdraw(amount);
+            sellToken.safeTransferFrom(msg.sender, address(this), amountIn);
             return sFrax.withdraw(amount, msg.sender, address(this));
         } else {
-            sellToken.approve(address(sFrax), amount);
+            uint256 amountIn = sFrax.previewMint(amount);
+            sellToken.safeTransferFrom(msg.sender, address(this), amountIn);
+            sellToken.approve(address(sFrax), amountIn);
             return sFrax.mint(amount, msg.sender);
         }
     }
@@ -223,7 +223,7 @@ contract FraxV3SFraxAdapter is ISwapAdapter {
         view
         returns (Fraction memory)
     {
-        if (isSellFrax = true) {
+        if (isSellFrax == true) {
             if (amountIn < 2) {
                 revert("Amount In must be greater than 1");
             }
