@@ -52,6 +52,39 @@ contract FraxV3FrxEthAdapter {
         _;
     }
 
+    function price(
+        bytes32 _poolId,
+        IERC20 _sellToken,
+        IERC20 _buyToken,
+        uint256[] memory _specifiedAmounts
+    ) external view override returns (Fraction[] memory _prices) {
+        revert NotImplemented("FraxV3FrxEthAdapter.price");
+    }
+
+    function swap(
+        bytes32 poolId,
+        IERC20 sellToken,
+        IERC20 buyToken,
+        OrderSide side,
+        uint256 specifiedAmount
+    ) external returns (Trade memory trade) {
+        revert NotImplemented("FraxV3FrxEthAdapter.swap");
+    }
+
+    function getLimits(bytes32 poolId, IERC20 sellToken, IERC20 buyToken)
+        external
+        returns (uint256[] memory limits)
+    {
+        revert NotImplemented("FraxV3FrxEthAdapter.getLimits");
+    }
+
+    function getCapabilities(bytes32 poolId, IERC20 sellToken, IERC20 buyToken)
+        external
+        returns (Capability[] memory capabilities)
+    {
+        revert NotImplemented("FraxV3FrxEthAdapter.getCapabilities");
+    }
+
     /// @inheritdoc ISwapAdapter
     function getTokens(bytes32)
         external
@@ -63,6 +96,13 @@ contract FraxV3FrxEthAdapter {
         tokens[0] = IERC20(address(0));
         tokens[1] = IERC20(frxEthMinter.frxETHToken());
         tokens[2] = IERC20(frxEthMinter.sfrxETHToken());
+    }
+
+    function getPoolIds(uint256 offset, uint256 limit)
+        external
+        returns (bytes32[] memory ids)
+    {
+        revert NotImplemented("FraxV3FrxEthAdapter.getPoolIds");
     }
 }
 
