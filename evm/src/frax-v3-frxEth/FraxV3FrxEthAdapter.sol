@@ -78,11 +78,17 @@ contract FraxV3FrxEthAdapter {
         revert NotImplemented("FraxV3FrxEthAdapter.getLimits");
     }
 
-    function getCapabilities(bytes32 poolId, IERC20 sellToken, IERC20 buyToken)
+    /// @inheritdoc ISwapAdapter
+    function getCapabilities(bytes32, IERC20, IERC20)
         external
+        pure
+        override
         returns (Capability[] memory capabilities)
     {
-        revert NotImplemented("FraxV3FrxEthAdapter.getCapabilities");
+        capabilities = new Capability[](3);
+        capabilities[0] = Capability.SellOrder;
+        capabilities[1] = Capability.BuyOrder;
+        capabilities[2] = Capability.PriceFunction;
     }
 
     /// @inheritdoc ISwapAdapter
@@ -100,7 +106,7 @@ contract FraxV3FrxEthAdapter {
 
     /// @inheritdoc ISwapAdapter
     /// @dev although FraxV3 frxETH has no pool ids, we return the sFrxETH and frxETHMinter addresses as pools
-    function getPoolIds(uint256 offset, uint256 limit)
+    function getPoolIds(uint256, uint256)
         external
         returns (bytes32[] memory ids)
     {
