@@ -98,11 +98,15 @@ contract FraxV3FrxEthAdapter {
         tokens[2] = IERC20(frxEthMinter.sfrxETHToken());
     }
 
+    /// @inheritdoc ISwapAdapter
+    /// @dev although FraxV3 frxETH has no pool ids, we return the sFrxETH and frxETHMinter addresses as pools
     function getPoolIds(uint256 offset, uint256 limit)
         external
         returns (bytes32[] memory ids)
     {
-        revert NotImplemented("FraxV3FrxEthAdapter.getPoolIds");
+        ids = new bytes32[](2);
+        ids[0] = bytes20(address(sfrxEth));
+        ids[1] = bytes20(address(frxEthMinter));
     }
 }
 
