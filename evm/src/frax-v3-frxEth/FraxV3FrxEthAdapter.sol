@@ -6,23 +6,25 @@ import {IERC20, ISwapAdapter} from "src/interfaces/ISwapAdapter.sol";
 import {ERC20} from "openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
 import {SafeERC20} from
     "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
+import "src/libraries/FractionMath.sol";
 
 /// @title FraxV3FrxEthAdapter
 /// Adapter for frxETH and sfrxETH tokens of FraxV3
 /// @dev This contract only supports: ETH -> sfrxETH and frxETH <-> sfrxETH
-contract FraxV3FrxEthAdapter {
+contract FraxV3FrxEthAdapter is ISwapAdapter {
+    using SafeERC20 for IERC20;
+    using FractionMath for Fraction;
+
     IFrxEth frxEth;
     IFrxEthMinter frxEthMinter;
     ISfrxEth sfrxEth;
 
-    constructor(address _frxEth) {
+    constructor(address _frxEth, address _frxEthMinter, address _sfrxEth) {
         frxEth = IFrxEth(_frxEth);
-        address[] mintersArray = frxEth.minters_array(0);
-        frxEthMinter = IFrxEthMinter(mintersArray[0]);
-        sfrxEth = frxEthMinter.sfrxETHTokenContract();
+        frxEthMinter = IFrxEthMinter(_frxEthMinter);
+        sfrxEth = ISfrxEth(_sfrxEth);
     }
 
-    /// @inheritdoc ISwapAdapter
     /// @dev Check if tokens in input are supported
     modifier onlySupportedTokens(address sellToken, address buyToken) {
         address sellTokenAddress = sellToken;
@@ -89,7 +91,7 @@ contract FraxV3FrxEthAdapter {
 
         } else {
 
-            if (sellTokenAddres == address(frxEth) && buyTokenAddress == address(sfrxEth)) {
+            if (sellTokenAddress == address(frxEth) && buyTokenAddress == address(sfrxEth)) {
 
                 limits[0] = frxEth.totalSupply() - sfrxEth.balanceOf(sellTokenAddress);
                 limits[1] = sfrxEth.previewDeposit(limits[0]);
@@ -121,7 +123,7 @@ contract FraxV3FrxEthAdapter {
         view
         returns (IERC20[] memory tokens)
     {
-        tokens = new tokens[](3);
+        tokens = new IERC20[](3);
 
         tokens[0] = IERC20(address(0));
         tokens[1] = IERC20(frxEthMinter.frxETHToken());
@@ -141,7 +143,7 @@ contract FraxV3FrxEthAdapter {
 }
 
 interface IFrxEth {
-    function minters_array(uint256 i) external view returns (address[]);
+    // function minters_array(uint256) external view returns (address[] memory);
 
     function balanceOf(address) external view returns (uint256);
 
@@ -197,7 +199,7 @@ interface ISfrxEth {
 }
 
 interface IFrxEthMinter {
-    function sfrxETHTokenContract() external view returns (ISfrxEth);
+    //function sfrxETHTokenContract() external view returns (ISfrxEth);
 
     function sfrxETHToken() external view returns (address);
 

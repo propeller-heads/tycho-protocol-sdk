@@ -1,0 +1,35 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+pragma solidity ^0.8.13;
+
+import "forge-std/Test.sol";
+import "forge-std/console.sol";
+import "src/interfaces/ISwapAdapterTypes.sol";
+import "src/libraries/FractionMath.sol";
+import "src/frax-v3-frxEth/FraxV3FrxEthAdapter.sol";
+
+contract FraxV3FrxEthAdapterTest is Test, ISwapAdapterTypes {
+    using FractionMath for Fraction;
+
+    FraxV3FrxEthAdapter adapter; 
+
+    address constant FRAXETH_ADDRESS = 0x5E8422345238F34275888049021821E8E08CAa1f;
+    address constant SFRAXETH_ADDRESS = 0xac3E018457B222d93114458476f3E3416Abbe38F;
+    address constant FRAXETHMINTER_ADDRESS = 0xbAFA44EFE7901E04E39Dad13167D089C559c1138;
+
+    function setUp() public {
+        uint256 forkBlock = 19311573;
+        vm.createSelectFork(vm.rpcUrl("mainnet"), forkBlock);
+
+        adapter = new FraxV3FrxEthAdapter(FRAXETH_ADDRESS, FRAXETHMINTER_ADDRESS, SFRAXETH_ADDRESS);
+    }
+
+    function testGetTokensFraxV3FraxEth() public {
+        IERC20[] memory tokens = adapter.getTokens(bytes32(0));
+
+        assertEq(address(tokens[0]), address(0));
+        assertEq(address(tokens[1]), FRAXETH_ADDRESS);
+        assertEq(address(tokens[2]), SFRAXETH_ADDRESS);
+    }
+
+
+}
