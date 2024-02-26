@@ -74,7 +74,9 @@ contract FraxV3FrxEthAdapter is ISwapAdapter {
     }
 
     /// @inheritdoc ISwapAdapter
-    function getLimits(bytes32 poolId, IERC20 sellToken, IERC20 buyToken)
+    /// @dev there is no hard cap of eth that can be staked for sfrx, but type(uint256).max reverts,
+    /// we are using approximately ethereum circulating supply (120 Millions) as limit
+    function getLimits(bytes32, IERC20 sellToken, IERC20 buyToken)
         external
         view
         override
@@ -86,7 +88,7 @@ contract FraxV3FrxEthAdapter is ISwapAdapter {
         address buyTokenAddress = address(buyToken);
         if(sellTokenAddress == address(0) && buyTokenAddress == address(sfrxEth)) {
 
-            limits[0] = type(uint256).max;
+            limits[0] = 120000000 ether;
             limits[1] = sfrxEth.previewDeposit(limits[0]);
 
         } else {
