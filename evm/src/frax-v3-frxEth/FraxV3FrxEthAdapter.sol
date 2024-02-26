@@ -22,8 +22,8 @@ contract FraxV3FrxEthAdapter {
         sfrxEth = frxEthMinter.sfrxETHTokenContract();
     }
 
-    /// @dev Check if tokens in input are supported
     /// @inheritdoc ISwapAdapter
+    /// @dev Check if tokens in input are supported
     modifier onlySupportedTokens(address sellToken, address buyToken) {
         address sellTokenAddress = sellToken;
         address buyTokenAddress = buyToken;
@@ -71,11 +71,35 @@ contract FraxV3FrxEthAdapter {
         revert NotImplemented("FraxV3FrxEthAdapter.swap");
     }
 
+    /// @inheritdoc ISwapAdapter
     function getLimits(bytes32 poolId, IERC20 sellToken, IERC20 buyToken)
         external
+        view
+        override
+        onlySupportedTokens(address(sellToken), address(buyToken))
         returns (uint256[] memory limits)
     {
-        revert NotImplemented("FraxV3FrxEthAdapter.getLimits");
+        limits = new uint256[](2);
+        address sellTokenAddress = address(sellToken);
+        address buyTokenAddress = address(buyToken);
+        if(sellTokenAddress == address(0) && buyTokenAddress == address(sfrxEth)) {
+
+            limits[0] = type(uint256).max;
+            limits[1] = sfrxEth.previewDeposit(limits[0]);
+
+        } else {
+
+            if (sellTokenAddres == address(frxEth) && buyTokenAddress == address(sfrxEth)) {
+
+                limits[0] = frxEth.totalSupply() - sfrxEth.balanceOf(sellTokenAddress);
+                limits[1] = sfrxEth.previewDeposit(limits[0]);
+
+            } else {
+                
+                limits[0] = sfrxEth.totalSupply();
+                limits[1] = sfrxEth.previewRedeem(limits[0]);
+            }
+        }
     }
 
     /// @inheritdoc ISwapAdapter
