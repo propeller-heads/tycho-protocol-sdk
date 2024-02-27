@@ -8,16 +8,39 @@ import {SafeERC20} from
     "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 import "src/libraries/FractionMath.sol";
 
+library FixedPointMathLib {
+    uint256 internal constant MAX_UINT256 = 2 ** 256 - 1;
+
+    function mulDivDown(uint256 x, uint256 y, uint256 denominator)
+        internal
+        pure
+        returns (uint256 z)
+    {
+        /// @solidity memory-safe-assembly
+        assembly {
+            // Equivalent to require(denominator != 0 && (y == 0 || x <=
+            // type(uint256).max / y))
+            if iszero(
+                mul(denominator, iszero(mul(y, gt(x, div(MAX_UINT256, y)))))
+            ) { revert(0, 0) }
+
+            // Divide x * y by the denominator.
+            z := div(mul(x, y), denominator)
+        }
+    }
+}
+
 /// @title FraxV3FrxEthAdapter
 /// Adapter for frxETH and sfrxETH tokens of FraxV3
 /// @dev This contract only supports: ETH -> sfrxETH and frxETH <-> sfrxETH
 contract FraxV3FrxEthAdapter is ISwapAdapter {
     using SafeERC20 for IERC20;
     using FractionMath for Fraction;
+    using FixedPointMathLib for uint256;
 
-    IFrxEth frxEth;
-    IFrxEthMinter frxEthMinter;
-    ISfrxEth sfrxEth;
+    IFrxEth immutable frxEth;
+    IFrxEthMinter immutable frxEthMinter;
+    ISfrxEth immutable sfrxEth;
 
     constructor(address _frxEth, address _frxEthMinter, address _sfrxEth) {
         frxEth = IFrxEth(_frxEth);
@@ -142,6 +165,64 @@ contract FraxV3FrxEthAdapter is ISwapAdapter {
         ids[0] = bytes20(address(sfrxEth));
         ids[1] = bytes20(address(frxEthMinter));
     }
+}
+
+// @notice Calculates prices for a specified amount
+    /// @param sellToken
+    /// @param buyToken
+    /// @param amountIn The amount of the token being sold.
+    /// @return (fraction) price as a fraction corresponding to the provided
+    /// amount.
+function getPriceAt(IERC20 sellToken, IERC20 buyToken, uint256 amountIn)
+    internal
+    view 
+    onlySupportedTokens
+    returns (Fraction memory)
+{
+    address sellTokenAddress = address(sellToken); 
+    address buyTokenAddress = address(buyToken); 
+
+    if(sellTokenAddress == address(0)) {
+        // calculate price 
+        // example sellToken = ETH, buyToken = USDC
+        // price is USDC/ETH
+
+        // calculate price sfrxEth/ETH
+        
+
+
+    } else {
+
+        if (sellTokenAddress == address(frxEth)) {
+            // calculate price sfrxEth/frxEth
+
+            uint256 storedTotalAssets = sfrxEth.totalAssets() + amountIn;
+            uint256 newMintedShares = sfrxEth.previewDeposit(amountIn);
+            uint256 totalSupply = sfrxEth.totalSupply() + newMintedShares;
+
+
+            uint256 numerator =
+                PRECISE_UNIT.mulDivDown(totalSupply, storedTotalAssets);
+
+            return Fraction(numerator, PRECISE_UNIT);
+
+        } else {
+            // calculate price frxEth/sfrxEth
+
+            uint256 fraxEthRedeemed = sfrxEth.previewRedeem(amountIn);
+            uint256 storedTotalAssets = sfrxEth.totalAssets() - fraxEthRedeemed;
+            uint256 totalSupply = sfrxEth.totalSupply() - amountIn;
+
+            uint256 numerator = totalSupply == 0
+                ? PRECISE_UNIT
+                : PRECISE_UNIT.mulDivDown(storedTotalAssets, totalSupply);
+
+            return Fraction(numerator, PRECISE_UNIT);
+
+        }
+
+    }
+
 }
 
 interface IFrxEth {

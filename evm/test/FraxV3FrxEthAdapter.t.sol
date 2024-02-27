@@ -40,4 +40,11 @@ contract FraxV3FrxEthAdapterTest is Test, ISwapAdapterTypes {
     assertEq(limits.length, 2);
     }
 
+    function testGetCapabilitiesFraxEthV3() public {
+        Capability[] memory res =
+            adapter.getCapabilities(bytes32(0), ETH, FRAXETH);
+
+        assertEq(res.length, 3);
+    }
+
 }
