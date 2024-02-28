@@ -68,12 +68,13 @@ contract FraxV3FrxEthAdapter is ISwapAdapter {
         _;
     }
 
+    /// @inheritdoc ISwapAdapter
     function price(
         bytes32,
         IERC20 sellToken,
         IERC20 buyToken,
         uint256[] memory _specifiedAmounts
-    ) external view override returns (Fraction[] memory _prices) {
+    ) external view override onlySupportedTokens(address(sellToken), address(buyToken)) returns (Fraction[] memory _prices) {
         
         _prices = new Fraction[](_specifiedAmounts.length);
 
@@ -83,13 +84,13 @@ contract FraxV3FrxEthAdapter is ISwapAdapter {
     }
 
     function swap(
-        bytes32 poolId,
+        bytes32,
         IERC20 sellToken,
         IERC20 buyToken,
         OrderSide side,
         uint256 specifiedAmount
-    ) external returns (Trade memory trade) {
-        revert NotImplemented("FraxV3FrxEthAdapter.swap");
+    ) external override onlySupportedTokens(address(sellToken), address(buyToken)) returns (Trade memory trade) {
+        revert("Not implemented yet");
     }
 
     /// @inheritdoc ISwapAdapter
@@ -170,7 +171,6 @@ contract FraxV3FrxEthAdapter is ISwapAdapter {
     function getPriceAt(IERC20 sellToken, IERC20 buyToken, uint256 amountIn)
         internal
         view
-        onlySupportedTokens(address(sellToken), address(buyToken))
         returns (Fraction memory)
     {
 
