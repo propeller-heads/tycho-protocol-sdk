@@ -38,6 +38,8 @@ contract FraxV3FrxEthAdapter is ISwapAdapter {
     using FractionMath for Fraction;
     using FixedPointMathLib for uint256;
 
+    uint256 constant PRECISE_UNIT = 1e18;
+
     IFrxEth immutable frxEth;
     IFrxEthMinter immutable frxEthMinter;
     ISfrxEth immutable sfrxEth;
@@ -48,32 +50,21 @@ contract FraxV3FrxEthAdapter is ISwapAdapter {
         sfrxEth = ISfrxEth(_sfrxEth);
     }
 
-    /// @dev Check if tokens in input are supported
+    /// @dev Modifier to check input tokens for allowed trades
     modifier onlySupportedTokens(address sellToken, address buyToken) {
         address sellTokenAddress = sellToken;
         address buyTokenAddress = buyToken;
 
-        if (sellTokenAddress == address(0)) {
-            if (buyTokenAddress != address(sfrxEth)) {
-                revert Unavailable(
-                    "Only supported swaps are: ETH -> sfrxETH and frxETH <-> sfrxETH"
-                );
-            }
-        } else {
-            if (buyTokenAddress == address(0)) {
-                revert Unavailable(
-                    "Only supported swaps are: ETH -> sfrxETH and frxETH <-> sfrxETH"
-                );
-            }
-            if (
-                sellTokenAddress != address(sfrxEth) && buyTokenAddress != address(frxEth) || 
-                sellTokenAddress != address(frxEth) && buyTokenAddress != address(sfrxEth)
-            ) {
-                revert Unavailable(
-                    "Only supported swaps are: ETH -> sfrxETH and frxETH <-> sfrxETH"
-                );
-            }
+        if (
+            (sellTokenAddress == address(0) && buyTokenAddress != address(sfrxEth)) || // Condition 1
+            (sellTokenAddress == address(frxEth) && buyTokenAddress != address(sfrxEth)) || // Condition 2
+            (sellTokenAddress == address(sfrxEth) && buyTokenAddress != address(frxEth)) || // Condition 3
+            (sellTokenAddress != address(0) && sellTokenAddress != address(frxEth) && sellTokenAddress != address(sfrxEth)) || // Condition 4
+            (buyTokenAddress != address(frxEth) && buyTokenAddress != address(sfrxEth)) // Condition 5
+        ) {
+            revert Unavailable("Only supported swaps are: ETH -> sfrxETH and frxETH <-> sfrxETH");
         }
+    
         _;
     }
 
@@ -165,36 +156,21 @@ contract FraxV3FrxEthAdapter is ISwapAdapter {
         ids[0] = bytes20(address(sfrxEth));
         ids[1] = bytes20(address(frxEthMinter));
     }
-}
 
-// @notice Calculates prices for a specified amount
-    /// @param sellToken
-    /// @param buyToken
+
+    /// @notice Calculates prices for a specified amount
     /// @param amountIn The amount of the token being sold.
     /// @return (fraction) price as a fraction corresponding to the provided
     /// amount.
-function getPriceAt(IERC20 sellToken, IERC20 buyToken, uint256 amountIn)
-    internal
-    view 
-    onlySupportedTokens
-    returns (Fraction memory)
-{
-    address sellTokenAddress = address(sellToken); 
-    address buyTokenAddress = address(buyToken); 
+    function getPriceAt(IERC20 sellToken, IERC20 buyToken, uint256 amountIn)
+        external
+        onlySupportedTokens(address(sellToken), address(buyToken))
+        returns (Fraction memory)
+    {
+        address sellTokenAddress = address(sellToken); 
+        address buyTokenAddress = address(buyToken); 
 
-    if(sellTokenAddress == address(0)) {
-        // calculate price 
-        // example sellToken = ETH, buyToken = USDC
-        // price is USDC/ETH
-
-        // calculate price sfrxEth/ETH
-        
-
-
-    } else {
-
-        if (sellTokenAddress == address(frxEth)) {
-            // calculate price sfrxEth/frxEth
+        if(sellTokenAddress == address(0)) {
 
             uint256 storedTotalAssets = sfrxEth.totalAssets() + amountIn;
             uint256 newMintedShares = sfrxEth.previewDeposit(amountIn);
@@ -203,27 +179,46 @@ function getPriceAt(IERC20 sellToken, IERC20 buyToken, uint256 amountIn)
 
             uint256 numerator =
                 PRECISE_UNIT.mulDivDown(totalSupply, storedTotalAssets);
-
             return Fraction(numerator, PRECISE_UNIT);
+
+
 
         } else {
-            // calculate price frxEth/sfrxEth
 
-            uint256 fraxEthRedeemed = sfrxEth.previewRedeem(amountIn);
-            uint256 storedTotalAssets = sfrxEth.totalAssets() - fraxEthRedeemed;
-            uint256 totalSupply = sfrxEth.totalSupply() - amountIn;
+            if (sellTokenAddress == address(frxEth)) {
+                // calculate price sfrxEth/frxEth
 
-            uint256 numerator = totalSupply == 0
-                ? PRECISE_UNIT
-                : PRECISE_UNIT.mulDivDown(storedTotalAssets, totalSupply);
+                uint256 storedTotalAssets = sfrxEth.totalAssets() + amountIn;
+                uint256 newMintedShares = sfrxEth.previewDeposit(amountIn);
+                uint256 totalSupply = sfrxEth.totalSupply() + newMintedShares;
 
-            return Fraction(numerator, PRECISE_UNIT);
+
+                uint256 numerator =
+                    PRECISE_UNIT.mulDivDown(totalSupply, storedTotalAssets);
+
+                return Fraction(numerator, PRECISE_UNIT);
+
+            } else {
+                // calculate price frxEth/sfrxEth
+
+                uint256 fraxEthRedeemed = sfrxEth.previewRedeem(amountIn);
+                uint256 storedTotalAssets = sfrxEth.totalAssets() - fraxEthRedeemed;
+                uint256 totalSupply = sfrxEth.totalSupply() - amountIn;
+
+                uint256 numerator = totalSupply == 0
+                    ? PRECISE_UNIT
+                    : PRECISE_UNIT.mulDivDown(storedTotalAssets, totalSupply);
+
+                return Fraction(numerator, PRECISE_UNIT);
+
+            }
 
         }
 
     }
 
 }
+
 
 interface IFrxEth {
     // function minters_array(uint256) external view returns (address[] memory);

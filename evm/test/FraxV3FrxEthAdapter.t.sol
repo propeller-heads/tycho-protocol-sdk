@@ -18,12 +18,27 @@ contract FraxV3FrxEthAdapterTest is Test, ISwapAdapterTypes {
     IERC20 constant FRAXETH = IERC20(0x5E8422345238F34275888049021821E8E08CAa1f);
     IERC20 constant SFRAXETH = IERC20(0xac3E018457B222d93114458476f3E3416Abbe38F);
     IERC20 constant ETH = IERC20(address(0));
+    IERC20 constant WBTC = IERC20(0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599);
 
     function setUp() public {
-        uint256 forkBlock = 19311573;
+        uint256 forkBlock = 19327125;
         vm.createSelectFork(vm.rpcUrl("mainnet"), forkBlock);
 
         adapter = new FraxV3FrxEthAdapter(FRAXETH_ADDRESS, FRAXETHMINTER_ADDRESS, SFRAXETH_ADDRESS);
+    }
+
+    function testGetPriceAtFraxEthV3() public {
+        uint256 amountIn = 1 ether;
+        Fraction memory eth_sfrxEth_price = adapter.getPriceAt(ETH, SFRAXETH, amountIn);
+        Fraction memory sfrxEth_frxEth_price = adapter.getPriceAt(SFRAXETH, FRAXETH, amountIn);
+
+        console.log("Numerator eth_sfrxEth_price: ", eth_sfrxEth_price.numerator);
+        console.log("Denominator: eth_sfrxEth_price", eth_sfrxEth_price.denominator);
+        
+        console.log("Numerator sfrxEth_frxEth_price: ", sfrxEth_frxEth_price.numerator);
+        console.log("Denominator: sfrxEth_frxEth_price", sfrxEth_frxEth_price.denominator);
+
+        assertEq(amountIn, 1 ether);
     }
 
     function testGetTokensFraxEthV3() public {
@@ -36,7 +51,7 @@ contract FraxV3FrxEthAdapterTest is Test, ISwapAdapterTypes {
     
     function testGetLimitsFraxEthV3() public {
     uint256[] memory limits =
-        adapter.getLimits(bytes32(0), ETH, SFRAXETH);
+        adapter.getLimits(bytes32(0), FRAXETH, SFRAXETH);
     assertEq(limits.length, 2);
     }
 
