@@ -69,12 +69,17 @@ contract FraxV3FrxEthAdapter is ISwapAdapter {
     }
 
     function price(
-        bytes32 _poolId,
-        IERC20 _sellToken,
-        IERC20 _buyToken,
+        bytes32,
+        IERC20 sellToken,
+        IERC20 buyToken,
         uint256[] memory _specifiedAmounts
     ) external view override returns (Fraction[] memory _prices) {
-        revert NotImplemented("FraxV3FrxEthAdapter.price");
+        
+        _prices = new Fraction[](_specifiedAmounts.length);
+
+        for(uint256 i = 0; i < _specifiedAmounts.length; i++) {
+            _prices[i] = getPriceAt(sellToken, buyToken, _specifiedAmounts[i]);
+        }
     }
 
     function swap(
@@ -163,10 +168,12 @@ contract FraxV3FrxEthAdapter is ISwapAdapter {
     /// @return (fraction) price as a fraction corresponding to the provided
     /// amount.
     function getPriceAt(IERC20 sellToken, IERC20 buyToken, uint256 amountIn)
-        external
+        internal
+        view
         onlySupportedTokens(address(sellToken), address(buyToken))
         returns (Fraction memory)
     {
+
         address sellTokenAddress = address(sellToken); 
         address buyTokenAddress = address(buyToken); 
 

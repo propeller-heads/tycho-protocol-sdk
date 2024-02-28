@@ -15,10 +15,15 @@ contract FraxV3FrxEthAdapterTest is Test, ISwapAdapterTypes {
     address constant FRAXETH_ADDRESS = 0x5E8422345238F34275888049021821E8E08CAa1f;
     address constant SFRAXETH_ADDRESS = 0xac3E018457B222d93114458476f3E3416Abbe38F;
     address constant FRAXETHMINTER_ADDRESS = 0xbAFA44EFE7901E04E39Dad13167D089C559c1138;
+
     IERC20 constant FRAXETH = IERC20(0x5E8422345238F34275888049021821E8E08CAa1f);
     IERC20 constant SFRAXETH = IERC20(0xac3E018457B222d93114458476f3E3416Abbe38F);
     IERC20 constant ETH = IERC20(address(0));
     IERC20 constant WBTC = IERC20(0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599);
+
+    uint256 constant TEST_ITERATIONS = 10;
+    uint256 constant AMOUNT0 = 1000000000000000000;
+    bytes32 constant PAIR = bytes32(0);
 
     function setUp() public {
         uint256 forkBlock = 19327125;
@@ -27,18 +32,66 @@ contract FraxV3FrxEthAdapterTest is Test, ISwapAdapterTypes {
         adapter = new FraxV3FrxEthAdapter(FRAXETH_ADDRESS, FRAXETHMINTER_ADDRESS, SFRAXETH_ADDRESS);
     }
 
-    function testGetPriceAtFraxEthV3() public {
-        uint256 amountIn = 1 ether;
-        Fraction memory eth_sfrxEth_price = adapter.getPriceAt(ETH, SFRAXETH, amountIn);
-        Fraction memory sfrxEth_frxEth_price = adapter.getPriceAt(SFRAXETH, FRAXETH, amountIn);
+    /// @dev The price is kept among swaps if no FRAX rewards are distributed in
+    /// the contract during time
+    function testPriceKeepingSellFraxEthFraxEthV3() public {
+        bytes32 pair = bytes32(0);
+        uint256[] memory amounts = new uint256[](TEST_ITERATIONS);
 
-        console.log("Numerator eth_sfrxEth_price: ", eth_sfrxEth_price.numerator);
-        console.log("Denominator: eth_sfrxEth_price", eth_sfrxEth_price.denominator);
-        
-        console.log("Numerator sfrxEth_frxEth_price: ", sfrxEth_frxEth_price.numerator);
-        console.log("Denominator: sfrxEth_frxEth_price", sfrxEth_frxEth_price.denominator);
+        for (uint256 i = 0; i < TEST_ITERATIONS; i++) {
+            amounts[i] = 1000 * (i + 1) * 10 ** 18;
+        }
 
-        assertEq(amountIn, 1 ether);
+        Fraction[] memory prices =
+            adapter.price(PAIR, FRAXETH, SFRAXETH, amounts);
+
+        for (uint256 i = 0; i < TEST_ITERATIONS -1; i++) {
+
+            // console.log("Iteration: ", i);
+            // console.log("AmountIn: ", amounts[i]);
+            // console.log("Denominator: ", prices[i].denominator);
+            assertEq(prices[i].compareFractions(prices[i + 1]), 0);
+            assertGt(prices[i].denominator, 0);
+            assertGt(prices[i + 1].denominator, 0);
+        }
+    }
+
+    function testPriceKeepingSellSFraxEthFraxEthV3() public {
+        bytes32 pair = bytes32(0);
+        uint256[] memory amounts = new uint256[](TEST_ITERATIONS);
+
+        for (uint256 i = 0; i < TEST_ITERATIONS; i++) {
+            amounts[i] = 1000 * (i + 1) * 10 ** 18;
+        }
+
+        Fraction[] memory prices =
+            adapter.price(PAIR, SFRAXETH, FRAXETH, amounts);
+
+        for (uint256 i = 0; i < TEST_ITERATIONS -1; i++) {
+
+            assertEq(prices[i].compareFractions(prices[i + 1]), 0);
+            assertGt(prices[i].denominator, 0);
+            assertGt(prices[i + 1].denominator, 0);
+        }
+    }
+
+    function testPriceKeepingSellEthFraxEthV3() public {
+        bytes32 pair = bytes32(0);
+        uint256[] memory amounts = new uint256[](TEST_ITERATIONS);
+
+        for (uint256 i = 0; i < TEST_ITERATIONS; i++) {
+            amounts[i] = 1000 * (i + 1) * 10 ** 18;
+        }
+
+        Fraction[] memory prices =
+            adapter.price(PAIR, ETH, SFRAXETH, amounts);
+
+        for (uint256 i = 0; i < TEST_ITERATIONS -1; i++) {
+
+            assertEq(prices[i].compareFractions(prices[i + 1]), 0);
+            assertGt(prices[i].denominator, 0);
+            assertGt(prices[i + 1].denominator, 0);
+        }
     }
 
     function testGetTokensFraxEthV3() public {
