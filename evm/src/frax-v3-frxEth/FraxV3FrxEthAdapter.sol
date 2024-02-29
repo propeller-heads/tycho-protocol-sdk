@@ -83,6 +83,13 @@ contract FraxV3FrxEthAdapter is ISwapAdapter {
         }
     }
 
+    /// @inheritdoc ISwapAdapter
+    /// @notice Executes a swap on the contract.
+    /// @param sellToken The token being sold.
+    /// @param buyToken The token being bought.
+    /// @param side Either buy or sell.
+    /// @param specifiedAmount The amount to be traded.
+    /// @return calculatedAmount The amount of tokens being sold or bought
     function swap(
         bytes32,
         IERC20 sellToken,
@@ -91,6 +98,78 @@ contract FraxV3FrxEthAdapter is ISwapAdapter {
         uint256 specifiedAmount
     ) external override onlySupportedTokens(address(sellToken), address(buyToken)) returns (Trade memory trade) {
         revert("Not implemented yet");
+
+        uint256 gasBefore = gasleft();
+
+        if(side == OrderSide.sell)  {
+            trade.calculatedAmount = sell(sellToken, specifiedAmount);
+        } else {
+            trade.calculatedAmount = buy(sellToken, specifiedAmount);
+        }
+
+        trade.gasUsed = gasBefore - gasleft();
+
+        uint256 numerator = address(sellToken) == address(frxEth) || address(sellToken) == address(0)
+            ? sfraxEth.previewDeposit(PRECISE_UNIT)
+            : sfraxEth.previewRedeem(PRECISE_UNIT);
+
+        trade.price = Fraction(numerator, PRECISE_UNIT);
+    }
+
+    /// @notice Executes a sell order on the contract.
+    /// @param sellToken The token being sold.
+    /// @param amount The amount to be traded.
+    /// @return calculatedAmount The amount of tokens received.
+    function sell(IERC20 sellToken, uint256 amount) internal returns (uint256 calculatedAmount){
+        sellToken.safeTransferFrom(msg.sender, address(this), amount);
+        if(address(sellToken) == address(sfrxEth)) {
+
+            return sfrxEth.redeem(amount, msg.sender, address(this));
+            
+        } else {
+
+            sellToken.approve(address(sfrxEth));
+
+            if(address(sellToken) == address(frxEth)) {
+                return sfrxEth.deposit(amount, msg.sender);
+
+            } else {
+                sellToken.approve(address(frxEthMinter));
+                return frxEthMinter.submitAndDeposit(msg.sender);
+            }
+        }
+
+    }
+
+    /// @notice Executes a buy order on the contract.
+    /// @param sellToken The token being sold.
+    /// @param amount The amount of buyToken to receive.
+    /// @return calculatedAmount The amount of tokens received.
+    function buy(IERC20 sellToken, uint256 amount) internal returns (uint256 calculatedAmount) {
+        if(address(sellToken) == address(sfrxEth)) {
+
+            uint256 amountIn = sfrxEth.previewWithdraw(amount);
+            sellToken.safeTransferFrom(msg.sender, address(this), amountIn);
+
+            return sfrxEth.withdraw(amount, msg.sender, address(this));
+            
+        } else {
+
+            if(address(sellToken) == address(frxEth)) {
+
+                uint256 amountIn = sfrxEth.previewMint(amount);
+                sellToken.safeTransferFrom(msg.sender, address(this), amountIn);
+                sellToken.approve(address(sfrxEth), amountIn);
+                return sfrxEth.mint(amount, msg.sender);
+
+            } else {
+                uint256 amountIn = sfrxEth.previewMint(amount);
+                sellToken.safeTransferFrom(msg.sender, address(this), amountIn);
+                sellToken.approve(address(sfrxEth), amountIn);
+                sellToken.approve(address(frxEthMinter), amountIn);
+                return frxEthMinter.submitAndDeposit(msg.sender);
+            }
+        }
     }
 
     /// @inheritdoc ISwapAdapter
