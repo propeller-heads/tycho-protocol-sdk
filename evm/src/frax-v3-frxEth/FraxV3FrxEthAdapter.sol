@@ -68,6 +68,9 @@ contract FraxV3FrxEthAdapter is ISwapAdapter {
         _;
     }
 
+    /// @dev enable receive to fill the contract with ether for payable swaps
+    receive() external payable {}
+
     /// @inheritdoc ISwapAdapter
     function price(
         bytes32,
@@ -89,7 +92,7 @@ contract FraxV3FrxEthAdapter is ISwapAdapter {
     /// @param buyToken The token being bought.
     /// @param side Either buy or sell.
     /// @param specifiedAmount The amount to be traded.
-    /// @return calculatedAmount The amount of tokens being sold or bought
+    /// @return trade The amount of tokens being sold or bought.
     function swap(
         bytes32,
         IERC20 sellToken,
@@ -97,11 +100,10 @@ contract FraxV3FrxEthAdapter is ISwapAdapter {
         OrderSide side,
         uint256 specifiedAmount
     ) external override onlySupportedTokens(address(sellToken), address(buyToken)) returns (Trade memory trade) {
-        revert("Not implemented yet");
 
         uint256 gasBefore = gasleft();
 
-        if(side == OrderSide.sell)  {
+        if(side == OrderSide.Sell)  {
             trade.calculatedAmount = sell(sellToken, specifiedAmount);
         } else {
             trade.calculatedAmount = buy(sellToken, specifiedAmount);
@@ -110,8 +112,8 @@ contract FraxV3FrxEthAdapter is ISwapAdapter {
         trade.gasUsed = gasBefore - gasleft();
 
         uint256 numerator = address(sellToken) == address(frxEth) || address(sellToken) == address(0)
-            ? sfraxEth.previewDeposit(PRECISE_UNIT)
-            : sfraxEth.previewRedeem(PRECISE_UNIT);
+            ? sfrxEth.previewDeposit(PRECISE_UNIT)
+            : sfrxEth.previewRedeem(PRECISE_UNIT);
 
         trade.price = Fraction(numerator, PRECISE_UNIT);
     }
@@ -128,13 +130,13 @@ contract FraxV3FrxEthAdapter is ISwapAdapter {
             
         } else {
 
-            sellToken.approve(address(sfrxEth));
+            sellToken.approve(address(sfrxEth), amount);
 
             if(address(sellToken) == address(frxEth)) {
                 return sfrxEth.deposit(amount, msg.sender);
 
             } else {
-                sellToken.approve(address(frxEthMinter));
+                sellToken.approve(address(frxEthMinter), amount);
                 return frxEthMinter.submitAndDeposit(msg.sender);
             }
         }
