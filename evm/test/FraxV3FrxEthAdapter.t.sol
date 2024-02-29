@@ -353,18 +353,12 @@ contract FraxV3FrxEthAdapterTest is Test, ISwapAdapterTypes {
     function testGetLimitsFraxEthV3() public {
     uint256[] memory limits =
         adapter.getLimits(bytes32(0), FRAXETH, SFRAXETH);
-        // console.log("Limit[0] FRAXETH", limits[0]);
-        // console.log("Limit[1] SFRAXETH", limits[1]);
         assertEq(limits.length, 2);
 
         adapter.getLimits(bytes32(0), ETH, SFRAXETH);
-        // console.log("Limit[0] ETH", limits[0]);
-        // console.log("Limit[1] SFRAXETH", limits[1]);
         assertEq(limits.length, 2);
 
         adapter.getLimits(bytes32(0), SFRAXETH, FRAXETH);
-        // console.log("Limit[0] SFRAXETH", limits[0]);
-        // console.log("Limit[1] FRAXETH", limits[1]);
         assertEq(limits.length, 2);
 
     }

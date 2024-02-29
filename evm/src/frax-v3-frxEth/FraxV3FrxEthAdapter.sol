@@ -52,15 +52,12 @@ contract FraxV3FrxEthAdapter is ISwapAdapter {
 
     /// @dev Modifier to check input tokens for allowed trades
     modifier onlySupportedTokens(address sellToken, address buyToken) {
-        address sellTokenAddress = sellToken;
-        address buyTokenAddress = buyToken;
 
         if (
-            (sellTokenAddress == address(0) && buyTokenAddress != address(sfrxEth)) || // Condition 1
-            (sellTokenAddress == address(frxEth) && buyTokenAddress != address(sfrxEth)) || // Condition 2
-            (sellTokenAddress == address(sfrxEth) && buyTokenAddress != address(frxEth)) || // Condition 3
-            (sellTokenAddress != address(0) && sellTokenAddress != address(frxEth) && sellTokenAddress != address(sfrxEth)) || // Condition 4
-            (buyTokenAddress != address(frxEth) && buyTokenAddress != address(sfrxEth)) // Condition 5
+            sellToken != address(frxEth) && sellToken != address(sfrxEth) && sellToken != address(0)
+                || buyToken != address(frxEth) && buyToken != address(sfrxEth) 
+                || sellToken == address(0) && buyToken != address(sfrxEth)
+                || buyToken == sellToken
         ) {
             revert Unavailable("Only supported swaps are: ETH -> sfrxETH and frxETH <-> sfrxETH");
         }
@@ -101,6 +98,10 @@ contract FraxV3FrxEthAdapter is ISwapAdapter {
         uint256 specifiedAmount
     ) external override onlySupportedTokens(address(sellToken), address(buyToken)) returns (Trade memory trade) {
 
+        if(specifiedAmount == 0) {
+            return trade;
+        }
+
         uint256 gasBefore = gasleft();
 
         if(side == OrderSide.Sell)  {
@@ -123,7 +124,13 @@ contract FraxV3FrxEthAdapter is ISwapAdapter {
     /// @param amount The amount to be traded.
     /// @return calculatedAmount The amount of tokens received.
     function sell(IERC20 sellToken, uint256 amount) internal returns (uint256 calculatedAmount){
+
+        if(address(sellToken) == address(0)) {
+            return frxEthMinter.submitAndDeposit{value: amount}(msg.sender);
+        } 
+        
         sellToken.safeTransferFrom(msg.sender, address(this), amount);
+
         if(address(sellToken) == address(sfrxEth)) {
 
             return sfrxEth.redeem(amount, msg.sender, address(this));
@@ -131,14 +138,7 @@ contract FraxV3FrxEthAdapter is ISwapAdapter {
         } else {
 
             sellToken.approve(address(sfrxEth), amount);
-
-            if(address(sellToken) == address(frxEth)) {
-                return sfrxEth.deposit(amount, msg.sender);
-
-            } else {
-                sellToken.approve(address(frxEthMinter), amount);
-                return frxEthMinter.submitAndDeposit(msg.sender);
-            }
+            return sfrxEth.deposit(amount, msg.sender);
         }
 
     }
@@ -148,35 +148,32 @@ contract FraxV3FrxEthAdapter is ISwapAdapter {
     /// @param amount The amount of buyToken to receive.
     /// @return calculatedAmount The amount of tokens received.
     function buy(IERC20 sellToken, uint256 amount) internal returns (uint256 calculatedAmount) {
+
+        if(address(sellToken) == address(0)) {
+            uint256 amountIn = sfrxEth.previewMint(amount);
+            // first get wrap and then mint
+            return 0;
+        } 
+
         if(address(sellToken) == address(sfrxEth)) {
 
             uint256 amountIn = sfrxEth.previewWithdraw(amount);
             sellToken.safeTransferFrom(msg.sender, address(this), amountIn);
-
             return sfrxEth.withdraw(amount, msg.sender, address(this));
             
         } else {
 
-            if(address(sellToken) == address(frxEth)) {
+            uint256 amountIn = sfrxEth.previewMint(amount);
+            sellToken.safeTransferFrom(msg.sender, address(this), amountIn);
+            sellToken.approve(address(sfrxEth), amountIn);
+            return sfrxEth.mint(amount, msg.sender);
 
-                uint256 amountIn = sfrxEth.previewMint(amount);
-                sellToken.safeTransferFrom(msg.sender, address(this), amountIn);
-                sellToken.approve(address(sfrxEth), amountIn);
-                return sfrxEth.mint(amount, msg.sender);
-
-            } else {
-                uint256 amountIn = sfrxEth.previewMint(amount);
-                sellToken.safeTransferFrom(msg.sender, address(this), amountIn);
-                sellToken.approve(address(sfrxEth), amountIn);
-                sellToken.approve(address(frxEthMinter), amountIn);
-                return frxEthMinter.submitAndDeposit(msg.sender);
-            }
         }
     }
 
     /// @inheritdoc ISwapAdapter
     /// @dev there is no hard cap of eth that can be staked for sfrx, but type(uint256).max reverts,
-    /// we are using approximately ethereum circulating supply (120 Millions) as limit
+    /// @dev we are using approximately ethereum circulating supply (120 Millions) as limit
     function getLimits(bytes32, IERC20 sellToken, IERC20 buyToken)
         external
         view
@@ -187,16 +184,16 @@ contract FraxV3FrxEthAdapter is ISwapAdapter {
         limits = new uint256[](2);
         address sellTokenAddress = address(sellToken);
         address buyTokenAddress = address(buyToken);
-        if(sellTokenAddress == address(0) && buyTokenAddress == address(sfrxEth)) {
+        if(sellTokenAddress == address(0)) {
 
             limits[0] = 120000000 ether;
             limits[1] = sfrxEth.previewDeposit(limits[0]);
 
         } else {
 
-            if (sellTokenAddress == address(frxEth) && buyTokenAddress == address(sfrxEth)) {
+            if (sellTokenAddress == address(frxEth)) {
 
-                limits[0] = frxEth.totalSupply() - sfrxEth.balanceOf(sellTokenAddress);
+                limits[0] = frxEth.totalSupply() - frxEth.balanceOf(buyTokenAddress);
                 limits[1] = sfrxEth.previewDeposit(limits[0]);
 
             } else {
@@ -246,6 +243,7 @@ contract FraxV3FrxEthAdapter is ISwapAdapter {
 
 
     /// @notice Calculates prices for a specified amount
+    /// @dev frxEth is 1:1 eth
     /// @param amountIn The amount of the token being sold.
     /// @return (fraction) price as a fraction corresponding to the provided
     /// amount.
@@ -258,53 +256,25 @@ contract FraxV3FrxEthAdapter is ISwapAdapter {
         address sellTokenAddress = address(sellToken); 
         address buyTokenAddress = address(buyToken); 
 
-        if(sellTokenAddress == address(0)) {
-
-            uint256 storedTotalAssets = sfrxEth.totalAssets() + amountIn;
+        if (sellTokenAddress == address(frxEth) || sellTokenAddress == address(0)) {
+            // calculate price sfrxEth/frxEth
+            uint256 totStoredAssets = sfrxEth.totalAssets() + amountIn;
             uint256 newMintedShares = sfrxEth.previewDeposit(amountIn);
-            uint256 totalSupply = sfrxEth.totalSupply() + newMintedShares;
-
-
+            uint256 totMintedShares = sfrxEth.totalSupply() + newMintedShares;
             uint256 numerator =
-                PRECISE_UNIT.mulDivDown(totalSupply, storedTotalAssets);
+                PRECISE_UNIT.mulDivDown(totMintedShares, totStoredAssets);
             return Fraction(numerator, PRECISE_UNIT);
-
-
-
         } else {
-
-            if (sellTokenAddress == address(frxEth)) {
-                // calculate price sfrxEth/frxEth
-
-                uint256 storedTotalAssets = sfrxEth.totalAssets() + amountIn;
-                uint256 newMintedShares = sfrxEth.previewDeposit(amountIn);
-                uint256 totalSupply = sfrxEth.totalSupply() + newMintedShares;
-
-
-                uint256 numerator =
-                    PRECISE_UNIT.mulDivDown(totalSupply, storedTotalAssets);
-
-                return Fraction(numerator, PRECISE_UNIT);
-
-            } else {
-                // calculate price frxEth/sfrxEth
-
-                uint256 fraxEthRedeemed = sfrxEth.previewRedeem(amountIn);
-                uint256 storedTotalAssets = sfrxEth.totalAssets() - fraxEthRedeemed;
-                uint256 totalSupply = sfrxEth.totalSupply() - amountIn;
-
-                uint256 numerator = totalSupply == 0
-                    ? PRECISE_UNIT
-                    : PRECISE_UNIT.mulDivDown(storedTotalAssets, totalSupply);
-
-                return Fraction(numerator, PRECISE_UNIT);
-
-            }
-
+            // calculate price frxEth/sfrxEth
+            uint256 fraxAmountRedeemed = sfrxEth.previewRedeem(amountIn);
+            uint256 totStoredAssets = sfrxEth.totalAssets() - fraxAmountRedeemed;
+            uint256 totMintedShares = sfrxEth.totalSupply() - amountIn;
+            uint256 numerator = totMintedShares == 0
+                ? PRECISE_UNIT
+                : PRECISE_UNIT.mulDivDown(totStoredAssets, totMintedShares);
+            return Fraction(numerator, PRECISE_UNIT);
         }
-
     }
-
 }
 
 
