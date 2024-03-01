@@ -188,7 +188,7 @@ contract FraxV3SFraxAdapter is ISwapAdapter {
         if (address(sellToken) == address(sFrax)) {
             return sFrax.redeem(amount, msg.sender, address(this));
         } else {
-            sellToken.approve(address(sFrax), amount);
+            sellToken.safeIncreaseAllowance(address(sFrax), amount);
             return sFrax.deposit(amount, msg.sender);
         }
     }
@@ -208,7 +208,7 @@ contract FraxV3SFraxAdapter is ISwapAdapter {
         } else {
             uint256 amountIn = sFrax.previewMint(amount);
             sellToken.safeTransferFrom(msg.sender, address(this), amountIn);
-            sellToken.approve(address(sFrax), amountIn);
+            sellToken.safeIncreaseAllowance(address(sFrax), amountIn);
             return sFrax.mint(amount, msg.sender);
         }
     }
