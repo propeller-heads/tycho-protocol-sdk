@@ -30,5 +30,10 @@ contract BancorV3SwapAdapterTest is Test, ISwapAdapterTypes {
 
         console.log(ids.length);
         console.logBytes32(ids[1]);
+
+    }
+
+    function testGetTokensBancor() public {
+        IERC20[] memory token = adapter.getTokens(1);
     }
 }

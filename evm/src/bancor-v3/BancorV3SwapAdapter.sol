@@ -36,18 +36,29 @@ contract BancorV3SwapAdapter is ISwapAdapter {
         revert NotImplemented("TemplateSwapAdapter.getLimits");
     }
 
-    function getCapabilities(bytes32 poolId, IERC20 sellToken, IERC20 buyToken)
+    /// @inheritdoc ISwapAdapter
+    function getCapabilities(bytes32, IERC20, IERC20)
         external
+        pure
+        override
         returns (Capability[] memory capabilities)
     {
-        revert NotImplemented("TemplateSwapAdapter.getCapabilities");
+        capabilities = new Capability[](3);
+        capabilities[0] = Capability.SellOrder;
+        capabilities[1] = Capability.BuyOrder;
+        capabilities[2] = Capability.PriceFunction;
     }
+
 
     function getTokens(bytes32 poolId)
         external
+        view
+        override
         returns (IERC20[] memory tokens)
     {
-        revert NotImplemented("TemplateSwapAdapter.getTokens");
+        tokens = new IERC20[](1);
+        address tokenAddress = address(bytes20(poolId));
+        tokens[0] = IERC20(tokenAddress);
     }
 
     /// @inheritdoc ISwapAdapter
