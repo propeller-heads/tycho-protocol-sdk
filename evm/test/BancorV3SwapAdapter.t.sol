@@ -15,14 +15,15 @@ contract BancorV3SwapAdapterTest is Test, ISwapAdapterTypes {
     using FractionMath for Fraction;
 
     BancorV3SwapAdapter adapter;
-    // address constant BANCOR_NETWORK_ADDRESS = 0x3006EB573bA4b6f28C36AAd49d2062C5e82Cfc75;
-    address constant BANCOR_NETWORK_ADDRESS = 0xeEF417e1D5CC832e619ae18D2F140De2999dD4fB;
+    // address constant POOL_COLLECTION = 0xde1B3CcfC45e3F5bff7f43516F2Cd43364D883E4;
+    // address constant BANCOR_NETWORK_ADDRESS= 0x3006EB573bA4b6f28C36AAd49d2062C5e82Cfc75;
+    address constant BANCOR_NETWORK_PROXY_ADDRESS = 0xeEF417e1D5CC832e619ae18D2F140De2999dD4fB;
 
     function setUp() public {
         uint256 forkBlock = 19361722;
         vm.createSelectFork(vm.rpcUrl("mainnet"), forkBlock);
 
-        adapter = new BancorV3SwapAdapter(BANCOR_NETWORK_ADDRESS);
+        adapter = new BancorV3SwapAdapter(BANCOR_NETWORK_PROXY_ADDRESS);
     }
 
     function testGetPoolIdsBancor() public {
@@ -33,7 +34,5 @@ contract BancorV3SwapAdapterTest is Test, ISwapAdapterTypes {
 
     }
 
-    function testGetTokensBancor() public {
-        IERC20[] memory token = adapter.getTokens(1);
-    }
+
 }

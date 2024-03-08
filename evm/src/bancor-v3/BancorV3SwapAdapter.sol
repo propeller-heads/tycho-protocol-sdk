@@ -5,9 +5,24 @@ import {IERC20, ISwapAdapter} from "src/interfaces/ISwapAdapter.sol";
 
 contract BancorV3SwapAdapter is ISwapAdapter {
     IBancorV3BancorNetwork immutable bancorNetwork;
+    IBancorV3BancorNetworkInfo immutable bancorNetworkInfo;
+    IBancorV3PoolCollection immutable bancorPoolCollection;
 
-    constructor (address bancorNetwork_) {
+    constructor (address bancorNetwork_, address bancorNetworkInfo_, address bancorPoolCollection_) {
         bancorNetwork = IBancorV3BancorNetwork(bancorNetwork_);
+        bancorNetworkInfo = IBancorV3BancorNetworkInfo(bancorNetworkInfo_);
+        bancorPoolCollection = IBancorV3PoolCollection(bancorPoolCollection_);
+    }
+
+    modifier onlySupportedTokens(address sellToken, address buyToken) {
+        bool sellTokenPoolEnabled = bancorNetworkInfo.tradingEnabled(sellToken);
+        bool buyTokenPoolEnabled = bancorNetworkInfo.tradingEnabled(sellToken);
+
+        if(!sellTokenPoolEnabled || !buyTokenPoolEnabled) {
+            revert Unavailable("This swap is not enabled");
+        }
+
+        _;
     }
 
     function price(
@@ -17,6 +32,22 @@ contract BancorV3SwapAdapter is ISwapAdapter {
         uint256[] memory _specifiedAmounts
     ) external view override returns (Fraction[] memory _prices) {
         revert NotImplemented("TemplateSwapAdapter.price");
+    }
+
+    function getPriceAt(uint256 amountIn, IERC20 sellToken, IERC20 buyToken) 
+    external
+    view
+    onlySupportedTokens(address(sellToken), address(buyToken))
+    returns (Fraction Memory)
+    {
+        // 1. if sellToken or buyToken is BNT
+            // call tradingLiquidity(Token that is not BNT)
+            // 1.1 if sellToken = BNT
+                // call tradeOutputAndFeeBySourceAmount(sellToken, buyToken, amountIn) -> amountOut, tradingFeeAmount, networkFeeAmount
+                // numerator = tradingLiquidityBuyToken - amountOut
+                // denominator = tradingLiquiditySellToken + amountIn
+            // 1.2 else 
+        // get amountOut by calling tradeInputByTargetAmount()
     }
 
     function swap(
@@ -49,7 +80,7 @@ contract BancorV3SwapAdapter is ISwapAdapter {
         capabilities[2] = Capability.PriceFunction;
     }
 
-
+    /// @inheritdoc ISwapAdapter
     function getTokens(bytes32 poolId)
         external
         view
@@ -82,6 +113,43 @@ contract BancorV3SwapAdapter is ISwapAdapter {
 
 }
 
+interface IBancorV3BancorNetworkInfo {
+
+    /// @dev returns the trading liquidity in a given pool
+    function tradingLiquidity(Token pool) external view returns (TradingLiquidity memory);
+
+    /// @dev returns the trading fee (in units of PPM)
+    function tradingFeePPM(Token pool) external view returns (uint32);
+    
+    /// @dev returns whether trading is enabled
+    function tradingEnabled(Token pool) external view returns (bool);
+
+}
+
+interface IBancorV3PoolCollection {
+        /**
+     * @dev returns the output amount and fee when trading by providing the source amount
+     TradeAmountAndFee({
+                amount: result.targetAmount,
+                tradingFeeAmount: result.tradingFeeAmount,
+                networkFeeAmount: result.networkFeeAmount
+            });
+     */
+    function tradeOutputAndFeeBySourceAmount(
+        Token sourceToken,
+        Token targetToken,
+        uint256 sourceAmount
+    ) external view returns (TradeAmountAndFee memory);
+
+    /**
+     * @dev returns the input amount and fee when trading by providing the target amount
+     */
+    function tradeInputAndFeeByTargetAmount(
+        Token sourceToken,
+        Token targetToken,
+        uint256 targetAmount
+    ) external view returns (TradeAmountAndFee memory);
+}
 
 interface IBancorV3BancorNetwork {
 
@@ -137,4 +205,10 @@ interface IBancorV3BancorNetwork {
 
 interface Token {
 
+}
+
+struct TradeAmountAndFee {
+    uint256 amount; // the source/target amount (depending on the context) resulting from the trade
+    uint256 tradingFeeAmount; // the trading fee amount
+    uint256 networkFeeAmount; // the network fee amount (always in units of BNT)
 }
