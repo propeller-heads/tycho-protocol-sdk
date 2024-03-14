@@ -6,8 +6,8 @@ import {IERC20, ISwapAdapter} from "src/interfaces/ISwapAdapter.sol";
 /// @title BancorV3Swap Adapter
 contract BancorV3SwapAdapter is ISwapAdapter {
 
-    IBancorV3BancorNetwork immutable bancorNetwork;
-    IBancorV3BancorNetworkInfo immutable bancorNetworkInfo;
+    IBancorV3BancorNetwork public immutable bancorNetwork;
+    IBancorV3BancorNetworkInfo public immutable bancorNetworkInfo;
     IBancorV3PoolCollection immutable bancorPoolCollection;
     IERC20 immutable bnt;
 
@@ -23,7 +23,7 @@ contract BancorV3SwapAdapter is ISwapAdapter {
         Token sellToken = Token(_sellToken);
         Token buyToken = Token(_buyToken);
         bool sellTokenPoolEnabled = bancorNetworkInfo.tradingEnabled(sellToken);
-        bool buyTokenPoolEnabled = bancorNetworkInfo.tradingEnabled(sellToken);
+        bool buyTokenPoolEnabled = bancorNetworkInfo.tradingEnabled(buyToken);
 
         if(!sellTokenPoolEnabled || !buyTokenPoolEnabled) {
             revert Unavailable("This swap is not enabled");
@@ -41,23 +41,111 @@ contract BancorV3SwapAdapter is ISwapAdapter {
         revert NotImplemented("TemplateSwapAdapter.price");
     }
 
-    function getPriceAt(uint256 amountIn, IERC20 sellToken, IERC20 buyToken) 
-    external
-    view
-    onlySupportedTokens(address(sellToken), address(buyToken))
-    returns (Fraction memory)
-    {   
-        revert NotImplemented("TemplateSwapAdapter.getPriceAt");
-    }
+    // function getPriceAt(uint256 amountIn, IERC20 _sellToken, IERC20 _buyToken) 
+    // external
+    // view
+    // onlySupportedTokens(address(_sellToken), address(_buyToken))
+    // returns (Fraction memory)
+    // {   
+    //     Token sellToken = Token(address(_sellToken));
+    //     Token buyToken = Token(address(_buyToken));
+    //     uint256 numerator = bancorNetworkInfo.tradeOutputBySourceAmount(sellToken, buyToken, 1);
 
+    //     return Fraction(0,0);
+    // }
+
+    /// @inheritdoc ISwapAdapter
     function swap(
-        bytes32 poolId,
-        IERC20 sellToken,
-        IERC20 buyToken,
+        bytes32,
+        IERC20 _sellToken,
+        IERC20 _buyToken,
         OrderSide side,
         uint256 specifiedAmount
-    ) external returns (Trade memory trade) {
-        revert NotImplemented("TemplateSwapAdapter.swap");
+        ) 
+        external 
+        override
+        onlySupportedTokens(address(_sellToken), address(_buyToken))
+        returns (Trade memory trade) {
+        if (specifiedAmount == 0) {
+            return trade;
+        }
+
+        uint256 gasBefore = gasleft();
+        if (side == OrderSide.Sell) {
+            trade.calculatedAmount =
+                sell(_sellToken, _buyToken, specifiedAmount);
+        } else {
+            trade.calculatedAmount =
+                buy(_sellToken, _buyToken, specifiedAmount);
+        }
+        trade.gasUsed = gasBefore - gasleft();
+
+    }
+
+    /// @notice Executes a sell order on a given pool.
+    /// @param _sellToken The token being sold.
+    /// @param _buyToken The token being bought.
+    /// @param amount The amount to be traded.
+    /// @return calculatedAmount The amount of tokens received.
+    function sell(
+        IERC20 _sellToken,
+        IERC20 _buyToken,
+        uint256 amount
+    ) internal returns (uint256 calculatedAmount) {
+        Token sellToken = Token(address(_sellToken));
+        Token buyToken = Token(address(_buyToken));
+        
+        uint256 amountOut = bancorNetworkInfo.tradeOutputBySourceAmount(sellToken, buyToken, amount);
+        if (amountOut == 0) {
+            revert Unavailable("AmountOut is zero!");
+        }
+
+        // First, approve the network contract to spend tokens
+        _sellToken.approve(address(bancorNetwork), amount);
+
+        bancorNetwork.tradeBySourceAmount(
+            sellToken,
+            buyToken,
+            amount,
+            amountOut,
+            block.timestamp + 300,
+            msg.sender
+        );
+
+        return amountOut;
+    }
+
+    /// @notice Executes a sell order on a given pool.
+    /// @param _sellToken The token being sold.
+    /// @param _buyToken The token being bought.
+    /// @param amount The amount to be traded.
+    /// @return calculatedAmount The amount of tokens received.
+    function buy(
+        IERC20 _sellToken,
+        IERC20 _buyToken,
+        uint256 amount
+    ) internal returns (uint256 calculatedAmount) {
+        Token sellToken = Token(address(_sellToken));
+        Token buyToken = Token(address(_buyToken));
+        
+        uint256 amountIn = bancorNetworkInfo.tradeInputByTargetAmount(sellToken, buyToken, amount);
+        if (amountIn == 0) {
+            revert Unavailable("AmountIn is zero!");
+        }
+
+        // First, approve the network contract to spend tokens
+        _sellToken.approve(address(bancorNetwork), amountIn);
+
+        bancorNetwork.tradeByTargetAmount(
+            sellToken,
+            buyToken,
+            amount,
+            amountIn,
+            block.timestamp + 300,
+            msg.sender
+        );
+
+        return amountIn;
     }
 
     /// @inheritdoc ISwapAdapter
@@ -66,27 +154,27 @@ contract BancorV3SwapAdapter is ISwapAdapter {
     external
     view
     override
+    onlySupportedTokens(address(_sellToken), address(_buyToken))
     returns (uint256[] memory limits)
     {
         limits = new uint256[](2) ;
         Token sellToken = Token(address(_sellToken));
         Token buyToken = Token(address(_buyToken));
         Token BNT = Token(address(bnt));
-        uint256 tradingLiquidityBuyToken;
 
         if (_sellToken == bnt || _buyToken == bnt) {
             Token token = (_sellToken == bnt) ? buyToken : sellToken;
-            TradingLiquidity memory tradingLiquidityTokenPool = bancorNetworkInfo.tradingLiquidity(token);
-            tradingLiquidityBuyToken = (_sellToken == bnt) ? uint256(tradingLiquidityTokenPool.baseTokenTradingLiquidity) : uint256(tradingLiquidityTokenPool.bntTradingLiquidity);
-            limits[1] = tradingLiquidityBuyToken * 90 / 100;
-            limits[0] = bancorNetworkInfo.tradeInputByTargetAmount(sellToken, buyToken, limits[1]);
+        uint256 tradingLiquidityBuyToken = (_sellToken == bnt) ? bancorNetworkInfo.tradingLiquidity(token).baseTokenTradingLiquidity 
+        : bancorNetworkInfo.tradingLiquidity(token).bntTradingLiquidity;
+
+        limits[1] = tradingLiquidityBuyToken * 90 / 100;
+        limits[0] = bancorNetworkInfo.tradeInputByTargetAmount(sellToken, buyToken, limits[1]);
+
         } else {
-            TradingLiquidity memory tradingLiquiditySellTokenPool = bancorNetworkInfo.tradingLiquidity(sellToken);
-            TradingLiquidity memory tradingLiquidityBuyTokenPool = bancorNetworkInfo.tradingLiquidity(buyToken);
 
             uint256 maxBntTradeable = 
-            (tradingLiquidityBuyTokenPool.bntTradingLiquidity < tradingLiquiditySellTokenPool.bntTradingLiquidity ?
-            tradingLiquidityBuyTokenPool.bntTradingLiquidity : tradingLiquiditySellTokenPool.bntTradingLiquidity)
+            (bancorNetworkInfo.tradingLiquidity(buyToken).bntTradingLiquidity < bancorNetworkInfo.tradingLiquidity(sellToken).bntTradingLiquidity ?
+            bancorNetworkInfo.tradingLiquidity(buyToken).bntTradingLiquidity : bancorNetworkInfo.tradingLiquidity(sellToken).bntTradingLiquidity)
             * 90 / 100;
 
             limits[0] = bancorNetworkInfo.tradeInputByTargetAmount(sellToken, BNT, maxBntTradeable);
@@ -138,9 +226,8 @@ contract BancorV3SwapAdapter is ISwapAdapter {
     }
 
     function getTradingLiquidity(Token token) public view returns (TradingLiquidity memory) {
-    return bancorNetworkInfo.tradingLiquidity(token);
-}
-
+        return bancorNetworkInfo.tradingLiquidity(token);
+    }
 
 }
 
@@ -175,28 +262,7 @@ interface IBancorV3BancorNetworkInfo {
 }
 
 interface IBancorV3PoolCollection {
-        /**
-     * @dev returns the output amount and fee when trading by providing the source amount
-     TradeAmountAndFee({
-                amount: result.targetAmount,
-                tradingFeeAmount: result.tradingFeeAmount,
-                networkFeeAmount: result.networkFeeAmount
-            });
-     */
-    function tradeOutputAndFeeBySourceAmount(
-        Token sourceToken,
-        Token targetToken,
-        uint256 sourceAmount
-    ) external view returns (TradeAmountAndFee memory);
 
-    /**
-     * @dev returns the input amount and fee when trading by providing the target amount
-     */
-    function tradeInputAndFeeByTargetAmount(
-        Token sourceToken,
-        Token targetToken,
-        uint256 targetAmount
-    ) external view returns (TradeAmountAndFee memory);
 }
 
 interface IBancorV3BancorNetwork {
@@ -209,15 +275,9 @@ interface IBancorV3BancorNetwork {
     /// @dev returns the set of all valid pool collections
     // function poolCollections() external view returns (IPoolCollection[] memory);
 
-    /**
-     * @dev performs a trade by providing the input source amount, sends the proceeds to the optional beneficiary (or
-     * to the address of the caller, in case it's not supplied), and returns the trade target amount
-     *
-     * requirements:
-     *
-     * - the caller must have approved the network to transfer the source tokens on its behalf (except for in the
-     *   native token case)
-     */
+    /// @dev performs a trade by providing the input source amount, sends the proceeds to the optional beneficiary (or
+    /// to the address of the caller, in case it's not supplied), and returns the trade target amount
+    /// @notice the caller must have approved the network to transfer the source tokens on its behalf (except for in the native token case)
     function tradeBySourceAmount(
         Token sourceToken,
         Token targetToken,
@@ -227,15 +287,9 @@ interface IBancorV3BancorNetwork {
         address beneficiary
     ) external payable returns (uint256);
 
-    /**
-     * @dev performs a trade by providing the output target amount, sends the proceeds to the optional beneficiary (or
-     * to the address of the caller, in case it's not supplied), and returns the trade source amount
-     *
-     * requirements:
-     *
-     * - the caller must have approved the network to transfer the source tokens on its behalf (except for in the
-     *   native token case)
-     */
+    /// @dev performs a trade by providing the output target amount, sends the proceeds to the optional beneficiary (or
+    /// to the address of the caller, in case it's not supplied), and returns the trade source amount
+    /// @notice the caller must have approved the network to transfer the source tokens on its behalf (except for in the native token case)
     function tradeByTargetAmount(
         Token sourceToken,
         Token targetToken,
@@ -244,10 +298,6 @@ interface IBancorV3BancorNetwork {
         uint256 deadline,
         address beneficiary
     ) external payable returns (uint256);
-
-
-
-
 
 }
 

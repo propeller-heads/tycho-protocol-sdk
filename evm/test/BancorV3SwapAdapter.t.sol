@@ -25,6 +25,7 @@ contract BancorV3SwapAdapterTest is Test, ISwapAdapterTypes {
     IERC20 constant BNT = IERC20(0x1F573D6Fb3F13d689FF844B4cE37794d79a7FF1C);
     IERC20 constant ENJ = IERC20(0xF629cBd94d3791C9250152BD8dfBDF380E2a3B9c);
     
+    receive() external payable {}
 
     function setUp() public {
         uint256 forkBlock = 19432669;
@@ -90,5 +91,29 @@ contract BancorV3SwapAdapterTest is Test, ISwapAdapterTypes {
         assertEq(limits.length, 2);
     }
 
+    function testPricePippo() public {
+        IBancorV3BancorNetwork network = adapter.bancorNetwork();
+        IBancorV3BancorNetworkInfo networkInfo = adapter.bancorNetworkInfo();
+        Token eth = Token(address(ETH));
+        Token bnt = Token(address(BNT));
 
+        deal(address(BNT), address(this), 10000 ether);
+        BNT.approve(address(network), 10000 ether);
+
+        uint256 amountOutInfo = networkInfo.tradeOutputBySourceAmount(bnt, eth, 100 ether);
+
+        uint256 amountOut = 
+        network.tradeBySourceAmount(
+            bnt,
+            eth,
+            100 ether,
+            1,
+            block.timestamp + 300,
+            address(this)
+        );
+
+        console.log("AmountOut Info :", amountOutInfo);
+        console.log("AmountOut :", amountOut);
+
+    }
 }
