@@ -3,18 +3,25 @@ pragma solidity ^0.8.13;
 
 import {IERC20, ISwapAdapter} from "src/interfaces/ISwapAdapter.sol";
 
+/// @title BancorV3Swap Adapter
 contract BancorV3SwapAdapter is ISwapAdapter {
+
     IBancorV3BancorNetwork immutable bancorNetwork;
     IBancorV3BancorNetworkInfo immutable bancorNetworkInfo;
     IBancorV3PoolCollection immutable bancorPoolCollection;
+    IERC20 immutable bnt;
 
     constructor (address bancorNetwork_, address bancorNetworkInfo_, address bancorPoolCollection_) {
         bancorNetwork = IBancorV3BancorNetwork(bancorNetwork_);
         bancorNetworkInfo = IBancorV3BancorNetworkInfo(bancorNetworkInfo_);
         bancorPoolCollection = IBancorV3PoolCollection(bancorPoolCollection_);
+        bnt = bancorNetworkInfo.bnt();
     }
 
-    modifier onlySupportedTokens(address sellToken, address buyToken) {
+    /// @dev check if sellToken and buyToken are tradeable
+    modifier onlySupportedTokens(address _sellToken, address _buyToken) {
+        Token sellToken = Token(_sellToken);
+        Token buyToken = Token(_buyToken);
         bool sellTokenPoolEnabled = bancorNetworkInfo.tradingEnabled(sellToken);
         bool buyTokenPoolEnabled = bancorNetworkInfo.tradingEnabled(sellToken);
 
@@ -38,16 +45,9 @@ contract BancorV3SwapAdapter is ISwapAdapter {
     external
     view
     onlySupportedTokens(address(sellToken), address(buyToken))
-    returns (Fraction Memory)
-    {
-        // 1. if sellToken or buyToken is BNT
-            // call tradingLiquidity(Token that is not BNT)
-            // 1.1 if sellToken = BNT
-                // call tradeOutputAndFeeBySourceAmount(sellToken, buyToken, amountIn) -> amountOut, tradingFeeAmount, networkFeeAmount
-                // numerator = tradingLiquidityBuyToken - amountOut
-                // denominator = tradingLiquiditySellToken + amountIn
-            // 1.2 else 
-        // get amountOut by calling tradeInputByTargetAmount()
+    returns (Fraction memory)
+    {   
+        revert NotImplemented("TemplateSwapAdapter.getPriceAt");
     }
 
     function swap(
@@ -60,11 +60,38 @@ contract BancorV3SwapAdapter is ISwapAdapter {
         revert NotImplemented("TemplateSwapAdapter.swap");
     }
 
-    function getLimits(bytes32 poolId, IERC20 sellToken, IERC20 buyToken)
-        external
-        returns (uint256[] memory limits)
+    /// @inheritdoc ISwapAdapter
+    /// @dev Limits are underestimated at 90% of total liquidity inside pools
+    function getLimits(bytes32 poolId, IERC20 _sellToken, IERC20 _buyToken)
+    external
+    view
+    override
+    returns (uint256[] memory limits)
     {
-        revert NotImplemented("TemplateSwapAdapter.getLimits");
+        limits = new uint256[](2) ;
+        Token sellToken = Token(address(_sellToken));
+        Token buyToken = Token(address(_buyToken));
+        Token BNT = Token(address(bnt));
+        uint256 tradingLiquidityBuyToken;
+
+        if (_sellToken == bnt || _buyToken == bnt) {
+            Token token = (_sellToken == bnt) ? buyToken : sellToken;
+            TradingLiquidity memory tradingLiquidityTokenPool = bancorNetworkInfo.tradingLiquidity(token);
+            tradingLiquidityBuyToken = (_sellToken == bnt) ? uint256(tradingLiquidityTokenPool.baseTokenTradingLiquidity) : uint256(tradingLiquidityTokenPool.bntTradingLiquidity);
+            limits[1] = tradingLiquidityBuyToken * 90 / 100;
+            limits[0] = bancorNetworkInfo.tradeInputByTargetAmount(sellToken, buyToken, limits[1]);
+        } else {
+            TradingLiquidity memory tradingLiquiditySellTokenPool = bancorNetworkInfo.tradingLiquidity(sellToken);
+            TradingLiquidity memory tradingLiquidityBuyTokenPool = bancorNetworkInfo.tradingLiquidity(buyToken);
+
+            uint256 maxBntTradeable = 
+            (tradingLiquidityBuyTokenPool.bntTradingLiquidity < tradingLiquiditySellTokenPool.bntTradingLiquidity ?
+            tradingLiquidityBuyTokenPool.bntTradingLiquidity : tradingLiquiditySellTokenPool.bntTradingLiquidity)
+            * 90 / 100;
+
+            limits[0] = bancorNetworkInfo.tradeInputByTargetAmount(sellToken, BNT, maxBntTradeable);
+            limits[1] = bancorNetworkInfo.tradeOutputBySourceAmount(sellToken, buyToken, limits[0]);
+        }
     }
 
     /// @inheritdoc ISwapAdapter
@@ -110,10 +137,17 @@ contract BancorV3SwapAdapter is ISwapAdapter {
         }
     }
 
+    function getTradingLiquidity(Token token) public view returns (TradingLiquidity memory) {
+    return bancorNetworkInfo.tradingLiquidity(token);
+}
+
 
 }
 
 interface IBancorV3BancorNetworkInfo {
+
+    /// @dev returns the BNT contract
+    function bnt() external view returns (IERC20);
 
     /// @dev returns the trading liquidity in a given pool
     function tradingLiquidity(Token pool) external view returns (TradingLiquidity memory);
@@ -123,6 +157,20 @@ interface IBancorV3BancorNetworkInfo {
     
     /// @dev returns whether trading is enabled
     function tradingEnabled(Token pool) external view returns (bool);
+
+    /// @dev returns the output amount when trading by providing the source amount
+    function tradeOutputBySourceAmount(
+        Token sourceToken,
+        Token targetToken,
+        uint256 sourceAmount
+    ) external view returns (uint256);
+
+    /// @dev returns the input amount when trading by providing the target amount
+    function tradeInputByTargetAmount(
+        Token sourceToken,
+        Token targetToken,
+        uint256 targetAmount
+    ) external view returns (uint256);
 
 }
 
@@ -158,8 +206,8 @@ interface IBancorV3BancorNetwork {
     /// @dev returns the set of all liquidity pools
     function liquidityPools() external view returns (Token[] memory);
 
-    /// @dev returns the respective pool collection for the provided pool
-    // function collectionByPool(Token pool) external view returns (IPoolCollection);
+    /// @dev returns the set of all valid pool collections
+    // function poolCollections() external view returns (IPoolCollection[] memory);
 
     /**
      * @dev performs a trade by providing the input source amount, sends the proceeds to the optional beneficiary (or
@@ -205,6 +253,11 @@ interface IBancorV3BancorNetwork {
 
 interface Token {
 
+}
+
+struct TradingLiquidity {
+    uint128 bntTradingLiquidity;
+    uint128 baseTokenTradingLiquidity;
 }
 
 struct TradeAmountAndFee {
