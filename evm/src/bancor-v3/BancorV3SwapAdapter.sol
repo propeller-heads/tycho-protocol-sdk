@@ -2,9 +2,11 @@
 pragma solidity ^0.8.13;
 
 import {IERC20, ISwapAdapter} from "src/interfaces/ISwapAdapter.sol";
+import {SafeERC20} from "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 
 /// @title BancorV3Swap Adapter
 contract BancorV3SwapAdapter is ISwapAdapter {
+    using SafeERC20 for IERC20;
 
     IBancorV3BancorNetwork public immutable bancorNetwork;
     IBancorV3BancorNetworkInfo public immutable bancorNetworkInfo;
@@ -62,7 +64,7 @@ contract BancorV3SwapAdapter is ISwapAdapter {
         OrderSide side,
         uint256 specifiedAmount
         ) 
-        external 
+        external
         override
         onlySupportedTokens(address(_sellToken), address(_buyToken))
         returns (Trade memory trade) {
@@ -101,6 +103,7 @@ contract BancorV3SwapAdapter is ISwapAdapter {
         }
 
         // First, approve the network contract to spend tokens
+        _sellToken.safeTransferFrom(msg.sender, address(this), amount);
         _sellToken.approve(address(bancorNetwork), amount);
 
         bancorNetwork.tradeBySourceAmount(
@@ -134,6 +137,7 @@ contract BancorV3SwapAdapter is ISwapAdapter {
         }
 
         // First, approve the network contract to spend tokens
+        _sellToken.safeTransferFrom(msg.sender, address(this), amountIn);
         _sellToken.approve(address(bancorNetwork), amountIn);
 
         bancorNetwork.tradeByTargetAmount(
