@@ -90,7 +90,7 @@ contract BancorV3SwapAdapterTest is Test, ISwapAdapterTypes {
         }
     }
 
-        function testSwapSellIncreasingBancorV3() public {
+    function testSwapSellIncreasingBancorV3() public {
         executeIncreasingSwaps(OrderSide.Sell);
     }
 
@@ -174,6 +174,38 @@ contract BancorV3SwapAdapterTest is Test, ISwapAdapterTypes {
         console.log("LINK Limit", limits[1]);
         console.log("LINK tradingLiquidity: ", tradingLiquidityLink);
         assertEq(limits.length, 2);
+    }
+
+    function testSwapBuyBancorV3BntLink() public {
+
+        uint256 targetAmount = 100 ether;
+        uint256 initialBalance = 100000 ether;
+
+        deal(address(BNT), address(this), initialBalance);
+        BNT.approve(address(adapter), initialBalance);
+
+        uint256 bnt_balance_before_swap = BNT.balanceOf(address(this));
+        uint256 link_balance_before_swap = LINK.balanceOf(address(this));
+
+        console.log("BNT in address(this) : ", bnt_balance_before_swap);
+        console.log("LINK in address(this) : ", link_balance_before_swap);
+
+        uint256 calculatedAmount = adapter.swap(PAIR, BNT, LINK, OrderSide.Buy, targetAmount).calculatedAmount;
+        console.log("CalculatedAmount: ", calculatedAmount);
+        
+        uint256 bnt_balance_after_swap = BNT.balanceOf(address(this));
+        uint256 link_balance_after_swap = LINK.balanceOf(address(this));
+
+        console.log("BNT in address(this) : ", bnt_balance_after_swap);
+        console.log("LINK in address(this) : ", link_balance_after_swap);
+
+        uint256 amountBought = link_balance_after_swap - link_balance_before_swap;
+        console.log("Amount Bought: ", amountBought);
+
+        uint256 amountIn = bnt_balance_before_swap - bnt_balance_after_swap;
+        console.log("amountIn: ", amountIn);
+
+        assertEq(calculatedAmount, targetAmount);
     }
 
     function testPricePippo() public {

@@ -106,7 +106,7 @@ contract BancorV3SwapAdapter is ISwapAdapter {
         _sellToken.safeTransferFrom(msg.sender, address(this), amount);
         _sellToken.approve(address(bancorNetwork), amount);
 
-        bancorNetwork.tradeBySourceAmount(
+        return bancorNetwork.tradeBySourceAmount(
             sellToken,
             buyToken,
             amount,
@@ -115,14 +115,13 @@ contract BancorV3SwapAdapter is ISwapAdapter {
             msg.sender
         );
 
-        return amountOut;
     }
 
     /// @notice Executes a sell order on a given pool.
     /// @param _sellToken The token being sold.
     /// @param _buyToken The token being bought.
-    /// @param amount The amount to be traded.
-    /// @return calculatedAmount The amount of tokens received.
+    /// @param amount The amount of _buyToken to buy and receive.
+    /// @return calculatedAmount The amount of tokens sold.
     function buy(
         IERC20 _sellToken,
         IERC20 _buyToken,
@@ -140,7 +139,7 @@ contract BancorV3SwapAdapter is ISwapAdapter {
         _sellToken.safeTransferFrom(msg.sender, address(this), amountIn);
         _sellToken.approve(address(bancorNetwork), amountIn);
 
-        bancorNetwork.tradeByTargetAmount(
+        return bancorNetwork.tradeByTargetAmount(
             sellToken,
             buyToken,
             amount,
@@ -149,7 +148,6 @@ contract BancorV3SwapAdapter is ISwapAdapter {
             msg.sender
         );
 
-        return amountIn;
     }
 
     /// @inheritdoc ISwapAdapter
