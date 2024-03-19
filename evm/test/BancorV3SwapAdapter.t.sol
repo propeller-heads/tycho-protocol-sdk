@@ -98,7 +98,7 @@ contract BancorV3SwapAdapterTest is Test, ISwapAdapterTypes {
 
         uint256[] memory amounts = new uint256[](TEST_ITERATIONS);
         for (uint256 i = 0; i < TEST_ITERATIONS; i++) {
-            amounts[i] = 1000 * (i + 1) * 10 ** 6;
+            amounts[i] = 1000 * (i) * 10 ** 18;
         }
 
         Trade[] memory trades = new Trade[](TEST_ITERATIONS);
@@ -106,8 +106,8 @@ contract BancorV3SwapAdapterTest is Test, ISwapAdapterTypes {
         for (uint256 i = 0; i < TEST_ITERATIONS; i++) {
             beforeSwap = vm.snapshot();
 
-            deal(address(BNT), address(this), amounts[i]);
-            BNT.approve(address(adapter), amounts[i]);
+            deal(address(BNT), address(this), type(uint256).max);
+            BNT.approve(address(adapter), type(uint256).max);
 
             trades[i] = adapter.swap(PAIR, BNT, LINK, side, amounts[i]);
             vm.revertTo(beforeSwap);
@@ -124,173 +124,24 @@ contract BancorV3SwapAdapterTest is Test, ISwapAdapterTypes {
         executeIncreasingSwaps(OrderSide.Buy);
     }
 
-
-    function testGetPoolIdsBancor() public {
+    function testGetPoolIdsBancorV3() public view {
         bytes32[] memory ids = adapter.getPoolIds(1, 20);
         console.log(ids.length);
         console.logBytes32(ids[1]);
     }
 
-    function testGetLimitsBancorV3BntLink() public {
+    function testGetLimitsBancorV3() public {
         uint256[] memory limits = adapter.getLimits(bytes32(0), BNT, LINK);
-        TradingLiquidity memory tradingLiquidityLinkPool = adapter.getTradingLiquidity(link);
-        uint256 tradingLiquidityLink = uint256(tradingLiquidityLinkPool.baseTokenTradingLiquidity);
-        uint256 tradingLiquidityBnt = uint256(tradingLiquidityLinkPool.bntTradingLiquidity);
-        console.log("BNT Limit: ", limits[0]);
-        console.log("BNT tradingLiquidity: ", tradingLiquidityBnt);
-        console.log("LINK Limit", limits[1]);
-        console.log("LINK tradingLiquidity: ", tradingLiquidityLink);
+        assertEq(limits.length, 2);
+
+        limits = adapter.getLimits(bytes32(0), ETH, BNT);
+        assertEq(limits.length, 2);
+
+        limits = adapter.getLimits(bytes32(0), LINK, ETH);
+        assertEq(limits.length, 2);
+
+        limits = adapter.getLimits(bytes32(0), ETH, LINK);
         assertEq(limits.length, 2);
     }
-
-    function testGetLimitsEthBntBancor() public {
-        uint256[] memory limits = adapter.getLimits(bytes32(0), ETH, BNT);
-        TradingLiquidity memory tradingLiquidityEthPool = adapter.getTradingLiquidity(eth);
-        uint256 tradingLiquidityEth = uint256(tradingLiquidityEthPool.baseTokenTradingLiquidity);
-        uint256 tradingLiquidityBnt = uint256(tradingLiquidityEthPool.bntTradingLiquidity);
-        console.log("ETH Limit", limits[0]);
-        console.log("ETH tradingLiquidity: ", tradingLiquidityEth);
-        console.log("BNT Limit: ", limits[1]);
-        console.log("BNT tradingLiquidity: ", tradingLiquidityBnt);
-        assertEq(limits.length, 2);
-    }
-
-    function testGetLimitsLinkEthBancor() public {
-        uint256[] memory limits = adapter.getLimits(bytes32(0), LINK, ETH);
-        console.log("LINK Limit", limits[0]);
-        console.log("ETH Limit", limits[1]);
-        assertEq(limits.length, 2);
-    }
-
-    function testGetLimitsEthLinkBancor() public {
-        uint256[] memory limits = adapter.getLimits(bytes32(0), ETH, LINK);
-        TradingLiquidity memory tradingLiquidityEthPool = adapter.getTradingLiquidity(eth);
-        TradingLiquidity memory tradingLiquidityLinkPool = adapter.getTradingLiquidity(link);
-        uint256 tradingLiquidityEth = uint256(tradingLiquidityEthPool.baseTokenTradingLiquidity);
-        uint256 tradingLiquidityLink = uint256(tradingLiquidityLinkPool.baseTokenTradingLiquidity);
-        
-        console.log("ETH Limit", limits[0]);
-        console.log("ETH tradingLiquidity: ", tradingLiquidityEth, tradingLiquidityEthPool.bntTradingLiquidity);
-        console.log("LINK Limit", limits[1]);
-        console.log("LINK tradingLiquidity: ", tradingLiquidityLink);
-        assertEq(limits.length, 2);
-    }
-
-    function testSwapBuyBancorV3BntLink() public {
-
-        uint256 targetAmount = 100 ether;
-        uint256 initialBalance = 100000 ether;
-
-        deal(address(BNT), address(this), initialBalance);
-        BNT.approve(address(adapter), initialBalance);
-
-        uint256 bnt_balance_before_swap = BNT.balanceOf(address(this));
-        uint256 link_balance_before_swap = LINK.balanceOf(address(this));
-
-        console.log("BNT in address(this) : ", bnt_balance_before_swap);
-        console.log("LINK in address(this) : ", link_balance_before_swap);
-
-        uint256 calculatedAmount = adapter.swap(PAIR, BNT, LINK, OrderSide.Buy, targetAmount).calculatedAmount;
-        console.log("CalculatedAmount: ", calculatedAmount);
-        
-        uint256 bnt_balance_after_swap = BNT.balanceOf(address(this));
-        uint256 link_balance_after_swap = LINK.balanceOf(address(this));
-
-        console.log("BNT in address(this) : ", bnt_balance_after_swap);
-        console.log("LINK in address(this) : ", link_balance_after_swap);
-
-        uint256 amountBought = link_balance_after_swap - link_balance_before_swap;
-        console.log("Amount Bought: ", amountBought);
-
-        uint256 amountIn = bnt_balance_before_swap - bnt_balance_after_swap;
-        console.log("amountIn: ", amountIn);
-
-        assertEq(calculatedAmount, targetAmount);
-    }
-
-    function testPricePippo() public {
-        IBancorV3BancorNetwork network = adapter.bancorNetwork();
-        IBancorV3BancorNetworkInfo networkInfo = adapter.bancorNetworkInfo();
-
-        deal(address(BNT), address(this), 10000 ether);
-        BNT.approve(address(network), 10000 ether);
-
-        uint256 amountOutInfo = networkInfo.tradeOutputBySourceAmount(bnt, eth, 100 ether);
-
-        uint256 amountOut = 
-        network.tradeBySourceAmount(
-            bnt,
-            link,
-            100 ether,
-            1,
-            block.timestamp + 300,
-            address(this)
-        );
-
-        console.log("AmountOut Info :", amountOutInfo);
-        console.log("AmountOut :", amountOut);
-
-    }
-
-
-    function testSwapSellBntForLink() public {
-
-        uint256 amountIn = 10000 ether;
-
-        deal(address(BNT), address(this), amountIn);
-        BNT.approve(address(adapter), amountIn);
-
-        uint256 bnt_balance_before_swap = BNT.balanceOf(address(this));
-
-        console.log("Address initializing swap: ", address(this));
-        console.log("BNT in address(this) : ", bnt_balance_before_swap);
-
-        uint256 amountOut = adapter.swap(PAIR, BNT, LINK, OrderSide.Sell, amountIn).calculatedAmount;
-    }
-
-    function testSwapSellBntForEth() public {
-
-        uint256 amountIn = 10000 ether;
-
-        deal(address(BNT), address(this), amountIn);
-        BNT.approve(address(adapter), amountIn);
-
-        uint256 bnt_balance_before_swap = BNT.balanceOf(address(this));
-
-        console.log("Address initializing swap: ", address(this));
-        console.log("BNT in address(this) : ", bnt_balance_before_swap);
-
-        uint256 amountOut = adapter.swap(PAIR, BNT, ETH, OrderSide.Sell, amountIn).calculatedAmount;
-    }
-
-    function testSwapSellLinkForEth() public {
-
-        uint256 amountIn = 10000 ether;
-
-        deal(address(LINK), address(this), amountIn);
-        LINK.approve(address(adapter), amountIn);
-
-        uint256 link_balance_before_swap = LINK.balanceOf(address(this));
-        uint256 eth_balance_before_swap = address(this).balance;
-        
-        console.log("LINK in address(this) : ", link_balance_before_swap);
-        console.log("ETH in address(this) : ", eth_balance_before_swap);
-
-        uint256 amountOut = adapter.swap(PAIR, LINK, ETH, OrderSide.Sell, amountIn).calculatedAmount;
-
-        uint256 link_balance_after_swap = LINK.balanceOf(address(this));
-        uint256 eth_balance_after_swap = address(this).balance;
-        console.log("LINK in address(this) : ", link_balance_after_swap);
-        console.log("ETH in address(this) : ", eth_balance_after_swap);
-
-    }
-
-
-
-
-
-
-
-
 
 }

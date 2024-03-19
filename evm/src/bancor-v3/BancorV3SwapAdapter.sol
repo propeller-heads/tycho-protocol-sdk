@@ -152,7 +152,7 @@ contract BancorV3SwapAdapter is ISwapAdapter {
 
     /// @inheritdoc ISwapAdapter
     /// @dev Limits are underestimated at 90% of total liquidity inside pools
-    function getLimits(bytes32 poolId, IERC20 _sellToken, IERC20 _buyToken)
+    function getLimits(bytes32, IERC20 _sellToken, IERC20 _buyToken)
     external
     view
     override
@@ -200,7 +200,7 @@ contract BancorV3SwapAdapter is ISwapAdapter {
     /// @inheritdoc ISwapAdapter
     function getTokens(bytes32 poolId)
         external
-        view
+        pure
         override
         returns (IERC20[] memory tokens)
     {
