@@ -10,7 +10,7 @@ contract BancorV3SwapAdapter is ISwapAdapter {
 
     IBancorV3BancorNetwork public immutable bancorNetwork;
     IBancorV3BancorNetworkInfo public immutable bancorNetworkInfo;
-    IBancorV3PoolCollection immutable bancorPoolCollection;
+    IBancorV3PoolCollection public immutable bancorPoolCollection;
     IERC20 immutable bnt;
 
     constructor (address bancorNetwork_, address bancorNetworkInfo_, address bancorPoolCollection_) {
@@ -43,18 +43,18 @@ contract BancorV3SwapAdapter is ISwapAdapter {
         revert NotImplemented("TemplateSwapAdapter.price");
     }
 
-    // function getPriceAt(uint256 amountIn, IERC20 _sellToken, IERC20 _buyToken) 
-    // external
-    // view
-    // onlySupportedTokens(address(_sellToken), address(_buyToken))
-    // returns (Fraction memory)
-    // {   
-    //     Token sellToken = Token(address(_sellToken));
-    //     Token buyToken = Token(address(_buyToken));
-    //     uint256 numerator = bancorNetworkInfo.tradeOutputBySourceAmount(sellToken, buyToken, 1);
+    function getPriceAt(uint256 amountIn, IERC20 _sellToken, IERC20 _buyToken) 
+    external
+    view
+    onlySupportedTokens(address(_sellToken), address(_buyToken))
+    returns (Fraction memory)
+    {   
+        Token sellToken = Token(address(_sellToken));
+        Token buyToken = Token(address(_buyToken));
+        uint256 numerator = bancorNetworkInfo.tradeOutputBySourceAmount(sellToken, buyToken, 1);
 
-    //     return Fraction(0,0);
-    // }
+        return Fraction(0,0);
+    }
 
     /// @inheritdoc ISwapAdapter
     function swap(
@@ -265,6 +265,31 @@ interface IBancorV3BancorNetworkInfo {
 
 interface IBancorV3PoolCollection {
 
+    struct TradeAmountAndFee {
+    uint256 amount; // the source/target amount (depending on the context) resulting from the trade
+    uint256 tradingFeeAmount; // the trading fee amount
+    uint256 networkFeeAmount; // the network fee amount (always in units of BNT)
+    }
+
+    /**
+     * @dev returns the output amount and fee when trading by providing the source amount
+     */
+    function tradeOutputAndFeeBySourceAmount(
+        Token sourceToken,
+        Token targetToken,
+        uint256 sourceAmount
+    ) external view returns (TradeAmountAndFee memory);
+
+    /**
+     * @dev returns the input amount and fee when trading by providing the target amount
+     */
+    function tradeInputAndFeeByTargetAmount(
+        Token sourceToken,
+        Token targetToken,
+        uint256 targetAmount
+    ) external view returns (TradeAmountAndFee memory);
+
+
 }
 
 interface IBancorV3BancorNetwork {
@@ -310,10 +335,4 @@ interface Token {
 struct TradingLiquidity {
     uint128 bntTradingLiquidity;
     uint128 baseTokenTradingLiquidity;
-}
-
-struct TradeAmountAndFee {
-    uint256 amount; // the source/target amount (depending on the context) resulting from the trade
-    uint256 tradingFeeAmount; // the trading fee amount
-    uint256 networkFeeAmount; // the network fee amount (always in units of BNT)
 }

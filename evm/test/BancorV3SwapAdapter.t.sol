@@ -42,6 +42,92 @@ contract BancorV3SwapAdapterTest is Test, ISwapAdapterTypes {
         adapter = new BancorV3SwapAdapter(BANCOR_NETWORK_PROXY_ADDRESS, BANCOR_NETWORK_INFO_PROXY_ADDRESS, POOL_COLLECTION_ADDRESS);
     }
 
+    function getTradingLiquidity(Token sellToken, Token buyToken) 
+    internal 
+    returns (uint256 tradingLiquiditySellToken, uint256 tradingLiquidityBuyToken) 
+    {
+        TradingLiquidity memory tradingLiquidityPool;
+        if (sellToken == bnt) {
+            tradingLiquidityPool = adapter.getTradingLiquidity(buyToken);
+            tradingLiquiditySellToken = uint256(tradingLiquidityPool.bntTradingLiquidity);
+            tradingLiquidityBuyToken = uint256(tradingLiquidityPool.baseTokenTradingLiquidity);
+        } else {
+            tradingLiquidityPool = adapter.getTradingLiquidity(sellToken);
+            tradingLiquiditySellToken = uint256(tradingLiquidityPool.baseTokenTradingLiquidity);
+            tradingLiquidityBuyToken = uint256(tradingLiquidityPool.bntTradingLiquidity);
+        }
+    }
+
+    function testHowPriceWorks () public {
+
+        /// calculate swap price by dividing amountOut/amountIn of a swap
+        /// Check if it corresponds to 
+        /// divide the tradinqLiquidity afterSwap and see if it corresponds
+        uint256 amountIn = 10 ether;
+
+        /// Liquidity of BNT and LINK in LINK Pool BEFORE Swap
+        (uint256 tradingLiquidityBntBefore, uint256 tradingLiquidityLinkBefore) = getTradingLiquidity(bnt, link);
+        uint256 liquidityRatioBefore = 10**18 * tradingLiquidityLinkBefore/tradingLiquidityBntBefore;
+
+        console.log("tradingLiquidity LINK before swap: ",tradingLiquidityLinkBefore);
+        console.log("tradingLiquidity BNT before swap: ",tradingLiquidityBntBefore);
+        console.log("liquidity ratio before swap: ", liquidityRatioBefore);
+
+
+        console.log("######################################### Simulation of tradeOutputAndFeeBySourceAmount ###############");
+
+        /// Use the function tradeOutputAndFeeBySourceAmount to get the amountOutSimulated and Fees
+        /// Than check if amountOutSimulated is == to amountOut
+        IBancorV3PoolCollection poolColl = adapter.bancorPoolCollection();
+        IBancorV3PoolCollection.TradeAmountAndFee memory tf = poolColl.tradeOutputAndFeeBySourceAmount(bnt, link, amountIn);
+
+        console.log("SIMULATED amountOut", tf.amount);
+        console.log("SIMULATED tradingFee", tf.tradingFeeAmount);
+        console.log("SIMULATED networkFee", tf.tradingFeeAmount);
+
+        deal(address(BNT), address(this), amountIn);
+        BNT.approve(address(adapter), amountIn);
+
+        /// Sell BNT for LINK
+        uint256 amountOut = adapter.swap(PAIR, BNT, LINK, OrderSide.Sell, amountIn).calculatedAmount;
+
+        console.log("/////////////////////////////////////////////// AFTER SWAP ///////////////////////////////////////////////");
+
+        /// Liquidity of BNT and LINK in LINK Pool AFTER Swap
+        (uint256 tradingLiquidityBntAfter, uint256 tradingLiquidityLinkAfter) = getTradingLiquidity(bnt, link);
+        uint256 liquidityRatioAfter = 10**18 * tradingLiquidityLinkAfter/tradingLiquidityBntAfter;
+
+        console.log("tradingLiquidity LINK after swap: ",tradingLiquidityLinkAfter);
+        console.log("tradingLiquidity BNT after swap: ",tradingLiquidityBntAfter);
+        console.log("liquidity ratio after swap: ", liquidityRatioAfter);
+
+        console.log("/////////////////////////////////////////////// CALCULATED AFTER SWAP ///////////////////////////////////////////////");
+        
+        /// Calculate LINK liquidity after swap --> tradingLiquidityLinkBefore - amountOut
+        uint256 calculatedLiquidityLinkAfter = tradingLiquidityLinkBefore - amountOut;
+        /// Calculate BNT liquidity after swap --> tradingLiquidityBntBefore + amountIn
+        uint256 calculatedLiquidityBntAfter = tradingLiquidityBntBefore + (amountIn - tf.networkFeeAmount);
+
+        uint256 calculatedLiquidityRatioAfter = 10**18 * calculatedLiquidityLinkAfter/calculatedLiquidityBntAfter;
+
+        console.log("CALCULATED tradingLiquidity LINK after swap: ",calculatedLiquidityLinkAfter);
+        console.log("CALCULATED tradingLiquidity BNT after swap: ",calculatedLiquidityBntAfter);
+        console.log("CALCULATED liquidity ratio after swap: ", calculatedLiquidityRatioAfter);
+
+        console.log("amountOut: ", amountOut);
+
+        /// Check if tradingLiquidityLinkAfter == calculatedLiquidityLinkAfter
+        assertEq(tradingLiquidityLinkAfter, calculatedLiquidityLinkAfter);
+
+        /// Check if tradingLiquidityBntAfter == calculatedLiquidityBntAfter
+        assertEq(tradingLiquidityBntAfter, calculatedLiquidityBntAfter);
+        // assertLe(tradingLiquidityBntAfter, calculatedLiquidityBntAfter);
+
+        /// Check if amountOut == amountOutSimulated
+        assertEq(amountOut, tf.amount);
+        
+    }
+
     function testSwapFuzzBancorV3BntLink(uint256 specifiedAmount, bool isBuy) public {
         OrderSide side = isBuy ? OrderSide.Buy : OrderSide.Sell;
 
