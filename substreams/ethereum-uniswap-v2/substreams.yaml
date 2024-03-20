@@ -1,23 +1,34 @@
 specVersion: v0.1.0
 package:
-  name: "substreams_ethereum_uniswap_v2"
+  name: uniswap_v2_substreams
   version: v0.1.0
 
 protobuf:
   files:
-    - ../../proto/tycho/evm/v1/vm.proto
+    - tycho/evm/v1/vm.proto
+    - tycho/evm/v1/common.proto
   importPaths:
-    - ../../proto
+    - ../proto
 
 binaries:
   default:
     type: wasm/rust-v1
-    file: ../../target/wasm32-unknown-unknown/substreams/substreams_ethereum_uniswap_v2.wasm
+    file: ./target/wasm32-unknown-unknown/release/uniswap_v2_substreams.wasm
 
 modules:
   - name: map_changes
     kind: map
+    initialBlock: 10000835
     inputs:
       - source: sf.ethereum.type.v2.Block
+      - store: store_pools
     output:
       type: proto:tycho.evm.v1.BlockContractChanges
+
+  - name: store_pools
+    kind: store
+    initialBlock: 10000835
+    updatePolicy: set
+    valueType: proto:tycho.evm.v1.ProtocolComponent
+    inputs:
+      - map: map_changes

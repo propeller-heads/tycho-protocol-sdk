@@ -2,9 +2,9 @@
 members = [
     "ethereum-balancer",
     "crates/tycho-substreams",
+    "ethereum-uniswap-v2"
 ]
 resolver = "2"
-
 
 [workspace.dependencies]
 substreams-ethereum = "0.9.9"
