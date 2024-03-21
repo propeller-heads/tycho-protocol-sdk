@@ -81,74 +81,31 @@ contract BancorV3SwapAdapterTest is Test, ISwapAdapterTypes {
      */
 
 
-    /// Sell LINK for WBTC
-    /// TODO
-    function testHowPriceWorksLinkForWbtc () public {
+    /**
+    1. chiamre poolCollection per vedere la collection dei 2 token sa tradare
+    Se sono in Pool collection differenti -> Revert
+    2. Castare l'address della Pool Collection in IPoolCollection
 
-        uint256 amountIn = 10 ether;
+    3. Per calcolare price dopo swap 
+    Fare lo swap 
+    Fare il prodotto delle 2 chiamate a tradeOutputAndFeeBySourceAmount, ma passare un valore millesimale
+    della riserva per evitare lo slippage
 
-        /// Liquidity of BNT and LINK in LINK Pool BEFORE Swap
-        (uint256 tradingLiquidityLinkBefore, uint256 tradingLiquidityBntBefore) = getTradingLiquidity(link, bnt);
-        uint256 liquidityRatioBefore = calculateLiquidityRatio(10**18, tradingLiquidityBntBefore, tradingLiquidityLinkBefore);
+    4. Price Function
+    Chiamare tradeOutputAndFeeBySourceAmount e usare output per aggiornare le riserve 
+    Aggiorno le riserve con le formule che ho già trovato
+    Chiamo la funzione per Fee PPM (PoolCollection)
+    Riproduco in locale la formula di tradeOutputAndFeeBySourceAmount con input amount millesimale rispetto alla riserva
+    Numeratore: uint256 targetAmount = MathEx.mulDivF(targetBalance, sourceAmount, sourceBalance + sourceAmount) - uint256 tradingFeeAmount = MathEx.mulDivF(targetAmount, feePPM, PPM_RESOLUTION);
+    Denominatore: Input amount (millesimale)
 
-        console.log("tradingLiquidity LINK before swap: ",tradingLiquidityLinkBefore);
-        console.log("tradingLiquidity BNT before swap: ",tradingLiquidityBntBefore);
-        console.log("liquidity ratio before swap: ", liquidityRatioBefore);
+    Test chiamare price con amountIn X e fare swap con lo stesso amountIn (swap di tipo sell)
+    I due price devono coincidere
+    
+     */
 
 
-        console.log("######################################### Simulation of tradeOutputAndFeeBySourceAmount ###############");
-
-        /// Use the function tradeOutputAndFeeBySourceAmount to get the amountOutSimulated and Fees
-        /// Than check if amountOutSimulated is == to amountOut
-        IBancorV3PoolCollection poolColl = adapter.bancorPoolCollection();
-        IBancorV3PoolCollection.TradeAmountAndFee memory tf = poolColl.tradeOutputAndFeeBySourceAmount(link, bnt, amountIn);
-
-        console.log("SIMULATED amountOut", tf.amount);
-        console.log("SIMULATED tradingFee", tf.tradingFeeAmount);
-        console.log("SIMULATED networkFee", tf.tradingFeeAmount);
-
-        deal(address(LINK), address(this), amountIn);
-        LINK.approve(address(adapter), amountIn);
-
-        /// Sell BNT for LINK
-        uint256 amountOut = adapter.swap(PAIR, LINK, BNT, OrderSide.Sell, amountIn).calculatedAmount;
-
-        console.log("/////////////////////////////////////////////// AFTER SWAP ///////////////////////////////////////////////");
-
-        /// Liquidity of BNT and LINK in LINK Pool AFTER Swap
-        (uint256 tradingLiquidityLinkAfter, uint256 tradingLiquidityBntAfter) = getTradingLiquidity(link, bnt);
-        uint256 liquidityRatioAfter = calculateLiquidityRatio(10**18, tradingLiquidityBntAfter, tradingLiquidityLinkAfter);
-
-        console.log("tradingLiquidity LINK after swap: ",tradingLiquidityLinkAfter);
-        console.log("tradingLiquidity BNT after swap: ",tradingLiquidityBntAfter);
-        console.log("liquidity ratio after swap: ", liquidityRatioAfter);
-
-        console.log("/////////////////////////////////////////////// CALCULATED AFTER SWAP ///////////////////////////////////////////////");
-        
-        /// Calculate LINK liquidity after swap --> tradingLiquidityLinkBefore - amountOut
-        uint256 calculatedLiquidityLinkAfter = tradingLiquidityLinkBefore + amountIn;
-        /// Calculate BNT liquidity after swap --> tradingLiquidityBntBefore + amountIn
-        uint256 calculatedLiquidityBntAfter = tradingLiquidityBntBefore - (amountOut + tf.networkFeeAmount);
-
-        uint256 calculatedLiquidityRatioAfter = 10**18 * calculatedLiquidityBntAfter/calculatedLiquidityLinkAfter;
-
-        console.log("CALCULATED tradingLiquidity LINK after swap: ",calculatedLiquidityLinkAfter);
-        console.log("CALCULATED tradingLiquidity BNT after swap: ",calculatedLiquidityBntAfter);
-        console.log("CALCULATED liquidity ratio after swap: ", calculatedLiquidityRatioAfter);
-
-        console.log("amountOut: ", amountOut);
-
-        /// Check if tradingLiquidityLinkAfter == calculatedLiquidityLinkAfter
-        assertEq(tradingLiquidityLinkAfter, calculatedLiquidityLinkAfter);
-
-        /// Check if tradingLiquidityBntAfter == calculatedLiquidityBntAfter
-        assertEq(tradingLiquidityBntAfter, calculatedLiquidityBntAfter);
-
-        /// Check if amountOut == amountOutSimulated
-        assertEq(amountOut, tf.amount);
-        
-    }
-
+    
     /// Buy BNT with LINK | SellToken: LINK | BuyToken: BNT
     /// All Test Passed
     function testHowPriceWorksBuyBntWithLink () public {
@@ -171,7 +128,7 @@ contract BancorV3SwapAdapterTest is Test, ISwapAdapterTypes {
 
         console.log("SIMULATED amountIn", tf.amount);
         console.log("SIMULATED tradingFee", tf.tradingFeeAmount);
-        console.log("SIMULATED networkFee", tf.tradingFeeAmount);
+        console.log("SIMULATED networkFee", tf.networkFeeAmount);
 
         deal(address(LINK), address(this), tf.amount);
         LINK.approve(address(adapter), tf.amount);
@@ -277,9 +234,9 @@ contract BancorV3SwapAdapterTest is Test, ISwapAdapterTypes {
 
     /// Sell LINK for BNT
     /// All Tests Passed
-    function testHowPriceWorksLinkForBnt () public {
+    function testHowPriceWorksLinkForWbtc () public {
 
-        uint256 amountIn = 10 ether;
+        uint256 amountIn = 1000 ether;
 
         /// Liquidity of BNT and LINK in LINK Pool BEFORE Swap
         (uint256 tradingLiquidityLinkBefore, uint256 tradingLiquidityBntBefore) = getTradingLiquidity(link, bnt);
@@ -295,16 +252,23 @@ contract BancorV3SwapAdapterTest is Test, ISwapAdapterTypes {
 
         IBancorV3PoolCollection poolColl = adapter.bancorPoolCollection();
         IBancorV3PoolCollection.TradeAmountAndFee memory tf = poolColl.tradeOutputAndFeeBySourceAmount(link, bnt, amountIn);
+        IBancorV3PoolCollection.TradeAmountAndFee memory tf2 = poolColl.tradeOutputAndFeeBySourceAmount(bnt, wbtc, tf.amount);
+
 
         console.log("SIMULATED amountOut", tf.amount);
         console.log("SIMULATED tradingFee", tf.tradingFeeAmount);
-        console.log("SIMULATED networkFee", tf.tradingFeeAmount);
+        console.log("SIMULATED networkFee", tf.networkFeeAmount);
+
+        console.log("SIMULATED amountOut2", tf2.amount);
+        console.log("SIMULATED tradingFee", tf2.tradingFeeAmount);
+        console.log("SIMULATED networkFee", tf2.networkFeeAmount);
+        
 
         deal(address(LINK), address(this), amountIn);
         LINK.approve(address(adapter), amountIn);
 
         /// LINK for BNT
-        uint256 amountOut = adapter.swap(PAIR, LINK, BNT, OrderSide.Sell, amountIn).calculatedAmount;
+        uint256 amountOut = adapter.swap(PAIR, LINK, WBTC, OrderSide.Sell, amountIn).calculatedAmount;
 
         console.log("/////////////////////////////////////////////// AFTER SWAP ///////////////////////////////////////////////");
 
