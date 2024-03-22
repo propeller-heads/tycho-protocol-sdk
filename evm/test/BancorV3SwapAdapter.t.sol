@@ -121,13 +121,15 @@ contract BancorV3SwapAdapterTest is Test, ISwapAdapterTypes {
         (uint256 tradingLiquidityLinkAfter, uint256 tradingLiquidityWbtcAfter) = getTradingLiquidity(link, wbtc);
 
         uint256 sellTokenDecimals = uint256(IERC20Detailed(address(LINK)).decimals());
+        uint256 buyTokenDecimals = uint256(IERC20Detailed(address(WBTC)).decimals());
 
         // Calculate a very small amount of LINK to be used for simulating the swap
         // The goal is to convert the liquidity back to a 'whole' unit, take a small fraction, 
         // and then convert it back to the smallest unit.
-        uint256 punctualAmountIn = (tradingLiquidityLinkAfter/10**sellTokenDecimals)/1000 * 10**sellTokenDecimals;
+        uint256 punctualAmountIn = tradingLiquidityLinkAfter/1000;
 
         console.log("sellTokenDecimals: ", sellTokenDecimals );
+        console.log("buyTokenDecimals: ", buyTokenDecimals );
         console.log("tradingLiquidityLinkAfter", tradingLiquidityLinkAfter);
         console.log("punctualAmountIn: ", punctualAmountIn );
 
@@ -135,12 +137,15 @@ contract BancorV3SwapAdapterTest is Test, ISwapAdapterTypes {
         IBancorV3PoolCollection.TradeAmountAndFee memory tf = poolColl.tradeOutputAndFeeBySourceAmount(link, bnt, punctualAmountIn);
         IBancorV3PoolCollection.TradeAmountAndFee memory tf2 = poolColl.tradeOutputAndFeeBySourceAmount(bnt, wbtc, tf.amount);
 
+        //adapter.bancorNetwork.tradeBySourceAmount(sourceToken, targetToken, sourceAmount, minReturnAmount, deadline, beneficiary);
 
-        uint256 punctualPriceNumerator = tf2.amount;
-        uint256 punctualPrice = tf2.amount*10**6/amountIn;
-        uint256 punctualPrice = tf2.amount*10**6/amountIn;
-        console.log("amountOut: ", tf2.amount*10**6);
-        console.log("punctual price: ", punctualPrice);
+        uint256 missingDecimalsSellToken = 18 - sellTokenDecimals;
+        uint256 missingDecimalsBuyToken = 18 - buyTokenDecimals;
+
+        uint256 numeratorStandardized = tf2.amount * 10**missingDecimalsBuyToken;
+        uint256 denominatorStandardized = punctualAmountIn * 10**missingDecimalsSellToken;
+        console.log("numeratorStandardized: ", numeratorStandardized);
+        console.log("denominatorStandardized: ", denominatorStandardized);
 
     }
 
