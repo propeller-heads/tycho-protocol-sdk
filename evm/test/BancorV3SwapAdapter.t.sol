@@ -114,9 +114,7 @@ contract BancorV3SwapAdapterTest is Test, ISwapAdapterTypes {
         LINK.approve(address(adapter), amountIn);
 
         // Swap Link for WBTC
-        uint256 amountOut = adapter.swap(PAIR, LINK, WBTC, OrderSide.Sell, amountIn).calculatedAmount;
-
-        console.log(amountOut);
+        uint256 amountOutSwap = adapter.swap(PAIR, LINK, WBTC, OrderSide.Sell, amountIn).calculatedAmount;
 
         (uint256 tradingLiquidityLinkAfter, uint256 tradingLiquidityWbtcAfter) = getTradingLiquidity(link, wbtc);
 
@@ -137,6 +135,10 @@ contract BancorV3SwapAdapterTest is Test, ISwapAdapterTypes {
         IBancorV3PoolCollection.TradeAmountAndFee memory tf = poolColl.tradeOutputAndFeeBySourceAmount(link, bnt, punctualAmountIn);
         IBancorV3PoolCollection.TradeAmountAndFee memory tf2 = poolColl.tradeOutputAndFeeBySourceAmount(bnt, wbtc, tf.amount);
 
+        /// Test if I get the same output just by calling tradeOutputBySourceAmount
+        IBancorV3BancorNetworkInfo networkInfo = adapter.bancorNetworkInfo();
+        uint256 amountOut = networkInfo.tradeOutputBySourceAmount(link, wbtc, punctualAmountIn);
+
         //adapter.bancorNetwork.tradeBySourceAmount(sourceToken, targetToken, sourceAmount, minReturnAmount, deadline, beneficiary);
 
         uint256 missingDecimalsSellToken = 18 - sellTokenDecimals;
@@ -147,6 +149,7 @@ contract BancorV3SwapAdapterTest is Test, ISwapAdapterTypes {
         console.log("numeratorStandardized: ", numeratorStandardized);
         console.log("denominatorStandardized: ", denominatorStandardized);
 
+        assertEq(amountOut, tf2.amount);
     }
 
     /// Sell | SellToken: LINK | BuyToken: BNT

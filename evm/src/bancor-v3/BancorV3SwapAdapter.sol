@@ -81,7 +81,7 @@ contract BancorV3SwapAdapter is ISwapAdapter {
                 buy(_sellToken, _buyToken, specifiedAmount);
         }
         trade.gasUsed = gasBefore - gasleft();
-
+        trade.price = getPriceSwapAt( _sellToken, _buyToken);
     }
 
     /// @notice Executes a sell order on a given pool.
@@ -147,6 +147,29 @@ contract BancorV3SwapAdapter is ISwapAdapter {
             block.timestamp + 300,
             msg.sender
         );
+
+    }
+
+
+    function getPriceSwapAt (IERC20 _sellToken, IERC20 _buyToken) 
+    internal
+    returns (Fraction memory) {
+        Token sellToken = Token(address(_sellToken));
+        Token buyToken = Token(address(_buyToken));
+        Token BNT = Token(address(bnt));
+
+        uint256 tradingLiquiditySellTokenAfter = (sellToken == BNT) ? 
+        uint256(getTradingLiquidity(BNT).bntTradingLiquidity) :
+        uint256(getTradingLiquidity(sellToken).baseTokenTradingLiquidity);
+
+        uint256 missingDecimalsSellToken = 18 - uint256(IERC20Detailed(address(_sellToken)).decimals());
+        uint256 missingDecimalsBuyToken = 18 - uint256(IERC20Detailed(address(_buyToken)).decimals());
+
+        uint256 punctualAmountIn = tradingLiquiditySellTokenAfter/1000;
+
+        uint256 amountOut = bancorNetworkInfo.tradeOutputBySourceAmount(sellToken, buyToken, punctualAmountIn);
+
+        return Fraction(amountOut * 10 ** missingDecimalsBuyToken, punctualAmountIn * 10 ** missingDecimalsSellToken);
 
     }
 
