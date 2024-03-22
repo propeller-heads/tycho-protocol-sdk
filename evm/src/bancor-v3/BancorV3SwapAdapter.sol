@@ -332,6 +332,11 @@ interface Token {
 
 }
 
+interface IERC20Detailed is IERC20 {
+    function decimals() external view returns (uint8);
+}
+
+
 struct TradingLiquidity {
     uint128 bntTradingLiquidity;
     uint128 baseTokenTradingLiquidity;
