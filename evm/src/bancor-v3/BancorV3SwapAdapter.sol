@@ -4,11 +4,12 @@ pragma solidity ^0.8.13;
 import {IERC20, ISwapAdapter} from "src/interfaces/ISwapAdapter.sol";
 import {SafeERC20} from "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 
-
-// TODO finish importing MathEx Library
-
-// https://etherscan.io/address/0xde1B3CcfC45e3F5bff7f43516F2Cd43364D883E4#code#F30#L194
 library MathEx {
+
+    struct Uint512 {
+        uint256 hi; // 256 most significant bits
+        uint256 lo; // 256 least significant bits
+    }
 
     /**
      * @dev returns the largest integer smaller than or equal to `x * y / z`
@@ -54,6 +55,25 @@ library MathEx {
     }
 
     /**
+     * @dev returns the value of `x - y`, given that `x >= y`
+     */
+    function _sub512(Uint512 memory x, uint256 y) private pure returns (Uint512 memory) {
+        if (x.lo >= y) {
+            return Uint512({ hi: x.hi, lo: x.lo - y });
+        }
+        return Uint512({ hi: x.hi - 1, lo: _unsafeSub(x.lo, y) });
+    }
+
+    /**
+     * @dev returns `(x - y) % 2 ^ 256`
+     */
+    function _unsafeSub(uint256 x, uint256 y) private pure returns (uint256) {
+        unchecked {
+            return x - y;
+        }
+    }
+
+    /**
      * @dev returns `(x * y) % 2 ^ 256`
      */
     function _unsafeMul(uint256 x, uint256 y) private pure returns (uint256) {
@@ -63,11 +83,49 @@ library MathEx {
     }
 
     /**
+     * @dev returns `x * y % z`
+     */
+    function _mulMod(uint256 x, uint256 y, uint256 z) private pure returns (uint256) {
+        return mulmod(x, y, z);
+    }
+
+    /**
      * @dev returns `x * y % (2 ^ 256 - 1)`
      */
     function _mulModMax(uint256 x, uint256 y) private pure returns (uint256) {
         return mulmod(x, y, type(uint256).max);
     }
+
+
+    /**
+     * @dev returns the value of `x / pow2n`, given that `x` is divisible by `pow2n`
+     */
+    function _div512(Uint512 memory x, uint256 pow2n) private pure returns (uint256) {
+        uint256 pow2nInv = _unsafeAdd(_unsafeSub(0, pow2n) / pow2n, 1); // `1 << (256 - n)`
+        return _unsafeMul(x.hi, pow2nInv) | (x.lo / pow2n); // `(x.hi << (256 - n)) | (x.lo >> n)`
+    }
+
+    /**
+     * @dev returns the inverse of `d` modulo `2 ^ 256`, given that `d` is congruent to `1` modulo `2`
+     */
+    function _inv256(uint256 d) private pure returns (uint256) {
+        // approximate the root of `f(x) = 1 / x - d` using the newton–raphson convergence method
+        uint256 x = 1;
+        for (uint256 i = 0; i < 8; i++) {
+            x = _unsafeMul(x, _unsafeSub(2, _unsafeMul(x, d))); // `x = x * (2 - x * d) mod 2 ^ 256`
+        }
+        return x;
+    }
+
+    /**
+     * @dev returns `(x + y) % 2 ^ 256`
+     */
+    function _unsafeAdd(uint256 x, uint256 y) private pure returns (uint256) {
+        unchecked {
+            return x + y;
+        }
+    }
+
 }
 
 /// @title BancorV3Swap Adapter
