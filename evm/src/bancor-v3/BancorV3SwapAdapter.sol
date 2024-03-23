@@ -5,6 +5,7 @@ import {IERC20, ISwapAdapter} from "src/interfaces/ISwapAdapter.sol";
 import {SafeERC20} from "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 
 library MathEx {
+    error Overflow();
 
     struct Uint512 {
         uint256 hi; // 256 most significant bits
@@ -161,30 +162,44 @@ contract BancorV3SwapAdapter is ISwapAdapter {
     }
 
     function price(
-        bytes32,
+        bytes32 _poolId,
         IERC20 _sellToken,
         IERC20 _buyToken,
         uint256[] memory _specifiedAmounts
     ) external view override returns (Fraction[] memory _prices) {
-        
+        revert NotImplemented("TemplateSwapAdapter.price");
     }
 
-    // 4. Price Function
-    // Chiamare tradeOutputAndFeeBySourceAmount e usare output per aggiornare le riserve 
-    // Aggiorno le riserve con le formule che ho già trovato
-    // Chiamo la funzione per Fee PPM (PoolCollection)
-    // Riproduco in locale la formula di tradeOutputAndFeeBySourceAmount con input amount millesimale rispetto alla riserva
-    // Numeratore: uint256 targetAmount = MathEx.mulDivF(targetBalance, sourceAmount, sourceBalance + sourceAmount) - uint256 tradingFeeAmount = MathEx.mulDivF(targetAmount, feePPM, PPM_RESOLUTION);
-    // Denominatore: Input amount (millesimale)
+    /// @notice edited momentarily from price to getPrice because of visibility problems 
+    function getPrice(
+        bytes32,
+        IERC20 _sellToken,
+        IERC20 _buyToken,
+        uint256[] memory specifiedAmounts
+    ) external returns (Fraction[] memory prices) {
+        prices = new Fraction[](specifiedAmounts.length);
+        
+        for (uint256 i = 0; i < specifiedAmounts.length; i++) {
+            prices[i] = getPriceAt(specifiedAmounts[i], _sellToken, _buyToken);
+        }
+    }
 
+    /// @notice Calculates pair prices for specified amounts
     function getPriceAt(uint256 _amountIn, IERC20 _sellToken, IERC20 _buyToken) 
-    external
-    view
+    internal
     onlySupportedTokens(address(_sellToken), address(_buyToken))
     returns (Fraction memory)
     {   
         uint256 numerator;
         uint256 denominator;
+        uint256 punctualAmountIn;
+        uint256 targetAmount;
+        uint256 tradingFeeAmount;
+        uint256 missingDecimalsSellToken;
+        uint256 missingDecimalsBuyToken;
+        uint32 feePPM;
+        uint256 calculatedLiquiditySellTokenAfter;
+        uint256 calculatedLiquidityBuyTokenAfter;
         
         Token sellToken = Token(address(_sellToken));
         Token buyToken = Token(address(_buyToken));
@@ -194,16 +209,16 @@ contract BancorV3SwapAdapter is ISwapAdapter {
 
         if (sellToken == BNT || buyToken == BNT) {
         
-        (uint256 tradingLiquiditySellTokenBefore, uint256 tradingLiquidityBuyTokenBefore) = getTradingLiquidityBntPool(sellToken, buyToken);
+            (uint256 tradingLiquiditySellTokenBefore, uint256 tradingLiquidityBuyTokenBefore) = getTradingLiquidityBntPool(sellToken, buyToken);
 
-        bancorPoolCollection.TradeAmountAndFee memory tf = bancorPoolCollection.tradeOutputAndFeeBySourceAmount(sellToken, buyToken, sourceAmount);
+            TradeAmountAndFee memory tf = bancorPoolCollection.tradeOutputAndFeeBySourceAmount(sellToken, buyToken, amountIn);
 
             if (sellToken == BNT) {
 
-                uint256 calculatedLiquiditySellTokenAfter = tradingLiquiditySellTokenBefore + (amountIn - tf.networkFeeAmount);
-                uint256 calculatedLiquidityBuyTokenAfter = tradingLiquidityBuyTokenBefore - tf.amount;
+                calculatedLiquiditySellTokenAfter = tradingLiquiditySellTokenBefore + (amountIn - tf.networkFeeAmount);
+                calculatedLiquidityBuyTokenAfter = tradingLiquidityBuyTokenBefore - tf.amount;
 
-                uint32 feePPM = bancorNetworkInfo.tradingFeePPM(buyToken);
+                feePPM = bancorNetworkInfo.tradingFeePPM(buyToken);
 
             } else {
 
@@ -214,12 +229,12 @@ contract BancorV3SwapAdapter is ISwapAdapter {
 
             }
 
-            uint256 punctualAmountIn = calculatedLiquiditySellTokenAfter/1000;
-            uint256 targetAmount = MathEx.mulDivF(calculatedLiquidityBuyTokenAfter, punctualAmountIn, calculatedLiquiditySellTokenAfter + punctualAmountIn);
-            uint256 tradingFeeAmount = MathEx.mulDivF(targetAmount, feePPM, PPM_RESOLUTION); /// What is PPM_RESOLUTION?
+            punctualAmountIn = calculatedLiquiditySellTokenAfter/1000;
+            targetAmount = MathEx.mulDivF(calculatedLiquidityBuyTokenAfter, punctualAmountIn, calculatedLiquiditySellTokenAfter + punctualAmountIn);
+            tradingFeeAmount = MathEx.mulDivF(targetAmount, feePPM, PPM_RESOLUTION);
             
-            uint256 missingDecimalsSellToken = 18 - uint256(IERC20Detailed(address(_sellToken)).decimals());
-            uint256 missingDecimalsBuyToken = 18 - uint256(IERC20Detailed(address(_buyToken)).decimals());
+            missingDecimalsSellToken = 18 - uint256(IERC20Detailed(address(_sellToken)).decimals());
+            missingDecimalsBuyToken = 18 - uint256(IERC20Detailed(address(_buyToken)).decimals());
 
             numerator = (targetAmount - tradingFeeAmount) * 10 ** missingDecimalsBuyToken;
             denominator = punctualAmountIn * 10 ** missingDecimalsSellToken;
@@ -227,8 +242,46 @@ contract BancorV3SwapAdapter is ISwapAdapter {
             return Fraction(numerator, denominator);
 
         } else {
+            // Get tradingLiquidity of sellTokenPool Before Swap
+            (uint256 tradingLiquiditySellTokenSellTokenPoolBefore, uint256 tradingLiquidityBntSellTokenPoolBefore) = getTradingLiquidityBntPool(sellToken, BNT);
 
-            return Fraction(0,0);
+            // Get tradingLiquidity of buyTokenPool before the Swap
+            (uint256 tradingLiquidityBntBuyTokenPoolBefore, uint256 tradingLiquidityBuyTokenBuyTokenPoolBefore) = getTradingLiquidityBntPool(BNT, buyToken);
+
+            // Simulate swap SellToken Bnt in SellTokenPool
+            TradeAmountAndFee memory tf1 = bancorPoolCollection.tradeOutputAndFeeBySourceAmount(sellToken, BNT, amountIn);
+            TradeAmountAndFee memory tf2 = bancorPoolCollection.tradeOutputAndFeeBySourceAmount(BNT, buyToken, tf1.amount);
+
+            // Update Liquidities of both sellTokenPool and buyTokenPool 
+
+            // CalculatedLiquidity sellTokenPool after simulated swap sellToken --> BNT
+            uint256 calculatedLiquiditySellTokenSellTokenPoolAfter = tradingLiquiditySellTokenSellTokenPoolBefore + amountIn;
+            uint256 calculatedLiquidityBntSellTokenPoolAfter = tradingLiquidityBntSellTokenPoolBefore - (tf1.amount + tf1.networkFeeAmount);
+
+            // CalculatedLiquidity buyTokenPool after simulated swap BNT --> buyToken
+            uint256 calculatedLiquidityBntBuyTokenPoolAfter = tradingLiquidityBntBuyTokenPoolBefore + (tf1.amount - tf2.networkFeeAmount);
+            uint256 calculatedLiquidityBuyTokenBuyTokenPoolAfter = tradingLiquidityBuyTokenBuyTokenPoolBefore - tf2.amount;
+
+            uint256 feePPMSellTokenPool = bancorNetworkInfo.tradingFeePPM(sellToken);
+
+            punctualAmountIn = calculatedLiquiditySellTokenSellTokenPoolAfter/1000;
+            uint256 intermediateTargetAmount = MathEx.mulDivF(calculatedLiquidityBntSellTokenPoolAfter, punctualAmountIn, calculatedLiquiditySellTokenSellTokenPoolAfter + punctualAmountIn);
+            uint256 tradingFeeAmountSellTokenPool = MathEx.mulDivF(intermediateTargetAmount, feePPMSellTokenPool, PPM_RESOLUTION);
+            uint256 amountOutBnt = intermediateTargetAmount - tradingFeeAmountSellTokenPool;
+
+            uint256 feePPMBuyTokenPool = bancorNetworkInfo.tradingFeePPM(buyToken);
+
+            targetAmount = MathEx.mulDivF(calculatedLiquidityBuyTokenBuyTokenPoolAfter, amountOutBnt, calculatedLiquidityBntBuyTokenPoolAfter + amountOutBnt);
+            tradingFeeAmount = MathEx.mulDivF(targetAmount, feePPMBuyTokenPool, PPM_RESOLUTION);
+            uint256 amountOutBuyToken = targetAmount - tradingFeeAmount; 
+
+            missingDecimalsSellToken = 18 - uint256(IERC20Detailed(address(_sellToken)).decimals());
+            missingDecimalsBuyToken = 18 - uint256(IERC20Detailed(address(_buyToken)).decimals());
+
+            numerator = amountOutBuyToken * 10 ** missingDecimalsBuyToken;
+            denominator = punctualAmountIn * 10 ** missingDecimalsSellToken;
+
+            return Fraction(numerator, denominator);
         }
 
     }
@@ -432,7 +485,9 @@ contract BancorV3SwapAdapter is ISwapAdapter {
     returns (uint256 tradingLiquiditySellToken, uint256 tradingLiquidityBuyToken) 
     {
         TradingLiquidity memory tradingLiquidityPool;
-        if (sellToken == bnt) {
+        Token BNT = Token(address(bnt));
+
+        if (_sellToken == BNT) {
             tradingLiquidityPool = getTradingLiquidity(_buyToken);
             tradingLiquiditySellToken = uint256(tradingLiquidityPool.bntTradingLiquidity);
             tradingLiquidityBuyToken = uint256(tradingLiquidityPool.baseTokenTradingLiquidity);
@@ -480,12 +535,6 @@ interface IBancorV3BancorNetworkInfo {
 }
 
 interface IBancorV3PoolCollection {
-
-    struct TradeAmountAndFee {
-    uint256 amount; // the source/target amount (depending on the context) resulting from the trade
-    uint256 tradingFeeAmount; // the trading fee amount
-    uint256 networkFeeAmount; // the network fee amount (always in units of BNT)
-    }
 
     /**
      * @dev returns the output amount and fee when trading by providing the source amount
@@ -556,4 +605,10 @@ interface IERC20Detailed is IERC20 {
 struct TradingLiquidity {
     uint128 bntTradingLiquidity;
     uint128 baseTokenTradingLiquidity;
+}
+
+struct TradeAmountAndFee {
+    uint256 amount; // the source/target amount (depending on the context) resulting from the trade
+    uint256 tradingFeeAmount; // the trading fee amount
+    uint256 networkFeeAmount; // the network fee amount (always in units of BNT)
 }

@@ -132,8 +132,8 @@ contract BancorV3SwapAdapterTest is Test, ISwapAdapterTypes {
         console.log("punctualAmountIn: ", punctualAmountIn );
 
         IBancorV3PoolCollection poolColl = adapter.bancorPoolCollection();
-        IBancorV3PoolCollection.TradeAmountAndFee memory tf = poolColl.tradeOutputAndFeeBySourceAmount(link, bnt, punctualAmountIn);
-        IBancorV3PoolCollection.TradeAmountAndFee memory tf2 = poolColl.tradeOutputAndFeeBySourceAmount(bnt, wbtc, tf.amount);
+        TradeAmountAndFee memory tf = poolColl.tradeOutputAndFeeBySourceAmount(link, bnt, punctualAmountIn);
+        TradeAmountAndFee memory tf2 = poolColl.tradeOutputAndFeeBySourceAmount(bnt, wbtc, tf.amount);
 
         /// Test if I get the same output just by calling tradeOutputBySourceAmount
         IBancorV3BancorNetworkInfo networkInfo = adapter.bancorNetworkInfo();
@@ -171,8 +171,8 @@ contract BancorV3SwapAdapterTest is Test, ISwapAdapterTypes {
 
 
         IBancorV3PoolCollection poolColl = adapter.bancorPoolCollection();
-        IBancorV3PoolCollection.TradeAmountAndFee memory tf = poolColl.tradeOutputAndFeeBySourceAmount(link, bnt, amountIn);
-        IBancorV3PoolCollection.TradeAmountAndFee memory tf2 = poolColl.tradeOutputAndFeeBySourceAmount(bnt, wbtc, tf.amount);
+        TradeAmountAndFee memory tf = poolColl.tradeOutputAndFeeBySourceAmount(link, bnt, amountIn);
+        TradeAmountAndFee memory tf2 = poolColl.tradeOutputAndFeeBySourceAmount(bnt, wbtc, tf.amount);
 
 
         console.log("SIMULATED amountOut", tf.amount);
@@ -245,7 +245,7 @@ contract BancorV3SwapAdapterTest is Test, ISwapAdapterTypes {
         console.log("##################### Simulation of tradeInputAndFeeByTargetAmount ###############");
 
         IBancorV3PoolCollection poolColl = adapter.bancorPoolCollection();
-        IBancorV3PoolCollection.TradeAmountAndFee memory tf = poolColl.tradeInputAndFeeByTargetAmount(link, bnt, amountOut);
+        TradeAmountAndFee memory tf = poolColl.tradeInputAndFeeByTargetAmount(link, bnt, amountOut);
 
         console.log("SIMULATED amountIn", tf.amount);
         console.log("SIMULATED tradingFee", tf.tradingFeeAmount);
@@ -312,7 +312,7 @@ contract BancorV3SwapAdapterTest is Test, ISwapAdapterTypes {
 
 
         IBancorV3PoolCollection poolColl = adapter.bancorPoolCollection();
-        IBancorV3PoolCollection.TradeAmountAndFee memory tf = poolColl.tradeInputAndFeeByTargetAmount(bnt, link, amountOut);
+        TradeAmountAndFee memory tf = poolColl.tradeInputAndFeeByTargetAmount(bnt, link, amountOut);
 
         console.log("SIMULATED amountIn", tf.amount);
         console.log("SIMULATED tradingFee", tf.tradingFeeAmount);
@@ -376,7 +376,7 @@ contract BancorV3SwapAdapterTest is Test, ISwapAdapterTypes {
         /// Use the function tradeOutputAndFeeBySourceAmount to get the amountOutSimulated and Fees
         /// Than check if amountOutSimulated is == to amountOut
         IBancorV3PoolCollection poolColl = adapter.bancorPoolCollection();
-        IBancorV3PoolCollection.TradeAmountAndFee memory tf = poolColl.tradeOutputAndFeeBySourceAmount(bnt, link, amountIn);
+        TradeAmountAndFee memory tf = poolColl.tradeOutputAndFeeBySourceAmount(bnt, link, amountIn);
 
         console.log("SIMULATED amountOut", tf.amount);
         console.log("SIMULATED tradingFee", tf.tradingFeeAmount);
@@ -439,7 +439,7 @@ contract BancorV3SwapAdapterTest is Test, ISwapAdapterTypes {
         /// Use the function tradeOutputAndFeeBySourceAmount to get the amountOutSimulated and Fees
         /// Than check if amountOutSimulated is == to amountOut
         IBancorV3PoolCollection poolColl = adapter.bancorPoolCollection();
-        IBancorV3PoolCollection.TradeAmountAndFee memory tf = poolColl.tradeOutputAndFeeBySourceAmount(wbtc, bnt, amountIn);
+        TradeAmountAndFee memory tf = poolColl.tradeOutputAndFeeBySourceAmount(wbtc, bnt, amountIn);
 
         console.log("SIMULATED amountOut", tf.amount);
         console.log("SIMULATED tradingFee", tf.tradingFeeAmount);
@@ -510,7 +510,7 @@ contract BancorV3SwapAdapterTest is Test, ISwapAdapterTypes {
         /// Use the function tradeOutputAndFeeBySourceAmount to get the amountOutSimulated and Fees
         /// Than check if amountOutSimulated is == to amountOut
         IBancorV3PoolCollection poolColl = adapter.bancorPoolCollection();
-        IBancorV3PoolCollection.TradeAmountAndFee memory tf = poolColl.tradeOutputAndFeeBySourceAmount(bnt, wbtc, amountIn);
+        TradeAmountAndFee memory tf = poolColl.tradeOutputAndFeeBySourceAmount(bnt, wbtc, amountIn);
 
         console.log("SIMULATED amountOut", tf.amount);
         console.log("SIMULATED tradingFee", tf.tradingFeeAmount);
@@ -663,7 +663,7 @@ contract BancorV3SwapAdapterTest is Test, ISwapAdapterTypes {
     //     Token buyToken = Token(address(buyToken_));
 
     //     IBancorV3PoolCollection poolColl = adapter.bancorPoolCollection();
-    //     IBancorV3PoolCollection.TradeAmountAndFee memory tf = poolColl.tradeOutputAndFeeBySourceAmount(sellToken, buyToken, _amountIn);
+    //     TradeAmountAndFee memory tf = poolColl.tradeOutputAndFeeBySourceAmount(sellToken, buyToken, _amountIn);
 
     //     (uint256 tradingLiquiditySellTokenBefore, uint256 tradingLiquidityBuyTokenBefore) = getTradingLiquidity(sellToken, buyToken);
 
