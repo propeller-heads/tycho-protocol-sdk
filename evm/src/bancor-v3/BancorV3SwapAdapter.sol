@@ -137,14 +137,46 @@ contract BancorV3SwapAdapter is ISwapAdapter {
 
     IBancorV3BancorNetwork public immutable bancorNetwork;
     IBancorV3BancorNetworkInfo public immutable bancorNetworkInfo;
-    IBancorV3PoolCollection public immutable bancorPoolCollection;
     IERC20 immutable bnt;
 
-    constructor (address bancorNetwork_, address bancorNetworkInfo_, address bancorPoolCollection_) {
-        bancorNetwork = IBancorV3BancorNetwork(bancorNetwork_);
+    IBancorV3PoolCollection public bancorPoolCollection;
+
+    constructor (address bancorNetworkInfo_) {
         bancorNetworkInfo = IBancorV3BancorNetworkInfo(bancorNetworkInfo_);
-        bancorPoolCollection = IBancorV3PoolCollection(bancorPoolCollection_);
+        bancorNetwork = IBancorV3BancorNetwork(bancorNetworkInfo.network());
+        bancorPoolCollection = IBancorV3PoolCollection(bancorNetwork.poolCollections()[0]);
         bnt = bancorNetworkInfo.bnt();
+    }
+
+    /// @dev check if buyToken and sellToken are in the same collection
+    modifier onlySameCollection (address _sellToken, address _buyToken) {
+        Token sellToken = Token(_sellToken);
+        Token buyToken = Token(_buyToken);
+        Token BNT = Token(address(bnt));
+
+        address poolCollectionSellToken = address(bancorNetwork.collectionByPool(sellToken));
+        address poolCollectionBuyToken = address(bancorNetwork.collectionByPool(buyToken));
+
+        if ((address(_sellToken) == address(bnt)) && (poolCollectionBuyToken == address(0))) {
+            revert ("No collection is associeted with the Buy Token");
+        }
+
+        if ((address(_buyToken) == address(bnt)) && (poolCollectionSellToken == address(0))) {
+            revert ("No collection is associeted with the Sell Token");
+        }
+
+        if (
+            (poolCollectionSellToken != address(0) && poolCollectionBuyToken != address(0)) &&
+            (poolCollectionSellToken != poolCollectionBuyToken)
+        ) {
+            revert Unavailable("The tokens are not in the same collection");
+        }
+
+        bancorPoolCollection = (poolCollectionSellToken == address(0)) ? 
+        IBancorV3PoolCollection(poolCollectionBuyToken) : 
+        IBancorV3PoolCollection(poolCollectionSellToken);
+
+        _;
     }
 
     /// @dev check if sellToken and buyToken are tradeable
@@ -166,7 +198,9 @@ contract BancorV3SwapAdapter is ISwapAdapter {
         IERC20 _sellToken,
         IERC20 _buyToken,
         uint256[] memory _specifiedAmounts
-    ) external view override returns (Fraction[] memory _prices) {
+    ) external view override
+    onlySupportedTokens(address(_sellToken), address(_buyToken))
+    returns (Fraction[] memory _prices) {
         revert NotImplemented("TemplateSwapAdapter.price");
     }
 
@@ -176,7 +210,10 @@ contract BancorV3SwapAdapter is ISwapAdapter {
         IERC20 _sellToken,
         IERC20 _buyToken,
         uint256[] memory specifiedAmounts
-    ) external returns (Fraction[] memory prices) {
+    ) external 
+    onlySameCollection(address(_sellToken), address(_buyToken))
+    onlySupportedTokens(address(_sellToken), address(_buyToken))
+    returns (Fraction[] memory prices) {
         prices = new Fraction[](specifiedAmounts.length);
         
         for (uint256 i = 0; i < specifiedAmounts.length; i++) {
@@ -187,7 +224,6 @@ contract BancorV3SwapAdapter is ISwapAdapter {
     /// @notice Calculates pair prices for specified amounts
     function getPriceAt(uint256 _amountIn, IERC20 _sellToken, IERC20 _buyToken) 
     internal
-    onlySupportedTokens(address(_sellToken), address(_buyToken))
     returns (Fraction memory)
     {   
         uint256 numerator;
@@ -296,7 +332,9 @@ contract BancorV3SwapAdapter is ISwapAdapter {
         ) 
         external
         override
+        onlySameCollection(address(_sellToken), address(_buyToken))
         onlySupportedTokens(address(_sellToken), address(_buyToken))
+
         returns (Trade memory trade) {
         if (specifiedAmount == 0) {
             return trade;
@@ -389,7 +427,7 @@ contract BancorV3SwapAdapter is ISwapAdapter {
         Token BNT = Token(address(bnt));
 
         uint256 tradingLiquiditySellTokenAfter = (sellToken == BNT) ? 
-        uint256(getTradingLiquidity(BNT).bntTradingLiquidity) :
+        uint256(getTradingLiquidity(buyToken).bntTradingLiquidity) :
         uint256(getTradingLiquidity(sellToken).baseTokenTradingLiquidity);
 
         uint256 missingDecimalsSellToken = 18 - uint256(IERC20Detailed(address(_sellToken)).decimals());
@@ -506,6 +544,9 @@ contract BancorV3SwapAdapter is ISwapAdapter {
 
 interface IBancorV3BancorNetworkInfo {
 
+    /// @dev returns the network contract
+    function network() external view returns (IBancorV3BancorNetwork);
+
     /// @dev returns the BNT contract
     function bnt() external view returns (IERC20);
 
@@ -559,13 +600,14 @@ interface IBancorV3PoolCollection {
 
 interface IBancorV3BancorNetwork {
 
-    //function poolCollections() external view returns (IPoolCollection[] memory);
+    /// @dev returns the set of all valid pool collections
+    function poolCollections() external view returns (IBancorV3PoolCollection[] memory);
 
+    // @dev returns the respective pool collection for the provided pool
+    function collectionByPool(Token pool) external view returns (IBancorV3PoolCollection);
+    
     /// @dev returns the set of all liquidity pools
     function liquidityPools() external view returns (Token[] memory);
-
-    /// @dev returns the set of all valid pool collections
-    // function poolCollections() external view returns (IPoolCollection[] memory);
 
     /// @dev performs a trade by providing the input source amount, sends the proceeds to the optional beneficiary (or
     /// to the address of the caller, in case it's not supplied), and returns the trade target amount
