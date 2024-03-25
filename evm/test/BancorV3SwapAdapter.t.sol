@@ -42,6 +42,158 @@ contract BancorV3SwapAdapterTest is Test, ISwapAdapterTypes {
         adapter = new BancorV3SwapAdapter(BANCOR_NETWORK_INFO_PROXY_ADDRESS);
     }
 
+    function testPriceFuzzBancorV3LinkBnt(uint256 amount0, uint256 amount1) public {
+        uint256[] memory limits = adapter.getLimits(PAIR, LINK, BNT);
+        uint256 minAmount = 1;
+
+        vm.assume(amount0 < limits[0]);
+        vm.assume(amount0 > minAmount);
+        vm.assume(amount1 < limits[0]);
+        vm.assume(amount1 > minAmount);
+        
+        uint256[] memory amounts = new uint256[](2);
+        amounts[0] = amount0;
+        amounts[1] = amount1;
+
+        Fraction[] memory prices = adapter.getPrice(PAIR, LINK, BNT, amounts);
+
+        for (uint256 i = 0; i < prices.length; i++) {
+            assertGt(prices[i].numerator, 0);
+            assertGt(prices[i].denominator, 0);
+        }
+    }
+
+    function testPriceFuzzBancorV3BntLink(uint256 amount0, uint256 amount1) public {
+        uint256[] memory limits = adapter.getLimits(PAIR, BNT, LINK);
+        uint256 minAmount = 100;
+
+        vm.assume(amount0 < limits[0]);
+        vm.assume(amount0 > minAmount);
+        vm.assume(amount1 < limits[0]);
+        vm.assume(amount1 > minAmount);
+        
+        uint256[] memory amounts = new uint256[](2);
+        amounts[0] = amount0;
+        amounts[1] = amount1;
+
+        Fraction[] memory prices = adapter.getPrice(PAIR, BNT, LINK, amounts);
+
+        for (uint256 i = 0; i < prices.length; i++) {
+            assertGt(prices[i].numerator, 0);
+            assertGt(prices[i].denominator, 0);
+        }
+    }
+
+    /// @dev need to fix for small amounts. Consider to implement a getLimits for minimum amount
+    // function testPriceFuzzBancorV3LinkWbtc(uint256 amount0, uint256 amount1) public {
+    //     uint256[] memory limits = adapter.getLimits(PAIR, LINK, WBTC);
+    //     uint256 minAmount = 10000000000000000;
+
+    //     vm.assume(amount0 < limits[0]);
+    //     vm.assume(amount0 > minAmount);
+    //     vm.assume(amount1 < limits[0]);
+    //     vm.assume(amount1 > minAmount);
+        
+    //     uint256[] memory amounts = new uint256[](2);
+    //     amounts[0] = amount0;
+    //     amounts[1] = amount1;
+
+    //     Fraction[] memory prices = adapter.getPrice(PAIR, LINK, WBTC, amounts);
+
+    //     for (uint256 i = 0; i < prices.length; i++) {
+    //         assertGt(prices[i].numerator, 0);
+    //         assertGt(prices[i].denominator, 0);
+    //     }
+    // }
+
+    function testPriceFuzzBancorV3WbtcLink(uint256 amount0, uint256 amount1) public {
+        uint256[] memory limits = adapter.getLimits(PAIR, WBTC, LINK);
+        uint256 minAmount = 1;
+
+        vm.assume(amount0 < limits[0]);
+        vm.assume(amount0 > minAmount);
+        vm.assume(amount1 < limits[0]);
+        vm.assume(amount1 > minAmount);
+        
+        uint256[] memory amounts = new uint256[](2);
+        amounts[0] = amount0;
+        amounts[1] = amount1;
+
+        Fraction[] memory prices = adapter.getPrice(PAIR, WBTC, LINK, amounts);
+
+        for (uint256 i = 0; i < prices.length; i++) {
+            assertGt(prices[i].numerator, 0);
+            assertGt(prices[i].denominator, 0);
+        }
+    }
+
+    function testPriceDecreasingBancorV3LinkBnt() public {
+        bytes32 pair = PAIR;
+        uint256[] memory amounts = new uint256[](TEST_ITERATIONS);
+
+        for (uint256 i = 0; i < TEST_ITERATIONS; i++) {
+            amounts[i] = 1000 * (i + 1) * 10 ** 6;
+        }
+
+        Fraction[] memory prices = adapter.getPrice(pair, LINK, BNT, amounts);
+
+        for (uint256 i = 0; i < TEST_ITERATIONS - 1; i++) {
+            assertEq(prices[i].compareFractions(prices[i + 1]), 1);
+            assertGt(prices[i].denominator, 0);
+            assertGt(prices[i + 1].denominator, 0);
+        }
+    }
+
+    function testPriceDecreasingBancorV3BntLink() public {
+        bytes32 pair = PAIR;
+        uint256[] memory amounts = new uint256[](TEST_ITERATIONS);
+
+        for (uint256 i = 0; i < TEST_ITERATIONS; i++) {
+            amounts[i] = 1000 * (i + 1) * 10 ** 6;
+        }
+
+        Fraction[] memory prices = adapter.getPrice(pair, BNT, LINK, amounts);
+
+        for (uint256 i = 0; i < TEST_ITERATIONS - 1; i++) {
+            assertEq(prices[i].compareFractions(prices[i + 1]), 1);
+            assertGt(prices[i].denominator, 0);
+            assertGt(prices[i + 1].denominator, 0);
+        }
+    }
+
+    function testPriceDecreasingBancorV3LinkWbtc() public {
+        bytes32 pair = PAIR;
+        uint256[] memory amounts = new uint256[](TEST_ITERATIONS);
+
+        for (uint256 i = 0; i < TEST_ITERATIONS; i++) {
+            amounts[i] = 1000 * (i + 1) * 10 ** 12;
+        }
+
+        Fraction[] memory prices = adapter.getPrice(pair, LINK, WBTC, amounts);
+
+        for (uint256 i = 0; i < TEST_ITERATIONS - 1; i++) {
+            assertEq(prices[i].compareFractions(prices[i + 1]), 1);
+            assertGt(prices[i].denominator, 0);
+            assertGt(prices[i + 1].denominator, 0);
+        }
+    }
+
+    function testPriceDecreasingBancorV3WbtcLink() public {
+        bytes32 pair = PAIR;
+        uint256[] memory amounts = new uint256[](TEST_ITERATIONS);
+
+        for (uint256 i = 0; i < TEST_ITERATIONS; i++) {
+            amounts[i] = 1000 * (i + 1) * 10;
+        }
+
+        Fraction[] memory prices = adapter.getPrice(pair, WBTC, LINK, amounts);
+
+        for (uint256 i = 0; i < TEST_ITERATIONS - 1; i++) {
+            assertEq(prices[i].compareFractions(prices[i + 1]), 1);
+            assertGt(prices[i].denominator, 0);
+            assertGt(prices[i + 1].denominator, 0);
+        }
+    }
 
     function testSwapFuzzBancorV3BntLink(uint256 specifiedAmount, bool isBuy) public {
         OrderSide side = isBuy ? OrderSide.Buy : OrderSide.Sell;

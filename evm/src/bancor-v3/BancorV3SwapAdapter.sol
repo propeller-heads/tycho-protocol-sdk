@@ -224,6 +224,7 @@ contract BancorV3SwapAdapter is ISwapAdapter {
     /// @notice Calculates pair prices for specified amounts
     function getPriceAt(uint256 _amountIn, IERC20 _sellToken, IERC20 _buyToken) 
     internal
+    view
     returns (Fraction memory)
     {   
         uint256 numerator;
@@ -421,6 +422,7 @@ contract BancorV3SwapAdapter is ISwapAdapter {
 
     function getPriceSwapAt (IERC20 _sellToken, IERC20 _buyToken) 
     internal
+    view
     returns (Fraction memory) {
         Token sellToken = Token(address(_sellToken));
         Token buyToken = Token(address(_buyToken));
@@ -520,6 +522,7 @@ contract BancorV3SwapAdapter is ISwapAdapter {
 
     function getTradingLiquidityBntPool(Token _sellToken, Token _buyToken) 
     internal 
+    view
     returns (uint256 tradingLiquiditySellToken, uint256 tradingLiquidityBuyToken) 
     {
         TradingLiquidity memory tradingLiquidityPool;
