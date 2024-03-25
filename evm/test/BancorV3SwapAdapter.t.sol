@@ -251,7 +251,7 @@ contract BancorV3SwapAdapterTest is Test, ISwapAdapterTypes {
 
         uint256[] memory amounts = new uint256[](TEST_ITERATIONS);
         for (uint256 i = 0; i < TEST_ITERATIONS; i++) {
-            amounts[i] = 1000 * (i) * 10 ** 18;
+            amounts[i] = 1000 * (i + 1) * 10 ** 18;
         }
 
         Trade[] memory trades = new Trade[](TEST_ITERATIONS);
@@ -269,7 +269,7 @@ contract BancorV3SwapAdapterTest is Test, ISwapAdapterTypes {
         for (uint256 i = 1; i < TEST_ITERATIONS - 1; i++) {
             assertLe(trades[i].calculatedAmount, trades[i + 1].calculatedAmount);
             assertLe(trades[i].gasUsed, trades[i + 1].gasUsed);
-            // assertEq(trades[i].price.compareFractions(trades[i + 1].price), 1);
+            assertEq(trades[i].price.compareFractions(trades[i + 1].price), 1);
         }
     }
 
@@ -297,4 +297,28 @@ contract BancorV3SwapAdapterTest is Test, ISwapAdapterTypes {
         assertEq(limits.length, 2);
     }
 
+    function testPriceEqualPriceAfterSwapBancorV3() public {
+        uint256 amountIn = 10 ether;
+
+        uint256[] memory amounts = new uint256[](1);
+
+        amounts[0] = amountIn;
+
+        Fraction[] memory prices = adapter.getPrice(PAIR, LINK, WBTC, amounts);
+
+        deal(address(LINK), address(this), amountIn);
+        LINK.approve(address(adapter), amountIn);
+
+        Fraction memory priceSwap = adapter.swap(PAIR, LINK, WBTC, OrderSide.Sell, amountIn).price;
+
+        console.log("Numerator Price: ", priceSwap.numerator);
+        console.log("Numerator price Swap: ", prices[0].numerator);
+
+        console.log("Denominator Price: ", priceSwap.denominator);
+        console.log("Denominator price Swap: ", prices[0].denominator);
+
+        assertEq(prices[0].numerator, priceSwap.numerator);
+        assertEq(prices[0].denominator, priceSwap.denominator);
+        
+    }
 }
