@@ -69,56 +69,151 @@ pub fn map_relative_balances(
 ) -> Result<BlockBalanceDeltas, anyhow::Error> {
     let balance_deltas = block
         .logs()
-        .filter(|log| log.address() == VAULT_ADDRESS)
-        .flat_map(|vault_log| {
+        .flat_map(|log| {
             let mut deltas = Vec::new();
 
-            if let Some(ev) =
-                abi::vault::events::PoolBalanceChanged::match_and_decode(vault_log.log)
-            {
-                let component_id =
-                    format!("0x{}", String::from_utf8(ev.pool_id[..20].to_vec()).unwrap())
-                        .as_bytes()
-                        .to_vec();
+            if let Some(event) = abi::pair_contract::events::Mint::match_and_decode(log) {
+                let component_id = Hex(&log.address).to_string();
 
-                if store
-                    .get_last(format!("pool:{}", hex::encode(&component_id)))
-                    .is_some()
+                if let Some(component) =
+                    store.get_last(format!("pool:{}", hex::encode(&component_id)))
                 {
-                    for (token, delta) in ev.tokens.iter().zip(ev.deltas.iter()) {
-                        deltas.push(BalanceDelta {
-                            ord: vault_log.ordinal(),
-                            tx: Some(vault_log.receipt.transaction.into()),
-                            token: token.to_vec(),
-                            delta: delta.to_signed_bytes_be(),
-                            component_id: component_id.clone(),
-                        });
-                    }
-                }
-            } else if let Some(ev) = abi::vault::events::Swap::match_and_decode(vault_log.log) {
-                let component_id =
-                    format!("0x{}", String::from_utf8(ev.pool_id[..20].to_vec()).unwrap())
-                        .as_bytes()
-                        .to_vec();
-
-                if store
-                    .get_last(format!("pool:{}", hex::encode(&component_id)))
-                    .is_some()
-                {
+                    let token0 = component.tokens.get(0).unwrap();
+                    let token1 = component.tokens.get(1).unwrap();
                     deltas.extend_from_slice(&[
                         BalanceDelta {
-                            ord: vault_log.ordinal(),
-                            tx: Some(vault_log.receipt.transaction.into()),
-                            token: ev.token_in.to_vec(),
-                            delta: ev.amount_in.to_signed_bytes_be(),
+                            ord: log.ordinal(),
+                            tx: Some(log.receipt.transaction.into()),
+                            token: token0,
+                            delta: ev.amount0.to_signed_bytes_be(),
                             component_id: component_id.clone(),
                         },
                         BalanceDelta {
-                            ord: vault_log.ordinal(),
-                            tx: Some(vault_log.receipt.transaction.into()),
-                            token: ev.token_out.to_vec(),
-                            delta: ev.amount_out.neg().to_signed_bytes_be(),
-                            component_id,
+                            ord: log.ordinal(),
+                            tx: Some(log.receipt.transaction.into()),
+                            token: token0,
+                            delta: ev.amount1.to_signed_bytes_be(),
+                            component_id: component_id.clone(),
+                        },
+                    ])
+                }
+            } else if let Some(event) = abi::pair_contract::events::Burn::match_and_decode(log) {
+                let component_id = Hex(&log.address).to_string();
+
+                if let Some(component) =  
+                    .get_last(format!("pool:{}", hex::encode(&component_id)))
+                {
+                    let token0 = component.tokens.get(0).unwrap();
+                    let token1 = component.tokens.get(1).unwrap();
+                    deltas.extend_from_slice(&[
+                        BalanceDelta {
+                            ord: log.ordinal(),
+                            tx: Some(log.receipt.transaction.into()),
+                            token: token0,
+                            delta: ev.amount0.to_signed_bytes_be(),
+                            component_id: component_id.clone(),
+                        },
+                        BalanceDelta {
+                            ord: log.ordinal(),
+                            tx: Some(log.receipt.transaction.into()),
+                            token: token1,
+                            delta: ev.amount1.to_signed_bytes_be(),
+                            component_id: component_id.clone(),
+                        },
+                    ])
+                }
+            } else if let Some(ev) =
+                abi::pair_contract::events::Swap::match_and_decode(vault_log.log)
+            {
+                let component_id = Hex(&log.address).to_string();
+
+                if let Some(component) = store
+                    .get_last(format!("pool:{}", hex::encode(&component_id)))
+                {
+                    let token0 = component.tokens.get(0).unwrap();
+                    let token1 = component.tokens.get(1).unwrap();
+                    deltas.extend_from_slice(&[
+                        BalanceDelta {
+                            ord: log.ordinal(),
+                            tx: Some(log.receipt.transaction.into()),
+                            token: token0,
+                            delta: ev.amount0_in.to_signed_bytes_be(),
+                            component_id: component_id.clone(),
+                        },
+                        BalanceDelta {
+                            ord: log.ordinal(),
+                            tx: Some(log.receipt.transaction.into()),
+                            token: token0,
+                            delta: ev
+                                .amount0_out
+                                .neg()
+                                .to_signed_bytes_be(),
+                            component_id: component_id.clone(),
+                        },
+                        BalanceDelta {
+                            ord: log.ordinal(),
+                            tx: Some(log.receipt.transaction.into()),
+                            token: token1,
+                            delta: ev.amount1_in.to_signed_bytes_be(),
+                            component_id: component_id.clone(),
+                        },
+                        BalanceDelta {
+                            ord: log.ordinal(),
+                            tx: Some(log.receipt.transaction.into()),
+                            token: token1,
+                            delta: ev
+                                .amount1_out
+                                .neg()
+                                .to_signed_bytes_be(),
+                            component_id: component_id.clone(),
+                        },
+                    ]);
+                }
+            }
+            } else if let Some(ev) =
+                abi::pair_contract::events::Swap::match_and_decode(vault_log.log)
+            {
+                let component_id = Hex(&log.address).to_string();
+
+                if let Some(component) = store
+                    .get_last(format!("pool:{}", hex::encode(&component_id)))
+                {
+                    let token0 = component.tokens.get(0).unwrap();
+                    let token1 = component.tokens.get(1).unwrap();
+                    deltas.extend_from_slice(&[
+                        BalanceDelta {
+                            ord: log.ordinal(),
+                            tx: Some(log.receipt.transaction.into()),
+                            token: token0,
+                            delta: ev.amount0_in.to_signed_bytes_be(),
+                            component_id: component_id.clone(),
+                        },
+                        BalanceDelta {
+                            ord: log.ordinal(),
+                            tx: Some(log.receipt.transaction.into()),
+                            token: token0,
+                            delta: ev
+                                .amount0_out
+                                .neg()
+                                .to_signed_bytes_be(),
+                            component_id: component_id.clone(),
+                        },
+                        BalanceDelta {
+                            ord: log.ordinal(),
+                            tx: Some(log.receipt.transaction.into()),
+                            token: token1,
+                            delta: ev.amount1_in.to_signed_bytes_be(),
+                            component_id: component_id.clone(),
+                        },
+                        BalanceDelta {
+                            ord: log.ordinal(),
+                            tx: Some(log.receipt.transaction.into()),
+                            token: token1,
+                            delta: ev
+                                .amount1_out
+                                .neg()
+                                .to_signed_bytes_be(),
+                            component_id: component_id.clone(),
                         },
                     ]);
                 }
