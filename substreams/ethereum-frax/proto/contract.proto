@@ -17,6 +17,7 @@ message Events {
     repeated pair_Sync pair_syncs = 10;
     repeated pair_Transfer pair_transfers = 11;
     repeated pair_WithdrawProceedsFromLongTermOrder pair_withdraw_proceeds_from_long_term_orders = 12;
+    repeated pair_VirtualOrderExecution pair_virtual_order_execution = 13;
 }
 
 message Calls {
@@ -176,6 +177,17 @@ message pair_LpFeeUpdated {
     string fee = 6;
 }
 
+message pair_ExecuteVirtualOrders {
+    string evt_tx_hash = 1;
+    uint32 evt_index = 2;
+    google.protobuf.Timestamp evt_block_time = 3;
+    uint64 evt_block_number = 4;
+    string evt_address = 5;
+    bytes sender = 6;
+    string amount0 = 7;
+    string amount1 = 8;
+}
+
 message pair_Mint {
     string evt_tx_hash = 1;
     uint32 evt_index = 2;
@@ -233,6 +245,24 @@ message pair_WithdrawProceedsFromLongTermOrder {
     bytes proceed_token = 8;
     string proceeds = 9;
     bool order_expired = 10;
+}
+
+message pair_VirtualOrderExecution {
+    string evt_tx_hash = 1;
+    uint32 evt_index = 2;
+    google.protobuf.Timestamp evt_block_time = 3;
+    uint64 evt_block_number = 4;
+    string evt_address = 5;
+    google.protobuf.Timestamp blockTimestamp = 6;
+    google.protobuf.Timestamp blockTimestampElapsed = 7;
+    string newReserve0 = 8;
+    string newReserve1 = 9;
+    string newTwammReserve0 = 10;
+    string newTwammReserve1 = 11;
+    string token0Bought = 12;
+    string token1Bought = 13;
+    string token0Sold = 14;
+    string token1Sold = 15;
 }
 
 message pair_ApproveCall {
