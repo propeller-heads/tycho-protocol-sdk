@@ -315,6 +315,26 @@ pub struct PairLpFeeUpdated {
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
+pub struct PairExecuteVirtualOrders {
+    #[prost(string, tag="1")]
+    pub evt_tx_hash: ::prost::alloc::string::String,
+    #[prost(uint32, tag="2")]
+    pub evt_index: u32,
+    #[prost(message, optional, tag="3")]
+    pub evt_block_time: ::core::option::Option<::prost_types::Timestamp>,
+    #[prost(uint64, tag="4")]
+    pub evt_block_number: u64,
+    #[prost(string, tag="5")]
+    pub evt_address: ::prost::alloc::string::String,
+    #[prost(bytes="vec", tag="6")]
+    pub sender: ::prost::alloc::vec::Vec<u8>,
+    #[prost(string, tag="7")]
+    pub amount0: ::prost::alloc::string::String,
+    #[prost(string, tag="8")]
+    pub amount1: ::prost::alloc::string::String,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct PairMint {
     #[prost(string, tag="1")]
     pub evt_tx_hash: ::prost::alloc::string::String,
