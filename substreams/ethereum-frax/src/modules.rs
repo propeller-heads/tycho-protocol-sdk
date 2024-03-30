@@ -1,4 +1,4 @@
-use crate::{abi, pool_factories};
+use crate::pool_factories;
 use anyhow::Result;
 use itertools::Itertools;
 use pb::contract::v1 as contract;
@@ -102,8 +102,8 @@ pub fn map_relative_balances(
                 // Burn event: (reserve0, reserve1) -= (amount0, amount1)
                 let component_id = Hex(&log.address).to_string();
 
-                if let Some(component) =  
-                    .get_last(format!("pool:{}", hex::encode(&component_id)))
+                if let Some(component) =
+                    store.get_last(format!("pool:{}", hex::encode(&component_id)))
                 {
                     let token0 = component.tokens.get(0).unwrap();
                     let token1 = component.tokens.get(1).unwrap();
@@ -124,14 +124,12 @@ pub fn map_relative_balances(
                         },
                     ])
                 }
-            } else if let Some(ev) =
-                abi::pair_contract::events::Swap::match_and_decode(log)
-            {
+            } else if let Some(ev) = abi::pair_contract::events::Swap::match_and_decode(log) {
                 // Swap event: (reserve0, reserve1) += (amount0In, amount1In) - (amount0Out, amount1Out)
                 let component_id = Hex(&log.address).to_string();
 
-                if let Some(component) = store
-                    .get_last(format!("pool:{}", hex::encode(&component_id)))
+                if let Some(component) =
+                    store.get_last(format!("pool:{}", hex::encode(&component_id)))
                 {
                     let token0 = component.tokens.get(0).unwrap();
                     let token1 = component.tokens.get(1).unwrap();
@@ -178,8 +176,8 @@ pub fn map_relative_balances(
                 // VirtualOrderExecution event: (reserve0, reserve1) += (amount0Sold, amount1Sold) - (amount0Bought, amount1Bought)
                 let component_id = Hex(&log.address).to_string();
 
-                if let Some(component) = store
-                    .get_last(format!("pool:{}", hex::encode(&component_id)))
+                if let Some(component) =
+                    store.get_last(format!("pool:{}", hex::encode(&component_id)))
                 {
                     let token0 = component.tokens.get(0).unwrap();
                     let token1 = component.tokens.get(1).unwrap();
