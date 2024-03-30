@@ -4,7 +4,7 @@ version = "0.0.1"
 edition = "2021"
 
 [lib]
-name = "substreams"
+name = "substreams_frax_swap"
 crate-type = ["cdylib"]
 
 [dependencies]
