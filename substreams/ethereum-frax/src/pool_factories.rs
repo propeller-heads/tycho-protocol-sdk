@@ -1,5 +1,5 @@
 use crate::abi;
-use substreams::{hex, scalar::BigInt};
+use substreams::hex;
 use substreams_ethereum::{
     pb::eth::v2::{Call, Log},
     Event,
@@ -7,29 +7,6 @@ use substreams_ethereum::{
 // Add missing dependency to Cargo.toml
 // tycho_substreams = "0.1.0"
 use tycho_substreams::prelude::*;
-
-/// This trait defines some helpers for serializing and deserializing `Vec<BigInt` which is needed
-///  to be able to encode the `normalized_weights` and `weights` `Attribute`s. This should also be
-///  handled by any downstream application.
-trait SerializableVecBigInt {
-    fn serialize_bytes(&self) -> Vec<u8>;
-    #[allow(dead_code)]
-    fn deserialize_bytes(bytes: &[u8]) -> Vec<BigInt>;
-}
-
-impl SerializableVecBigInt for Vec<BigInt> {
-    fn serialize_bytes(&self) -> Vec<u8> {
-        self.iter()
-            .flat_map(|big_int| big_int.to_signed_bytes_be())
-            .collect()
-    }
-    fn deserialize_bytes(bytes: &[u8]) -> Vec<BigInt> {
-        bytes
-            .chunks_exact(32)
-            .map(BigInt::from_signed_bytes_be)
-            .collect::<Vec<BigInt>>()
-    }
-}
 
 #[allow(unused_imports)]
 use num_traits::cast::ToPrimitive;
