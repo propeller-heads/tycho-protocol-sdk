@@ -268,6 +268,7 @@ dependencies = [
  "anyhow",
  "ethabi 17.2.0",
  "getrandom",
+ "hex",
  "hex-literal 0.3.4",
  "itertools 0.12.1",
  "num-bigint",

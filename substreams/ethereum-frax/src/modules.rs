@@ -7,7 +7,6 @@ use substreams::{
     store::{
         StoreAddBigInt, StoreGet, StoreGetInt64, StoreGetProto, StoreNew, StoreSet, StoreSetProto,
     },
-    Hex,
 };
 use substreams_ethereum::{pb::eth, Event};
 use tycho_substreams::{
@@ -58,9 +57,7 @@ pub fn store_components(
             tx_components
                 .components
                 .iter()
-                .for_each(|component| {
-                    store.set(1, format!("pool:{}", component.id), component);
-                });
+                .for_each(|component| store_component(&store, component));
         })
 }
 
@@ -78,7 +75,7 @@ pub fn map_relative_balances(
 
             if let Some(event) = abi::pair_contract::events::Mint::match_and_decode(log) {
                 // Mint event: (reserve0, reserve1) += (amount0, amount1)
-                let component_id = Hex(&log.address()).to_string();
+                let component_id = address_to_hex(log.address());
 
                 if let Some((token0, token1)) = maybe_get_pool_tokens(&store, &component_id) {
                     deltas.extend_from_slice(&[
@@ -87,20 +84,20 @@ pub fn map_relative_balances(
                             tx: Some(log.receipt.transaction.into()),
                             token: token0,
                             delta: event.amount0.to_signed_bytes_be(),
-                            component_id: component_id.clone().into_bytes(), // @todo : is this the correct way of converting to bytes?
+                            component_id: string_to_bytes(&component_id),
                         },
                         BalanceDelta {
                             ord: log.ordinal(),
                             tx: Some(log.receipt.transaction.into()),
                             token: token1,
                             delta: event.amount1.to_signed_bytes_be(),
-                            component_id: component_id.clone().into(),
+                            component_id: string_to_bytes(&component_id),
                         },
                     ]);
                 }
             } else if let Some(event) = abi::pair_contract::events::Burn::match_and_decode(log) {
                 // Burn event: (reserve0, reserve1) -= (amount0, amount1)
-                let component_id = Hex(&log.address()).to_string();
+                let component_id = address_to_hex(log.address());
 
                 if let Some((token0, token1)) = maybe_get_pool_tokens(&store, &component_id) {
                     deltas.extend_from_slice(&[
@@ -109,20 +106,20 @@ pub fn map_relative_balances(
                             tx: Some(log.receipt.transaction.into()),
                             token: token0,
                             delta: event.amount0.to_signed_bytes_be(),
-                            component_id: component_id.clone().into(),
+                            component_id: string_to_bytes(&component_id),
                         },
                         BalanceDelta {
                             ord: log.ordinal(),
                             tx: Some(log.receipt.transaction.into()),
                             token: token1,
                             delta: event.amount1.to_signed_bytes_be(),
-                            component_id: component_id.clone().into(),
+                            component_id: string_to_bytes(&component_id),
                         },
                     ]);
                 }
             } else if let Some(event) = abi::pair_contract::events::Swap::match_and_decode(log) {
                 // Swap event: (reserve0, reserve1) += (amount0In, amount1In) - (amount0Out, amount1Out)
-                let component_id = Hex(&log.address()).to_string();
+                let component_id = address_to_hex(log.address());
 
                 if let Some((token0, token1)) = maybe_get_pool_tokens(&store, &component_id) {
                     deltas.extend_from_slice(&[
@@ -131,7 +128,7 @@ pub fn map_relative_balances(
                             tx: Some(log.receipt.transaction.into()),
                             token: token0.clone(),
                             delta: event.amount0_in.to_signed_bytes_be(),
-                            component_id: component_id.clone().into(),
+                            component_id: string_to_bytes(&component_id),
                         },
                         BalanceDelta {
                             ord: log.ordinal(),
@@ -141,14 +138,14 @@ pub fn map_relative_balances(
                                 .amount0_out
                                 .neg()
                                 .to_signed_bytes_be(),
-                            component_id: component_id.clone().into(),
+                            component_id: string_to_bytes(&component_id),
                         },
                         BalanceDelta {
                             ord: log.ordinal(),
                             tx: Some(log.receipt.transaction.into()),
                             token: token1.clone(),
                             delta: event.amount1_in.to_signed_bytes_be(),
-                            component_id: component_id.clone().into(),
+                            component_id: string_to_bytes(&component_id),
                         },
                         BalanceDelta {
                             ord: log.ordinal(),
@@ -158,7 +155,7 @@ pub fn map_relative_balances(
                                 .amount1_out
                                 .neg()
                                 .to_signed_bytes_be(),
-                            component_id: component_id.clone().into(),
+                            component_id: string_to_bytes(&component_id),
                         },
                     ]);
                 }
@@ -166,7 +163,7 @@ pub fn map_relative_balances(
                 abi::pair_contract::events::VirtualOrderExecution::match_and_decode(log)
             {
                 // VirtualOrderExecution event: (reserve0, reserve1) += (amount0Sold, amount1Sold) - (amount0Bought, amount1Bought)
-                let component_id = Hex(&log.address()).to_string();
+                let component_id = address_to_hex(log.address());
 
                 if let Some((token0, token1)) = maybe_get_pool_tokens(&store, &component_id) {
                     deltas.extend_from_slice(&[
@@ -175,7 +172,7 @@ pub fn map_relative_balances(
                             tx: Some(log.receipt.transaction.into()),
                             token: token0.clone(),
                             delta: event.token0_sold.to_signed_bytes_be(),
-                            component_id: component_id.clone().into(),
+                            component_id: string_to_bytes(&component_id),
                         },
                         BalanceDelta {
                             ord: log.ordinal(),
@@ -185,14 +182,14 @@ pub fn map_relative_balances(
                                 .token0_bought
                                 .neg()
                                 .to_signed_bytes_be(),
-                            component_id: component_id.clone().into(),
+                            component_id: string_to_bytes(&component_id),
                         },
                         BalanceDelta {
                             ord: log.ordinal(),
                             tx: Some(log.receipt.transaction.into()),
                             token: token1.clone(),
                             delta: event.token1_sold.to_signed_bytes_be(),
-                            component_id: component_id.clone().into(),
+                            component_id: string_to_bytes(&component_id),
                         },
                         BalanceDelta {
                             ord: log.ordinal(),
@@ -202,7 +199,7 @@ pub fn map_relative_balances(
                                 .token1_bought
                                 .neg()
                                 .to_signed_bytes_be(),
-                            component_id: component_id.clone().into(),
+                            component_id: string_to_bytes(&component_id),
                         },
                     ]);
                 }
@@ -272,7 +269,7 @@ pub fn map_protocol_changes(
         &block,
         |addr| {
             components_store
-                .get_last(format!("pool:{0}", Hex::encode(addr)))
+                .get_last(format!("pool:0x{0}", hex::encode(addr)))
                 .is_some()
         },
         &mut transaction_contract_changes,
@@ -303,6 +300,19 @@ fn maybe_get_pool_tokens(
     store: &StoreGetProto<ProtocolComponent>,
     component_id: &str,
 ) -> Option<(Vec<u8>, Vec<u8>)> {
-    let component = store.get_last(format!("pool:{}", component_id))?;
-    Some((component.tokens[0].clone(), component.tokens[1].clone()))
+    store
+        .get_last(format!("pool:{}", component_id))
+        .map(|component| (component.tokens[0].to_vec(), component.tokens[1].to_vec()))
+}
+
+fn address_to_hex(address: &[u8]) -> String {
+    format!("0x{}", hex::encode(address))
+}
+
+fn string_to_bytes(string: &str) -> Vec<u8> {
+    string.as_bytes().to_vec()
+}
+
+fn store_component(store: &StoreSetProto<ProtocolComponent>, component: &ProtocolComponent) {
+    store.set(1, format!("pool:{}", component.id), component);
 }
