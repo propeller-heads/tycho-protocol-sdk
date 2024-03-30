@@ -73,6 +73,7 @@ pub fn map_relative_balances(
             let mut deltas = Vec::new();
 
             if let Some(event) = abi::pair_contract::events::Mint::match_and_decode(log) {
+                // Mint event: (reserve0, reserve1) += (amount0, amount1)
                 let component_id = Hex(&log.address).to_string();
 
                 if let Some(component) =
@@ -98,6 +99,7 @@ pub fn map_relative_balances(
                     ])
                 }
             } else if let Some(event) = abi::pair_contract::events::Burn::match_and_decode(log) {
+                // Burn event: (reserve0, reserve1) -= (amount0, amount1)
                 let component_id = Hex(&log.address).to_string();
 
                 if let Some(component) =  
@@ -123,8 +125,9 @@ pub fn map_relative_balances(
                     ])
                 }
             } else if let Some(ev) =
-                abi::pair_contract::events::Swap::match_and_decode(vault_log.log)
+                abi::pair_contract::events::Swap::match_and_decode(log)
             {
+                // Swap event: (reserve0, reserve1) += (amount0In, amount1In) - (amount0Out, amount1Out)
                 let component_id = Hex(&log.address).to_string();
 
                 if let Some(component) = store
@@ -169,10 +172,10 @@ pub fn map_relative_balances(
                         },
                     ]);
                 }
-            }
             } else if let Some(ev) =
-                abi::pair_contract::events::Swap::match_and_decode(vault_log.log)
+                abi::pair_contract::events::VirtualOrderExecution::match_and_decode(log)
             {
+                // VirtualOrderExecution event: (reserve0, reserve1) += (amount0Sold, amount1Sold) - (amount0Bought, amount1Bought)
                 let component_id = Hex(&log.address).to_string();
 
                 if let Some(component) = store
@@ -185,7 +188,7 @@ pub fn map_relative_balances(
                             ord: log.ordinal(),
                             tx: Some(log.receipt.transaction.into()),
                             token: token0,
-                            delta: ev.amount0_in.to_signed_bytes_be(),
+                            delta: ev.token0_sold.to_signed_bytes_be(),
                             component_id: component_id.clone(),
                         },
                         BalanceDelta {
@@ -193,7 +196,7 @@ pub fn map_relative_balances(
                             tx: Some(log.receipt.transaction.into()),
                             token: token0,
                             delta: ev
-                                .amount0_out
+                                .token0_bought
                                 .neg()
                                 .to_signed_bytes_be(),
                             component_id: component_id.clone(),
@@ -202,7 +205,7 @@ pub fn map_relative_balances(
                             ord: log.ordinal(),
                             tx: Some(log.receipt.transaction.into()),
                             token: token1,
-                            delta: ev.amount1_in.to_signed_bytes_be(),
+                            delta: ev.token1_sold.to_signed_bytes_be(),
                             component_id: component_id.clone(),
                         },
                         BalanceDelta {
@@ -210,7 +213,7 @@ pub fn map_relative_balances(
                             tx: Some(log.receipt.transaction.into()),
                             token: token1,
                             delta: ev
-                                .amount1_out
+                                .token1_bought
                                 .neg()
                                 .to_signed_bytes_be(),
                             component_id: component_id.clone(),

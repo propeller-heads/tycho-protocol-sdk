@@ -26,6 +26,8 @@ pub struct Events {
     pub pair_transfers: ::prost::alloc::vec::Vec<PairTransfer>,
     #[prost(message, repeated, tag="12")]
     pub pair_withdraw_proceeds_from_long_term_orders: ::prost::alloc::vec::Vec<PairWithdrawProceedsFromLongTermOrder>,
+    #[prost(message, repeated, tag="13")]
+    pub pair_virtual_order_execution: ::prost::alloc::vec::Vec<PairVirtualOrderExecution>,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -440,6 +442,40 @@ pub struct PairWithdrawProceedsFromLongTermOrder {
     pub proceeds: ::prost::alloc::string::String,
     #[prost(bool, tag="10")]
     pub order_expired: bool,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct PairVirtualOrderExecution {
+    #[prost(string, tag="1")]
+    pub evt_tx_hash: ::prost::alloc::string::String,
+    #[prost(uint32, tag="2")]
+    pub evt_index: u32,
+    #[prost(message, optional, tag="3")]
+    pub evt_block_time: ::core::option::Option<::prost_types::Timestamp>,
+    #[prost(uint64, tag="4")]
+    pub evt_block_number: u64,
+    #[prost(string, tag="5")]
+    pub evt_address: ::prost::alloc::string::String,
+    #[prost(message, optional, tag="6")]
+    pub block_timestamp: ::core::option::Option<::prost_types::Timestamp>,
+    #[prost(message, optional, tag="7")]
+    pub block_timestamp_elapsed: ::core::option::Option<::prost_types::Timestamp>,
+    #[prost(string, tag="8")]
+    pub new_reserve0: ::prost::alloc::string::String,
+    #[prost(string, tag="9")]
+    pub new_reserve1: ::prost::alloc::string::String,
+    #[prost(string, tag="10")]
+    pub new_twamm_reserve0: ::prost::alloc::string::String,
+    #[prost(string, tag="11")]
+    pub new_twamm_reserve1: ::prost::alloc::string::String,
+    #[prost(string, tag="12")]
+    pub token0_bought: ::prost::alloc::string::String,
+    #[prost(string, tag="13")]
+    pub token1_bought: ::prost::alloc::string::String,
+    #[prost(string, tag="14")]
+    pub token0_sold: ::prost::alloc::string::String,
+    #[prost(string, tag="15")]
+    pub token1_sold: ::prost::alloc::string::String,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
