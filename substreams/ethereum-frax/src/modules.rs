@@ -118,7 +118,8 @@ pub fn map_relative_balances(
                     ]);
                 }
             } else if let Some(event) = abi::pair_contract::events::Swap::match_and_decode(log) {
-                // Swap event: (reserve0, reserve1) += (amount0In, amount1In) - (amount0Out, amount1Out)
+                // Swap event: (reserve0, reserve1) += (amount0In - amount0Out, amount1In -
+                // amount1Out)
                 let component_id = address_to_hex(log.address());
 
                 if let Some((token0, token1)) = maybe_get_pool_tokens(&store, &component_id) {
@@ -127,34 +128,14 @@ pub fn map_relative_balances(
                             ord: log.ordinal(),
                             tx: Some(log.receipt.transaction.into()),
                             token: token0.clone(),
-                            delta: event.amount0_in.to_signed_bytes_be(),
-                            component_id: string_to_bytes(&component_id),
-                        },
-                        BalanceDelta {
-                            ord: log.ordinal(),
-                            tx: Some(log.receipt.transaction.into()),
-                            token: token0,
-                            delta: event
-                                .amount0_out
-                                .neg()
-                                .to_signed_bytes_be(),
+                            delta: (event.amount0_in - event.amount0_out).to_signed_bytes_be(),
                             component_id: string_to_bytes(&component_id),
                         },
                         BalanceDelta {
                             ord: log.ordinal(),
                             tx: Some(log.receipt.transaction.into()),
                             token: token1.clone(),
-                            delta: event.amount1_in.to_signed_bytes_be(),
-                            component_id: string_to_bytes(&component_id),
-                        },
-                        BalanceDelta {
-                            ord: log.ordinal(),
-                            tx: Some(log.receipt.transaction.into()),
-                            token: token1,
-                            delta: event
-                                .amount1_out
-                                .neg()
-                                .to_signed_bytes_be(),
+                            delta: (event.amount1_in - event.amount1_out).to_signed_bytes_be(),
                             component_id: string_to_bytes(&component_id),
                         },
                     ]);
@@ -162,7 +143,8 @@ pub fn map_relative_balances(
             } else if let Some(event) =
                 abi::pair_contract::events::VirtualOrderExecution::match_and_decode(log)
             {
-                // VirtualOrderExecution event: (reserve0, reserve1) += (amount0Sold, amount1Sold) - (amount0Bought, amount1Bought)
+                // VirtualOrderExecution event: (reserve0, reserve1) += (amount0Sold, amount1Sold) -
+                // (amount0Bought, amount1Bought)
                 let component_id = address_to_hex(log.address());
 
                 if let Some((token0, token1)) = maybe_get_pool_tokens(&store, &component_id) {
@@ -171,34 +153,14 @@ pub fn map_relative_balances(
                             ord: log.ordinal(),
                             tx: Some(log.receipt.transaction.into()),
                             token: token0.clone(),
-                            delta: event.token0_sold.to_signed_bytes_be(),
-                            component_id: string_to_bytes(&component_id),
-                        },
-                        BalanceDelta {
-                            ord: log.ordinal(),
-                            tx: Some(log.receipt.transaction.into()),
-                            token: token0,
-                            delta: event
-                                .token0_bought
-                                .neg()
-                                .to_signed_bytes_be(),
+                            delta: (event.token0_sold - event.token0_bought).to_signed_bytes_be(),
                             component_id: string_to_bytes(&component_id),
                         },
                         BalanceDelta {
                             ord: log.ordinal(),
                             tx: Some(log.receipt.transaction.into()),
                             token: token1.clone(),
-                            delta: event.token1_sold.to_signed_bytes_be(),
-                            component_id: string_to_bytes(&component_id),
-                        },
-                        BalanceDelta {
-                            ord: log.ordinal(),
-                            tx: Some(log.receipt.transaction.into()),
-                            token: token1,
-                            delta: event
-                                .token1_bought
-                                .neg()
-                                .to_signed_bytes_be(),
+                            delta: (event.token1_sold - event.token1_bought).to_signed_bytes_be(),
                             component_id: string_to_bytes(&component_id),
                         },
                     ]);
@@ -283,9 +245,9 @@ pub fn map_protocol_changes(
             .drain()
             .sorted_unstable_by_key(|(index, _)| *index)
             .filter_map(|(_, change)| {
-                if change.contract_changes.is_empty()
-                    && change.component_changes.is_empty()
-                    && change.balance_changes.is_empty()
+                if change.contract_changes.is_empty() &&
+                    change.component_changes.is_empty() &&
+                    change.balance_changes.is_empty()
                 {
                     None
                 } else {
