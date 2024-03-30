@@ -21,48 +21,48 @@ binaries:
     file: ./target/wasm32-unknown-unknown/release/substreams.wasm
 
 modules:
-  - name: store_factory_pair_created
+  - name: map_components
+    kind: map
+    initialBlock: 12369300
+    inputs:
+      - source: sf.ethereum.type.v2.Block
+    output:
+      type: proto:tycho.evm.v1.GroupedTransactionProtocolComponents
+
+  - name: store_components
     kind: store
-    initialBlock: 15373819
+    initialBlock: 12369300
     updatePolicy: set
-    valueType: proto:dynamic_datasource
+    kind: store
+    valueType: proto:tycho.evm.v1.ProtocolComponent
+    inputs:
+      - map: map_components
+
+  - name: map_relative_balances
+    kind: map
+    initialBlock: 12369300 # An arbitrary block that should change based on your requirements
     inputs:
       - source: sf.ethereum.type.v2.Block
+      - store: store_components
+    output:
+      type: proto:tycho.evm.v1.BalanceDeltas
 
-  - name: map_events
+  - name: store_balances
+    kind: store
+    initialBlock: 12369300
+    updatePolicy: add
+    valueType: bigint
+    inputs:
+      - map: map_relative_balances
+
+  - name: map_protocol_changes
     kind: map
-    initialBlock: 15373819
+    initialBlock: 12369300
     inputs:
       - source: sf.ethereum.type.v2.Block
-      - store: store_factory_pair_created
+      - map: map_components
+      - map: map_relative_balances
+      - store: store_components
+      - store: store_balances
+        mode: deltas # This is the key property that simplifies `BalanceChange` handling
     output:
-      type: proto:contract.v1.Events
-
-  - name: map_calls
-    kind: map
-    initialBlock: 15373819
-    inputs:
-      - source: sf.ethereum.type.v2.Block
-      - store: store_factory_pair_created
-    output:
-      type: proto:contract.v1.Calls
-
-  - name: db_out
-    kind: map
-    initialBlock: 15373819
-    inputs:
-      - map: map_events
-      - map: map_calls
-    output:
-      type: proto:sf.substreams.sink.database.v1.DatabaseChanges
-
-  - name: graph_out
-    kind: map
-    initialBlock: 15373819
-    inputs:
-      - map: map_events
-      - map: map_calls
-    output:
-      type: proto:sf.substreams.entity.v1.EntityChanges
-
-network: mainnet

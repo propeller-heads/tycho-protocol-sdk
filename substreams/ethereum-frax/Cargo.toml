@@ -18,6 +18,9 @@ substreams = "0.5"
 substreams-ethereum = "0.9"
 substreams-database-change = "1"
 substreams-entity-change = "1"
+tycho-substreams.workspace = true
+itertools = "0.12.0"
+anyhow = "1.0.75"
 
 # Required so that ethabi > ethereum-types build correctly under wasm32-unknown-unknown
 [target.wasm32-unknown-unknown.dependencies]
@@ -27,8 +30,3 @@ getrandom = { version = "0.2", features = ["custom"] }
 anyhow = "1"
 substreams-ethereum = "0.9"
 regex = "1.8"
-
-[profile.release]
-lto = true
-opt-level = 's'
-strip = "debuginfo"
