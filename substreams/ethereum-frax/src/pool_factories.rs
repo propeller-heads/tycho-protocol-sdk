@@ -1,9 +1,8 @@
 use crate::abi;
 use substreams::{hex, scalar::BigInt};
-use substreams_ethereum::{
-    pb::eth::v2::{Call, Log},
-    Event, Function,
-};
+use substreams_ethereum::pb::eth::v2::{Call, Log};
+// Add missing dependency to Cargo.toml
+// tycho_substreams = "0.1.0"
 use tycho_substreams::prelude::*;
 
 /// This trait defines some helpers for serializing and deserializing `Vec<BigInt` which is needed
@@ -31,8 +30,6 @@ impl SerializableVecBigInt for Vec<BigInt> {
 
 #[allow(unused_imports)]
 use num_traits::cast::ToPrimitive;
-use std::str::FromStr;
-use substreams::scalar::BigDecimal;
 
 // substreams_ethereum::init!();
 
