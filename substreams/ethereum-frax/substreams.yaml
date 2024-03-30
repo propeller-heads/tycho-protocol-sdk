@@ -3,22 +3,18 @@ package:
   name: ethereum_frax_swap
   version: v0.1.0
 
-imports:
-  sql: https://github.com/streamingfast/substreams-sink-sql/releases/download/protodefs-v1.0.7/substreams-sink-sql-protodefs-v1.0.7.spkg
-  graph: https://github.com/streamingfast/substreams-sink-subgraph/releases/download/v0.1.0/substreams-sink-subgraph-protodefs-v0.1.0.spkg
-  database_change: https://github.com/streamingfast/substreams-sink-database-changes/releases/download/v1.2.1/substreams-database-change-v1.2.1.spkg
-  entity: https://github.com/streamingfast/substreams-entity-change/releases/download/v1.1.0/substreams-entity-change-v1.1.0.spkg
-
 protobuf:
   files:
-    - contract.proto
+    - tycho/evm/v1/vm.proto
+    - tycho/evm/v1/common.proto
+    - tycho/evm/v1/utils.proto
   importPaths:
-    - ./proto
+    - ../../proto
 
 binaries:
   default:
     type: wasm/rust-v1
-    file: ./target/wasm32-unknown-unknown/release/substreams.wasm
+    file: ../target/wasm32-unknown-unknown/release/ethereum_frax.wasm
 
 modules:
   - name: map_components
@@ -33,7 +29,6 @@ modules:
     kind: store
     initialBlock: 12369300
     updatePolicy: set
-    kind: store
     valueType: proto:tycho.evm.v1.ProtocolComponent
     inputs:
       - map: map_components
@@ -66,3 +61,4 @@ modules:
       - store: store_balances
         mode: deltas # This is the key property that simplifies `BalanceChange` handling
     output:
+      type: proto:tycho.evm.v1.BlockContractChanges
