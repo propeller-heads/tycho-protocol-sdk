@@ -44,21 +44,18 @@ pub fn address_map(
     _call: &Call,
     tx: &Transaction,
 ) -> Option<ProtocolComponent> {
-    let tracked_factory_address = FACTORY_TRACKED_CONTRACT
-        .to_vec()
-        .as_slice();
-    match pool_factory_address {
-        tracked_factory_address => {
-            let pool_created =
-                abi::factory_contract::events::PairCreated::match_and_decode(log).unwrap();
+    let tracked_factory_address = FACTORY_TRACKED_CONTRACT.to_vec();
+    if *pool_factory_address == tracked_factory_address {
+        let pool_created =
+            abi::factory_contract::events::PairCreated::match_and_decode(log).unwrap();
 
-            Some(
-                ProtocolComponent::at_contract(&pool_created.pair, tx)
-                    .with_tokens(&[pool_created.token0, pool_created.token1])
-                    // .with_attributes(&[("placeholder", "".as_bytes())]) // @todo: identify attributes
-                    .as_swap_type("frax_pool", ImplementationType::Vm),
-            )
-        }
-        _ => None,
+        Some(
+            ProtocolComponent::at_contract(&pool_created.pair, tx)
+                .with_tokens(&[pool_created.token0, pool_created.token1])
+                // .with_attributes(&[("placeholder", "".as_bytes())]) // @todo: identify attributes
+                .as_swap_type("frax_pool", ImplementationType::Vm),
+        )
+    } else {
+        None
     }
 }
