@@ -1,14 +1,13 @@
-use crate::pool_factories;
+use crate::{abi, pool_factories};
 use anyhow::Result;
 use itertools::Itertools;
-use pb::contract::v1 as contract;
 use std::collections::HashMap;
-use substreams::prelude::*;
-use substreams::store;
 use substreams::{
-    hex,
     pb::substreams::StoreDeltas,
-    store::{StoreAdd, StoreAddBigInt, StoreAddInt64, StoreGet, StoreGetInt64, StoreNew},
+    store::{
+        StoreAddBigInt, StoreGet, StoreGetInt64, StoreGetProto, StoreNew, StoreSet, StoreSetProto,
+    },
+    Hex,
 };
 use substreams_ethereum::{pb::eth, Event};
 use tycho_substreams::{
@@ -46,26 +45,31 @@ pub fn map_components(block: eth::v2::Block) -> Result<BlockTransactionProtocolC
     })
 }
 
-/// Simply stores the `ProtocolComponent`s with the pool id as the key
+/// Stores the `ProtocolComponent`s with the pool id as the key, together with the token pair as
+/// events do not contain the pair info
 #[substreams::handlers::store]
-pub fn store_components(map: BlockTransactionProtocolComponents, store: StoreAddInt64) {
-    store.add_many(
-        0,
-        &map.tx_components
-            .iter()
-            .flat_map(|tx_components| &tx_components.components)
-            .map(|component| format!("pool:{0}", component.id))
-            .collect::<Vec<_>>(),
-        1,
-    );
+pub fn store_components(
+    map: BlockTransactionProtocolComponents,
+    store: StoreSetProto<ProtocolComponent>,
+) {
+    map.tx_components
+        .iter()
+        .for_each(|tx_components| {
+            tx_components
+                .components
+                .iter()
+                .for_each(|component| {
+                    store.set(1, format!("pool:{}", component.id), component);
+                });
+        })
 }
 
-/// Since the `PoolBalanceChanged` and `Swap` events administer only deltas, we need to leverage a
+/// we need to leverage a
 /// map and a  store to be able to tally up final balances for tokens in a pool.
 #[substreams::handlers::map]
 pub fn map_relative_balances(
     block: eth::v2::Block,
-    store: StoreGetInt64,
+    store: StoreGetProto<ProtocolComponent>,
 ) -> Result<BlockBalanceDeltas, anyhow::Error> {
     let balance_deltas = block
         .logs()
@@ -74,152 +78,135 @@ pub fn map_relative_balances(
 
             if let Some(event) = abi::pair_contract::events::Mint::match_and_decode(log) {
                 // Mint event: (reserve0, reserve1) += (amount0, amount1)
-                let component_id = Hex(&log.address).to_string();
+                let component_id = Hex(&log.address()).to_string();
 
-                if let Some(component) =
-                    store.get_last(format!("pool:{}", hex::encode(&component_id)))
-                {
-                    let token0 = component.tokens.get(0).unwrap();
-                    let token1 = component.tokens.get(1).unwrap();
+                if let Some((token0, token1)) = maybe_get_pool_tokens(&store, &component_id) {
                     deltas.extend_from_slice(&[
                         BalanceDelta {
                             ord: log.ordinal(),
                             tx: Some(log.receipt.transaction.into()),
                             token: token0,
-                            delta: ev.amount0.to_signed_bytes_be(),
-                            component_id: component_id.clone(),
-                        },
-                        BalanceDelta {
-                            ord: log.ordinal(),
-                            tx: Some(log.receipt.transaction.into()),
-                            token: token0,
-                            delta: ev.amount1.to_signed_bytes_be(),
-                            component_id: component_id.clone(),
-                        },
-                    ])
-                }
-            } else if let Some(event) = abi::pair_contract::events::Burn::match_and_decode(log) {
-                // Burn event: (reserve0, reserve1) -= (amount0, amount1)
-                let component_id = Hex(&log.address).to_string();
-
-                if let Some(component) =
-                    store.get_last(format!("pool:{}", hex::encode(&component_id)))
-                {
-                    let token0 = component.tokens.get(0).unwrap();
-                    let token1 = component.tokens.get(1).unwrap();
-                    deltas.extend_from_slice(&[
-                        BalanceDelta {
-                            ord: log.ordinal(),
-                            tx: Some(log.receipt.transaction.into()),
-                            token: token0,
-                            delta: ev.amount0.to_signed_bytes_be(),
-                            component_id: component_id.clone(),
+                            delta: event.amount0.to_signed_bytes_be(),
+                            component_id: component_id.clone().into_bytes(), // @todo : is this the correct way of converting to bytes?
                         },
                         BalanceDelta {
                             ord: log.ordinal(),
                             tx: Some(log.receipt.transaction.into()),
                             token: token1,
-                            delta: ev.amount1.to_signed_bytes_be(),
-                            component_id: component_id.clone(),
-                        },
-                    ])
-                }
-            } else if let Some(ev) = abi::pair_contract::events::Swap::match_and_decode(log) {
-                // Swap event: (reserve0, reserve1) += (amount0In, amount1In) - (amount0Out, amount1Out)
-                let component_id = Hex(&log.address).to_string();
-
-                if let Some(component) =
-                    store.get_last(format!("pool:{}", hex::encode(&component_id)))
-                {
-                    let token0 = component.tokens.get(0).unwrap();
-                    let token1 = component.tokens.get(1).unwrap();
-                    deltas.extend_from_slice(&[
-                        BalanceDelta {
-                            ord: log.ordinal(),
-                            tx: Some(log.receipt.transaction.into()),
-                            token: token0,
-                            delta: ev.amount0_in.to_signed_bytes_be(),
-                            component_id: component_id.clone(),
-                        },
-                        BalanceDelta {
-                            ord: log.ordinal(),
-                            tx: Some(log.receipt.transaction.into()),
-                            token: token0,
-                            delta: ev
-                                .amount0_out
-                                .neg()
-                                .to_signed_bytes_be(),
-                            component_id: component_id.clone(),
-                        },
-                        BalanceDelta {
-                            ord: log.ordinal(),
-                            tx: Some(log.receipt.transaction.into()),
-                            token: token1,
-                            delta: ev.amount1_in.to_signed_bytes_be(),
-                            component_id: component_id.clone(),
-                        },
-                        BalanceDelta {
-                            ord: log.ordinal(),
-                            tx: Some(log.receipt.transaction.into()),
-                            token: token1,
-                            delta: ev
-                                .amount1_out
-                                .neg()
-                                .to_signed_bytes_be(),
-                            component_id: component_id.clone(),
+                            delta: event.amount1.to_signed_bytes_be(),
+                            component_id: component_id.clone().into(),
                         },
                     ]);
                 }
-            } else if let Some(ev) =
-                abi::pair_contract::events::VirtualOrderExecution::match_and_decode(log)
-            {
-                // VirtualOrderExecution event: (reserve0, reserve1) += (amount0Sold, amount1Sold) - (amount0Bought, amount1Bought)
-                let component_id = Hex(&log.address).to_string();
+            } else if let Some(event) = abi::pair_contract::events::Burn::match_and_decode(log) {
+                // Burn event: (reserve0, reserve1) -= (amount0, amount1)
+                let component_id = Hex(&log.address()).to_string();
 
-                if let Some(component) =
-                    store.get_last(format!("pool:{}", hex::encode(&component_id)))
-                {
-                    let token0 = component.tokens.get(0).unwrap();
-                    let token1 = component.tokens.get(1).unwrap();
+                if let Some((token0, token1)) = maybe_get_pool_tokens(&store, &component_id) {
                     deltas.extend_from_slice(&[
                         BalanceDelta {
                             ord: log.ordinal(),
                             tx: Some(log.receipt.transaction.into()),
                             token: token0,
-                            delta: ev.token0_sold.to_signed_bytes_be(),
-                            component_id: component_id.clone(),
+                            delta: event.amount0.to_signed_bytes_be(),
+                            component_id: component_id.clone().into(),
+                        },
+                        BalanceDelta {
+                            ord: log.ordinal(),
+                            tx: Some(log.receipt.transaction.into()),
+                            token: token1,
+                            delta: event.amount1.to_signed_bytes_be(),
+                            component_id: component_id.clone().into(),
+                        },
+                    ]);
+                }
+            } else if let Some(event) = abi::pair_contract::events::Swap::match_and_decode(log) {
+                // Swap event: (reserve0, reserve1) += (amount0In, amount1In) - (amount0Out, amount1Out)
+                let component_id = Hex(&log.address()).to_string();
+
+                if let Some((token0, token1)) = maybe_get_pool_tokens(&store, &component_id) {
+                    deltas.extend_from_slice(&[
+                        BalanceDelta {
+                            ord: log.ordinal(),
+                            tx: Some(log.receipt.transaction.into()),
+                            token: token0.clone(),
+                            delta: event.amount0_in.to_signed_bytes_be(),
+                            component_id: component_id.clone().into(),
                         },
                         BalanceDelta {
                             ord: log.ordinal(),
                             tx: Some(log.receipt.transaction.into()),
                             token: token0,
-                            delta: ev
+                            delta: event
+                                .amount0_out
+                                .neg()
+                                .to_signed_bytes_be(),
+                            component_id: component_id.clone().into(),
+                        },
+                        BalanceDelta {
+                            ord: log.ordinal(),
+                            tx: Some(log.receipt.transaction.into()),
+                            token: token1.clone(),
+                            delta: event.amount1_in.to_signed_bytes_be(),
+                            component_id: component_id.clone().into(),
+                        },
+                        BalanceDelta {
+                            ord: log.ordinal(),
+                            tx: Some(log.receipt.transaction.into()),
+                            token: token1,
+                            delta: event
+                                .amount1_out
+                                .neg()
+                                .to_signed_bytes_be(),
+                            component_id: component_id.clone().into(),
+                        },
+                    ]);
+                }
+            } else if let Some(event) =
+                abi::pair_contract::events::VirtualOrderExecution::match_and_decode(log)
+            {
+                // VirtualOrderExecution event: (reserve0, reserve1) += (amount0Sold, amount1Sold) - (amount0Bought, amount1Bought)
+                let component_id = Hex(&log.address()).to_string();
+
+                if let Some((token0, token1)) = maybe_get_pool_tokens(&store, &component_id) {
+                    deltas.extend_from_slice(&[
+                        BalanceDelta {
+                            ord: log.ordinal(),
+                            tx: Some(log.receipt.transaction.into()),
+                            token: token0.clone(),
+                            delta: event.token0_sold.to_signed_bytes_be(),
+                            component_id: component_id.clone().into(),
+                        },
+                        BalanceDelta {
+                            ord: log.ordinal(),
+                            tx: Some(log.receipt.transaction.into()),
+                            token: token0,
+                            delta: event
                                 .token0_bought
                                 .neg()
                                 .to_signed_bytes_be(),
-                            component_id: component_id.clone(),
+                            component_id: component_id.clone().into(),
+                        },
+                        BalanceDelta {
+                            ord: log.ordinal(),
+                            tx: Some(log.receipt.transaction.into()),
+                            token: token1.clone(),
+                            delta: event.token1_sold.to_signed_bytes_be(),
+                            component_id: component_id.clone().into(),
                         },
                         BalanceDelta {
                             ord: log.ordinal(),
                             tx: Some(log.receipt.transaction.into()),
                             token: token1,
-                            delta: ev.token1_sold.to_signed_bytes_be(),
-                            component_id: component_id.clone(),
-                        },
-                        BalanceDelta {
-                            ord: log.ordinal(),
-                            tx: Some(log.receipt.transaction.into()),
-                            token: token1,
-                            delta: ev
+                            delta: event
                                 .token1_bought
                                 .neg()
                                 .to_signed_bytes_be(),
-                            component_id: component_id.clone(),
+                            component_id: component_id.clone().into(),
                         },
                     ]);
                 }
             }
-
             deltas
         })
         .collect::<Vec<_>>();
@@ -285,7 +272,7 @@ pub fn map_protocol_changes(
         &block,
         |addr| {
             components_store
-                .get_last(format!("pool:{0}", hex::encode(addr)))
+                .get_last(format!("pool:{0}", Hex::encode(addr)))
                 .is_some()
         },
         &mut transaction_contract_changes,
@@ -310,4 +297,12 @@ pub fn map_protocol_changes(
             })
             .collect::<Vec<_>>(),
     })
+}
+
+fn maybe_get_pool_tokens(
+    store: &StoreGetProto<ProtocolComponent>,
+    component_id: &str,
+) -> Option<(Vec<u8>, Vec<u8>)> {
+    let component = store.get_last(format!("pool:{}", component_id))?;
+    Some((component.tokens[0].clone(), component.tokens[1].clone()))
 }
