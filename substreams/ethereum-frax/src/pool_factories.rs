@@ -29,7 +29,6 @@ pub fn address_map(
         Some(
             ProtocolComponent::at_contract(&pool_created.pair, tx)
                 .with_tokens(&[pool_created.token0, pool_created.token1])
-                // .with_attributes(&[("placeholder", "".as_bytes())]) // @todo: identify attributes
                 .as_swap_type("frax_pool", ImplementationType::Vm),
         )
     } else {
