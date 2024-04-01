@@ -105,14 +105,14 @@ pub fn map_relative_balances(
                             ord: log.ordinal(),
                             tx: Some(log.receipt.transaction.into()),
                             token: token0,
-                            delta: event.amount0.to_signed_bytes_be(),
+                            delta: event.amount0.neg().to_signed_bytes_be(),
                             component_id: string_to_bytes(&component_id),
                         },
                         BalanceDelta {
                             ord: log.ordinal(),
                             tx: Some(log.receipt.transaction.into()),
                             token: token1,
-                            delta: event.amount1.to_signed_bytes_be(),
+                            delta: event.amount1.neg().to_signed_bytes_be(),
                             component_id: string_to_bytes(&component_id),
                         },
                     ]);
