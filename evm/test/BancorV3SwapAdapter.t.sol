@@ -16,9 +16,7 @@ contract BancorV3SwapAdapterTest is Test, ISwapAdapterTypes {
 
     BancorV3SwapAdapter adapter;
 
-    // address constant BANCOR_NETWORK_PROXY_ADDRESS = 0xeEF417e1D5CC832e619ae18D2F140De2999dD4fB;
     address constant BANCOR_NETWORK_INFO_PROXY_ADDRESS = 0x8E303D296851B320e6a697bAcB979d13c9D6E760;
-    // address constant POOL_COLLECTION_ADDRESS = 0xde1B3CcfC45e3F5bff7f43516F2Cd43364D883E4;
 
     IERC20 constant ETH = IERC20(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE);
     IERC20 constant LINK = IERC20(0x514910771AF9Ca656af840dff83E8264EcF986CA);
@@ -55,7 +53,7 @@ contract BancorV3SwapAdapterTest is Test, ISwapAdapterTypes {
         amounts[0] = amount0;
         amounts[1] = amount1;
 
-        Fraction[] memory prices = adapter.getPrice(PAIR, LINK, BNT, amounts);
+        Fraction[] memory prices = adapter.price(PAIR, LINK, BNT, amounts);
 
         for (uint256 i = 0; i < prices.length; i++) {
             assertGt(prices[i].numerator, 0);
@@ -76,7 +74,7 @@ contract BancorV3SwapAdapterTest is Test, ISwapAdapterTypes {
         amounts[0] = amount0;
         amounts[1] = amount1;
 
-        Fraction[] memory prices = adapter.getPrice(PAIR, BNT, LINK, amounts);
+        Fraction[] memory prices = adapter.price(PAIR, BNT, LINK, amounts);
 
         for (uint256 i = 0; i < prices.length; i++) {
             assertGt(prices[i].numerator, 0);
@@ -98,7 +96,7 @@ contract BancorV3SwapAdapterTest is Test, ISwapAdapterTypes {
     //     amounts[0] = amount0;
     //     amounts[1] = amount1;
 
-    //     Fraction[] memory prices = adapter.getPrice(PAIR, LINK, WBTC, amounts);
+    //     Fraction[] memory prices = adapter.price(PAIR, LINK, WBTC, amounts);
 
     //     for (uint256 i = 0; i < prices.length; i++) {
     //         assertGt(prices[i].numerator, 0);
@@ -119,7 +117,7 @@ contract BancorV3SwapAdapterTest is Test, ISwapAdapterTypes {
         amounts[0] = amount0;
         amounts[1] = amount1;
 
-        Fraction[] memory prices = adapter.getPrice(PAIR, WBTC, LINK, amounts);
+        Fraction[] memory prices = adapter.price(PAIR, WBTC, LINK, amounts);
 
         for (uint256 i = 0; i < prices.length; i++) {
             assertGt(prices[i].numerator, 0);
@@ -135,7 +133,7 @@ contract BancorV3SwapAdapterTest is Test, ISwapAdapterTypes {
             amounts[i] = 1000 * (i + 1) * 10 ** 6;
         }
 
-        Fraction[] memory prices = adapter.getPrice(pair, LINK, BNT, amounts);
+        Fraction[] memory prices = adapter.price(pair, LINK, BNT, amounts);
 
         for (uint256 i = 0; i < TEST_ITERATIONS - 1; i++) {
             assertEq(prices[i].compareFractions(prices[i + 1]), 1);
@@ -152,7 +150,7 @@ contract BancorV3SwapAdapterTest is Test, ISwapAdapterTypes {
             amounts[i] = 1000 * (i + 1) * 10 ** 6;
         }
 
-        Fraction[] memory prices = adapter.getPrice(pair, BNT, LINK, amounts);
+        Fraction[] memory prices = adapter.price(pair, BNT, LINK, amounts);
 
         for (uint256 i = 0; i < TEST_ITERATIONS - 1; i++) {
             assertEq(prices[i].compareFractions(prices[i + 1]), 1);
@@ -169,7 +167,7 @@ contract BancorV3SwapAdapterTest is Test, ISwapAdapterTypes {
             amounts[i] = 1000 * (i + 1) * 10 ** 12;
         }
 
-        Fraction[] memory prices = adapter.getPrice(pair, LINK, WBTC, amounts);
+        Fraction[] memory prices = adapter.price(pair, LINK, WBTC, amounts);
 
         for (uint256 i = 0; i < TEST_ITERATIONS - 1; i++) {
             assertEq(prices[i].compareFractions(prices[i + 1]), 1);
@@ -186,7 +184,7 @@ contract BancorV3SwapAdapterTest is Test, ISwapAdapterTypes {
             amounts[i] = 1000 * (i + 1) * 10;
         }
 
-        Fraction[] memory prices = adapter.getPrice(pair, WBTC, LINK, amounts);
+        Fraction[] memory prices = adapter.price(pair, WBTC, LINK, amounts);
 
         for (uint256 i = 0; i < TEST_ITERATIONS - 1; i++) {
             assertEq(prices[i].compareFractions(prices[i + 1]), 1);
@@ -304,7 +302,7 @@ contract BancorV3SwapAdapterTest is Test, ISwapAdapterTypes {
 
         amounts[0] = amountIn;
 
-        Fraction[] memory prices = adapter.getPrice(PAIR, LINK, WBTC, amounts);
+        Fraction[] memory prices = adapter.price(PAIR, LINK, WBTC, amounts);
 
         deal(address(LINK), address(this), amountIn);
         LINK.approve(address(adapter), amountIn);
