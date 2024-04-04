@@ -9,14 +9,17 @@ import "src/bancor-v3/BancorV3SwapAdapter.sol";
 
 /// @title TemplateSwapAdapterTest
 /// @dev This is a template for a swap adapter test.
-/// Test all functions that are implemented in your swap adapter, the two test included here are just an example.
-/// Feel free to use UniswapV2SwapAdapterTest and BalancerV2SwapAdapterTest as a reference.
+/// Test all functions that are implemented in your swap adapter, the two test
+/// included here are just an example.
+/// Feel free to use UniswapV2SwapAdapterTest and BalancerV2SwapAdapterTest as a
+/// reference.
 contract BancorV3SwapAdapterTest is Test, ISwapAdapterTypes {
     using FractionMath for Fraction;
 
     BancorV3SwapAdapter adapter;
 
-    address constant BANCOR_NETWORK_INFO_PROXY_ADDRESS = 0x8E303D296851B320e6a697bAcB979d13c9D6E760;
+    address constant BANCOR_NETWORK_INFO_PROXY_ADDRESS =
+        0x8E303D296851B320e6a697bAcB979d13c9D6E760;
 
     IERC20 constant ETH = IERC20(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE);
     IERC20 constant LINK = IERC20(0x514910771AF9Ca656af840dff83E8264EcF986CA);
@@ -30,7 +33,7 @@ contract BancorV3SwapAdapterTest is Test, ISwapAdapterTypes {
     Token immutable bnt = Token(address(BNT));
     Token immutable link = Token(address(LINK));
     Token immutable wbtc = Token(address(WBTC));
-    
+
     receive() external payable {}
 
     function setUp() public {
@@ -40,7 +43,9 @@ contract BancorV3SwapAdapterTest is Test, ISwapAdapterTypes {
         adapter = new BancorV3SwapAdapter(BANCOR_NETWORK_INFO_PROXY_ADDRESS);
     }
 
-    function testPriceFuzzBancorV3LinkBnt(uint256 amount0, uint256 amount1) public {
+    function testPriceFuzzBancorV3LinkBnt(uint256 amount0, uint256 amount1)
+        public
+    {
         uint256[] memory limits = adapter.getLimits(PAIR, LINK, BNT);
         uint256 minAmount = 1;
 
@@ -48,7 +53,7 @@ contract BancorV3SwapAdapterTest is Test, ISwapAdapterTypes {
         vm.assume(amount0 > minAmount);
         vm.assume(amount1 < limits[0]);
         vm.assume(amount1 > minAmount);
-        
+
         uint256[] memory amounts = new uint256[](2);
         amounts[0] = amount0;
         amounts[1] = amount1;
@@ -61,7 +66,9 @@ contract BancorV3SwapAdapterTest is Test, ISwapAdapterTypes {
         }
     }
 
-    function testPriceFuzzBancorV3BntLink(uint256 amount0, uint256 amount1) public {
+    function testPriceFuzzBancorV3BntLink(uint256 amount0, uint256 amount1)
+        public
+    {
         uint256[] memory limits = adapter.getLimits(PAIR, BNT, LINK);
         uint256 minAmount = 100;
 
@@ -69,7 +76,7 @@ contract BancorV3SwapAdapterTest is Test, ISwapAdapterTypes {
         vm.assume(amount0 > minAmount);
         vm.assume(amount1 < limits[0]);
         vm.assume(amount1 > minAmount);
-        
+
         uint256[] memory amounts = new uint256[](2);
         amounts[0] = amount0;
         amounts[1] = amount1;
@@ -82,29 +89,9 @@ contract BancorV3SwapAdapterTest is Test, ISwapAdapterTypes {
         }
     }
 
-    /// @dev need to fix for small amounts. Consider to implement a getLimits for minimum amount
-    // function testPriceFuzzBancorV3LinkWbtc(uint256 amount0, uint256 amount1) public {
-    //     uint256[] memory limits = adapter.getLimits(PAIR, LINK, WBTC);
-    //     uint256 minAmount = 10000000000000000;
-
-    //     vm.assume(amount0 < limits[0]);
-    //     vm.assume(amount0 > minAmount);
-    //     vm.assume(amount1 < limits[0]);
-    //     vm.assume(amount1 > minAmount);
-        
-    //     uint256[] memory amounts = new uint256[](2);
-    //     amounts[0] = amount0;
-    //     amounts[1] = amount1;
-
-    //     Fraction[] memory prices = adapter.price(PAIR, LINK, WBTC, amounts);
-
-    //     for (uint256 i = 0; i < prices.length; i++) {
-    //         assertGt(prices[i].numerator, 0);
-    //         assertGt(prices[i].denominator, 0);
-    //     }
-    // }
-
-    function testPriceFuzzBancorV3WbtcLink(uint256 amount0, uint256 amount1) public {
+    function testPriceFuzzBancorV3WbtcLink(uint256 amount0, uint256 amount1)
+        public
+    {
         uint256[] memory limits = adapter.getLimits(PAIR, WBTC, LINK);
         uint256 minAmount = 1;
 
@@ -112,7 +99,7 @@ contract BancorV3SwapAdapterTest is Test, ISwapAdapterTypes {
         vm.assume(amount0 > minAmount);
         vm.assume(amount1 < limits[0]);
         vm.assume(amount1 > minAmount);
-        
+
         uint256[] memory amounts = new uint256[](2);
         amounts[0] = amount0;
         amounts[1] = amount1;
@@ -193,7 +180,9 @@ contract BancorV3SwapAdapterTest is Test, ISwapAdapterTypes {
         }
     }
 
-    function testSwapFuzzBancorV3BntLink(uint256 specifiedAmount, bool isBuy) public {
+    function testSwapFuzzBancorV3BntLink(uint256 specifiedAmount, bool isBuy)
+        public
+    {
         OrderSide side = isBuy ? OrderSide.Buy : OrderSide.Sell;
 
         uint256[] memory limits = adapter.getLimits(PAIR, BNT, LINK);
@@ -246,7 +235,6 @@ contract BancorV3SwapAdapterTest is Test, ISwapAdapterTypes {
     }
 
     function executeIncreasingSwaps(OrderSide side) internal {
-
         uint256[] memory amounts = new uint256[](TEST_ITERATIONS);
         for (uint256 i = 0; i < TEST_ITERATIONS; i++) {
             amounts[i] = 1000 * (i + 1) * 10 ** 18;
@@ -295,8 +283,11 @@ contract BancorV3SwapAdapterTest is Test, ISwapAdapterTypes {
         assertEq(limits.length, 2);
     }
 
-    function testPriceEqualPriceAfterSwapBancorV3() public {
-        uint256 amountIn = 10 ether;
+    function testPriceEqualPriceAfterSwapBancorV3(uint256 amountIn) public {
+        uint256[] memory limits = adapter.getLimits(PAIR, LINK, WBTC);
+
+        vm.assume(amountIn > 10 ** 14);
+        vm.assume(amountIn < limits[0]);
 
         uint256[] memory amounts = new uint256[](1);
 
@@ -307,16 +298,10 @@ contract BancorV3SwapAdapterTest is Test, ISwapAdapterTypes {
         deal(address(LINK), address(this), amountIn);
         LINK.approve(address(adapter), amountIn);
 
-        Fraction memory priceSwap = adapter.swap(PAIR, LINK, WBTC, OrderSide.Sell, amountIn).price;
-
-        console.log("Numerator Price: ", priceSwap.numerator);
-        console.log("Numerator price Swap: ", prices[0].numerator);
-
-        console.log("Denominator Price: ", priceSwap.denominator);
-        console.log("Denominator price Swap: ", prices[0].denominator);
+        Fraction memory priceSwap =
+            adapter.swap(PAIR, LINK, WBTC, OrderSide.Sell, amountIn).price;
 
         assertEq(prices[0].numerator, priceSwap.numerator);
         assertEq(prices[0].denominator, priceSwap.denominator);
-        
     }
 }
