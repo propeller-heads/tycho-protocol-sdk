@@ -16,7 +16,7 @@ contract RenzoAdapter is ISwapAdapter {
     constructor(address _restakeManager) {
         restakeManager = IRestakeManager(_restakeManager);
         renzoOracle = restakeManager.renzoOracle();
-        ezETH = IERC20(restakeManager.ezETH());
+        ezETH = IERC20(address(restakeManager.ezETH()));
     }
 
     /// @dev check if buyToken is supported(only ezETH is available as buyToken); the restakeManager reverts internally if sellToken is not a supported collateral
