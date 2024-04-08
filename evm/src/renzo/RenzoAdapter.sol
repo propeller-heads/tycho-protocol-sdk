@@ -60,11 +60,17 @@ contract RenzoAdapter is ISwapAdapter {
         revert NotImplemented("TemplateSwapAdapter.getCapabilities");
     }
 
-    function getTokens(bytes32 poolId)
+    /// @inheritdoc ISwapAdapter
+    function getTokens(bytes32)
         external
         returns (IERC20[] memory tokens)
     {
-        revert NotImplemented("TemplateSwapAdapter.getTokens");
+        uint256 tokensLength = restakeManager.getCollateralTokensLength();
+        tokens = new IERC20[](tokensLength + 1);
+        for(uint256 i = 0; i < tokensLength; i++) {
+            tokens[i] = IERC20(restakeManager.collateralTokens(i));
+        }
+        tokens[tokensLength] = ezETH;
     }
 
     function getPoolIds(uint256 offset, uint256 limit)
@@ -88,6 +94,12 @@ interface IRestakeManager {
     ) external;
 
     function ezETH() external view returns (IEzEthToken);
+
+    function getCollateralTokensLength() external view returns (uint256);
+
+    function getCollateralTokenIndex(address _collateralToken) external view returns (uint256);
+
+    function collateralTokens(uint256 i) external view returns (address);
 
 }
 
