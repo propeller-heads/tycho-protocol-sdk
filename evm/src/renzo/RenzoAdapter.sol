@@ -46,11 +46,43 @@ contract RenzoAdapter is ISwapAdapter {
         revert NotImplemented("TemplateSwapAdapter.swap");
     }
 
-    function getLimits(bytes32 poolId, IERC20 sellToken, IERC20 buyToken)
+    /// @inheritdoc ISwapAdapter
+    function getLimits(bytes32, IERC20 sellToken, IERC20 buyToken)
         external
+        view
+        override
+        checkBuyToken(address(buyToken))
         returns (uint256[] memory limits)
     {
-        revert NotImplemented("TemplateSwapAdapter.getLimits");
+        limits = new uint256[](2);
+        uint256 tokenIndex = restakeManager.getCollateralTokenIndex(address(sellToken));
+        (
+            uint256[][] memory operatorDelegatorTokenTVLs,
+            uint256[] memory operatorDelegatorTVLs,
+            uint256 totalTvl
+        ) = restakeManager.calculateTVLs();
+        uint256 limitInValue = totalTvl - restakeManager.maxDepositTVL();
+
+        if(restakeManager.maxDepositTVL() != 0) {
+            limitInValue = restakeManager.maxDepositTVL() - totalTvl;
+        }
+
+        uint256 collateralTvlLimitSellToken = restakeManager.collateralTokenTvlLimits(sellToken);
+
+        if(collateralTvlLimitSellToken != 0) {
+            uint256 currentTokenTVL = 0;
+            uint256 odLength = operatorDelegatorTokenTVLs.length;
+            for (uint256 i = 0; i < odLength;) {
+                currentTokenTVL += operatorDelegatorTokenTVLs[i][tokenIndex];
+                unchecked{++i;}
+            }
+            if(collateralTvlLimitSellToken - currentTokenTVL > limitInValue) {
+                limitInValue = collateralTvlLimitSellToken - currentTokenTVL;
+            }
+        }
+        limits[0] = limitInValue == 0 ? type(uint256).max : renzoOracle.lookupTokenAmountFromValue(sellToken, limitInValue);
+        /// @dev as buyToken is always ezETH but it cannot be sold since delayed/in queue, we set its limit to 0
+        limits[1] = 0;
     }
 
     function getCapabilities(bytes32 poolId, IERC20 sellToken, IERC20 buyToken)
@@ -63,6 +95,8 @@ contract RenzoAdapter is ISwapAdapter {
     /// @inheritdoc ISwapAdapter
     function getTokens(bytes32)
         external
+        view
+        override
         returns (IERC20[] memory tokens)
     {
         uint256 tokensLength = restakeManager.getCollateralTokensLength();
@@ -100,6 +134,15 @@ interface IRestakeManager {
     function getCollateralTokenIndex(address _collateralToken) external view returns (uint256);
 
     function collateralTokens(uint256 i) external view returns (address);
+
+    function maxDepositTVL() external view returns (uint256);
+
+    function calculateTVLs()
+        external
+        view
+        returns (uint256[][] memory, uint256[] memory, uint256);
+
+    function collateralTokenTvlLimits(IERC20 token) external view returns (uint256);
 
 }
 
