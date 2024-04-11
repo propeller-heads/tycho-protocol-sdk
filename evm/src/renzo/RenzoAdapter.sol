@@ -27,13 +27,19 @@ contract RenzoAdapter is ISwapAdapter {
         _;
     }
 
+    /// @inheritdoc ISwapAdapter
     function price(
         bytes32 _poolId,
         IERC20 _sellToken,
         IERC20 _buyToken,
         uint256[] memory _specifiedAmounts
-    ) external view override returns (Fraction[] memory _prices) {
-        revert NotImplemented("TemplateSwapAdapter.price");
+    ) external view override checkBuyToken(address(_buyToken)) returns (Fraction[] memory _prices) {
+        _prices = new Fraction[](_specifiedAmounts.length);
+        address sellTokenAddress = address(_sellToken);
+
+        for (uint256 i = 0; i < _specifiedAmounts.length; i++) {
+            _prices[i] = getPriceAt(sellTokenAddress, _specifiedAmounts[i]);
+        }
     }
 
     function swap(
@@ -112,6 +118,31 @@ contract RenzoAdapter is ISwapAdapter {
         returns (bytes32[] memory ids)
     {
         revert NotImplemented("TemplateSwapAdapter.getPoolIds");
+    }
+
+    /// @notice Get swap price, incl. fee
+    /// @param sellToken token to sell
+    /// @param amount amount to swap
+    function getPriceAt(address sellToken, uint256 amount) internal view returns (Fraction memory) {
+        (
+            ,
+            ,
+            uint256 totalTVL
+        ) = restakeManager.calculateTVLs();
+        uint256 collateralTokenValue = renzoOracle.lookupTokenValue(
+            IERC20(sellToken),
+            amount
+        );
+        uint256 ezETHToMint = renzoOracle.calculateMintAmount(
+            totalTVL,
+            collateralTokenValue,
+            ezETH.totalSupply()
+        );
+
+        return Fraction(
+            ezETHToMint,
+            amount
+        );
     }
 
 }
