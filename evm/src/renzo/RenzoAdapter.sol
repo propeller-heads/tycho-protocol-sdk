@@ -9,6 +9,8 @@ import {SafeERC20} from
 contract RenzoAdapter is ISwapAdapter {
     using SafeERC20 for IERC20;
 
+    uint256 constant SCALE_FACTOR = 10 ** 18;
+
     IRestakeManager immutable restakeManager;
     IRenzoOracle immutable renzoOracle;
     IERC20 immutable ezETH;
@@ -42,14 +44,28 @@ contract RenzoAdapter is ISwapAdapter {
         }
     }
 
+    /// @inheritdoc ISwapAdapter
     function swap(
         bytes32 poolId,
         IERC20 sellToken,
         IERC20 buyToken,
         OrderSide side,
         uint256 specifiedAmount
-    ) external returns (Trade memory trade) {
-        revert NotImplemented("TemplateSwapAdapter.swap");
+    ) external override checkBuyToken(address(buyToken)) returns (Trade memory trade) {
+        if (specifiedAmount == 0) {
+            return trade;
+        }
+
+        uint256 gasBefore = gasleft();
+        if(side == OrderSide.Sell) {
+            trade.calculatedAmount = sell(sellToken, specifiedAmount);
+        }
+        else {
+            trade.calculatedAmount = buy(sellToken, specifiedAmount);
+        }
+        trade.gasUsed = gasBefore - gasleft();
+        trade.price =
+            getPriceAt(address(sellToken), side == OrderSide.Sell ? specifiedAmount : trade.calculatedAmount);
     }
 
     /// @inheritdoc ISwapAdapter
@@ -143,6 +159,51 @@ contract RenzoAdapter is ISwapAdapter {
             ezETHToMint,
             amount
         );
+    }
+
+    /// @notice Executes a sell(mint) order on the contract.
+    /// @param sellToken The token being sold.
+    /// @param amount The amount to be traded.
+    /// @return calculatedAmount The amount of ezETH received.
+    function sell(IERC20 sellToken, uint256 amount)
+        internal
+        returns (uint256 calculatedAmount)
+    {
+
+        sellToken.safeTransferFrom(msg.sender, address(this), amount);
+        sellToken.safeIncreaseAllowance(address(restakeManager), amount);
+        uint256 balBefore = ezETH.balanceOf(address(this));
+        restakeManager.deposit(sellToken, amount);
+        uint256 balAfter = ezETH.balanceOf(address(this));
+
+        calculatedAmount = balAfter - balBefore;
+        ezETH.safeTransfer(msg.sender, calculatedAmount);
+    }
+
+    /// @notice Executes a buy(mint) order on the contract.
+    /// @param sellToken The token being sold.
+    /// @param amount The amount of ezETH being bought.
+    /// @return calculatedAmount The amount of sellToken spent.
+    function buy(IERC20 sellToken, uint256 amount)
+        internal
+        returns (uint256 calculatedAmount)
+    {
+
+        sellToken.safeTransferFrom(msg.sender, address(this), amount);
+        sellToken.safeIncreaseAllowance(address(restakeManager), amount);
+
+        uint256 existingEzETHSupply = ezETH.totalSupply();
+        uint256 newEzETHSupply = amount + existingEzETHSupply;
+        uint256 inflationPercentage = (newEzETHSupply * SCALE_FACTOR) / (existingEzETHSupply * SCALE_FACTOR);
+
+        (
+            ,
+            ,
+            uint256 totalTvlCollateralToken
+        ) = restakeManager.calculateTVLs();
+        calculatedAmount = (totalTvlCollateralToken * inflationPercentage) / (SCALE_FACTOR - inflationPercentage);
+
+        ezETH.safeTransfer(msg.sender, amount);
     }
 
 }
