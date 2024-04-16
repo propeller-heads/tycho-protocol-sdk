@@ -98,7 +98,7 @@ contract RenzoAdapter is ISwapAdapter {
                 currentTokenTVL += operatorDelegatorTokenTVLs[i][tokenIndex];
                 unchecked{++i;}
             }
-            if(collateralTvlLimitSellToken - currentTokenTVL > limitInValue) {
+            if(collateralTvlLimitSellToken - currentTokenTVL < limitInValue) {
                 limitInValue = collateralTvlLimitSellToken - currentTokenTVL;
             }
         }
@@ -109,9 +109,14 @@ contract RenzoAdapter is ISwapAdapter {
 
     function getCapabilities(bytes32 poolId, IERC20 sellToken, IERC20 buyToken)
         external
+        pure
+        override
         returns (Capability[] memory capabilities)
     {
-        revert NotImplemented("TemplateSwapAdapter.getCapabilities");
+        capabilities = new Capability[](3);
+        capabilities[0] = Capability.SellOrder;
+        capabilities[1] = Capability.BuyOrder;
+        capabilities[2] = Capability.PriceFunction;
     }
 
     /// @inheritdoc ISwapAdapter
@@ -191,17 +196,15 @@ contract RenzoAdapter is ISwapAdapter {
 
         sellToken.safeTransferFrom(msg.sender, address(this), amount);
         sellToken.safeIncreaseAllowance(address(restakeManager), amount);
-
         uint256 existingEzETHSupply = ezETH.totalSupply();
-        uint256 newEzETHSupply = amount + existingEzETHSupply;
-        uint256 inflationPercentage = (newEzETHSupply * SCALE_FACTOR) / (existingEzETHSupply * SCALE_FACTOR);
-
+        uint256 inflationPercentage = (amount * SCALE_FACTOR) / (existingEzETHSupply + amount);
         (
             ,
             ,
             uint256 totalTvlCollateralToken
         ) = restakeManager.calculateTVLs();
-        calculatedAmount = (totalTvlCollateralToken * inflationPercentage) / (SCALE_FACTOR - inflationPercentage);
+        calculatedAmount = (existingEzETHSupply * inflationPercentage) / (SCALE_FACTOR - inflationPercentage);
+        restakeManager.deposit(sellToken, calculatedAmount);
 
         ezETH.safeTransfer(msg.sender, amount);
     }
