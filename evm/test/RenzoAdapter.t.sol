@@ -8,14 +8,13 @@ import "src/interfaces/ISwapAdapterTypes.sol";
 import "forge-std/console.sol";
 import {FractionMath} from "src/libraries/FractionMath.sol";
 
-
 contract RenzoAdapterTest is Test, ISwapAdapterTypes {
-
     using FractionMath for Fraction;
 
     RenzoAdapter adapter;
     IERC20 ezETH;
-    IRestakeManager constant restakeManager = IRestakeManager(0x74a09653A083691711cF8215a6ab074BB4e99ef5);
+    IRestakeManager constant restakeManager =
+        IRestakeManager(0x74a09653A083691711cF8215a6ab074BB4e99ef5);
     IERC20 wBETH = IERC20(0xa2E3356610840701BDf5611a53974510Ae27E2e1);
     address wstETH = 0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0;
 
@@ -35,9 +34,10 @@ contract RenzoAdapterTest is Test, ISwapAdapterTypes {
     function testPriceFuzzRenzo(uint256 amount0, uint256 amount1) public {
         bytes32 pair = bytes32(0);
         uint256[] memory limits = adapter.getLimits(pair, wBETH, ezETH);
-        /// @dev Amounts below 10**6 cause underflow, so this is implicitly the min. limit
-        vm.assume(amount0 < limits[0] && amount0 > 10**6);
-        vm.assume(amount1 < limits[0] && amount1 > 10**6);
+        /// @dev Amounts below 10**6 cause underflow, so this is implicitly the
+        /// min. limit
+        vm.assume(amount0 < limits[0] && amount0 > 10 ** 6);
+        vm.assume(amount1 < limits[0] && amount1 > 10 ** 6);
 
         uint256[] memory amounts = new uint256[](2);
         amounts[0] = amount0;
@@ -51,9 +51,7 @@ contract RenzoAdapterTest is Test, ISwapAdapterTypes {
         }
     }
 
-    function testSwapFuzzRenzo(uint256 specifiedAmount, bool isBuy)
-        public
-    {
+    function testSwapFuzzRenzo(uint256 specifiedAmount, bool isBuy) public {
         OrderSide side = isBuy ? OrderSide.Buy : OrderSide.Sell;
 
         bytes32 pair = bytes32(0);
@@ -61,12 +59,12 @@ contract RenzoAdapterTest is Test, ISwapAdapterTypes {
         console.log(limits[0]);
 
         if (side == OrderSide.Buy) {
-            vm.assume(specifiedAmount < limits[1] && specifiedAmount > 10**6);
+            vm.assume(specifiedAmount < limits[1] && specifiedAmount > 10 ** 6);
 
             deal(address(wBETH), address(this), type(uint256).max);
             wBETH.approve(address(adapter), type(uint256).max);
         } else {
-            vm.assume(specifiedAmount < limits[0] && specifiedAmount > 10**6);
+            vm.assume(specifiedAmount < limits[0] && specifiedAmount > 10 ** 6);
 
             deal(address(wBETH), address(this), specifiedAmount);
             wBETH.approve(address(adapter), specifiedAmount);
@@ -139,7 +137,7 @@ contract RenzoAdapterTest is Test, ISwapAdapterTypes {
         }
     }
 
-function testGetCapabilitiesRenzo(bytes32 pair, address t0, address t1)
+    function testGetCapabilitiesRenzo(bytes32 pair, address t0, address t1)
         public
     {
         Capability[] memory res =
@@ -161,5 +159,4 @@ function testGetCapabilitiesRenzo(bytes32 pair, address t0, address t1)
 
         assertEq(limits.length, 2);
     }
-    
 }
