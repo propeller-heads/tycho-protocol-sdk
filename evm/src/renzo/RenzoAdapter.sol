@@ -31,7 +31,7 @@ contract RenzoAdapter is ISwapAdapter {
 
     /// @inheritdoc ISwapAdapter
     function price(
-        bytes32 _poolId,
+        bytes32,
         IERC20 _sellToken,
         IERC20 _buyToken,
         uint256[] memory _specifiedAmounts
@@ -46,7 +46,7 @@ contract RenzoAdapter is ISwapAdapter {
 
     /// @inheritdoc ISwapAdapter
     function swap(
-        bytes32 poolId,
+        bytes32,
         IERC20 sellToken,
         IERC20 buyToken,
         OrderSide side,
@@ -80,7 +80,7 @@ contract RenzoAdapter is ISwapAdapter {
         uint256 tokenIndex = restakeManager.getCollateralTokenIndex(address(sellToken));
         (
             uint256[][] memory operatorDelegatorTokenTVLs,
-            uint256[] memory operatorDelegatorTVLs,
+            ,
             uint256 totalTvl
         ) = restakeManager.calculateTVLs();
         uint256 limitInValue = totalTvl - restakeManager.maxDepositTVL();
@@ -107,7 +107,7 @@ contract RenzoAdapter is ISwapAdapter {
         limits[1] = 0;
     }
 
-    function getCapabilities(bytes32 poolId, IERC20 sellToken, IERC20 buyToken)
+    function getCapabilities(bytes32, IERC20, IERC20)
         external
         pure
         override
@@ -134,9 +134,10 @@ contract RenzoAdapter is ISwapAdapter {
         tokens[tokensLength] = ezETH;
     }
 
-    function getPoolIds(uint256 offset, uint256 limit)
+    function getPoolIds(uint256, uint256)
         external
-        returns (bytes32[] memory ids)
+        pure
+        returns (bytes32[] memory)
     {
         revert NotImplemented("TemplateSwapAdapter.getPoolIds");
     }
@@ -198,11 +199,6 @@ contract RenzoAdapter is ISwapAdapter {
         sellToken.safeIncreaseAllowance(address(restakeManager), amount);
         uint256 existingEzETHSupply = ezETH.totalSupply();
         uint256 inflationPercentage = (amount * SCALE_FACTOR) / (existingEzETHSupply + amount);
-        (
-            ,
-            ,
-            uint256 totalTvlCollateralToken
-        ) = restakeManager.calculateTVLs();
         calculatedAmount = (existingEzETHSupply * inflationPercentage) / (SCALE_FACTOR - inflationPercentage);
         restakeManager.deposit(sellToken, calculatedAmount);
 
