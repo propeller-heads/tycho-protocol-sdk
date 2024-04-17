@@ -159,7 +159,7 @@ contract RenzoAdapter is ISwapAdapter {
         pure
         returns (bytes32[] memory)
     {
-        revert NotImplemented("TemplateSwapAdapter.getPoolIds");
+        revert NotImplemented("RenzoAdapter.getPoolIds");
     }
 
     /// @notice Get swap price, incl. fee
