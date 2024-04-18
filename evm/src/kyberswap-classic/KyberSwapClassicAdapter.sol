@@ -51,11 +51,15 @@ contract KyberSwapClassicAdapter is ISwapAdapter {
         revert NotImplemented("TemplateSwapAdapter.getCapabilities");
     }
 
+    /// @inheritdoc ISwapAdapter
     function getTokens(bytes32 poolId)
         external
         returns (address[] memory tokens)
     {
-        revert NotImplemented("TemplateSwapAdapter.getTokens");
+        tokens = new address[](2);
+        IUniswapV2Pair pair = IUniswapV2Pair(address(bytes20(poolId)));
+        tokens[0] = address(pair.token0());
+        tokens[1] = address(pair.token1());
     }
 
     /// @inheritdoc ISwapAdapter
@@ -72,6 +76,25 @@ contract KyberSwapClassicAdapter is ISwapAdapter {
             ids[i] = bytes20(factory.allPools(offset + i));
         }
     }
+}
+
+
+interface IUniswapV2Pair {
+
+    function token0() external view returns (address);
+    function token1() external view returns (address);
+    function getReserves()
+        external
+        view
+        returns (uint112 reserve0, uint112 reserve1, uint32 blockTimestampLast);
+
+    function swap(
+        uint256 amount0Out,
+        uint256 amount1Out,
+        address to,
+        bytes calldata data
+    ) external;
+
 }
 
 interface IFactory {
