@@ -2,9 +2,21 @@
 pragma solidity ^0.8.13;
 
 import {ISwapAdapter} from "src/interfaces/ISwapAdapter.sol";
+import {
+    IERC20,
+    SafeERC20
+} from "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 
 /// @title Kyberswap Classic Adapter
 contract KyberSwapClassicAdapter is ISwapAdapter {
+    using SafeERC20 for IERC20;
+
+    IFactory factory;
+
+    constructor(address _factory) {
+        factory = IFactory(_factory);
+    }
+
     function price(
         bytes32 _poolId,
         address _sellToken,
@@ -46,10 +58,26 @@ contract KyberSwapClassicAdapter is ISwapAdapter {
         revert NotImplemented("TemplateSwapAdapter.getTokens");
     }
 
+    /// @inheritdoc ISwapAdapter
     function getPoolIds(uint256 offset, uint256 limit)
         external
         returns (bytes32[] memory ids)
     {
-        revert NotImplemented("TemplateSwapAdapter.getPoolIds");
+        uint256 endIdx = offset + limit;
+        if (endIdx > factory.allPoolsLength()) {
+            endIdx = factory.allPoolsLength();
+        }
+        ids = new bytes32[](endIdx - offset);
+        for (uint256 i = 0; i < ids.length; i++) {
+            ids[i] = bytes20(factory.allPools(offset + i));
+        }
     }
+}
+
+interface IFactory {
+
+    function allPools(uint256) external view returns (address);
+
+    function allPoolsLength() external view returns (uint256);
+
 }
