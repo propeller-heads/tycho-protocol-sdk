@@ -11,6 +11,9 @@ import {
 contract KyberSwapClassicAdapter is ISwapAdapter {
     using SafeERC20 for IERC20;
 
+    // Kyberswap handles arbirary amounts, but we limit the amount to 10x just in case
+    uint256 constant RESERVE_LIMIT_FACTOR = 10;
+
     IFactory factory;
 
     constructor(address _factory) {
@@ -36,11 +39,23 @@ contract KyberSwapClassicAdapter is ISwapAdapter {
         revert NotImplemented("TemplateSwapAdapter.swap");
     }
 
+    /// @inheritdoc ISwapAdapter
     function getLimits(bytes32 poolId, address sellToken, address buyToken)
         external
+        view
+        override
         returns (uint256[] memory limits)
     {
-        revert NotImplemented("TemplateSwapAdapter.getLimits");
+        IUniswapV2Pair pair = IUniswapV2Pair(address(bytes20(poolId)));
+        limits = new uint256[](2);
+        (uint256 r0, uint256 r1,) = pair.getReserves();
+        if (sellToken < buyToken) {
+            limits[0] = r0 / RESERVE_LIMIT_FACTOR;
+            limits[1] = r1 / RESERVE_LIMIT_FACTOR;
+        } else {
+            limits[0] = r1 / RESERVE_LIMIT_FACTOR;
+            limits[1] = r0 / RESERVE_LIMIT_FACTOR;
+        }
     }
 
     function getCapabilities(
