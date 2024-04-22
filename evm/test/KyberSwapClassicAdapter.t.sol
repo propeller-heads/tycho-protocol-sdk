@@ -13,8 +13,7 @@ contract KyberSwapClassicAdapterTest is Test, ISwapAdapterTypes {
     KyberSwapClassicAdapter adapter;
     address constant WETH = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
     address constant WBTC = 0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599;
-    address constant WBTC_WETH_PAIR =
-        0x1cf68Bbc2b6D3C6CfE1BD3590CF0E10b06a05F17;
+    address constant WBTC_WETH_PAIR = 0x1cf68Bbc2b6D3C6CfE1BD3590CF0E10b06a05F17;
 
     uint256 constant TEST_ITERATIONS = 100;
 
@@ -66,7 +65,9 @@ contract KyberSwapClassicAdapterTest is Test, ISwapAdapterTypes {
         }
     }
 
-    function testSwapFuzzKyberswap(uint256 specifiedAmount, bool isBuy) public {
+    function testSwapFuzzKyberswap(uint256 specifiedAmount, bool isBuy)
+        public
+    {
         OrderSide side = isBuy ? OrderSide.Buy : OrderSide.Sell;
 
         bytes32 pair = bytes32(bytes20(WBTC_WETH_PAIR));
@@ -88,13 +89,8 @@ contract KyberSwapClassicAdapterTest is Test, ISwapAdapterTypes {
         uint256 WBTC_balance = IERC20(WBTC).balanceOf(address(this));
         uint256 weth_balance = IERC20(WETH).balanceOf(address(this));
 
-        Trade memory trade = adapter.swap(
-            pair,
-            WBTC,
-            WETH,
-            side,
-            specifiedAmount
-        );
+        Trade memory trade =
+            adapter.swap(pair, WBTC, WETH, side, specifiedAmount);
 
         if (trade.calculatedAmount > 0) {
             if (side == OrderSide.Buy) {
@@ -144,10 +140,7 @@ contract KyberSwapClassicAdapterTest is Test, ISwapAdapterTypes {
         }
 
         for (uint256 i = 1; i < TEST_ITERATIONS - 1; i++) {
-            assertLe(
-                trades[i].calculatedAmount,
-                trades[i + 1].calculatedAmount
-            );
+            assertLe(trades[i].calculatedAmount, trades[i + 1].calculatedAmount);
             assertLe(trades[i].gasUsed, trades[i + 1].gasUsed);
             assertEq(trades[i].price.compareFractions(trades[i + 1].price), 1);
         }
