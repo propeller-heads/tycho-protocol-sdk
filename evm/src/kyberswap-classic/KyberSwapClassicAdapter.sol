@@ -24,7 +24,6 @@ contract KyberSwapClassicAdapter is ISwapAdapter {
     // Kyberswap handles arbirary amounts, but we limit the amount to 10x just in case
     uint256 constant RESERVE_LIMIT_FACTOR = 10;
 
-    uint256 constant BPS = 10000;
     uint256 constant PRECISION = (10**18);
 
     IFactory factory;
@@ -132,7 +131,7 @@ contract KyberSwapClassicAdapter is ISwapAdapter {
     {
         IPair pair = IPair(address(bytes20(poolId)));
         limits = new uint256[](2);
-        (uint256 r0, uint256 r1,) = pair.getReserves();
+        (uint256 r0, uint256 r1) = pair.getReserves();
         if (sellToken < buyToken) {
             limits[0] = r0 / RESERVE_LIMIT_FACTOR;
             limits[1] = r1 / RESERVE_LIMIT_FACTOR;
@@ -177,24 +176,6 @@ contract KyberSwapClassicAdapter is ISwapAdapter {
         ids = new bytes32[](endIdx - offset);
         for (uint256 i = 0; i < ids.length; i++) {
             ids[i] = bytes20(factory.allPools(offset + i));
-        }
-    }
-
-    /// @dev Get reserves incl. vReserves in case pool is Amp Pool
-    function _getReserves(IPair pair) internal view returns (uint256 reserve0, uint256 reserve1) {
-        (
-            uint112 _reserve0,
-            uint112 _reserve1,
-            uint112 _vReserve0,
-            uint112 _vReserve1,
-        ) = pair.getTradeInfo();
-        if(pair.ampBps() == BPS) { // amplified pool
-            reserve0 = _reserve0;
-            reserve1 = _reserve1;
-        }
-        else {
-            reserve0 = _vReserve0;
-            reserve1 = _vReserve1;
         }
     }
 
@@ -335,7 +316,7 @@ interface IPair {
     function getReserves()
         external
         view
-        returns (uint112 reserve0, uint112 reserve1, uint32 blockTimestampLast);
+        returns (uint112 reserve0, uint112 reserve1);
 
     function swap(
         uint256 amount0Out,
