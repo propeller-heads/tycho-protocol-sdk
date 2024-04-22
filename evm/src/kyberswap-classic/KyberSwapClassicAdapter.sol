@@ -141,12 +141,17 @@ contract KyberSwapClassicAdapter is ISwapAdapter {
         }
     }
 
-    function getCapabilities(
-        bytes32 poolId,
-        address sellToken,
-        address buyToken
-    ) external returns (Capability[] memory capabilities) {
-        revert NotImplemented("TemplateSwapAdapter.getCapabilities");
+    /// @inheritdoc ISwapAdapter
+    function getCapabilities(bytes32, address, address)
+        external
+        pure
+        override
+        returns (Capability[] memory capabilities)
+    {
+        capabilities = new Capability[](3);
+        capabilities[0] = Capability.SellOrder;
+        capabilities[1] = Capability.BuyOrder;
+        capabilities[2] = Capability.PriceFunction;
     }
 
     /// @inheritdoc ISwapAdapter
