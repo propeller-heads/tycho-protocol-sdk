@@ -1,14 +1,20 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 pragma solidity ^0.8.13;
 
-import {IERC20, ISwapAdapter} from "src/interfaces/ISwapAdapter.sol";
-import {ERC20} from "openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
-import {SafeERC20} from "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
+import {ISwapAdapter} from "src/interfaces/ISwapAdapter.sol";
+import {IERC20Metadata} from
+    "openzeppelin-contracts/contracts/token/ERC20/extensions/IERC20Metadata.sol";
+import {
+    IERC20,
+    SafeERC20
+} from "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 
-/// @dev Integral submitted deadline of 3600 seconds (1 hour) to Paraswap, but it is not strictly necessary to be this long
-/// as the contract allows less durations, we use 1000 seconds (15 minutes) as a deadline
+/// @dev Integral submitted deadline of 3600 seconds (1 hour) to Paraswap, but
+/// it is not strictly necessary to be this long
+/// as the contract allows less durations, we use 1000 seconds (15 minutes) as a
+/// deadline
 uint256 constant SWAP_DEADLINE_SEC = 1000;
-uint256 constant STANDARD_TOKEN_DECIMALS = 10**18;
+uint256 constant STANDARD_TOKEN_DECIMALS = 10 ** 18;
 
 /// @title Integral Swap Adapter
 contract IntegralSwapAdapter is ISwapAdapter {
@@ -21,31 +27,37 @@ contract IntegralSwapAdapter is ISwapAdapter {
     }
 
     /// @inheritdoc ISwapAdapter
-    /// @dev Integral always relies on a single pool linked to the factory to map two pairs, and does not use routing
-    /// we can then use getPriceByTokenAddresses() instead of getPriceByPairAddresses() 
-    /// as they both return the same value and the first also handles the order of tokens inside.
-    /// @dev Since the price of a token is determined externally by Integral Oracles and not by reserves
-    /// it will always be the same (pre and post trade) and independent of the amounts swapped,
-    /// but we still return an array of length=specifiedAmounts.length with same values to make sure the return value is the expected from caller.
+    /// @dev Integral always relies on a single pool linked to the factory to
+    /// map two pairs, and does not use routing
+    /// we can then use getPriceByTokenAddresses() instead of
+    /// getPriceByPairAddresses()
+    /// as they both return the same value and the first also handles the order
+    /// of tokens inside.
+    /// @dev Since the price of a token is determined externally by Integral
+    /// Oracles and not by reserves
+    /// it will always be the same (pre and post trade) and independent of the
+    /// amounts swapped,
+    /// but we still return an array of length=specifiedAmounts.length with same
+    /// values to make sure the return value is the expected from caller.
     function price(
         bytes32,
-        IERC20 _sellToken,
-        IERC20 _buyToken,
+        address _sellToken,
+        address _buyToken,
         uint256[] memory _specifiedAmounts
     ) external view override returns (Fraction[] memory _prices) {
         _prices = new Fraction[](_specifiedAmounts.length);
-        Fraction memory price = getPriceAt(address(_sellToken), address(_buyToken));
-        
+        Fraction memory uniformPrice = getPriceAt(_sellToken, _buyToken);
+
         for (uint256 i = 0; i < _specifiedAmounts.length; i++) {
-            _prices[i] = price;
+            _prices[i] = uniformPrice;
         }
     }
 
     /// @inheritdoc ISwapAdapter
     function swap(
         bytes32,
-        IERC20 sellToken,
-        IERC20 buyToken,
+        address sellToken,
+        address buyToken,
         OrderSide side,
         uint256 specifiedAmount
     ) external override returns (Trade memory trade) {
@@ -54,45 +66,41 @@ contract IntegralSwapAdapter is ISwapAdapter {
         }
 
         uint256 gasBefore = gasleft();
-        if (side == OrderSide.Sell) { // sell
-            trade.calculatedAmount =
-                sell(sellToken, buyToken, specifiedAmount);
-        } else { // buy
-            trade.calculatedAmount =
-                buy(sellToken, buyToken, specifiedAmount);
+        if (side == OrderSide.Sell) {
+            // sell
+            trade.calculatedAmount = sell(sellToken, buyToken, specifiedAmount);
+        } else {
+            // buy
+            trade.calculatedAmount = buy(sellToken, buyToken, specifiedAmount);
         }
         trade.gasUsed = gasBefore - gasleft();
-        trade.price = getPriceAt(address(sellToken), address(buyToken));
+        trade.price = getPriceAt(sellToken, buyToken);
     }
 
     /// @inheritdoc ISwapAdapter
-    function getLimits(bytes32, IERC20 sellToken, IERC20 buyToken)
+    function getLimits(bytes32, address sellToken, address buyToken)
         external
         view
         override
         returns (uint256[] memory limits)
     {
-        (
-            ,
-            ,
-            ,
-            uint256 limitMax0,
-            ,
-            uint256 limitMax1
-        ) = relayer.getPoolState(address(sellToken), address(buyToken));
+        (,,, uint256 limitMax0,, uint256 limitMax1) =
+            relayer.getPoolState(sellToken, buyToken);
 
         limits = new uint256[](2);
         limits[0] = limitMax0;
         limits[1] = limitMax1;
-        /** 
-         * @dev minLimits in integral are the args: 2(for sellToken, the one before limitMax0)
-         * and 4(for buyToken, the one before limitMax1) of the function relayer.getPoolState(sellToken, buyToken);
+        /**
+         * @dev minLimits in integral are the args: 2(for sellToken, the one
+         * before limitMax0)
+         * and 4(for buyToken, the one before limitMax1) of the function
+         * relayer.getPoolState(sellToken, buyToken);
          * an implementation of them can be found in the test of this adapter
          */
     }
 
     /// @inheritdoc ISwapAdapter
-    function getCapabilities(bytes32, IERC20, IERC20)
+    function getCapabilities(bytes32, address, address)
         external
         pure
         override
@@ -110,12 +118,12 @@ contract IntegralSwapAdapter is ISwapAdapter {
         external
         view
         override
-        returns (IERC20[] memory tokens)
+        returns (address[] memory tokens)
     {
-        tokens = new IERC20[](2);
+        tokens = new address[](2);
         ITwapPair pair = ITwapPair(address(bytes20(poolId)));
-        tokens[0] = IERC20(pair.token0());
-        tokens[1] = IERC20(pair.token1());
+        tokens[0] = pair.token0();
+        tokens[1] = pair.token1();
     }
 
     /// @inheritdoc ISwapAdapter
@@ -141,28 +149,29 @@ contract IntegralSwapAdapter is ISwapAdapter {
     /// @param buyToken The address of the token being bought.
     /// @param amount The amount to be traded.
     /// @return uint256 The amount of tokens received.
-    function sell(
-        IERC20 sellToken,
-        IERC20 buyToken,
-        uint256 amount
-    ) internal returns (uint256) {
-        uint256 amountOut = relayer.quoteSell(address(sellToken), address(buyToken), amount);
+    function sell(address sellToken, address buyToken, uint256 amount)
+        internal
+        returns (uint256)
+    {
+        uint256 amountOut = relayer.quoteSell(sellToken, buyToken, amount);
         if (amountOut == 0) {
             revert Unavailable("AmountOut is zero!");
         }
 
-        sellToken.safeTransferFrom(msg.sender, address(this), amount);
-        sellToken.safeIncreaseAllowance(address(relayer), amount);
+        IERC20(sellToken).safeTransferFrom(msg.sender, address(this), amount);
+        IERC20(sellToken).safeIncreaseAllowance(address(relayer), amount);
 
-        relayer.sell(ITwapRelayer.SellParams({
-            tokenIn: address(sellToken),
-            tokenOut: address(buyToken),
-            wrapUnwrap: false,
-            to: msg.sender,
-            submitDeadline: uint32(block.timestamp + SWAP_DEADLINE_SEC),
-            amountIn: amount,
-            amountOutMin: amountOut
-        }));
+        relayer.sell(
+            ITwapRelayer.SellParams({
+                tokenIn: sellToken,
+                tokenOut: buyToken,
+                wrapUnwrap: false,
+                to: msg.sender,
+                submitDeadline: uint32(block.timestamp + SWAP_DEADLINE_SEC),
+                amountIn: amount,
+                amountOutMin: amountOut
+            })
+        );
 
         return amountOut;
     }
@@ -172,28 +181,29 @@ contract IntegralSwapAdapter is ISwapAdapter {
     /// @param buyToken The address of the token being bought.
     /// @param amountBought The amount of buyToken tokens to buy.
     /// @return uint256 The amount of tokens received.
-    function buy(
-        IERC20 sellToken,
-        IERC20 buyToken,
-        uint256 amountBought
-    ) internal returns (uint256) {
-        uint256 amountIn = relayer.quoteBuy(address(sellToken), address(buyToken), amountBought);
+    function buy(address sellToken, address buyToken, uint256 amountBought)
+        internal
+        returns (uint256)
+    {
+        uint256 amountIn = relayer.quoteBuy(sellToken, buyToken, amountBought);
         if (amountIn == 0) {
             revert Unavailable("AmountIn is zero!");
         }
 
-        sellToken.safeTransferFrom(msg.sender, address(this), amountIn);
-        sellToken.safeIncreaseAllowance(address(relayer), amountIn);
+        IERC20(sellToken).safeTransferFrom(msg.sender, address(this), amountIn);
+        IERC20(sellToken).safeIncreaseAllowance(address(relayer), amountIn);
 
-        relayer.buy(ITwapRelayer.BuyParams({
-            tokenIn: address(sellToken),
-            tokenOut: address(buyToken),
-            wrapUnwrap: false,
-            to: msg.sender,
-            submitDeadline: uint32(block.timestamp + SWAP_DEADLINE_SEC),
-            amountInMax: amountIn,
-            amountOut: amountBought
-        }));
+        relayer.buy(
+            ITwapRelayer.BuyParams({
+                tokenIn: sellToken,
+                tokenOut: buyToken,
+                wrapUnwrap: false,
+                to: msg.sender,
+                submitDeadline: uint32(block.timestamp + SWAP_DEADLINE_SEC),
+                amountInMax: amountIn,
+                amountOut: amountBought
+            })
+        );
 
         return amountIn;
     }
@@ -201,30 +211,41 @@ contract IntegralSwapAdapter is ISwapAdapter {
     /// @notice Get swap price including fee
     /// @param sellToken token to sell
     /// @param buyToken token to buy
-    function getPriceAt(address sellToken, address buyToken) internal view returns(Fraction memory) {
-        uint256 priceWithoutFee = relayer.getPriceByTokenAddresses(address(sellToken), address(buyToken));
+    function getPriceAt(address sellToken, address buyToken)
+        internal
+        view
+        returns (Fraction memory)
+    {
+        uint256 priceWithoutFee =
+            relayer.getPriceByTokenAddresses(sellToken, buyToken);
         ITwapFactory factory = ITwapFactory(relayer.factory());
-        address pairAddress = factory.getPair(address(sellToken), address(buyToken));
+        address pairAddress = factory.getPair(sellToken, buyToken);
 
         // get swapFee formatted; swapFee is a constant
-        uint256 swapFeeFormatted = (STANDARD_TOKEN_DECIMALS - relayer.swapFee(pairAddress));
+        uint256 swapFeeFormatted =
+            (STANDARD_TOKEN_DECIMALS - relayer.swapFee(pairAddress));
 
         // get token decimals
-        uint256 sellTokenDecimals = 10**ERC20(sellToken).decimals();
-        uint256 buyTokenDecimals = 10**ERC20(buyToken).decimals();
+        uint256 sellTokenDecimals = 10 ** IERC20Metadata(sellToken).decimals();
+        uint256 buyTokenDecimals = 10 ** IERC20Metadata(buyToken).decimals();
 
         /**
          * @dev
-         * Denominator works as a "standardizer" for the price rather than a reserve value
-         * as Integral takes prices from oracles and do not operate with reserves;
+         * Denominator works as a "standardizer" for the price rather than a
+         * reserve value
+         * as Integral takes prices from oracles and do not operate with
+         * reserves;
          * it is therefore used to maintain integrity for the Fraction division,
-         * as numerator and denominator could have different token decimals(es. ETH(18)-USDC(6)).
-         * Both numerator and denominator are also multiplied by STANDARD_TOKEN_DECIMALS
+         * as numerator and denominator could have different token decimals(es.
+         * ETH(18)-USDC(6)).
+         * Both numerator and denominator are also multiplied by
+         * STANDARD_TOKEN_DECIMALS
          * to ensure that precision losses are minimized or null.
          */
         return Fraction(
             priceWithoutFee * STANDARD_TOKEN_DECIMALS,
-            STANDARD_TOKEN_DECIMALS * sellTokenDecimals * swapFeeFormatted / buyTokenDecimals
+            STANDARD_TOKEN_DECIMALS * sellTokenDecimals * swapFeeFormatted
+                / buyTokenDecimals
         );
     }
 }
@@ -276,8 +297,12 @@ interface ITwapRelayer {
         uint256 amountIn,
         uint256 indexed delayOrderId
     );
-    event RebalanceSellWithOneInch(address indexed oneInchRouter, uint256 gas, bytes data);
-    event OneInchRouterWhitelisted(address indexed oneInchRouter, bool whitelisted);
+    event RebalanceSellWithOneInch(
+        address indexed oneInchRouter, uint256 gas, bytes data
+    );
+    event OneInchRouterWhitelisted(
+        address indexed oneInchRouter, bool whitelisted
+    );
 
     function factory() external pure returns (address);
 
@@ -289,7 +314,10 @@ interface ITwapRelayer {
 
     function rebalancer() external view returns (address);
 
-    function isOneInchRouterWhitelisted(address oneInchRouter) external view returns (bool);
+    function isOneInchRouterWhitelisted(address oneInchRouter)
+        external
+        view
+        returns (bool);
 
     function setOwner(address _owner) external;
 
@@ -309,19 +337,26 @@ interface ITwapRelayer {
 
     function tokenLimitMin(address token) external pure returns (uint256);
 
-    function tokenLimitMaxMultiplier(address token) external pure returns (uint256);
+    function tokenLimitMaxMultiplier(address token)
+        external
+        pure
+        returns (uint256);
 
     function tolerance(address pair) external pure returns (uint16);
 
     function setRebalancer(address _rebalancer) external;
 
-    function whitelistOneInchRouter(address oneInchRouter, bool whitelisted) external;
+    function whitelistOneInchRouter(address oneInchRouter, bool whitelisted)
+        external;
 
     function getTolerance(address pair) external pure returns (uint16);
 
     function getTokenLimitMin(address token) external pure returns (uint256);
 
-    function getTokenLimitMaxMultiplier(address token) external pure returns (uint256);
+    function getTokenLimitMaxMultiplier(address token)
+        external
+        pure
+        returns (uint256);
 
     function getTwapInterval(address pair) external pure returns (uint32);
 
@@ -335,7 +370,10 @@ interface ITwapRelayer {
         uint32 submitDeadline;
     }
 
-    function sell(SellParams memory sellParams) external payable returns (uint256 orderId);
+    function sell(SellParams memory sellParams)
+        external
+        payable
+        returns (uint256 orderId);
 
     struct BuyParams {
         address tokenIn;
@@ -347,18 +385,20 @@ interface ITwapRelayer {
         uint32 submitDeadline;
     }
 
-    function buy(BuyParams memory buyParams) external payable returns (uint256 orderId);
+    function buy(BuyParams memory buyParams)
+        external
+        payable
+        returns (uint256 orderId);
 
     function getPriceByPairAddress(address pair, bool inverted)
         external
         view
-        returns (
-            uint8 xDecimals,
-            uint8 yDecimals,
-            uint256 price
-        );
+        returns (uint8 xDecimals, uint8 yDecimals, uint256 price);
 
-    function getPriceByTokenAddresses(address tokenIn, address tokenOut) external view returns (uint256 price);
+    function getPriceByTokenAddresses(address tokenIn, address tokenOut)
+        external
+        view
+        returns (uint256 price);
 
     function getPoolState(address token0, address token1)
         external
@@ -372,29 +412,19 @@ interface ITwapRelayer {
             uint256 limitMax1
         );
 
-    function quoteSell(
-        address tokenIn,
-        address tokenOut,
-        uint256 amountIn
-    ) external view returns (uint256 amountOut);
+    function quoteSell(address tokenIn, address tokenOut, uint256 amountIn)
+        external
+        view
+        returns (uint256 amountOut);
 
-    function quoteBuy(
-        address tokenIn,
-        address tokenOut,
-        uint256 amountOut
-    ) external view returns (uint256 amountIn);
+    function quoteBuy(address tokenIn, address tokenOut, uint256 amountOut)
+        external
+        view
+        returns (uint256 amountIn);
 
-    function approve(
-        address token,
-        uint256 amount,
-        address to
-    ) external;
+    function approve(address token, uint256 amount, address to) external;
 
-    function withdraw(
-        address token,
-        uint256 amount,
-        address to
-    ) external;
+    function withdraw(address token, uint256 amount, address to) external;
 
     function rebalanceSellWithDelay(
         address tokenIn,
@@ -412,12 +442,17 @@ interface ITwapRelayer {
 }
 
 interface ITwapFactory {
-    event PairCreated(address indexed token0, address indexed token1, address pair, uint256);
+    event PairCreated(
+        address indexed token0, address indexed token1, address pair, uint256
+    );
     event OwnerSet(address owner);
 
     function owner() external view returns (address);
 
-    function getPair(address tokenA, address tokenB) external view returns (address pair);
+    function getPair(address tokenA, address tokenB)
+        external
+        view
+        returns (address pair);
 
     function allPairs(uint256) external view returns (address pair);
 
@@ -432,41 +467,19 @@ interface ITwapFactory {
 
     function setOwner(address) external;
 
-    function setMintFee(
-        address tokenA,
-        address tokenB,
-        uint256 fee
-    ) external;
+    function setMintFee(address tokenA, address tokenB, uint256 fee) external;
 
-    function setBurnFee(
-        address tokenA,
-        address tokenB,
-        uint256 fee
-    ) external;
+    function setBurnFee(address tokenA, address tokenB, uint256 fee) external;
 
-    function setSwapFee(
-        address tokenA,
-        address tokenB,
-        uint256 fee
-    ) external;
+    function setSwapFee(address tokenA, address tokenB, uint256 fee) external;
 
-    function setOracle(
-        address tokenA,
-        address tokenB,
-        address oracle
-    ) external;
+    function setOracle(address tokenA, address tokenB, address oracle)
+        external;
 
-    function setTrader(
-        address tokenA,
-        address tokenB,
-        address trader
-    ) external;
+    function setTrader(address tokenA, address tokenB, address trader)
+        external;
 
-    function collect(
-        address tokenA,
-        address tokenB,
-        address to
-    ) external;
+    function collect(address tokenA, address tokenB, address to) external;
 
     function withdraw(
         address tokenA,
@@ -491,20 +504,39 @@ interface ITwapERC20 is IERC20 {
         bytes32 s
     ) external;
 
-    function increaseAllowance(address spender, uint256 addedValue) external returns (bool);
+    function increaseAllowance(address spender, uint256 addedValue)
+        external
+        returns (bool);
 
-    function decreaseAllowance(address spender, uint256 subtractedValue) external returns (bool);
+    function decreaseAllowance(address spender, uint256 subtractedValue)
+        external
+        returns (bool);
 }
 
 interface IReserves {
-    function getReserves() external view returns (uint112 reserve0, uint112 reserve1);
+    function getReserves()
+        external
+        view
+        returns (uint112 reserve0, uint112 reserve1);
 
     function getFees() external view returns (uint256 fee0, uint256 fee1);
 }
 
 interface ITwapPair is ITwapERC20, IReserves {
-    event Mint(address indexed sender, uint256 amount0In, uint256 amount1In, uint256 liquidityOut, address indexed to);
-    event Burn(address indexed sender, uint256 amount0Out, uint256 amount1Out, uint256 liquidityIn, address indexed to);
+    event Mint(
+        address indexed sender,
+        uint256 amount0In,
+        uint256 amount1In,
+        uint256 liquidityOut,
+        address indexed to
+    );
+    event Burn(
+        address indexed sender,
+        uint256 amount0Out,
+        uint256 amount1Out,
+        uint256 liquidityIn,
+        address indexed to
+    );
     event Swap(
         address indexed sender,
         uint256 amount0In,
@@ -541,7 +573,9 @@ interface ITwapPair is ITwapERC20, IReserves {
 
     function setBurnFee(uint256 fee) external;
 
-    function burn(address to) external returns (uint256 amount0, uint256 amount1);
+    function burn(address to)
+        external
+        returns (uint256 amount0, uint256 amount1);
 
     function swapFee() external view returns (uint256);
 
@@ -569,15 +603,33 @@ interface ITwapPair is ITwapERC20, IReserves {
         address _trader
     ) external;
 
-    function getSwapAmount0In(uint256 amount1Out, bytes calldata data) external view returns (uint256 swapAmount0In);
+    function getSwapAmount0In(uint256 amount1Out, bytes calldata data)
+        external
+        view
+        returns (uint256 swapAmount0In);
 
-    function getSwapAmount1In(uint256 amount0Out, bytes calldata data) external view returns (uint256 swapAmount1In);
+    function getSwapAmount1In(uint256 amount0Out, bytes calldata data)
+        external
+        view
+        returns (uint256 swapAmount1In);
 
-    function getSwapAmount0Out(uint256 amount1In, bytes calldata data) external view returns (uint256 swapAmount0Out);
+    function getSwapAmount0Out(uint256 amount1In, bytes calldata data)
+        external
+        view
+        returns (uint256 swapAmount0Out);
 
-    function getSwapAmount1Out(uint256 amount0In, bytes calldata data) external view returns (uint256 swapAmount1Out);
+    function getSwapAmount1Out(uint256 amount0In, bytes calldata data)
+        external
+        view
+        returns (uint256 swapAmount1Out);
 
-    function getDepositAmount0In(uint256 amount0, bytes calldata data) external view returns (uint256 depositAmount0In);
+    function getDepositAmount0In(uint256 amount0, bytes calldata data)
+        external
+        view
+        returns (uint256 depositAmount0In);
 
-    function getDepositAmount1In(uint256 amount1, bytes calldata data) external view returns (uint256 depositAmount1In);
+    function getDepositAmount1In(uint256 amount1, bytes calldata data)
+        external
+        view
+        returns (uint256 depositAmount1In);
 }
