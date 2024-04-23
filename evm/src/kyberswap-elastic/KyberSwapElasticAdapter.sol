@@ -2,9 +2,23 @@
 pragma solidity ^0.8.13;
 
 import {ISwapAdapter} from "src/interfaces/ISwapAdapter.sol";
+import {
+    IERC20,
+    SafeERC20
+} from "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 
 /// @title KyberSwap Elastic Adapter
 contract KyberSwapElasticAdapter is ISwapAdapter {
+    using SafeERC20 for IERC20;
+
+    IElasticFactory elasticFactory;
+    IPoolOracle poolOracle;
+
+    constructor(address _elasticFactory) {
+        elasticFactory = IElasticFactory(_elasticFactory);
+        poolOracle = elasticFactory.poolOracle();
+    }
+
     function price(
         bytes32 _poolId,
         address _sellToken,
@@ -52,4 +66,19 @@ contract KyberSwapElasticAdapter is ISwapAdapter {
     {
         revert NotImplemented("KyberSwapElasticAdapter.getPoolIds");
     }
+}
+
+interface IPoolOracle {
+  function observeFromPool(
+    address pool,
+    uint32[] memory secondsAgos
+  )
+    external view
+    returns (int56[] memory tickCumulatives);
+}
+
+interface IElasticFactory {
+    function poolOracle() external view returns (address);
+    
+    function getPool(address token0, address token1, uint24 swapFee) external view returns (address);
 }
