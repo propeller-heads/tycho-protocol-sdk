@@ -3,37 +3,34 @@ pragma experimental ABIEncoderV2;
 pragma solidity ^0.8.13;
 
 import {IERC20, ISwapAdapter} from "src/interfaces/ISwapAdapter.sol";
+import {ERC20} from "openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
 import {SafeERC20} from "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 
-/// @dev custom RESERVE_LIMIT_FACTOR for limits for this adapter(underestimate)
-uint256 constant RESERVE_LIMIT_FACTOR = 10;
-
-/// @title Curve Finance Adapter
-contract CurveAdapter is ISwapAdapter {
+/// @title Curve Finance CryptoSwap Adapter
+contract CurveCryptoSwapAdapter {
     using SafeERC20 for IERC20;
 
-    ICurveRegistry public registry;
+    ICurveRegistry immutable registry;
 
     constructor(address _registry) {
         registry = ICurveRegistry(_registry);
     }
 
     /// @inheritdoc ISwapAdapter
+    /**
+     * @dev It is not possible to reproduce the swap in a view mode (like
+     * Bancor, Uniswap v2, etc..) as the swap produce a change of storage in
+     * the Curve protocol, that impacts the price post trade. Due to the
+     * architecture of Curve, it's not possible to calculate the storage
+     * modifications of Curve inside the adapter.
+     */
     function price(
         bytes32 _poolId,
         IERC20 _sellToken,
         IERC20 _buyToken,
         uint256[] memory _specifiedAmounts
-    ) external virtual view override returns (Fraction[] memory _prices) {
-        address poolAddress = address(bytes20(_poolId));
-        ICurvePlainPool pool = ICurvePlainPool(poolAddress);
-        (int128 sellTokenIndex, int128 buyTokenIndex,) =
-            registry.get_coin_indices(poolAddress, address(_sellToken), address(_buyToken));
-        _prices = new Fraction[](_specifiedAmounts.length);
-
-        for(uint256 i = 0; i < _specifiedAmounts.length; i++) {
-            _prices[i] = getPriceAt(pool, _specifiedAmounts[i], sellTokenIndex, buyTokenIndex);
-        }
+    ) external view override returns (Fraction[] memory _prices) {
+        revert NotImplemented("CurveStableSwapAdapter.price");
     }
 
     /// @inheritdoc ISwapAdapter
@@ -43,25 +40,27 @@ contract CurveAdapter is ISwapAdapter {
         IERC20 buyToken,
         OrderSide side,
         uint256 specifiedAmount
-    ) external virtual override returns (Trade memory trade) {
+    ) external override returns (Trade memory trade) {
         if (specifiedAmount == 0) {
             return trade;
         }
         address poolAddress = address(bytes20(poolId));
-        ICurvePlainPool pool = ICurvePlainPool(poolAddress);
+        ICurveCryptoPool pool = ICurveCryptoPool(poolAddress);
         (int128 sellTokenIndex, int128 buyTokenIndex,) =
             registry.get_coin_indices(poolAddress, address(sellToken), address(buyToken));
         uint256 gasBefore = gasleft();
+        uint256 sellTokenIndexFixed = uint256(uint128(sellTokenIndex));
+        uint256 buyTokenIndexFixed = uint256(uint128(buyTokenIndex));
 
         if(side == OrderSide.Sell) {
             trade.calculatedAmount =
-                sell(pool, sellToken, buyToken, sellTokenIndex, buyTokenIndex, specifiedAmount);
+                sell(pool, sellToken, buyToken, sellTokenIndexFixed, buyTokenIndexFixed, specifiedAmount);
         }
         else {
             revert Unavailable("OrderSide.Buy is not available for this adapter");
         }
         trade.gasUsed = gasBefore - gasleft();
-        trade.price = getPriceAt(pool, specifiedAmount, sellTokenIndex, buyTokenIndex);
+        trade.price = getPriceAt(pool, sellTokenIndexFixed, buyTokenIndexFixed);
     }
 
     /// @inheritdoc ISwapAdapter
@@ -90,9 +89,8 @@ contract CurveAdapter is ISwapAdapter {
         override
         returns (Capability[] memory capabilities)
     {
-        capabilities = new Capability[](3);
+        capabilities = new Capability[](1);
         capabilities[0] = Capability.SellOrder;
-        capabilities[2] = Capability.PriceFunction;
     }
 
     /// @inheritdoc ISwapAdapter
@@ -103,9 +101,16 @@ contract CurveAdapter is ISwapAdapter {
         returns (IERC20[] memory tokens)
     {
         address[8] memory coins = registry.get_coins(address(bytes20(poolId)));
-        tokens = new IERC20[](coins.length);
+        uint256 coinsLength;
         for(uint256 i = 0; i < coins.length; i++) {
-            tokens[i] = IERC20(coins[i]);
+            if(coins[i] == address(0)) {
+                break;
+            }
+            coinsLength++;
+        }
+        tokens = new IERC20[](coinsLength);
+        for(uint256 j = 0; j < coinsLength; j++) {
+            tokens[j] = IERC20(coins[j]);
         }
     }
 
@@ -132,16 +137,16 @@ contract CurveAdapter is ISwapAdapter {
     /// @param sellTokenIndex The index of token in the pool being sold.
     /// @param buyTokenIndex The index of token being sold among the pool tokens
     /// @return The price as a fraction corresponding to the provided amount.
-    function getPriceAt(ICurvePlainPool pool, uint256 amountIn, int128 sellTokenIndex, int128 buyTokenIndex)
+    function getPriceAt(ICurveCryptoPool pool, uint256 sellTokenIndex, uint256 buyTokenIndex)
         internal
         view
         returns (Fraction memory)
     {
+        uint256 amountIn = pool.balances(sellTokenIndex) / 100000;
         return Fraction(
             pool.get_dy(sellTokenIndex, buyTokenIndex, amountIn),
-            amountIn
+            amountIn 
         );
-
     }
 
     /// @notice Executes a sell order on a given pool.
@@ -153,31 +158,28 @@ contract CurveAdapter is ISwapAdapter {
     /// @param amount The amount to be traded.
     /// @return calculatedAmount The amount of tokens received.
     function sell(
-        ICurvePlainPool pool,
+        ICurveCryptoPool pool,
         IERC20 sellToken,
         IERC20 buyToken,
-        int128 sellTokenIndex,
-        int128 buyTokenIndex,
+        uint256 sellTokenIndex,
+        uint256 buyTokenIndex,
         uint256 amount
     ) internal returns (uint256 calculatedAmount) {
-        uint256 buyTokenBalBefore = buyToken.balanceOf(address(this));
-
-        sellToken.approve(address(pool), amount);
         sellToken.safeTransferFrom(msg.sender, address(this), amount);
+        sellToken.safeIncreaseAllowance(address(pool), amount);
 
-        pool.exchange(sellTokenIndex, buyTokenIndex, amount, 0);
-        calculatedAmount = buyToken.balanceOf(address(this)) - buyTokenBalBefore;
+        calculatedAmount = pool.exchange(sellTokenIndex, buyTokenIndex, amount, 0);
         buyToken.safeTransfer(address(msg.sender), calculatedAmount);
     }
 }
 
 /// @dev Wrapped ported version of Curve Plain Pool to Solidity
 /// For params informations see: https://docs.curve.fi/stableswap-exchange/stableswap/pools/plain_pools/
-interface ICurvePlainPool {
+interface ICurveCryptoPool {
 
-    function exchange(int128 i, int128 j, uint256 dx, uint256 min_dy) external;
+    function exchange(uint256 i, uint256 j, uint256 dx, uint256 min_dy) external returns (uint256);
 
-    function get_dy(int128 i, int128 j, uint256 dx) external view returns (uint256);
+    function get_dy(uint256 i, uint256 j, uint256 dx) external view returns (uint256);
 
     function balances(uint256 arg0) external view returns (uint256);
 
