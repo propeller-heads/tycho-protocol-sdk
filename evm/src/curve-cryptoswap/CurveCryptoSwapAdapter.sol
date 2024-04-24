@@ -52,9 +52,9 @@ contract CurveCryptoSwapAdapter is ISwapAdapter {
         ICurveCryptoPool pool = ICurveCryptoPool(poolAddress);
         (int128 sellTokenIndex, int128 buyTokenIndex,) =
             registry.get_coin_indices(poolAddress, sellToken, buyToken);
-        uint256 gasBefore = gasleft();
         uint256 sellTokenIndexFixed = uint256(uint128(sellTokenIndex));
         uint256 buyTokenIndexFixed = uint256(uint128(buyTokenIndex));
+        uint256 gasBefore = gasleft();
 
         if (side == OrderSide.Sell) {
             trade.calculatedAmount = sell(
@@ -174,11 +174,12 @@ contract CurveCryptoSwapAdapter is ISwapAdapter {
         uint256 buyTokenIndex,
         uint256 amount
     ) internal returns (uint256 calculatedAmount) {
+        uint256 buyTokenBalBefore = buyToken.balanceOf(address(this));
         sellToken.safeTransferFrom(msg.sender, address(this), amount);
         sellToken.safeIncreaseAllowance(address(pool), amount);
 
-        calculatedAmount =
-            pool.exchange(sellTokenIndex, buyTokenIndex, amount, 0);
+        pool.exchange(sellTokenIndex, buyTokenIndex, amount, 0);
+        calculatedAmount = buyToken.balanceOf(address(this)) - buyTokenBalBefore;
         buyToken.safeTransfer(address(msg.sender), calculatedAmount);
     }
 }
@@ -188,8 +189,7 @@ contract CurveCryptoSwapAdapter is ISwapAdapter {
 /// https://docs.curve.fi/stableswap-exchange/stableswap/pools/plain_pools/
 interface ICurveCryptoPool {
     function exchange(uint256 i, uint256 j, uint256 dx, uint256 min_dy)
-        external
-        returns (uint256);
+        external;
 
     function get_dy(uint256 i, uint256 j, uint256 dx)
         external

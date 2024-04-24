@@ -177,11 +177,12 @@ contract CurveStableSwapAdapter is ISwapAdapter {
         int128 buyTokenIndex,
         uint256 amount
     ) internal returns (uint256 calculatedAmount) {
+        uint256 buyTokenBalBefore = buyToken.balanceOf(address(this));
         sellToken.safeTransferFrom(msg.sender, address(this), amount);
         sellToken.safeIncreaseAllowance(address(pool), amount);
 
-        calculatedAmount =
-            pool.exchange(sellTokenIndex, buyTokenIndex, amount, 0);
+        pool.exchange(sellTokenIndex, buyTokenIndex, amount, 0);
+        calculatedAmount = buyToken.balanceOf(address(this)) - buyTokenBalBefore;
         buyToken.safeTransfer(address(msg.sender), calculatedAmount);
     }
 }
@@ -191,8 +192,7 @@ contract CurveStableSwapAdapter is ISwapAdapter {
 /// https://docs.curve.fi/stableswap-exchange/stableswap/pools/plain_pools/
 interface ICurveStablePool {
     function exchange(int128 i, int128 j, uint256 dx, uint256 min_dy)
-        external
-        returns (uint256);
+        external;
 
     function get_dy(int128 i, int128 j, uint256 dx)
         external
