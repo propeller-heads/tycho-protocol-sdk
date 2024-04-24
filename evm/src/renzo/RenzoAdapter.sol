@@ -176,8 +176,11 @@ contract RenzoAdapter is ISwapAdapter {
         uint256 ezETHToMint = renzoOracle.calculateMintAmount(
             totalTVL, collateralTokenValue, ezETH.totalSupply()
         );
+        uint256 ezETHPostTrade = renzoOracle.calculateMintAmount(
+            totalTVL + collateralTokenValue, collateralTokenValue, ezETH.totalSupply()
+        );
 
-        return Fraction(ezETHToMint, amount);
+        return Fraction(ezETHPostTrade, amount);
     }
 
     /// @notice Executes a sell(mint) order on the contract.
