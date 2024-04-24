@@ -44,13 +44,8 @@ contract CurveStableSwapAdapterTest is Test, ISwapAdapterTypes {
         uint256 usdc_balance = IERC20(USDC).balanceOf(address(this));
         uint256 USDT_balance = IERC20(USDT).balanceOf(address(this));
 
-        Trade memory trade = adapter.swap(
-            pair,
-            USDC,
-            USDT,
-            side,
-            specifiedAmount
-        );
+        Trade memory trade =
+            adapter.swap(pair, USDC, USDT, side, specifiedAmount);
 
         if (trade.calculatedAmount > 0) {
             if (side == OrderSide.Buy) {
@@ -100,10 +95,7 @@ contract CurveStableSwapAdapterTest is Test, ISwapAdapterTypes {
         }
 
         for (uint256 i = 1; i < TEST_ITERATIONS - 1; i++) {
-            assertLe(
-                trades[i].calculatedAmount,
-                trades[i + 1].calculatedAmount
-            );
+            assertLe(trades[i].calculatedAmount, trades[i + 1].calculatedAmount);
             assertLe(trades[i].gasUsed, trades[i + 1].gasUsed);
             assertEq(trades[i].price.compareFractions(trades[i + 1].price), 1);
         }

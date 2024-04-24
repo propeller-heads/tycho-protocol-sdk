@@ -30,7 +30,7 @@ contract CurveCryptoSwapAdapterTest is Test, ISwapAdapterTypes {
         vm.label(WETH_TRIPOOL, "WETH_TRIPOOL");
     }
 
-    function testSwapFuzzCurveStableSwap(uint256 specifiedAmount) public {
+    function testSwapFuzzCurveCryptoSwap(uint256 specifiedAmount) public {
         OrderSide side = OrderSide.Sell;
 
         bytes32 pair = bytes32(bytes20(WETH_TRIPOOL));
@@ -44,13 +44,8 @@ contract CurveCryptoSwapAdapterTest is Test, ISwapAdapterTypes {
         uint256 WETH_balance = IERC20(WETH).balanceOf(address(this));
         uint256 USDT_balance = IERC20(USDT).balanceOf(address(this));
 
-        Trade memory trade = adapter.swap(
-            pair,
-            WETH,
-            USDT,
-            side,
-            specifiedAmount
-        );
+        Trade memory trade =
+            adapter.swap(pair, WETH, USDT, side, specifiedAmount);
 
         if (trade.calculatedAmount > 0) {
             if (side == OrderSide.Buy) {
@@ -75,7 +70,7 @@ contract CurveCryptoSwapAdapterTest is Test, ISwapAdapterTypes {
         }
     }
 
-    function testSwapSellIncreasingCurveStableSwap() public {
+    function testSwapSellIncreasingCurveCryptoSwap() public {
         executeIncreasingSwaps(OrderSide.Sell);
     }
 
@@ -100,15 +95,12 @@ contract CurveCryptoSwapAdapterTest is Test, ISwapAdapterTypes {
         }
 
         for (uint256 i = 1; i < TEST_ITERATIONS - 1; i++) {
-            assertLe(
-                trades[i].calculatedAmount,
-                trades[i + 1].calculatedAmount
-            );
+            assertLe(trades[i].calculatedAmount, trades[i + 1].calculatedAmount);
             assertEq(trades[i].price.compareFractions(trades[i + 1].price), 1);
         }
     }
 
-    function testGetCapabilitiesCurveStableSwap(
+    function testGetCapabilitiesCurveCryptoSwap(
         bytes32 pair,
         address t0,
         address t1
@@ -118,21 +110,21 @@ contract CurveCryptoSwapAdapterTest is Test, ISwapAdapterTypes {
         assertEq(res.length, 1);
     }
 
-    function testGetTokensCurveStableSwap() public {
+    function testGetTokensCurveCryptoSwap() public {
         bytes32 pair = bytes32(bytes20(WETH_TRIPOOL));
         address[] memory tokens = adapter.getTokens(pair);
 
         assertGe(tokens.length, 2);
     }
 
-    function testGetPoolIdsCurveStableSwap() public {
+    function testGetPoolIdsCurveCryptoSwap() public {
         bytes32 pair = bytes32(bytes20(WETH_TRIPOOL));
         bytes32[] memory poolIds = adapter.getPoolIds(0, 2);
 
         assertEq(poolIds.length, 2);
     }
 
-    function testGetLimitsCurveStableSwap() public {
+    function testGetLimitsCurveCryptoSwap() public {
         bytes32 pair = bytes32(bytes20(WETH_TRIPOOL));
         uint256[] memory limits = adapter.getLimits(pair, WETH, USDT);
 
