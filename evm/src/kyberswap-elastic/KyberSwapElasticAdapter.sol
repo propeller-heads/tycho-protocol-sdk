@@ -12,6 +12,9 @@ import {
 contract KyberSwapElasticAdapter is ISwapAdapter {
     using SafeERC20 for IERC20;
 
+    /// @dev custom limit factor for limits/reserves
+    uint256 RESERVE_LIMIT_FACTOR = 10;
+
     IElasticFactory elasticFactory;
     IPoolOracle poolOracle;
 
@@ -45,11 +48,15 @@ contract KyberSwapElasticAdapter is ISwapAdapter {
         revert NotImplemented("KyberSwapElasticAdapter.swap");
     }
 
+    /// @inheritdoc ISwapAdapter
     function getLimits(bytes32 poolId, address sellToken, address buyToken)
         external
         returns (uint256[] memory limits)
     {
-        revert NotImplemented("KyberSwapElasticAdapter.getLimits");
+        address poolAddress = address(bytes20(poolId));
+        limits = new uint256[](2);
+        limits[0] = IERC20(sellToken).balanceOf(poolAddress) / RESERVE_LIMIT_FACTOR;
+        limits[1] = IERC20(buyToken).balanceOf(poolAddress) / RESERVE_LIMIT_FACTOR;
     }
 
     function getCapabilities(
