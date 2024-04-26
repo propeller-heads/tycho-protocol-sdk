@@ -2,6 +2,7 @@
 pragma solidity ^0.8.13;
 
 import {ISwapAdapter} from "src/interfaces/ISwapAdapter.sol";
+import {ERC20} from "openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
 import {
     IERC20,
     SafeERC20
@@ -16,7 +17,7 @@ contract KyberSwapElasticAdapter is ISwapAdapter {
 
     constructor(address _elasticFactory) {
         elasticFactory = IElasticFactory(_elasticFactory);
-        poolOracle = elasticFactory.poolOracle();
+        poolOracle = IPoolOracle(elasticFactory.poolOracle());
     }
 
     function price(
@@ -25,7 +26,13 @@ contract KyberSwapElasticAdapter is ISwapAdapter {
         address _buyToken,
         uint256[] memory _specifiedAmounts
     ) external view override returns (Fraction[] memory _prices) {
-        revert NotImplemented("KyberSwapElasticAdapter.price");
+        address poolAddress = address(bytes20(_poolId));
+        _prices = new Fraction[](_specifiedAmounts.length);
+        Fraction memory uniformPrice = getPriceAt(poolAddress, _sellToken, _buyToken);
+
+        for (uint256 i = 0; i < _specifiedAmounts.length; i++) {
+            _prices[i] = uniformPrice;
+        }
     }
 
     function swap(
@@ -66,6 +73,29 @@ contract KyberSwapElasticAdapter is ISwapAdapter {
     {
         revert NotImplemented("KyberSwapElasticAdapter.getPoolIds");
     }
+
+    /// @notice Get price for a given pair
+    /// @dev Since KyberSwapElastic uses an Oracle, prices are always independant of the amount
+    /// @param poolAddress address of the pool to swap in
+    /// @param sellToken address of the token to sell
+    /// @param buyToken address of the token to buy
+    function getPriceAt(address poolAddress, address sellToken, address buyToken) internal view returns (Fraction memory) {
+        uint32[] memory secondsAgos = new uint32[](1);
+        secondsAgos[0] = 0;
+        int56[] memory prices = poolOracle.observeFromPool(poolAddress, secondsAgos);
+        if(sellToken == IElasticPool(poolAddress).token0()) {
+            return Fraction(
+                ERC20(buyToken).decimals(), // 1 token
+                uint256(uint56(prices[0]))
+            );
+        }
+        else {
+            return Fraction(
+                uint256(uint56(prices[0])),
+                ERC20(sellToken).decimals() // 1 token
+            );
+        }
+    }
 }
 
 interface IPoolOracle {
@@ -81,4 +111,9 @@ interface IElasticFactory {
     function poolOracle() external view returns (address);
     
     function getPool(address token0, address token1, uint24 swapFee) external view returns (address);
+}
+
+interface IElasticPool {
+    function token0() external view returns (address);
+    function token1() external view returns (address);
 }
