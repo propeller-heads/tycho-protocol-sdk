@@ -1,7 +1,7 @@
 # information about the author helps us reach out in case of issues.
 author:
-  name: Propellerheads.xyz
-  email: alan@propellerheads.xyz
+  name: shadowycoders.dev
+  email: hello@shadowycreators.com
 
 # Protocol Constants
 constants:
@@ -11,7 +11,6 @@ constants:
   capabilities:
     - SellSide
     - BuySide
-    - PriceFunction
 
 # The file containing the adapter contract
 contract: KyberSwapElasticAdapter.sol
