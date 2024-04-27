@@ -27,41 +27,21 @@ contract KyberSwapElasticAdapter is ISwapAdapter {
     uint160 constant MAX_SQRT_RATIO = 1461446703485210103287273052203988822378723970342;
 
     IElasticFactory elasticFactory;
-    IPoolOracle poolOracle;
 
     constructor(address _elasticFactory) {
         elasticFactory = IElasticFactory(_elasticFactory);
-        poolOracle = IPoolOracle(elasticFactory.poolOracle());
     }
 
     /// @inheritdoc ISwapAdapter
-    /// @dev Price(tick) in KyberSwap Elastic only changes if input and specifiedAmount are in token0 of the pair
-    /// @dev Obtaining Post-trade price without executing a swap is not possible in case of sellToken == _token0 because
-    /// The function _updateLiquidityAndCrossTick necessary to get the required data updates internal storage.
+    /// @dev Price(tick) in KyberSwap Elastic is obtained externally from oracle, which only serves an average Price/Tick between timespans
+    /// Therefore is not accurate.
     function price(
         bytes32 _poolId,
         address _sellToken,
         address _buyToken,
         uint256[] memory _specifiedAmounts
     ) external view override returns (Fraction[] memory _prices) {
-        address poolAddress = address(bytes20(_poolId));
-        _prices = new Fraction[](_specifiedAmounts.length);
-
-        if(IElasticPool(poolAddress).token0() == _sellToken) {
-            revert Unavailable("Price for the required pair is not available as token0 in the pair is sellToken");
-        }
-        else { // Constant (independent) price
-            Fraction memory uniformPrice = getPriceAt(
-                poolAddress,
-                _sellToken,
-                _buyToken
-            );
-            for (uint256 i = 0; i < _specifiedAmounts.length; i++) {
-                _prices[i] = uniformPrice;
-            }
-        }
-
-
+        revert NotImplemented("KyberSwapElasticAdapter.price");
     }
 
     /// @inheritdoc ISwapAdapter
@@ -87,7 +67,6 @@ contract KyberSwapElasticAdapter is ISwapAdapter {
                 buy(pool, sellToken, buyToken, specifiedAmount);
         }
         trade.gasUsed = gasBefore - gasleft();
-        trade.price = getPriceAt(poolAddress, sellToken, buyToken);
     }
 
     /// @inheritdoc ISwapAdapter
@@ -106,12 +85,16 @@ contract KyberSwapElasticAdapter is ISwapAdapter {
             RESERVE_LIMIT_FACTOR;
     }
 
-    function getCapabilities(
-        bytes32 poolId,
-        address sellToken,
-        address buyToken
-    ) external returns (Capability[] memory capabilities) {
-        revert NotImplemented("KyberSwapElasticAdapter.getCapabilities");
+    /// @inheritdoc ISwapAdapter
+    function getCapabilities(bytes32, address, address)
+        external
+        pure
+        override
+        returns (Capability[] memory capabilities)
+    {
+        capabilities = new Capability[](2);
+        capabilities[0] = Capability.SellOrder;
+        capabilities[1] = Capability.BuyOrder;
     }
 
     /// @inheritdoc ISwapAdapter
@@ -129,37 +112,6 @@ contract KyberSwapElasticAdapter is ISwapAdapter {
         uint256 limit
     ) external returns (bytes32[] memory ids) {
         revert NotImplemented("KyberSwapElasticAdapter.getPoolIds");
-    }
-
-    /// @notice Get price for a given pair
-    /// @dev Since KyberSwapElastic uses an Oracle, prices are always independent of the amount
-    /// @param poolAddress address of the pool to swap in
-    /// @param sellToken address of the token to sell
-    /// @param buyToken address of the token to buy
-    function getPriceAt(
-        address poolAddress,
-        address sellToken,
-        address buyToken
-    ) internal view returns (Fraction memory) {
-        uint32[] memory secondsAgos = new uint32[](1);
-        secondsAgos[0] = 0;
-        int56[] memory prices = poolOracle.observeFromPool(
-            poolAddress,
-            secondsAgos
-        );
-        if (sellToken == IElasticPool(poolAddress).token0()) {
-            return
-                Fraction(
-                    ERC20(buyToken).decimals(), // 1 token
-                    uint256(uint56(prices[0]))
-                );
-        } else {
-            return
-                Fraction(
-                    uint256(uint56(prices[0])),
-                    ERC20(sellToken).decimals() // 1 token
-                );
-        }
     }
 
     /// @notice Execute a sell order on a given pool
@@ -189,15 +141,7 @@ contract KyberSwapElasticAdapter is ISwapAdapter {
     }
 }
 
-interface IPoolOracle {
-    function observeFromPool(
-        address pool,
-        uint32[] memory secondsAgos
-    ) external view returns (int56[] memory tickCumulatives);
-}
-
 interface IElasticFactory {
-    function poolOracle() external view returns (address);
 
     function getPool(
         address token0,
