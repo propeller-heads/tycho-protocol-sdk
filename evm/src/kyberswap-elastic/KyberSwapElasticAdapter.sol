@@ -133,10 +133,16 @@ contract KyberSwapElasticAdapter is ISwapAdapter {
     /// @param specifiedAmount amount of buyToken to buy
     /// @return (uint256) sellToken amount spent
     function buy(IElasticPool pool, address sellToken, address buyToken, uint256 specifiedAmount) internal returns (uint256) {
-        bool isToken0 = pool.token0() == sellToken;
-        uint160 limitSqrtP = isToken0 ? MIN_SQRT_RATIO+1 : MAX_SQRT_RATIO-1;
+        bool isToken0 = pool.token0() == buyToken;
+        (
+            uint160 sqrtP,
+            ,
+            ,
+        ) = pool.getPoolState();
+        bool willUpTick = (specifiedAmount > 0) != isToken0;
+        uint160 limitSqrtP = willUpTick ? sqrtP+1 : sqrtP-1;
         uint256 balBefore = IERC20(sellToken).balanceOf(address(this));
-        pool.swap(msg.sender, - int256(specifiedAmount), isToken0, limitSqrtP, "");
+        pool.swap(msg.sender, -int256(specifiedAmount), isToken0, limitSqrtP, "");
         return balBefore - IERC20(sellToken).balanceOf(address(this));
     }
 }
