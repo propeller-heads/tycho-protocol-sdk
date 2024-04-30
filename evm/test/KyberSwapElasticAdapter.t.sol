@@ -20,8 +20,9 @@ contract KyberSwapElasticAdapterTest is Test, ISwapAdapterTypes {
     function setUp() public {
         uint256 forkBlock = 18384222;
         vm.createSelectFork(vm.rpcUrl("mainnet"), forkBlock);
-        adapter =
-            new KyberSwapElasticAdapter(0xC7a590291e07B9fe9E64b86c58fD8fC764308C4A);
+        adapter = new KyberSwapElasticAdapter(
+            0xC7a590291e07B9fe9E64b86c58fD8fC764308C4A
+        );
 
         vm.label(address(adapter), "KyberSwapElasticAdapter");
         vm.label(USDC, "USDC");
@@ -29,7 +30,9 @@ contract KyberSwapElasticAdapterTest is Test, ISwapAdapterTypes {
         vm.label(DAI_USDC_PAIR, "DAI_USDC_PAIR");
     }
 
-    function testSwapFuzzKyberSwapElastic(uint256 specifiedAmount, bool isBuy) public {
+    function testSwapFuzzKyberSwapElastic(uint256 specifiedAmount, bool isBuy)
+        public
+    {
         OrderSide side = isBuy ? OrderSide.Buy : OrderSide.Sell;
 
         bytes32 pair = bytes32(bytes20(DAI_USDC_PAIR));
@@ -76,7 +79,10 @@ contract KyberSwapElasticAdapterTest is Test, ISwapAdapterTypes {
         }
     }
 
-    function testSwapFuzzKyberSwapElasticInverse(uint256 specifiedAmount, bool isBuy) public {
+    function testSwapFuzzKyberSwapElasticInverse(
+        uint256 specifiedAmount,
+        bool isBuy
+    ) public {
         OrderSide side = isBuy ? OrderSide.Buy : OrderSide.Sell;
 
         bytes32 pair = bytes32(bytes20(DAI_USDC_PAIR));
@@ -156,7 +162,11 @@ contract KyberSwapElasticAdapterTest is Test, ISwapAdapterTypes {
         executeIncreasingSwaps(OrderSide.Buy);
     }
 
-    function testGetCapabilitiesKyberSwapElastic(bytes32 pair, address t0, address t1) public {
+    function testGetCapabilitiesKyberSwapElastic(
+        bytes32 pair,
+        address t0,
+        address t1
+    ) public {
         Capability[] memory res = adapter.getCapabilities(pair, t0, t1);
 
         assertEq(res.length, 2);
