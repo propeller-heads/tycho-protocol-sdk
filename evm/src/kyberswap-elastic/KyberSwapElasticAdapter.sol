@@ -4,6 +4,7 @@ pragma solidity ^0.8.13;
 import {ISwapAdapter} from "src/interfaces/ISwapAdapter.sol";
 import {ERC20} from "openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
 import {IERC20, SafeERC20} from "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
+import "forge-std/Test.sol";
 
 struct PoolData {
     uint160 sqrtP;
@@ -19,7 +20,7 @@ contract KyberSwapElasticAdapter is ISwapAdapter {
     using SafeERC20 for IERC20;
 
     /// @dev custom limit factor for limits/reserves
-    uint256 RESERVE_LIMIT_FACTOR = 10;
+    uint256 RESERVE_LIMIT_FACTOR = 1;
 
     /// @dev The minimum value that can be returned from #getSqrtRatioAtTick. Equivalent to getSqrtRatioAtTick(MIN_TICK)
     uint160 constant MIN_SQRT_RATIO = 4295128739;
@@ -32,6 +33,26 @@ contract KyberSwapElasticAdapter is ISwapAdapter {
         elasticFactory = IElasticFactory(_elasticFactory);
     }
 
+    /// @notice Callback used by pool when executing a swap
+    /// address(pool), tokenToTransfer, deltaPosition
+    /// @dev data structure:
+    /// {
+    ///     address sender, // address of the user executing swap(initial msg.sender)
+    ///     address pool, // address of the pool
+    ///     address tokenToTransfer, // address of token to transfer to the pool
+    ///     uint8 deltaPosition // quantity to transfer is deltaQty0(0) or deltaQty1(1)  
+    /// }
+    function swapCallback(
+        int256 deltaQty0,
+        int256 deltaQty1,
+        bytes calldata data
+    ) external {
+        (
+            address msgSender, address pool, address tokenToTransfer, uint8 deltaPosition
+        ) = abi.decode(data, (address, address, address, uint8));
+        IERC20(tokenToTransfer).safeTransferFrom(msgSender, pool, deltaPosition == 0 ? uint256(deltaQty0) : uint256(deltaQty1));
+    }
+
     /// @inheritdoc ISwapAdapter
     /// @dev Price(tick) in KyberSwap Elastic is obtained externally from oracle, which only serves an average Price/Tick between timespans
     /// Therefore is not accurate.
@@ -40,7 +61,7 @@ contract KyberSwapElasticAdapter is ISwapAdapter {
         address _sellToken,
         address _buyToken,
         uint256[] memory _specifiedAmounts
-    ) external view override returns (Fraction[] memory _prices) {
+    ) external pure override returns (Fraction[] memory _prices) {
         revert NotImplemented("KyberSwapElasticAdapter.price");
     }
 
@@ -51,7 +72,7 @@ contract KyberSwapElasticAdapter is ISwapAdapter {
         address buyToken,
         OrderSide side,
         uint256 specifiedAmount
-    ) external returns (Trade memory trade) {
+    ) external override returns (Trade memory trade) {
         if (specifiedAmount == 0) {
             return trade;
         }
@@ -74,7 +95,7 @@ contract KyberSwapElasticAdapter is ISwapAdapter {
         bytes32 poolId,
         address sellToken,
         address buyToken
-    ) external returns (uint256[] memory limits) {
+    ) external view override returns (uint256[] memory limits) {
         address poolAddress = address(bytes20(poolId));
         limits = new uint256[](2);
         limits[0] =
@@ -110,7 +131,7 @@ contract KyberSwapElasticAdapter is ISwapAdapter {
     function getPoolIds(
         uint256 offset,
         uint256 limit
-    ) external returns (bytes32[] memory ids) {
+    ) external pure override returns (bytes32[] memory ids) {
         revert NotImplemented("KyberSwapElasticAdapter.getPoolIds");
     }
 
@@ -120,10 +141,15 @@ contract KyberSwapElasticAdapter is ISwapAdapter {
     /// @param specifiedAmount amount of sellToken to sell
     /// @return (uint256) buyToken amount received
     function sell(IElasticPool pool, address sellToken, address buyToken, uint256 specifiedAmount) internal returns (uint256) {
-        bool isToken0 = pool.token0() == sellToken;
-        uint160 limitSqrtP = isToken0 ? MIN_SQRT_RATIO+1 : MAX_SQRT_RATIO-1;
+        bool sellTokenIsToken0 = pool.token0() == sellToken;
+
+        // callback data for swapCallback called by pool
+        bytes memory data = abi.encode(msg.sender, address(pool), sellToken, sellTokenIsToken0 ? 0 : 1);
+
+        bool willUpTick = (specifiedAmount > 0) != sellTokenIsToken0;
+        uint160 limitSqrtP = !willUpTick ? MIN_SQRT_RATIO+1 : MAX_SQRT_RATIO-1;
         uint256 balBefore = IERC20(buyToken).balanceOf(msg.sender);
-        pool.swap(msg.sender, int256(specifiedAmount), isToken0, limitSqrtP, "");
+        pool.swap(msg.sender, int256(specifiedAmount), sellTokenIsToken0, limitSqrtP, data);
         return IERC20(buyToken).balanceOf(msg.sender) - balBefore;
     }
 
@@ -133,16 +159,20 @@ contract KyberSwapElasticAdapter is ISwapAdapter {
     /// @param specifiedAmount amount of buyToken to buy
     /// @return (uint256) sellToken amount spent
     function buy(IElasticPool pool, address sellToken, address buyToken, uint256 specifiedAmount) internal returns (uint256) {
-        bool isToken0 = pool.token0() == buyToken;
+        bool buyTokenIsToken0 = pool.token0() == buyToken;
+
+        // callback data for swapCallback called by pool
+        bytes memory data = abi.encode(msg.sender, address(pool), sellToken, buyTokenIsToken0 ? 1 : 0);
+
         (
             uint160 sqrtP,
             ,
             ,
         ) = pool.getPoolState();
-        bool willUpTick = (specifiedAmount > 0) != isToken0;
-        uint160 limitSqrtP = willUpTick ? sqrtP+1 : sqrtP-1;
+        bool willUpTick = (specifiedAmount > 0) != buyTokenIsToken0;
+        uint160 limitSqrtP = !willUpTick ? sqrtP+1 : sqrtP-1;
         uint256 balBefore = IERC20(sellToken).balanceOf(address(this));
-        pool.swap(msg.sender, -int256(specifiedAmount), isToken0, limitSqrtP, "");
+        pool.swap(msg.sender, -int256(specifiedAmount), buyTokenIsToken0, limitSqrtP, data);
         return balBefore - IERC20(sellToken).balanceOf(address(this));
     }
 }
