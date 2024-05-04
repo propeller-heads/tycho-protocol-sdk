@@ -1,5 +1,7 @@
 use crate::abi::{redeemer::events::Redeemed, swapper::events::Swap};
+use anyhow::Context;
 use itertools::Itertools;
+use serde::Deserialize;
 use std::collections::HashMap;
 use substreams::{
     hex,
@@ -11,8 +13,7 @@ use tycho_substreams::{
     balances::aggregate_balances_changes, contract::extract_contract_changes, prelude::*,
 };
 
-const ANGLE_PROXY: &[u8; 20] = &hex!("00253582b2a3FE112feEC532221d9708c64cEFAb");
-const ANGLE_IMPL: &[u8; 20] = &hex!("5d34839A3d4051f630D36e26698d53c58DD39072");
+const TRANSMUTER_PROXY: &[u8; 20] = &hex!("00253582b2a3FE112feEC532221d9708c64cEFAb");
 
 const CREATION_BLOCK_NO: u64 = 17869756;
 const CREATION_HASH: [u8; 32] =
@@ -20,6 +21,19 @@ const CREATION_HASH: [u8; 32] =
 
 const EURA_ADDR: [u8; 20] = hex!("1a7e4e63778b4f12a199c062f3efdd288afcbce8");
 const EURC_ADDR: [u8; 20] = hex!("1abaea1f7c830bd89acc67ec4af516284b1bc33c");
+
+#[derive(Debug, Deserialize)]
+struct Params {
+    creation_block_nos: Vec<u64>,
+    creation_hashes: Vec<String>,
+    proxies: Vec<String>,
+    stablecoins: Vec<String>,
+    anglecoins: Vec<String>,
+}
+
+fn parse_params(params: &str) -> Result<Params, anyhow::Error> {
+    serde_qs::from_str(params).context("Failed to parse params")
+}
 
 /// Maps the `Redeemed` and `Swap` events to `BalanceDelta`s representing the Redemptions, Mints,
 ///  and burns by the transmuter.
@@ -29,7 +43,7 @@ pub fn map_relative_balances(block: eth::v2::Block) -> Result<BlockBalanceDeltas
 
     balance_deltas.extend(
         block
-            .events::<Redeemed>(&[ANGLE_PROXY])
+            .events::<Redeemed>(&[TRANSMUTER_PROXY])
             .flat_map(|(event, log)| {
                 event
                     .tokens
@@ -39,7 +53,7 @@ pub fn map_relative_balances(block: eth::v2::Block) -> Result<BlockBalanceDeltas
                         tx: Some(log.receipt.transaction.into()),
                         token,
                         delta: event.amount.to_signed_bytes_be(),
-                        component_id: hex::encode(ANGLE_PROXY).into(),
+                        component_id: hex::encode(TRANSMUTER_PROXY).into(),
                     })
             })
             .collect::<Vec<_>>(),
@@ -49,7 +63,7 @@ pub fn map_relative_balances(block: eth::v2::Block) -> Result<BlockBalanceDeltas
     // - `token_in` and`token_out` must be a stablecoin and a collateral (or vice versa)
     balance_deltas.extend(
         block
-            .events::<Swap>(&[ANGLE_PROXY])
+            .events::<Swap>(&[TRANSMUTER_PROXY])
             .flat_map(|(event, log)| {
                 vec![
                     BalanceDelta {
@@ -57,7 +71,7 @@ pub fn map_relative_balances(block: eth::v2::Block) -> Result<BlockBalanceDeltas
                         tx: Some(log.receipt.transaction.into()),
                         token: event.token_out,
                         delta: event.amount_out.to_signed_bytes_be(),
-                        component_id: hex::encode(ANGLE_PROXY).into(),
+                        component_id: hex::encode(TRANSMUTER_PROXY).into(),
                     },
                     BalanceDelta {
                         ord: log.ordinal(),
@@ -67,7 +81,7 @@ pub fn map_relative_balances(block: eth::v2::Block) -> Result<BlockBalanceDeltas
                             .amount_in
                             .neg()
                             .to_signed_bytes_be(),
-                        component_id: hex::encode(ANGLE_PROXY).into(),
+                        component_id: hex::encode(TRANSMUTER_PROXY).into(),
                     },
                 ]
             })
@@ -84,11 +98,14 @@ pub fn store_balances(deltas: BlockBalanceDeltas, store: StoreAddBigInt) {
 
 #[substreams::handlers::map]
 fn map_protocol_changes(
+    raw_params: String,
     block: eth::v2::Block,
     deltas: BlockBalanceDeltas,
     balance_store: StoreDeltas, // Note, this map module is using the `deltas` mode for the store.
 ) -> Result<BlockContractChanges, substreams::errors::Error> {
     let mut transaction_contract_changes = HashMap::<u64, TransactionContractChanges>::new();
+
+    let params = parse_params(&raw_params);
 
     // We hardcode the addition of the transmuter as the sole `ProtocolComponent` that gets created
     if block.number == CREATION_BLOCK_NO {
@@ -108,9 +125,9 @@ fn map_protocol_changes(
                     .component_changes
                     .push(ProtocolComponent {
                         tx: Some(transaction),
-                        id: hex::encode(ANGLE_PROXY),
+                        id: hex::encode(TRANSMUTER_PROXY),
                         tokens: vec![EURC_ADDR.to_vec(), EURA_ADDR.to_vec()],
-                        contracts: vec![ANGLE_PROXY.into(), ANGLE_IMPL.into()],
+                        contracts: vec![TRANSMUTER_PROXY.into()],
                         change: ChangeType::Creation.into(),
                         static_att: vec![Attribute {
                             name: "name".into(),
@@ -134,7 +151,11 @@ fn map_protocol_changes(
         });
 
     // Most of the Transmuter's custom logic lies in the storage changes.
-    extract_contract_changes(&block, |addr| addr == ANGLE_PROXY, &mut transaction_contract_changes);
+    extract_contract_changes(
+        &block,
+        |addr| addr == TRANSMUTER_PROXY,
+        &mut transaction_contract_changes,
+    );
 
     // Assemble and ship
     Ok(BlockContractChanges {

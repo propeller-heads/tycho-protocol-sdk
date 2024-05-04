@@ -221,6 +221,8 @@ dependencies = [
  "num-bigint",
  "prost 0.11.9",
  "prost-types 0.12.3",
+ "serde",
+ "serde_qs",
  "substreams",
  "substreams-ethereum",
  "tycho-substreams",
