@@ -18,8 +18,5 @@ docs/
 .DS_STORE
 lcov.info
 
-# forge updates
-evm/lib/forge-std
-
-# openzeppelin updates
-evm/lib/openzeppelin-contracts
+# lib 
+lib/
