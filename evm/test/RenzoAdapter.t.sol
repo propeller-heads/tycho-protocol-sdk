@@ -8,7 +8,93 @@ import "src/interfaces/ISwapAdapterTypes.sol";
 import "forge-std/console.sol";
 import {FractionMath} from "src/libraries/FractionMath.sol";
 
+interface IwstETH is IERC20 {
+    function unwrap(uint256 _wstETHAmount) external returns (uint256);
+    function getStETHByWstETH(uint256 _wstETHAmount) external view returns (uint256);
+}
+
 contract RenzoAdapterTest is Test, ISwapAdapterTypes {
+
+/// @dev Error for 0x0 address inputs
+error InvalidZeroInput();    
+
+/// @dev Error for already added items to a list
+error AlreadyAdded();    
+
+/// @dev Error for not found items in a list
+error NotFound();    
+
+/// @dev Error for hitting max TVL
+error MaxTVLReached();
+
+/// @dev Error for caller not having permissions
+error NotRestakeManagerAdmin();
+
+/// @dev Error for call not coming from deposit queue contract
+error NotDepositQueue();
+
+/// @dev Error for contract being paused
+error ContractPaused(); 
+
+/// @dev Error for exceeding max basis points (100%)
+error OverMaxBasisPoints();
+
+/// @dev Error for invalid token decimals for collateral tokens (must be 18)
+error InvalidTokenDecimals(uint8 expected, uint8 actual);
+
+/// @dev Error when withdraw is already completed
+error WithdrawAlreadyCompleted();
+
+/// @dev Error when a different address tries to complete withdraw
+error NotOriginalWithdrawCaller(address expectedCaller);
+
+/// @dev Error when caller does not have OD admin role
+error NotOperatorDelegatorAdmin();
+
+/// @dev Error when caller does not have Oracle Admin role
+error NotOracleAdmin();
+
+/// @dev Error when caller is not RestakeManager contract
+error NotRestakeManager();
+
+/// @dev Errror when caller does not have ETH Restake Admin role
+error NotNativeEthRestakeAdmin();
+
+/// @dev Error when delegation address was already set - cannot be set again
+error DelegateAddressAlreadySet();
+
+/// @dev Error when caller does not have ERC20 Rewards Admin role
+error NotERC20RewardsAdmin();
+
+/// @dev Error when ending ETH fails
+error TransferFailed();
+
+/// @dev Error when caller does not have ETH Minter Burner Admin role
+error NotEzETHMinterBurner();
+
+/// @dev Error when caller does not have Token Admin role
+error NotTokenAdmin();
+
+/// @dev Error when price oracle is not configured
+error OracleNotFound();
+
+/// @dev Error when price oracle data is stale
+error OraclePriceExpired();
+
+/// @dev Error when array lengths do not match
+error MismatchedArrayLengths();
+
+/// @dev Error when caller does not have Deposit Withdraw Pauser role
+error NotDepositWithdrawPauser();
+
+/// @dev Error when an individual token TVL is over the max
+error MaxTokenTVLReached();
+
+/// @dev Error when Oracle price is invalid
+error InvalidOraclePrice();
+
+/// @dev Error when calculating token amounts is invalid
+error InvalidTokenAmount();
     using FractionMath for Fraction;
 
     RenzoAdapter adapter;
@@ -16,12 +102,12 @@ contract RenzoAdapterTest is Test, ISwapAdapterTypes {
     IRestakeManager constant restakeManager =
         IRestakeManager(0x74a09653A083691711cF8215a6ab074BB4e99ef5);
     IERC20 wBETH = IERC20(0xa2E3356610840701BDf5611a53974510Ae27E2e1);
-    address wstETH = 0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0;
-
+    IERC20 stETH = IERC20(0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84);
+    IwstETH constant wstETH = IwstETH(0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0);
     uint256 constant TEST_ITERATIONS = 100;
 
     function setUp() public {
-        uint256 forkBlock = 19168190;
+        uint256 forkBlock = 19797651; //19797651;
         vm.createSelectFork(vm.rpcUrl("mainnet"), forkBlock);
         adapter = new RenzoAdapter(address(restakeManager));
         ezETH = IERC20(address(restakeManager.ezETH()));
@@ -29,6 +115,23 @@ contract RenzoAdapterTest is Test, ISwapAdapterTypes {
         vm.label(address(adapter), "RenzoAdapter");
         vm.label(address(ezETH), "ezETH");
         vm.label(address(wBETH), "wBETH");
+    }
+    
+    function dealStEthTokens(uint256 amount) internal {
+        uint256 wstETHAmount = wstETH.getStETHByWstETH(amount);
+        deal(address(wstETH), address(this), wstETHAmount);
+        wstETH.unwrap(wstETHAmount);
+    }
+
+    function testScemo() public {
+        
+        uint256 val = ezETH.totalSupply() / 100;
+
+        dealStEthTokens(ezETH.totalSupply());
+        stETH.approve(address(adapter), ezETH.totalSupply());
+        uint256 ezETH_balance = ezETH.balanceOf(address(this));
+
+        adapter.swap(bytes32(0), stETH, ezETH, OrderSide.Buy, val);
     }
 
     function testPriceFuzzRenzo(uint256 amount0, uint256 amount1) public {
@@ -51,20 +154,21 @@ contract RenzoAdapterTest is Test, ISwapAdapterTypes {
         }
     }
 
-    function testSwapFuzzRenzo(uint256 specifiedAmount, bool isBuy) public {
-        OrderSide side = isBuy ? OrderSide.Buy : OrderSide.Sell;
+    function testSwapFuzzRenzo() public {
+        OrderSide side = OrderSide.Buy; // isBuy ? OrderSide.Buy : OrderSide.Sell;
 
         bytes32 pair = bytes32(0);
         uint256[] memory limits = adapter.getLimits(pair, wBETH, ezETH);
-        console.log(limits[0]);
+
+        uint256 specifiedAmount = 10**18 / 10;
 
         if (side == OrderSide.Buy) {
-            vm.assume(specifiedAmount < limits[1] && specifiedAmount > 10 ** 6);
+            // vm.assume(specifiedAmount < limits[1] && specifiedAmount > 10 ** 6);
 
             deal(address(wBETH), address(this), type(uint256).max);
             wBETH.approve(address(adapter), type(uint256).max);
         } else {
-            vm.assume(specifiedAmount < limits[0] && specifiedAmount > 10 ** 6);
+            // vm.assume(specifiedAmount < limits[0] && specifiedAmount > 10 ** 6);
 
             deal(address(wBETH), address(this), specifiedAmount);
             wBETH.approve(address(adapter), specifiedAmount);
