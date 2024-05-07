@@ -55,7 +55,7 @@ contract sDaiSwapAdapter is ISwapAdapter {
     }
 
     /// @inheritdoc ISwapAdapter
-    function getTokens(bytes32 poolId)
+    function getTokens(bytes32)
         external
         view
         override
@@ -66,11 +66,15 @@ contract sDaiSwapAdapter is ISwapAdapter {
         tokens[1] = address(savingsDai);
     }
 
-    function getPoolIds(uint256 offset, uint256 limit)
+    /// @inheritdoc ISwapAdapter
+    function getPoolIds(uint256, uint256)
         external
+        view
+        override
         returns (bytes32[] memory ids)
     {
-        revert NotImplemented("TemplateSwapAdapter.getPoolIds");
+        ids = new bytes32[](1);
+        ids[0] = bytes20(address(savingsDai));
     }
 
 

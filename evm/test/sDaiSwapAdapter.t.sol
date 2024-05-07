@@ -33,6 +33,7 @@ contract sDaiSwapAdapterTest is Test, ISwapAdapterTypes {
 
         assertEq(tokens[0], DAI_ADDRESS);
         assertEq(tokens[1], SAVINGS_DAI_ADDRESS);
+        assertEq(tokens.length, 2);
     }
 
     function testGetAssetAddress() public {
