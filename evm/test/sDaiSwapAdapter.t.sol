@@ -16,12 +16,23 @@ contract sDaiSwapAdapterTest is Test, ISwapAdapterTypes {
     sDaiSwapAdapter adapter;
     ISavingsDai savingsDai;
 
+    address constant DAI_ADDRESS = 0x6B175474E89094C44Da98b954EedeAC495271d0F;
     address constant SAVINGS_DAI_ADDRESS = 0x83F20F44975D03b1b09e64809B757c47f942BEeA;
+    address constant SAVINGS_DAI_PARAMETERS_ADDRESS = 0x197E90f9FAD81970bA7976f33CbD77088E5D7cf7;
+    
+    bytes32 constant PAIR = bytes32(0);
 
     function setUp() public {
         uint256 forkBlock = 18835309;
         vm.createSelectFork(vm.rpcUrl("mainnet"), forkBlock);
         adapter = new sDaiSwapAdapter(SAVINGS_DAI_ADDRESS);
+    }
+
+    function testGetTokensSDai() public {
+        address[] memory tokens = adapter.getTokens(PAIR);
+
+        assertEq(tokens[0], DAI_ADDRESS);
+        assertEq(tokens[1], SAVINGS_DAI_ADDRESS);
     }
 
     function testGetAssetAddress() public {

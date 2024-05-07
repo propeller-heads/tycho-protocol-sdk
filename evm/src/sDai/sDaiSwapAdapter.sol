@@ -54,11 +54,16 @@ contract sDaiSwapAdapter is ISwapAdapter {
         revert NotImplemented("TemplateSwapAdapter.getCapabilities");
     }
 
+    /// @inheritdoc ISwapAdapter
     function getTokens(bytes32 poolId)
         external
+        view
+        override
         returns (address[] memory tokens)
     {
-        revert NotImplemented("TemplateSwapAdapter.getTokens");
+        tokens = new address[](2);
+        tokens[0] = savingsDai.asset();
+        tokens[1] = address(savingsDai);
     }
 
     function getPoolIds(uint256 offset, uint256 limit)
