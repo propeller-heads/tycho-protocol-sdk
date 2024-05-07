@@ -36,6 +36,13 @@ contract sDaiSwapAdapterTest is Test, ISwapAdapterTypes {
         assertEq(tokens.length, 2);
     }
 
+    function testGetLimitsSDai() public {
+        uint256[] memory limits = adapter.getLimits(PAIR, DAI_ADDRESS, SAVINGS_DAI_ADDRESS);
+        console.log("Limit SellDai Dai: ", limits[0]);
+        console.log("Limit SellDai sDai: ", limits[1]);
+        assertEq(limits.length, 2);
+    }
+
     function testGetAssetAddress() public {
         address dai = adapter.getAssetAddress();
         console.log("Dai address", dai);

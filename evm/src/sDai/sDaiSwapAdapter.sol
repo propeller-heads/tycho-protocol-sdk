@@ -14,10 +14,12 @@ import {
 contract sDaiSwapAdapter is ISwapAdapter {
     using SafeERC20 for IERC20;
 
-    ISavingsDai immutable savingsDai; 
+    ISavingsDai immutable savingsDai;
+    IDai immutable dai;
 
     constructor(address savingsDai_) {
         savingsDai = ISavingsDai(savingsDai_);
+        dai = IDai(savingsDai.asset());
     }
 
     function price(
@@ -39,11 +41,23 @@ contract sDaiSwapAdapter is ISwapAdapter {
         revert NotImplemented("TemplateSwapAdapter.swap");
     }
 
-    function getLimits(bytes32 poolId, address sellToken, address buyToken)
+    /// @inheritdoc ISwapAdapter
+    function getLimits(bytes32, address sellToken, address buyToken)
         external
+        view
+        override
         returns (uint256[] memory limits)
     {
-        revert NotImplemented("TemplateSwapAdapter.getLimits");
+        limits = new uint256[](2);
+        /// @dev Limits are underestimated to 90% of totalSupply
+        
+        if (sellToken == savingsDai.asset()) {
+            limits[0] = dai.totalSupply() * 90/100;
+            limits[1] = savingsDai.previewDeposit(limits[0]);
+        } else {
+            limits[0] = savingsDai.totalSupply() * 90/100;
+            limits[1] = savingsDai.previewRedeem(limits[0]);
+        }
     }
 
     function getCapabilities(
@@ -92,5 +106,21 @@ interface ISavingsDai {
     function asset() external view returns (address);
 
     function decimals() external view returns (uint8);
+
+    function maxMint(address) external pure returns (uint256);
+
+    function maxRedeem(address) external view returns (uint256);
+
+    function previewDeposit(uint256 assets) external view returns (uint256);
+
+    function previewRedeem(uint256 shares) external view returns (uint256);
+
+    function totalSupply() external pure returns (uint256);
+
+}
+
+interface IDai {
+
+    function totalSupply() external pure returns (uint256);
 
 }
