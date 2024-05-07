@@ -123,17 +123,6 @@ error InvalidTokenAmount();
         wstETH.unwrap(wstETHAmount);
     }
 
-    function testScemo() public {
-        
-        uint256 val = ezETH.totalSupply() / 100;
-
-        dealStEthTokens(ezETH.totalSupply());
-        stETH.approve(address(adapter), ezETH.totalSupply());
-        uint256 ezETH_balance = ezETH.balanceOf(address(this));
-
-        adapter.swap(bytes32(0), stETH, ezETH, OrderSide.Buy, val);
-    }
-
     function testPriceFuzzRenzo(uint256 amount0, uint256 amount1) public {
         bytes32 pair = bytes32(0);
         uint256[] memory limits = adapter.getLimits(pair, wBETH, ezETH);
