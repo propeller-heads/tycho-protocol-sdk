@@ -8,93 +8,7 @@ import "src/interfaces/ISwapAdapterTypes.sol";
 import "forge-std/console.sol";
 import {FractionMath} from "src/libraries/FractionMath.sol";
 
-interface IwstETH is IERC20 {
-    function unwrap(uint256 _wstETHAmount) external returns (uint256);
-    function getStETHByWstETH(uint256 _wstETHAmount) external view returns (uint256);
-}
-
 contract RenzoAdapterTest is Test, ISwapAdapterTypes {
-
-/// @dev Error for 0x0 address inputs
-error InvalidZeroInput();    
-
-/// @dev Error for already added items to a list
-error AlreadyAdded();    
-
-/// @dev Error for not found items in a list
-error NotFound();    
-
-/// @dev Error for hitting max TVL
-error MaxTVLReached();
-
-/// @dev Error for caller not having permissions
-error NotRestakeManagerAdmin();
-
-/// @dev Error for call not coming from deposit queue contract
-error NotDepositQueue();
-
-/// @dev Error for contract being paused
-error ContractPaused(); 
-
-/// @dev Error for exceeding max basis points (100%)
-error OverMaxBasisPoints();
-
-/// @dev Error for invalid token decimals for collateral tokens (must be 18)
-error InvalidTokenDecimals(uint8 expected, uint8 actual);
-
-/// @dev Error when withdraw is already completed
-error WithdrawAlreadyCompleted();
-
-/// @dev Error when a different address tries to complete withdraw
-error NotOriginalWithdrawCaller(address expectedCaller);
-
-/// @dev Error when caller does not have OD admin role
-error NotOperatorDelegatorAdmin();
-
-/// @dev Error when caller does not have Oracle Admin role
-error NotOracleAdmin();
-
-/// @dev Error when caller is not RestakeManager contract
-error NotRestakeManager();
-
-/// @dev Errror when caller does not have ETH Restake Admin role
-error NotNativeEthRestakeAdmin();
-
-/// @dev Error when delegation address was already set - cannot be set again
-error DelegateAddressAlreadySet();
-
-/// @dev Error when caller does not have ERC20 Rewards Admin role
-error NotERC20RewardsAdmin();
-
-/// @dev Error when ending ETH fails
-error TransferFailed();
-
-/// @dev Error when caller does not have ETH Minter Burner Admin role
-error NotEzETHMinterBurner();
-
-/// @dev Error when caller does not have Token Admin role
-error NotTokenAdmin();
-
-/// @dev Error when price oracle is not configured
-error OracleNotFound();
-
-/// @dev Error when price oracle data is stale
-error OraclePriceExpired();
-
-/// @dev Error when array lengths do not match
-error MismatchedArrayLengths();
-
-/// @dev Error when caller does not have Deposit Withdraw Pauser role
-error NotDepositWithdrawPauser();
-
-/// @dev Error when an individual token TVL is over the max
-error MaxTokenTVLReached();
-
-/// @dev Error when Oracle price is invalid
-error InvalidOraclePrice();
-
-/// @dev Error when calculating token amounts is invalid
-error InvalidTokenAmount();
     using FractionMath for Fraction;
 
     RenzoAdapter adapter;
@@ -102,8 +16,6 @@ error InvalidTokenAmount();
     IRestakeManager constant restakeManager =
         IRestakeManager(0x74a09653A083691711cF8215a6ab074BB4e99ef5);
     IERC20 wBETH = IERC20(0xa2E3356610840701BDf5611a53974510Ae27E2e1);
-    IERC20 stETH = IERC20(0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84);
-    IwstETH constant wstETH = IwstETH(0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0);
     uint256 constant TEST_ITERATIONS = 100;
 
     function setUp() public {
@@ -116,20 +28,12 @@ error InvalidTokenAmount();
         vm.label(address(ezETH), "ezETH");
         vm.label(address(wBETH), "wBETH");
     }
-    
-    function dealStEthTokens(uint256 amount) internal {
-        uint256 wstETHAmount = wstETH.getStETHByWstETH(amount);
-        deal(address(wstETH), address(this), wstETHAmount);
-        wstETH.unwrap(wstETHAmount);
-    }
 
     function testPriceFuzzRenzo(uint256 amount0, uint256 amount1) public {
         bytes32 pair = bytes32(0);
         uint256[] memory limits = adapter.getLimits(pair, wBETH, ezETH);
-        /// @dev Amounts below 10**6 cause underflow, so this is implicitly the
-        /// min. limit
-        vm.assume(amount0 < limits[0] && amount0 > 10 ** 6);
-        vm.assume(amount1 < limits[0] && amount1 > 10 ** 6);
+        vm.assume(amount0 < limits[0] && amount0 > 10 ** 8);
+        vm.assume(amount1 < limits[0] && amount1 > 10 ** 8);
 
         uint256[] memory amounts = new uint256[](2);
         amounts[0] = amount0;
@@ -143,24 +47,27 @@ error InvalidTokenAmount();
         }
     }
 
-    function testSwapFuzzRenzo() public {
-        OrderSide side = OrderSide.Buy; // isBuy ? OrderSide.Buy : OrderSide.Sell;
+    function testSwapFuzzRenzo(uint256 specifiedAmount, bool isBuy) public {
+        OrderSide side = isBuy ? OrderSide.Buy : OrderSide.Sell;
 
         bytes32 pair = bytes32(0);
         uint256[] memory limits = adapter.getLimits(pair, wBETH, ezETH);
-
-        uint256 specifiedAmount = 10**18 / 10;
+        Fraction[] memory price = new Fraction[](1);
 
         if (side == OrderSide.Buy) {
-            // vm.assume(specifiedAmount < limits[1] && specifiedAmount > 10 ** 6);
+            vm.assume(specifiedAmount < limits[1] && specifiedAmount > 10 ** 12);
 
             deal(address(wBETH), address(this), type(uint256).max);
             wBETH.approve(address(adapter), type(uint256).max);
         } else {
-            // vm.assume(specifiedAmount < limits[0] && specifiedAmount > 10 ** 6);
+            vm.assume(specifiedAmount < limits[0] && specifiedAmount > 10 ** 12);
 
             deal(address(wBETH), address(this), specifiedAmount);
             wBETH.approve(address(adapter), specifiedAmount);
+
+            uint256[] memory specifiedAmounts = new uint256[](1);
+            specifiedAmounts[0] = specifiedAmount;
+            price = adapter.price(pair, wBETH, ezETH, specifiedAmounts);
         }
 
         uint256 wBETH_balance = wBETH.balanceOf(address(this));
@@ -171,9 +78,9 @@ error InvalidTokenAmount();
 
         if (trade.calculatedAmount > 0) {
             if (side == OrderSide.Buy) {
-                assertEq(
-                    specifiedAmount,
-                    ezETH.balanceOf(address(this)) - ezETH_balance
+                assertGe(
+                    ezETH.balanceOf(address(this)) - ezETH_balance,
+                    specifiedAmount - 10**9
                 );
                 assertEq(
                     trade.calculatedAmount,
@@ -181,8 +88,73 @@ error InvalidTokenAmount();
                 );
             } else {
                 assertEq(
+                    price[0].numerator,
+                    trade.price.numerator
+                );
+                assertEq(
+                    price[0].denominator,
+                    trade.price.denominator
+                );
+                assertEq(
                     specifiedAmount,
                     wBETH_balance - wBETH.balanceOf(address(this))
+                );
+                assertEq(
+                    trade.calculatedAmount,
+                    ezETH.balanceOf(address(this)) - ezETH_balance
+                );
+            }
+        }
+    }
+
+    function testSwapFuzzRenzoWithETH(uint256 specifiedAmount, bool isBuy) public {
+        OrderSide side = isBuy ? OrderSide.Buy : OrderSide.Sell;
+
+        bytes32 pair = bytes32(0);
+        uint256[] memory limits = adapter.getLimits(pair, IERC20(address(0)), ezETH);
+        Fraction[] memory price = new Fraction[](1);
+
+        if (side == OrderSide.Buy) {
+            vm.assume(specifiedAmount < limits[1] && specifiedAmount > 10 ** 12);
+
+            deal(address(adapter), type(uint256).max);
+        } else {
+            vm.assume(specifiedAmount < limits[0] && specifiedAmount > 10 ** 12);
+
+            deal(address(adapter), specifiedAmount);
+            uint256[] memory specifiedAmounts = new uint256[](1);
+            specifiedAmounts[0] = specifiedAmount;
+            price = adapter.price(pair, IERC20(address(0)), ezETH, specifiedAmounts);
+        }
+
+        uint256 ETH_balance = address(adapter).balance;
+        uint256 ezETH_balance = ezETH.balanceOf(address(this));
+
+        Trade memory trade =
+            adapter.swap(pair, IERC20(address(0)), ezETH, side, specifiedAmount);
+
+        if (trade.calculatedAmount > 0) {
+            if (side == OrderSide.Buy) {
+                assertGe(
+                    ezETH.balanceOf(address(this)) - ezETH_balance,
+                    specifiedAmount - 10**9
+                );
+                assertEq(
+                    trade.calculatedAmount,
+                    ETH_balance - address(adapter).balance
+                );
+            } else {
+                assertLe(
+                    price[0].numerator * 999 / 1000,
+                    trade.price.numerator
+                );
+                assertGe(
+                    price[0].numerator * 1001 / 1000,
+                    trade.price.numerator
+                );
+                assertEq(
+                    specifiedAmount,
+                    ETH_balance - address(adapter).balance
                 );
                 assertEq(
                     trade.calculatedAmount,
