@@ -80,21 +80,15 @@ contract RenzoAdapterTest is Test, ISwapAdapterTypes {
             if (side == OrderSide.Buy) {
                 assertGe(
                     ezETH.balanceOf(address(this)) - ezETH_balance,
-                    specifiedAmount - 10**9
+                    specifiedAmount - 10 ** 9
                 );
                 assertEq(
                     trade.calculatedAmount,
                     wBETH_balance - wBETH.balanceOf(address(this))
                 );
             } else {
-                assertEq(
-                    price[0].numerator,
-                    trade.price.numerator
-                );
-                assertEq(
-                    price[0].denominator,
-                    trade.price.denominator
-                );
+                assertEq(price[0].numerator, trade.price.numerator);
+                assertEq(price[0].denominator, trade.price.denominator);
                 assertEq(
                     specifiedAmount,
                     wBETH_balance - wBETH.balanceOf(address(this))
@@ -107,11 +101,14 @@ contract RenzoAdapterTest is Test, ISwapAdapterTypes {
         }
     }
 
-    function testSwapFuzzRenzoWithETH(uint256 specifiedAmount, bool isBuy) public {
+    function testSwapFuzzRenzoWithETH(uint256 specifiedAmount, bool isBuy)
+        public
+    {
         OrderSide side = isBuy ? OrderSide.Buy : OrderSide.Sell;
 
         bytes32 pair = bytes32(0);
-        uint256[] memory limits = adapter.getLimits(pair, IERC20(address(0)), ezETH);
+        uint256[] memory limits =
+            adapter.getLimits(pair, IERC20(address(0)), ezETH);
         Fraction[] memory price = new Fraction[](1);
 
         if (side == OrderSide.Buy) {
@@ -124,7 +121,8 @@ contract RenzoAdapterTest is Test, ISwapAdapterTypes {
             deal(address(adapter), specifiedAmount);
             uint256[] memory specifiedAmounts = new uint256[](1);
             specifiedAmounts[0] = specifiedAmount;
-            price = adapter.price(pair, IERC20(address(0)), ezETH, specifiedAmounts);
+            price =
+                adapter.price(pair, IERC20(address(0)), ezETH, specifiedAmounts);
         }
 
         uint256 ETH_balance = address(adapter).balance;
@@ -137,24 +135,21 @@ contract RenzoAdapterTest is Test, ISwapAdapterTypes {
             if (side == OrderSide.Buy) {
                 assertGe(
                     ezETH.balanceOf(address(this)) - ezETH_balance,
-                    specifiedAmount - 10**9
+                    specifiedAmount - 10 ** 9
                 );
                 assertEq(
                     trade.calculatedAmount,
                     ETH_balance - address(adapter).balance
                 );
             } else {
-                assertLe(
-                    price[0].numerator * 999 / 1000,
-                    trade.price.numerator
-                );
-                assertGe(
-                    price[0].numerator * 1001 / 1000,
-                    trade.price.numerator
+                assertEq(
+                    price[0].numerator, trade.price.numerator
                 );
                 assertEq(
-                    specifiedAmount,
-                    ETH_balance - address(adapter).balance
+                    price[0].denominator, trade.price.denominator
+                );
+                assertEq(
+                    specifiedAmount, ETH_balance - address(adapter).balance
                 );
                 assertEq(
                     trade.calculatedAmount,
