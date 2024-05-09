@@ -1,0 +1,18 @@
+[
+    {
+        "name": "EURA",
+        "creation_block_no": 17869756,
+        "creation_hash": "c12328a517e216ee37f974281e019e0041ad755c4868e3b7a8366948ebc55388",
+        "proxy": "00253582b2a3FE112feEC532221d9708c64cEFAb",
+        "stablecoin": "1abaea1f7c830bd89acc67ec4af516284b1bc33c",
+        "anglecoin": "1a7e4e63778b4f12a199c062f3efdd288afcbce8"
+    },
+    {
+        "name": "USDA",
+        "creation_block_no": 18976170,
+        "creation_hash": "4eb28fb292e15befb0a016b07bdf2aedd275228e1e7c87e817e370b56921d855",
+        "proxy": "222222fD79264BBE280b4986F6FEfBC3524d0137",
+        "stablecoin": "A0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+        "anglecoin": "0000206329b97DB379d5E1Bf586BbDB969C63274"
+    }
+]
