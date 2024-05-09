@@ -22,6 +22,28 @@ contract sDaiSwapAdapter is ISwapAdapter {
         dai = IDai(savingsDai.asset());
     }
 
+    /// @dev Check if swap between provided sellToken and buyToken are supported
+    /// by this adapter
+    modifier checkInputTokens(address sellToken, address buyToken) {
+        if (sellToken == buyToken) {
+            revert Unavailable(
+                "This pool only supports DAI<->sDAI swaps"
+            );
+        }
+        if (sellToken == savingsDai.asset() && buyToken != address(savingsDai)) {
+            revert Unavailable(
+                "This pool only supports DAI<->sDAI swaps"
+            );
+        }
+        if (sellToken == address(savingsDai) && buyToken != savingsDai.asset()) {
+            revert Unavailable(
+                "This pool only supports DAI<->sDAI swaps"
+            );
+        }
+        
+        _;
+    }
+
     function price(
         bytes32 _poolId,
         address _sellToken,
@@ -32,13 +54,28 @@ contract sDaiSwapAdapter is ISwapAdapter {
     }
 
     function swap(
-        bytes32 poolId,
+        bytes32,
         address sellToken,
         address buyToken,
         OrderSide side,
         uint256 specifiedAmount
-    ) external returns (Trade memory trade) {
-        revert NotImplemented("TemplateSwapAdapter.swap");
+    ) 
+        external
+        override
+        checkInputTokens(sellToken, buyToken)
+        returns (Trade memory trade) 
+    {
+        
+        if (specifiedAmount == 0) {
+            return trade;
+        }
+        uint256 gasBefore = gasleft();
+        if (side == Orderside.sell) {
+            trade.calculatedAmount = sell(IERC20(sellToken), specifiedAmount);
+        } else {
+            trade.calculatedAmount = buy(IERC20(sellToken), specifiedAmount);
+        }
+        trade.gasUsed = gasBefore - gasleft();
     }
 
     /// @inheritdoc ISwapAdapter
@@ -91,6 +128,47 @@ contract sDaiSwapAdapter is ISwapAdapter {
         ids[0] = bytes20(address(savingsDai));
     }
 
+    /// @notice Executes a sell order on the contract.
+    /// @param sellToken The token being sold.
+    /// @param amount The amount to be traded.
+    /// @return calculatedAmount The amount of tokens received.
+    function sell(IERC20 sellToken, uint256 amount)
+        internal
+        returns (uint256 calculatedAmount)
+    {
+        if (address(sellToken) == savingsDai.asset()) {
+            return savingsDai.deposit(amount, msg.sender);
+        }
+
+        sellToken.safeTransferFrom(msg.sender, address(this), amount);
+
+        if (address(sellToken) == address(savingsDai)) {
+            return savingsDai.withdraw(amount, msg.sender, address(this));
+        }
+    }
+
+    /// @notice Executes a buy order on the contract.
+    /// @param sellToken The token being sold.
+    /// @param amount The amount of buyToken to receive.
+    /// @return calculatedAmount The amount of tokens received.
+    function buy(IERC20 sellToken, uint256 amount)
+        internal
+        returns (uint256 calculatedAmount)
+    {
+
+        if (address(sellToken) == savingsDai.asset()) {
+            uint256 amountIn = savingsDai.previewMint(amount);
+            sellToken.safeTransferFrom(msg.sender, address(this), amountIn);
+            sellToken.safeIncreaseAllowance(savingsDai.asset(), amountIn);
+            return savingsDai.mint(amount, msg.sender);
+        } else {
+            uint256 amountIn = savingsDai.previewWithdraw(amount);
+            sellToken.safeTransferFrom(msg.sender, address(this), amountIn);
+            return savingsDai.withdraw(amount, msg.sender, address(this));
+        }
+
+    }
+
 
     ///// TEST FUNCTIONS /////
 
@@ -111,11 +189,23 @@ interface ISavingsDai {
 
     function maxRedeem(address) external view returns (uint256);
 
+    function previewMint(uint256 shares) external view returns (uint256);
+
+    function previewWithdraw(uint256 assets) external view returns (uint256);
+
     function previewDeposit(uint256 assets) external view returns (uint256);
 
     function previewRedeem(uint256 shares) external view returns (uint256);
 
     function totalSupply() external pure returns (uint256);
+
+    function deposit(uint256 assets, address receiver) external returns (uint256 shares);
+
+    function mint(uint256 shares, address receiver) external returns (uint256 assets);
+
+    function withdraw(uint256 assets, address receiver, address owner) external returns (uint256 shares);
+
+    function redeem(uint256 shares, address receiver, address owner) external returns (uint256 assets);
 
 }
 
