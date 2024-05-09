@@ -136,16 +136,17 @@ contract sDaiSwapAdapter is ISwapAdapter {
         internal
         returns (uint256 calculatedAmount)
     {
-        
+    
         if (address(sellToken) == savingsDai.asset()) {
             sellToken.safeIncreaseAllowance(address(savingsDai), amount);
             sellToken.safeTransferFrom(msg.sender, address(this), amount);
             return savingsDai.deposit(amount, msg.sender);
         }
 
-
         if (address(sellToken) == address(savingsDai)) {
-            return savingsDai.withdraw(amount, msg.sender, address(this));
+            sellToken.safeIncreaseAllowance(address(savingsDai), amount);
+            sellToken.safeTransferFrom(msg.sender, address(this), amount);
+            return savingsDai.redeem(amount, msg.sender, address(this));
         }
     }
 
@@ -165,12 +166,12 @@ contract sDaiSwapAdapter is ISwapAdapter {
             return savingsDai.mint(amount, msg.sender);
         } else {
             uint256 amountIn = savingsDai.previewWithdraw(amount);
+            sellToken.safeIncreaseAllowance(address(savingsDai), amountIn);
             sellToken.safeTransferFrom(msg.sender, address(this), amountIn);
             return savingsDai.withdraw(amount, msg.sender, address(this));
         }
 
     }
-
 
     ///// TEST FUNCTIONS /////
 
