@@ -70,7 +70,7 @@ contract sDaiSwapAdapter is ISwapAdapter {
             return trade;
         }
         uint256 gasBefore = gasleft();
-        if (side == Orderside.sell) {
+        if (side == OrderSide.Sell) {
             trade.calculatedAmount = sell(IERC20(sellToken), specifiedAmount);
         } else {
             trade.calculatedAmount = buy(IERC20(sellToken), specifiedAmount);
@@ -136,11 +136,13 @@ contract sDaiSwapAdapter is ISwapAdapter {
         internal
         returns (uint256 calculatedAmount)
     {
+        
         if (address(sellToken) == savingsDai.asset()) {
+            sellToken.safeIncreaseAllowance(address(savingsDai), amount);
+            sellToken.safeTransferFrom(msg.sender, address(this), amount);
             return savingsDai.deposit(amount, msg.sender);
         }
 
-        sellToken.safeTransferFrom(msg.sender, address(this), amount);
 
         if (address(sellToken) == address(savingsDai)) {
             return savingsDai.withdraw(amount, msg.sender, address(this));
@@ -158,8 +160,8 @@ contract sDaiSwapAdapter is ISwapAdapter {
 
         if (address(sellToken) == savingsDai.asset()) {
             uint256 amountIn = savingsDai.previewMint(amount);
+            sellToken.safeIncreaseAllowance(address(savingsDai), amountIn);
             sellToken.safeTransferFrom(msg.sender, address(this), amountIn);
-            sellToken.safeIncreaseAllowance(savingsDai.asset(), amountIn);
             return savingsDai.mint(amount, msg.sender);
         } else {
             uint256 amountIn = savingsDai.previewWithdraw(amount);
