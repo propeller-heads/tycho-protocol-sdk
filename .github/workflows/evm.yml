@@ -1,6 +1,9 @@
-name: test
+name: test & check evm
 
-on: workflow_dispatch
+on:
+  pull_request:
+    paths:
+      - "evm/**"
 
 env:
   FOUNDRY_PROFILE: ci
@@ -12,6 +15,9 @@ jobs:
 
     name: Foundry project
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: evm
     steps:
       - uses: actions/checkout@v3
         with:
@@ -24,15 +30,19 @@ jobs:
 
       - name: Run Forge build
         run: |
-          cd evm
           forge --version
           forge build --sizes
         id: build
 
+      - name: Run Forge format check
+        run:  |
+          forge --version
+          forge fmt --check
+        id: format
+
       - name: Run Forge tests
         run: |
-          cd evm
           forge test -vvv
         id: test
         env:
-          ETH_RPC_URL: ${{ secrets.ETH_RPC_URL }} 
+          ETH_RPC_URL: ${{ secrets.ETH_RPC_URL }}
