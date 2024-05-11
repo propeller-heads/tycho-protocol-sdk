@@ -26,15 +26,15 @@ contract StakeWiseAdapter is ISwapAdapter {
         bytes32 poolId,
         address sellToken,
         address buyToken,
-        uint256[] memory _specifiedAmounts
+        uint256[] memory specifiedAmounts
     ) external view override returns (Fraction[] memory _prices) {
-        _prices = new Fraction[](_specifiedAmounts.length);
+        _prices = new Fraction[](specifiedAmounts.length);
 
-        for (uint256 i = 0; i < _specifiedAmounts.length; i++) {
+        for (uint256 i = 0; i < specifiedAmounts.length; i++) {
             _prices[i] = getPriceAt(
-                _sellToken,
-                _buyToken,
-                _specifiedAmounts[i],
+                sellToken,
+                buyToken,
+                specifiedAmounts[i],
                 true
             );
         }
@@ -101,11 +101,25 @@ contract StakeWiseAdapter is ISwapAdapter {
         bool simulateTrade
     ) internal view returns (Fraction memory) {
         uint256 numerator;
-        if (sellToken == address(osETH)) {
-            
-            return Fraction(vault.convertToAssets(amount), amount);
-        } else {
-            return Fraction(vault.convertToShares(amount), amount);
+        if(!simulateTrade) {
+            if (sellToken == address(osETH)) { // redeem, amount is osETH to spend
+                return Fraction(vault.convertToAssets(amount), amount);
+            } else { // mint, amount is ETH to spend
+                return Fraction(vault.convertToShares(amount), amount);
+            }
+        }
+        if (sellToken == address(osETH)) { // redeem, amount is osETH to spend
+            uint256 sharesAfter = vault.totalShares() - amount;
+            uint256 assetsAfter = vault.totalAssets() - vault.convertToAssets(amount);
+            uint256 numerator = Math.mulDiv(amount, assetsAfter, sharesAfter);
+            return Fraction(numerator, amount);
+        } else { // mint, amount is ETH to spend
+            uint256 assetsAfter = vault.totalAssets() + amount;
+            uint256 totalSharesBefore = vault.totalShares();
+            uint256 mintedShares = vault.convertToShares(amount);
+            uint256 sharesAfter = totalSharesBefore + Math.mulDiv(assetsAfter, totalSharesBefore + mintedShares, assetsAfter, Math.Rounding.Ceil);
+            uint256 numerator = Math.mulDiv(assetsAfter, sharesAfter, assetsAfter, Math.Rounding.Ceil);
+            return Fraction(numerator, amount);
         }
     }
 }
