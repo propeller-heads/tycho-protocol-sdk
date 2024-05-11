@@ -43,11 +43,19 @@ contract StakeWiseAdapter is ISwapAdapter {
         revert NotImplemented("TemplateSwapAdapter.swap");
     }
 
-    function getLimits(bytes32 poolId, address sellToken, address buyToken)
+    /// @inheritdoc ISwapAdapter
+    function getLimits(bytes32, address sellToken, address buyToken)
         external
         returns (uint256[] memory limits)
     {
-        revert NotImplemented("TemplateSwapAdapter.getLimits");
+       if(sellToken == address(osETH)) {
+            limits[0] = vault.convertToShares(vault.withdrawableAssets());
+            limits[1] = vault.withdrawableAssets();
+       }
+       else {
+            limits[0] = vault.capacity() - vault.totalAssets();
+            limits[1] = vault.convertToShares(limits[0]);
+       }
     }
 
     function getCapabilities(bytes32 poolId, address sellToken, address buyToken)
@@ -86,4 +94,5 @@ interface IEthGenesisVault {
     function deposit(address receiver, address referrer) external view returns (uint256);
     function redeem(uint256 shares, address receiver) external view returns (uint256);
     function redeemOsToken(uint256 osTokenShares, address owner, address receiver) external view returns (uint256);
+    function capacity() external view returns (uint256);
 }
