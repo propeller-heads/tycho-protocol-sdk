@@ -78,17 +78,25 @@ contract sDaiSwapAdapter is ISwapAdapter {
 
         trade.gasUsed = gasBefore - gasleft();
 
-        uint256 numerator;
         if (side == OrderSide.Sell) {
-            trade.price = getPriceSwapAt(sellToken, specifiedAmount);
+            trade.price = getPriceAt(sellToken, specifiedAmount);
         } else {
-            trade.price = getPriceSwapAt(sellToken, trade.calculatedAmount);
+            trade.price = getPriceAt(sellToken, trade.calculatedAmount);
         }
     }
 
-    /// @notice Calculates pool prices for specified amounts
     /// @param amountIn The amount of the token being sold.
-    function getPriceSwapAt(address sellToken, uint256 amountIn) internal view returns (Fraction memory) {
+    function getPriceSwapAt(address sellToken, uint256 amountIn) public view returns (Fraction memory) {
+        if (sellToken == savingsDai.asset()) {
+            return Fraction(savingsDai.previewDeposit(amountIn), amountIn);
+        } else {
+            return Fraction(savingsDai.previewRedeem(amountIn), amountIn);
+        }
+
+    }
+
+    /// @param amountIn The amount of the token being sold.
+    function getPriceAt(address sellToken, uint256 amountIn) internal view returns (Fraction memory) {
         if (sellToken == savingsDai.asset()) {
             return Fraction(savingsDai.previewDeposit(amountIn), amountIn);
         } else {
@@ -192,12 +200,6 @@ contract sDaiSwapAdapter is ISwapAdapter {
 
     }
 
-    ///// TEST FUNCTIONS /////
-
-    function getAssetAddress() external view returns (address) {
-
-        return savingsDai.asset();
-    }
 }
 
 interface ISavingsDai {
