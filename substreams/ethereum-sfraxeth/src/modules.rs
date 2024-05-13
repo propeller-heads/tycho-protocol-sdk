@@ -12,7 +12,9 @@ use tycho_substreams::{
     balances::aggregate_balances_changes, contract::extract_contract_changes, prelude::*,
 };
 
-const VAULT_ADDRESS: &[u8] = &hex!("BA12222222228d8Ba445958a75a0704d566BF2C8");
+const VAULT_ADDRESS: &[u8] = &hex!("ac3E018457B222d93114458476f3E3416Abbe38F");
+const LOCKED_ASSET_ADDRESS: &[u8] = &hex!("5E8422345238F34275888049021821E8E08CAa1f");
+const FRAX_ALT_DEPLOYER: [u8; 20] = hex!("4600D3b12c39AF925C2C07C487d31D17c1e32A35"); // https://etherscan.io/tx/0xd78dbe6cba652eb844de5aa473636c202fb6366c1bfc5ff8d5a26c1a24b37b07
 
 #[substreams::handlers::map]
 pub fn map_components(block: eth::v2::Block) -> Result<BlockTransactionProtocolComponents> {
@@ -26,12 +28,13 @@ pub fn map_components(block: eth::v2::Block) -> Result<BlockTransactionProtocolC
                     .logs_with_calls()
                     .filter(|(_, call)| !call.call.state_reverted)
                     .filter_map(|(log, call)| {
-                        pool_factories::address_map(
-                            call.call.address.as_slice(),
-                            log,
-                            call.call,
-                            &(tx.into()),
-                        )
+                        if is_deployment_tx_from_deployer(tx, FRAX_ALT_DEPLOYER)
+                            && log.address == VAULT_ADDRESS
+                        {
+                            Some(create_vault_component(tx.into()))
+                        } else {
+                            None
+                        }
                     })
                     .collect::<Vec<_>>();
 
@@ -196,9 +199,9 @@ pub fn map_protocol_changes(
             .drain()
             .sorted_unstable_by_key(|(index, _)| *index)
             .filter_map(|(_, change)| {
-                if change.contract_changes.is_empty() &&
-                    change.component_changes.is_empty() &&
-                    change.balance_changes.is_empty()
+                if change.contract_changes.is_empty()
+                    && change.component_changes.is_empty()
+                    && change.balance_changes.is_empty()
                 {
                     None
                 } else {
@@ -207,4 +210,18 @@ pub fn map_protocol_changes(
             })
             .collect::<Vec<_>>(),
     })
+}
+
+fn is_deployment_tx_from_deployer(
+    tx: &eth::v2::TransactionTrace,
+    deployer_addrress: [u8; 20],
+) -> bool {
+    let zero_address = hex!("0000000000000000000000000000000000000000");
+    tx.to.as_slice() == zero_address && tx.from.as_slice() == &deployer_addrress
+}
+
+fn create_vault_component(tx: &Transaction) -> ProtocolComponent {
+    ProtocolComponent::at_contract(VAULT_ADDRESS, tx)
+        .with_tokens(&[LOCKED_ASSET_ADDRESS])
+        .as_swap_type("sfraxEth_vault", ImplementationType::Vm)
 }
