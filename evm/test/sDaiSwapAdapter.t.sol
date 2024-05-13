@@ -25,12 +25,67 @@ contract sDaiSwapAdapterTest is Test, ISwapAdapterTypes {
     
     bytes32 constant PAIR = bytes32(0);
 
-    uint256 constant TEST_ITERATIONS = 10;
+    uint256 constant TEST_ITERATIONS = 20;
 
     function setUp() public {
         uint256 forkBlock = 18835309;
         vm.createSelectFork(vm.rpcUrl("mainnet"), forkBlock);
         adapter = new sDaiSwapAdapter(SDAI_ADDRESS);
+    }
+
+    //     function testPriceFuzz(uint256 amount0, uint256 amount1) public {
+    //     bytes32 pair = bytes32(bytes20(USDC_WETH_PAIR));
+    //     uint256[] memory limits = adapter.getLimits(pair, USDC, WETH);
+    //     vm.assume(amount0 < limits[0]);
+    //     vm.assume(amount1 < limits[0]);
+
+    //     uint256[] memory amounts = new uint256[](2);
+    //     amounts[0] = amount0;
+    //     amounts[1] = amount1;
+
+    //     Fraction[] memory prices = adapter.price(pair, WETH, USDC, amounts);
+
+    //     for (uint256 i = 0; i < prices.length; i++) {
+    //         assertGt(prices[i].numerator, 0);
+    //         assertGt(prices[i].denominator, 0);
+    //     }
+    // }
+
+    function testPriceAfterSwapEqPriceBeforeSwapSellDaiForSDai() public {
+        testPriceAfterSwapEqPriceBeforeSwap(DAI_ADDRESS, SDAI_ADDRESS, OrderSide.Sell);
+    }
+
+    function testPriceAfterSwapEqPriceBeforeSwapSellSDaiForDai() public {
+        testPriceAfterSwapEqPriceBeforeSwap(SDAI_ADDRESS, DAI_ADDRESS, OrderSide.Sell);
+    }
+
+    function testPriceAfterSwapEqPriceBeforeSwapBuySDaiWithDai() public {
+        testPriceAfterSwapEqPriceBeforeSwap(DAI_ADDRESS, SDAI_ADDRESS, OrderSide.Buy);
+    }
+
+    function testPriceAfterSwapEqPriceBeforeSwapBuyDaiWithSDai() public {
+        testPriceAfterSwapEqPriceBeforeSwap(SDAI_ADDRESS, DAI_ADDRESS, OrderSide.Buy);
+    }
+
+    function testPriceAfterSwapEqPriceBeforeSwap(address sellToken, address buyToken, OrderSide side ) internal {
+
+        uint256 testIterations = 20;
+
+        for(uint256 i = 1; i < testIterations; i++) {
+
+            uint256 amount = 12345 * 10**i;
+
+            Fraction memory priceBeforeSwap = adapter.getPriceSwapAt(sellToken, amount);
+
+            deal(sellToken, address(this), type(uint256).max);
+            IERC20(sellToken).approve(address(adapter), type(uint256).max);
+
+            Trade memory trade = adapter.swap(PAIR, sellToken, buyToken, side, amount);
+
+            Fraction memory priceAfterSwap = adapter.getPriceSwapAt(sellToken, amount);
+
+            assertEq(FractionMath.compareFractions(priceBeforeSwap, priceAfterSwap), 0);
+        }
     }
 
     function testSwapFuzzDaiForSDai(
@@ -141,11 +196,17 @@ contract sDaiSwapAdapterTest is Test, ISwapAdapterTypes {
         }
     }
 
-    // function executeIncreasingSwapsDaiForSDai(OrderSide side) internal {
+    /// @dev check why this test is failing
+    function testSwapSellIncreasingDai() public {
+        executeIncreasingSwapsDaiForSDai(OrderSide.Sell);
+    }
 
-    // }
+    function testSwapBuyIncreasingSDai() public {
+        executeIncreasingSwapsDaiForSDai(OrderSide.Buy);
+    }
 
-    function testExecuteIncreasingSwapsSellSide() public {
+    /// @notice price is constant for any amount of DAI token we selling
+    function executeIncreasingSwapsDaiForSDai(OrderSide side) public {
         uint256 amountConstant_ = 10 ** 18;
 
         uint256[] memory amounts = new uint256[](TEST_ITERATIONS);
@@ -159,23 +220,18 @@ contract sDaiSwapAdapterTest is Test, ISwapAdapterTypes {
         for (uint256 i = 1; i < TEST_ITERATIONS; i++) {
             beforeSwap = vm.snapshot();
 
-            deal(DAI_ADDRESS, address(this), amounts[i]);
-            DAI.approve(address(adapter), amounts[i]);
+            deal(DAI_ADDRESS, address(this), type(uint256).max);
+            DAI.approve(address(adapter), type(uint256).max);
 
-            trades[i] = adapter.swap(PAIR, DAI_ADDRESS, SDAI_ADDRESS, OrderSide.Sell, amounts[i]);
-
-            console.log("Trade n: ", i);
-            console.logUint(trades[i].price.numerator);
-
+            trades[i] = adapter.swap(PAIR, DAI_ADDRESS, SDAI_ADDRESS, side, amounts[i]);
             vm.revertTo(beforeSwap);
         }
 
         for (uint256 i = 1; i < TEST_ITERATIONS - 1; i++) {
             assertLe(trades[i].calculatedAmount, trades[i + 1].calculatedAmount);
             assertLe(trades[i].gasUsed, trades[i + 1].gasUsed);
-            assertEq(trades[i].price.compareFractions(trades[i + 1].price), 1);
+            assertEq(FractionMath.compareFractions(trades[i].price, trades[i + 1].price), 0);
         }
-
     }
 
     function testGetTokensSDai() public {
@@ -193,9 +249,5 @@ contract sDaiSwapAdapterTest is Test, ISwapAdapterTypes {
         assertEq(limits.length, 2);
     }
 
-    function testGetAssetAddress() public {
-        address dai = adapter.getAssetAddress();
-        console.log("Dai address", dai);
-    }
 
 }
