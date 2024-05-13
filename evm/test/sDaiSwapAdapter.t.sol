@@ -25,6 +25,8 @@ contract sDaiSwapAdapterTest is Test, ISwapAdapterTypes {
     
     bytes32 constant PAIR = bytes32(0);
 
+    uint256 constant TEST_ITERATIONS = 10;
+
     function setUp() public {
         uint256 forkBlock = 18835309;
         vm.createSelectFork(vm.rpcUrl("mainnet"), forkBlock);
@@ -137,6 +139,43 @@ contract sDaiSwapAdapterTest is Test, ISwapAdapterTypes {
                 );
             }
         }
+    }
+
+    // function executeIncreasingSwapsDaiForSDai(OrderSide side) internal {
+
+    // }
+
+    function testExecuteIncreasingSwapsSellSide() public {
+        uint256 amountConstant_ = 10 ** 18;
+
+        uint256[] memory amounts = new uint256[](TEST_ITERATIONS);
+
+        for (uint256 i = 1; i < TEST_ITERATIONS; i++) {
+            amounts[i] = amountConstant_ * i;
+        }
+
+        Trade[] memory trades = new Trade[](TEST_ITERATIONS);
+        uint256 beforeSwap; 
+        for (uint256 i = 1; i < TEST_ITERATIONS; i++) {
+            beforeSwap = vm.snapshot();
+
+            deal(DAI_ADDRESS, address(this), amounts[i]);
+            DAI.approve(address(adapter), amounts[i]);
+
+            trades[i] = adapter.swap(PAIR, DAI_ADDRESS, SDAI_ADDRESS, OrderSide.Sell, amounts[i]);
+
+            console.log("Trade n: ", i);
+            console.logUint(trades[i].price.numerator);
+
+            vm.revertTo(beforeSwap);
+        }
+
+        for (uint256 i = 1; i < TEST_ITERATIONS - 1; i++) {
+            assertLe(trades[i].calculatedAmount, trades[i + 1].calculatedAmount);
+            assertLe(trades[i].gasUsed, trades[i + 1].gasUsed);
+            assertEq(trades[i].price.compareFractions(trades[i + 1].price), 1);
+        }
+
     }
 
     function testGetTokensSDai() public {

@@ -20,3 +20,5 @@ lcov.info
 
 # lib 
 lib/
+
+InternalFunctions.sol
