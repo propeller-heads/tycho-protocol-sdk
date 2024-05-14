@@ -18,6 +18,14 @@ contract StakeWiseAdapter is ISwapAdapter {
         vault = IEthGenesisVault(_vault);
     }
 
+    /// @dev Check input tokens
+    modifier checkInputTokens(address sellToken, address buyToken) {
+        if(sellToken == address(0) && sellToken != address(osETH) || sellToken != address(osETH) && buyToken != address(0)) {
+            revert Unavailable("This adapter only supports ETH<->osETH swaps");
+        }
+        _;
+    }
+
     /// @dev enable receive to receive ETH
     receive() external payable {}
 
@@ -27,7 +35,7 @@ contract StakeWiseAdapter is ISwapAdapter {
         address sellToken,
         address buyToken,
         uint256[] memory specifiedAmounts
-    ) external view override returns (Fraction[] memory _prices) {
+    ) external view override checkInputTokens(sellToken, buyToken) returns (Fraction[] memory _prices) {
         _prices = new Fraction[](specifiedAmounts.length);
 
         for (uint256 i = 0; i < specifiedAmounts.length; i++) {
@@ -40,14 +48,33 @@ contract StakeWiseAdapter is ISwapAdapter {
         }
     }
 
+    /// @inheritdoc ISwapAdapter
     function swap(
         bytes32 poolId,
         address sellToken,
         address buyToken,
         OrderSide side,
         uint256 specifiedAmount
-    ) external returns (Trade memory trade) {
-        revert NotImplemented("TemplateSwapAdapter.swap");
+    ) external checkInputTokens(sellToken, buyToken) returns (Trade memory trade) {
+        if (specifiedAmount == 0) {
+            return trade;
+        }
+
+        uint256 gasBefore = gasleft();
+        if (side == OrderSide.Sell) {
+            // sell
+            trade.calculatedAmount = sell(sellToken, specifiedAmount);
+        } else {
+            // buy
+            trade.calculatedAmount = buy(buyToken, specifiedAmount);
+        }
+        trade.gasUsed = gasBefore - gasleft();
+        trade.price = getPriceAt(
+            sellToken,
+            buyToken,
+            side == OrderSide.Sell ? specifiedAmount : trade.calculatedAmount,
+            false
+        );
     }
 
     /// @inheritdoc ISwapAdapter
@@ -55,10 +82,11 @@ contract StakeWiseAdapter is ISwapAdapter {
         bytes32,
         address sellToken,
         address buyToken
-    ) external returns (uint256[] memory limits) {
+    ) external view override checkInputTokens(sellToken, buyToken) returns (uint256[] memory limits) {
+        limits = new uint256[](2);
         if (sellToken == address(osETH)) {
-            limits[0] = vault.convertToShares(vault.withdrawableAssets());
             limits[1] = vault.withdrawableAssets();
+            limits[0] = vault.convertToShares(limits[1]);
         } else {
             limits[0] = vault.capacity() - vault.totalAssets();
             limits[1] = vault.convertToShares(limits[0]);
@@ -101,32 +129,112 @@ contract StakeWiseAdapter is ISwapAdapter {
         bool simulateTrade
     ) internal view returns (Fraction memory) {
         uint256 numerator;
-        if(!simulateTrade) {
-            if (sellToken == address(osETH)) { // redeem, amount is osETH to spend
+        if (!simulateTrade) {
+            if (sellToken == address(osETH)) {
+                // redeem, amount is osETH to spend
                 return Fraction(vault.convertToAssets(amount), amount);
-            } else { // mint, amount is ETH to spend
+            } else {
+                // mint, amount is ETH to spend
                 return Fraction(vault.convertToShares(amount), amount);
             }
         }
-        if (sellToken == address(osETH)) { // redeem, amount is osETH to spend
+        if (sellToken == address(osETH)) {
+            // redeem, amount is osETH to spend
             uint256 sharesAfter = vault.totalShares() - amount;
-            uint256 assetsAfter = vault.totalAssets() - vault.convertToAssets(amount);
+            uint256 assetsAfter = vault.totalAssets() -
+                vault.convertToAssets(amount);
             uint256 numerator = Math.mulDiv(amount, assetsAfter, sharesAfter);
             return Fraction(numerator, amount);
-        } else { // mint, amount is ETH to spend
+        } else {
+            // mint, amount is ETH to spend
             uint256 assetsAfter = vault.totalAssets() + amount;
             uint256 totalSharesBefore = vault.totalShares();
             uint256 mintedShares = vault.convertToShares(amount);
-            uint256 sharesAfter = totalSharesBefore + Math.mulDiv(assetsAfter, totalSharesBefore + mintedShares, assetsAfter, Math.Rounding.Ceil);
-            uint256 numerator = Math.mulDiv(assetsAfter, sharesAfter, assetsAfter, Math.Rounding.Ceil);
+            uint256 sharesAfter = totalSharesBefore +
+                Math.mulDiv(
+                    assetsAfter,
+                    totalSharesBefore + mintedShares,
+                    assetsAfter,
+                    Math.Rounding.Ceil
+                );
+            uint256 numerator = Math.mulDiv(
+                assetsAfter,
+                sharesAfter,
+                assetsAfter,
+                Math.Rounding.Ceil
+            );
             return Fraction(numerator, amount);
+        }
+    }
+
+    /// @notice Executes a sell order on a given pool.
+    /// @param sellToken The address of the token being sold.
+    /// @param amount The amount to be traded.
+    /// @return uint256 The amount of tokens received.
+    function sell(
+        address sellToken,
+        uint256 amount
+    ) internal returns (uint256) {
+        if (sellToken == address(0)) {
+            // ETH->osETH
+            uint256 sharesBefore = vault.getShares(address(this));
+
+            (bool sent_, ) = address(vault).call{value: amount}("");
+            if(!sent_) { revert Unavailable("Ether transfer failed"); }
+
+            uint256 amountOut = vault.getShares(address(this)) - sharesBefore;
+            vault.mintOsToken(msg.sender, amountOut, address(0));
+            return amountOut;
+        } else {
+            // osETH->ETH
+            osETH.safeTransferFrom(msg.sender, address(this), amount);
+            uint256 balBefore = address(this).balance;
+            vault.redeemOsToken(amount, address(this), msg.sender);
+            uint256 amountOut = address(this).balance - balBefore;
+
+            (bool sent_, ) = address(msg.sender).call{value: amountOut}("");
+            if(!sent_) { revert Unavailable("Ether transfer failed"); }
+
+            return amountOut;
+        }
+    }
+
+    /// @notice Executes a buy order on a given pool.
+    /// @param buyToken The address of the token being bought.
+    /// @param amountBought The amount of buyToken tokens to buy.
+    /// @return uint256 The amount of tokens received.
+    function buy(
+        address buyToken,
+        uint256 amountBought
+    ) internal returns (uint256) {
+        if (buyToken != address(0)) {
+            // ETH->osETH
+            uint256 amountIn = vault.convertToAssets(amountBought);
+            uint256 sharesBefore = vault.getShares(address(this));
+
+            (bool sent_, ) = address(vault).call{value: amountIn}("");
+            if(!sent_) { revert Unavailable("Ether transfer failed"); }
+
+            vault.mintOsToken(msg.sender, amountBought, address(0));
+            return amountIn;
+        } else {
+            // osETH->ETH
+            uint256 amountIn = vault.convertToShares(amountBought);
+            osETH.safeTransferFrom(msg.sender, address(this), amountIn);
+
+            vault.redeemOsToken(amountIn, address(this), msg.sender);
+
+            (bool sent_, ) = address(msg.sender).call{value: amountBought}("");
+            if(!sent_) { revert Unavailable("Ether transfer failed"); }
+
+            return amountIn;
         }
     }
 }
 
 interface IEthGenesisVault {
-    function convertToShares(uint256 shares) external view returns (uint256);
-    function convertToAssets(uint256 assets) external view returns (uint256);
+    function convertToShares(uint256 assets) external view returns (uint256);
+    function convertToAssets(uint256 shares) external view returns (uint256);
     function getShares(address account) external view returns (uint256);
     function totalAssets() external view returns (uint256);
     function totalShares() external view returns (uint256);
@@ -134,15 +242,20 @@ interface IEthGenesisVault {
     function deposit(
         address receiver,
         address referrer
-    ) external view returns (uint256);
+    ) external;
     function redeem(
         uint256 shares,
         address receiver
-    ) external view returns (uint256);
+    ) external;
     function redeemOsToken(
         uint256 osTokenShares,
         address owner,
         address receiver
+    ) external;
+    function mintOsToken(
+        address receiver,
+        uint256 osTokenShares,
+        address referrer
     ) external view returns (uint256);
     function capacity() external view returns (uint256);
 }
