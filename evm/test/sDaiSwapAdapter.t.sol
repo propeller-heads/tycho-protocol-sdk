@@ -6,7 +6,6 @@ import "src/interfaces/ISwapAdapterTypes.sol";
 import "src/libraries/FractionMath.sol";
 import "src/sDai/sDaiSwapAdapter.sol";
 import "forge-std/console.sol";
-import "forge-std/console2.sol";
 
 /// @title sDaiSwapAdapterTest
 
@@ -24,10 +23,10 @@ contract sDaiSwapAdapterTest is Test, ISwapAdapterTypes {
     
     bytes32 constant PAIR = bytes32(0);
 
-    uint256 constant TEST_ITERATIONS = 10;
+    uint256 constant TEST_ITERATIONS = 100;
 
     function setUp() public {
-        uint256 forkBlock = 18835309;
+        uint256 forkBlock = 19866715;
         vm.createSelectFork(vm.rpcUrl("mainnet"), forkBlock);
         adapter = new sDaiSwapAdapter(SDAI_ADDRESS);
     }

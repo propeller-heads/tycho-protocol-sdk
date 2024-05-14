@@ -44,6 +44,7 @@ contract sDaiSwapAdapter is ISwapAdapter {
         _;
     }
 
+    /// @inheritdoc ISwapAdapter
     function price(
         bytes32,
         address sellToken,
@@ -57,6 +58,7 @@ contract sDaiSwapAdapter is ISwapAdapter {
         }
     }
 
+    /// @inheritdoc ISwapAdapter
     function swap(
         bytes32,
         address sellToken,
@@ -89,18 +91,11 @@ contract sDaiSwapAdapter is ISwapAdapter {
         }
     }
 
-    /// @param amountIn The amount of the token being sold.
-    function getPriceSwapAt(address sellToken, uint256 amountIn) public view returns (Fraction memory) {
-        if (sellToken == savingsDai.asset()) {
-            return Fraction(savingsDai.previewDeposit(amountIn), amountIn);
-        } else {
-            return Fraction(savingsDai.previewRedeem(amountIn), amountIn);
-        }
 
-    }
-
+    /// @notice Get Swap price only for testing purposes
+    /// @param sellToken token to sell.
     /// @param amountIn The amount of the token being sold.
-    function getPriceAt(address sellToken, uint256 amountIn) internal view returns (Fraction memory) {
+    function getPriceSwapAt(address sellToken, uint256 amountIn) external view returns (Fraction memory) {
         if (sellToken == savingsDai.asset()) {
             return Fraction(savingsDai.previewDeposit(amountIn), amountIn);
         } else {
@@ -110,6 +105,8 @@ contract sDaiSwapAdapter is ISwapAdapter {
     }
 
     /// @inheritdoc ISwapAdapter
+    /// @dev Limits are underestimated to 90% of totalSupply as both Dai and sDai 
+    // have no limits but revert in some cases
     function getLimits(bytes32, address sellToken, address buyToken)
         external
         view
@@ -117,7 +114,6 @@ contract sDaiSwapAdapter is ISwapAdapter {
         returns (uint256[] memory limits)
     {
         limits = new uint256[](2);
-        /// @dev Limits are underestimated to 90% of totalSupply
         
         if (sellToken == savingsDai.asset()) {
             limits[0] = dai.totalSupply() * 90/100;
@@ -190,7 +186,7 @@ contract sDaiSwapAdapter is ISwapAdapter {
     /// @notice Executes a buy order on the contract.
     /// @param sellToken The token being sold.
     /// @param amount The amount of buyToken to receive.
-    /// @return calculatedAmount The amount of tokens received.
+    /// @return calculatedAmount The amount of sellToken sold.
     function buy(IERC20 sellToken, uint256 amount)
         internal
         returns (uint256 calculatedAmount)
@@ -210,10 +206,21 @@ contract sDaiSwapAdapter is ISwapAdapter {
 
     }
 
+    /// @notice Get swap price
+    /// @param sellToken token to sell
+    /// @param amountIn The amount of the token being sold.
+    function getPriceAt(address sellToken, uint256 amountIn) internal view returns (Fraction memory) {
+        if (sellToken == savingsDai.asset()) {
+            return Fraction(savingsDai.previewDeposit(amountIn), amountIn);
+        } else {
+            return Fraction(savingsDai.previewRedeem(amountIn), amountIn);
+        }
+
+    }
+
 }
 
 interface ISavingsDai {
-
 
     function asset() external view returns (address);
 
