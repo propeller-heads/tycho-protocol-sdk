@@ -13,48 +13,56 @@ import {
 
 contract sDaiSwapAdapter is ISwapAdapter {
     using SafeERC20 for IERC20;
+    using SafeERC20 for ISavingsDai;
+
+    uint256 constant PRECISE_UNIT = 10 ** 18;
 
     ISavingsDai immutable savingsDai;
-    IDai immutable dai;
+    IERC20 immutable dai;
 
     constructor(address savingsDai_) {
         savingsDai = ISavingsDai(savingsDai_);
-        dai = IDai(savingsDai.asset());
+        dai = IERC20(savingsDai.asset());
     }
 
     /// @dev Check if swap between provided sellToken and buyToken are supported
     /// by this adapter
     modifier checkInputTokens(address sellToken, address buyToken) {
         if (sellToken == buyToken) {
-            revert Unavailable(
-                "This pool only supports DAI<->sDAI swaps"
-            );
+            revert Unavailable("This pool only supports DAI<->sDAI swaps");
         }
-        if (sellToken == savingsDai.asset() && buyToken != address(savingsDai)) {
-            revert Unavailable(
-                "This pool only supports DAI<->sDAI swaps"
-            );
+        if (sellToken == savingsDai.asset() && buyToken != address(savingsDai))
+        {
+            revert Unavailable("This pool only supports DAI<->sDAI swaps");
         }
-        if (sellToken == address(savingsDai) && buyToken != savingsDai.asset()) {
-            revert Unavailable(
-                "This pool only supports DAI<->sDAI swaps"
-            );
+        if (sellToken == address(savingsDai) && buyToken != savingsDai.asset())
+        {
+            revert Unavailable("This pool only supports DAI<->sDAI swaps");
         }
-        
+
         _;
     }
 
     /// @inheritdoc ISwapAdapter
+    /// @notice price doesn't change after swap for any given quantity
     function price(
         bytes32,
         address sellToken,
         address buyToken,
         uint256[] memory specifiedAmounts
-    ) external view override returns (Fraction[] memory prices) {
+    )
+        external
+        view
+        override
+        checkInputTokens(sellToken, buyToken)
+        returns (Fraction[] memory prices)
+    {
         prices = new Fraction[](specifiedAmounts.length);
 
+        Fraction memory outputPrice = getPriceAt(sellToken);
+
         for (uint256 i = 0; i < specifiedAmounts.length; i++) {
-            prices[i] = getPriceAt(sellToken, specifiedAmounts[i]);
+            prices[i] = outputPrice;
         }
     }
 
@@ -65,13 +73,12 @@ contract sDaiSwapAdapter is ISwapAdapter {
         address buyToken,
         OrderSide side,
         uint256 specifiedAmount
-    ) 
+    )
         external
         override
         checkInputTokens(sellToken, buyToken)
-        returns (Trade memory trade) 
+        returns (Trade memory trade)
     {
-        
         if (specifiedAmount == 0) {
             return trade;
         }
@@ -79,47 +86,36 @@ contract sDaiSwapAdapter is ISwapAdapter {
         if (side == OrderSide.Sell) {
             trade.calculatedAmount = sell(IERC20(sellToken), specifiedAmount);
         } else {
-            trade.calculatedAmount = buy(IERC20(sellToken), specifiedAmount);
+            trade.calculatedAmount = buy(IERC20(buyToken), specifiedAmount);
         }
 
         trade.gasUsed = gasBefore - gasleft();
 
         if (side == OrderSide.Sell) {
-            trade.price = getPriceAt(sellToken, specifiedAmount);
+            trade.price = getPriceAt(sellToken);
         } else {
-            trade.price = getPriceAt(sellToken, trade.calculatedAmount);
+            trade.price = getPriceAt(sellToken);
         }
-    }
-
-
-    /// @notice Get Swap price only for testing purposes
-    /// @param sellToken token to sell.
-    /// @param amountIn The amount of the token being sold.
-    function getPriceSwapAt(address sellToken, uint256 amountIn) external view returns (Fraction memory) {
-        if (sellToken == savingsDai.asset()) {
-            return Fraction(savingsDai.previewDeposit(amountIn), amountIn);
-        } else {
-            return Fraction(savingsDai.previewRedeem(amountIn), amountIn);
-        }
-
     }
 
     /// @inheritdoc ISwapAdapter
-    /// @dev Limits are underestimated to 90% of totalSupply as both Dai and sDai 
+    /// @dev Limits are underestimated to 90% of totalSupply as both Dai and
+    /// sDai
     // have no limits but revert in some cases
-    function getLimits(bytes32, address sellToken, address buyToken)
+    function getLimits(bytes32, address sellToken, address)
         external
         view
         override
         returns (uint256[] memory limits)
     {
         limits = new uint256[](2);
-        
-        if (sellToken == savingsDai.asset()) {
-            limits[0] = dai.totalSupply() * 90/100;
+
+        if (sellToken == address(dai)) {
+            limits[0] = (dai.totalSupply() - dai.balanceOf(address(savingsDai)))
+                * 90 / 100;
             limits[1] = savingsDai.previewDeposit(limits[0]);
         } else {
-            limits[0] = savingsDai.totalSupply() * 90/100;
+            limits[0] = savingsDai.totalSupply() * 90 / 100;
             limits[1] = savingsDai.previewRedeem(limits[0]);
         }
     }
@@ -137,7 +133,6 @@ contract sDaiSwapAdapter is ISwapAdapter {
         capabilities[2] = Capability.PriceFunction;
     }
 
-
     /// @inheritdoc ISwapAdapter
     function getTokens(bytes32)
         external
@@ -146,7 +141,7 @@ contract sDaiSwapAdapter is ISwapAdapter {
         returns (address[] memory tokens)
     {
         tokens = new address[](2);
-        tokens[0] = savingsDai.asset();
+        tokens[0] = address(dai);
         tokens[1] = address(savingsDai);
     }
 
@@ -169,59 +164,57 @@ contract sDaiSwapAdapter is ISwapAdapter {
         internal
         returns (uint256 calculatedAmount)
     {
-    
-        if (address(sellToken) == savingsDai.asset()) {
+        sellToken.safeTransferFrom(msg.sender, address(this), amount);
+
+        if (address(sellToken) == address(dai)) {
             sellToken.safeIncreaseAllowance(address(savingsDai), amount);
-            sellToken.safeTransferFrom(msg.sender, address(this), amount);
-            return savingsDai.deposit(amount, msg.sender);
         }
 
-        if (address(sellToken) == address(savingsDai)) {
-            sellToken.safeIncreaseAllowance(address(savingsDai), amount);
-            sellToken.safeTransferFrom(msg.sender, address(this), amount);
-            return savingsDai.redeem(amount, msg.sender, address(this));
-        }
+        return address(sellToken) == address(dai)
+            ? savingsDai.deposit(amount, msg.sender)
+            : savingsDai.redeem(amount, msg.sender, address(this));
     }
 
     /// @notice Executes a buy order on the contract.
-    /// @param sellToken The token being sold.
+    /// @param buyToken The token being bought.
     /// @param amount The amount of buyToken to receive.
     /// @return calculatedAmount The amount of sellToken sold.
-    function buy(IERC20 sellToken, uint256 amount)
+    function buy(IERC20 buyToken, uint256 amount)
         internal
         returns (uint256 calculatedAmount)
     {
-
-        if (address(sellToken) == savingsDai.asset()) {
+        if (address(buyToken) == address(savingsDai)) {
+            // DAI-sDAI
             uint256 amountIn = savingsDai.previewMint(amount);
-            sellToken.safeIncreaseAllowance(address(savingsDai), amountIn);
-            sellToken.safeTransferFrom(msg.sender, address(this), amountIn);
+            dai.safeTransferFrom(msg.sender, address(this), amountIn);
+            dai.safeIncreaseAllowance(address(savingsDai), amountIn);
             return savingsDai.mint(amount, msg.sender);
         } else {
+            // sDAI-DAI
             uint256 amountIn = savingsDai.previewWithdraw(amount);
-            sellToken.safeIncreaseAllowance(address(savingsDai), amountIn);
-            sellToken.safeTransferFrom(msg.sender, address(this), amountIn);
+            savingsDai.safeTransferFrom(msg.sender, address(this), amountIn);
             return savingsDai.withdraw(amount, msg.sender, address(this));
         }
-
     }
 
     /// @notice Get swap price
     /// @param sellToken token to sell
-    /// @param amountIn The amount of the token being sold.
-    function getPriceAt(address sellToken, uint256 amountIn) internal view returns (Fraction memory) {
-        if (sellToken == savingsDai.asset()) {
-            return Fraction(savingsDai.previewDeposit(amountIn), amountIn);
+    function getPriceAt(address sellToken)
+        internal
+        view
+        returns (Fraction memory)
+    {
+        if (sellToken == address(dai)) {
+            return
+                Fraction(savingsDai.previewDeposit(PRECISE_UNIT), PRECISE_UNIT);
         } else {
-            return Fraction(savingsDai.previewRedeem(amountIn), amountIn);
+            return
+                Fraction(savingsDai.previewRedeem(PRECISE_UNIT), PRECISE_UNIT);
         }
-
     }
-
 }
 
-interface ISavingsDai {
-
+interface ISavingsDai is IERC20 {
     function asset() external view returns (address);
 
     function decimals() external view returns (uint8);
@@ -240,18 +233,19 @@ interface ISavingsDai {
 
     function totalSupply() external pure returns (uint256);
 
-    function deposit(uint256 assets, address receiver) external returns (uint256 shares);
+    function deposit(uint256 assets, address receiver)
+        external
+        returns (uint256 shares);
 
-    function mint(uint256 shares, address receiver) external returns (uint256 assets);
+    function mint(uint256 shares, address receiver)
+        external
+        returns (uint256 assets);
 
-    function withdraw(uint256 assets, address receiver, address owner) external returns (uint256 shares);
+    function withdraw(uint256 assets, address receiver, address owner)
+        external
+        returns (uint256 shares);
 
-    function redeem(uint256 shares, address receiver, address owner) external returns (uint256 assets);
-
-}
-
-interface IDai {
-
-    function totalSupply() external pure returns (uint256);
-
+    function redeem(uint256 shares, address receiver, address owner)
+        external
+        returns (uint256 assets);
 }
