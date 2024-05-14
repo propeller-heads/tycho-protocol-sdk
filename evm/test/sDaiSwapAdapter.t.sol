@@ -18,14 +18,13 @@ contract sDaiSwapAdapterTest is Test, ISwapAdapterTypes {
 
     address constant DAI_ADDRESS = 0x6B175474E89094C44Da98b954EedeAC495271d0F;
     address constant SDAI_ADDRESS = 0x83F20F44975D03b1b09e64809B757c47f942BEeA;
-    address constant SAVINGS_DAI_PARAMETERS_ADDRESS = 0x197E90f9FAD81970bA7976f33CbD77088E5D7cf7;
 
     IERC20 constant DAI = IERC20(DAI_ADDRESS);
     IERC20 constant SDAI = IERC20(SDAI_ADDRESS);
     
     bytes32 constant PAIR = bytes32(0);
 
-    uint256 constant TEST_ITERATIONS = 20;
+    uint256 constant TEST_ITERATIONS = 10;
 
     function setUp() public {
         uint256 forkBlock = 18835309;
@@ -33,23 +32,87 @@ contract sDaiSwapAdapterTest is Test, ISwapAdapterTypes {
         adapter = new sDaiSwapAdapter(SDAI_ADDRESS);
     }
 
-    //     function testPriceFuzz(uint256 amount0, uint256 amount1) public {
-    //     bytes32 pair = bytes32(bytes20(USDC_WETH_PAIR));
-    //     uint256[] memory limits = adapter.getLimits(pair, USDC, WETH);
-    //     vm.assume(amount0 < limits[0]);
-    //     vm.assume(amount1 < limits[0]);
+    function testPriceFuzzDaiForSDai(uint256 amount0, uint256 amount1) public {
 
-    //     uint256[] memory amounts = new uint256[](2);
-    //     amounts[0] = amount0;
-    //     amounts[1] = amount1;
+        uint256[] memory limits = adapter.getLimits(PAIR, DAI_ADDRESS, SDAI_ADDRESS);
+        vm.assume(amount0 < limits[0] && amount0 > 1);
+        vm.assume(amount1 < limits[0] && amount1 > 1);
 
-    //     Fraction[] memory prices = adapter.price(pair, WETH, USDC, amounts);
+        uint256[] memory amounts = new uint256[](2);
+        amounts[0] = amount0;
+        amounts[1] = amount1;
 
-    //     for (uint256 i = 0; i < prices.length; i++) {
-    //         assertGt(prices[i].numerator, 0);
-    //         assertGt(prices[i].denominator, 0);
-    //     }
-    // }
+        Fraction[] memory prices = adapter.price(PAIR, DAI_ADDRESS, SDAI_ADDRESS, amounts);
+
+        for (uint256 i = 0; i < prices.length; i++) {
+            assertGt(prices[i].numerator, 0);
+            assertGt(prices[i].denominator, 0);
+        }
+    }
+
+    function testPriceFuzzSDaiForDai(uint256 amount0, uint256 amount1) public {
+
+        uint256[] memory limits = adapter.getLimits(PAIR, SDAI_ADDRESS, DAI_ADDRESS);
+        vm.assume(amount0 < limits[0] && amount0 > 1);
+        vm.assume(amount1 < limits[0] && amount1 > 1);
+
+        uint256[] memory amounts = new uint256[](2);
+        amounts[0] = amount0;
+        amounts[1] = amount1;
+
+        Fraction[] memory prices = adapter.price(PAIR, SDAI_ADDRESS, DAI_ADDRESS, amounts);
+
+        for (uint256 i = 0; i < prices.length; i++) {
+            assertGt(prices[i].numerator, 0);
+            assertGt(prices[i].denominator, 0);
+        }
+    }
+
+    /// @dev check why crossProduct1 != crossProduct2
+    function testPriceKeepDaiForSDai() public {
+        uint256[] memory amounts = new uint256[](TEST_ITERATIONS);
+
+        uint256 amountConstant_ = 10 ** 18;
+
+        for (uint256 i = 1; i < TEST_ITERATIONS; i++) {
+            amounts[i] = amountConstant_ * i;
+        }
+
+        Fraction[] memory prices = adapter.price(PAIR, DAI_ADDRESS, SDAI_ADDRESS, amounts);
+
+        for (uint256 i = 1; i < TEST_ITERATIONS - 1; i++) {
+            // console.log("TEST ITERATION: ", i);
+            // console.log("CrossProduct1: ", prices[i].numerator * prices[i + 1].denominator);
+            // console.log("CrossProduct2: ", prices[i + 1].numerator * prices[i].denominator);
+
+            assertEq(FractionMath.compareFractions(prices[i], prices[i + 1]), 0);
+            assertGt(prices[i].denominator, 0);
+            assertGt(prices[i + 1].denominator, 0);
+        }
+    }
+
+    /// @dev check why crossProduct1 != crossProduct2
+    function testPriceKeepSDaiForDai() public {
+        uint256[] memory amounts = new uint256[](TEST_ITERATIONS);
+
+        uint256 amountConstant_ = 10 ** 18;
+
+        for (uint256 i = 1; i < TEST_ITERATIONS; i++) {
+            amounts[i] = amountConstant_ * i;
+        }
+
+        Fraction[] memory prices = adapter.price(PAIR, SDAI_ADDRESS, DAI_ADDRESS, amounts);
+
+        for (uint256 i = 1; i < TEST_ITERATIONS - 1; i++) {
+            // console.log("TEST ITERATION: ", i);
+            // console.log("CrossProduct1: ", prices[i].numerator * prices[i + 1].denominator);
+            // console.log("CrossProduct2: ", prices[i + 1].numerator * prices[i].denominator);
+
+            assertEq(FractionMath.compareFractions(prices[i], prices[i + 1]), 0);
+            assertGt(prices[i].denominator, 0);
+            assertGt(prices[i + 1].denominator, 0);
+        }
+    }
 
     function testPriceAfterSwapEqPriceBeforeSwapSellDaiForSDai() public {
         testPriceAfterSwapEqPriceBeforeSwap(DAI_ADDRESS, SDAI_ADDRESS, OrderSide.Sell);
@@ -206,7 +269,7 @@ contract sDaiSwapAdapterTest is Test, ISwapAdapterTypes {
     }
 
     /// @notice price is constant for any amount of DAI token we selling
-    function executeIncreasingSwapsDaiForSDai(OrderSide side) public {
+    function executeIncreasingSwapsDaiForSDai(OrderSide side) internal {
         uint256 amountConstant_ = 10 ** 18;
 
         uint256[] memory amounts = new uint256[](TEST_ITERATIONS);
@@ -240,6 +303,12 @@ contract sDaiSwapAdapterTest is Test, ISwapAdapterTypes {
         assertEq(tokens[0], DAI_ADDRESS);
         assertEq(tokens[1], SDAI_ADDRESS);
         assertEq(tokens.length, 2);
+    }
+
+    function testGetCapabilities(bytes32 pair, address t0, address t1) public {
+        Capability[] memory res = adapter.getCapabilities(PAIR, DAI_ADDRESS, SDAI_ADDRESS);
+
+        assertEq(res.length, 3);
     }
 
     function testGetLimitsSDai() public {

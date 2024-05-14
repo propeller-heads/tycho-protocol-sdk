@@ -45,12 +45,16 @@ contract sDaiSwapAdapter is ISwapAdapter {
     }
 
     function price(
-        bytes32 _poolId,
-        address _sellToken,
-        address _buyToken,
-        uint256[] memory _specifiedAmounts
-    ) external view override returns (Fraction[] memory _prices) {
-        revert NotImplemented("TemplateSwapAdapter.price");
+        bytes32,
+        address sellToken,
+        address buyToken,
+        uint256[] memory specifiedAmounts
+    ) external view override returns (Fraction[] memory prices) {
+        prices = new Fraction[](specifiedAmounts.length);
+
+        for (uint256 i = 0; i < specifiedAmounts.length; i++) {
+            prices[i] = getPriceAt(sellToken, specifiedAmounts[i]);
+        }
     }
 
     function swap(
@@ -124,13 +128,19 @@ contract sDaiSwapAdapter is ISwapAdapter {
         }
     }
 
-    function getCapabilities(
-        bytes32 poolId,
-        address sellToken,
-        address buyToken
-    ) external returns (Capability[] memory capabilities) {
-        revert NotImplemented("TemplateSwapAdapter.getCapabilities");
+    /// @inheritdoc ISwapAdapter
+    function getCapabilities(bytes32, address, address)
+        external
+        pure
+        override
+        returns (Capability[] memory capabilities)
+    {
+        capabilities = new Capability[](3);
+        capabilities[0] = Capability.SellOrder;
+        capabilities[1] = Capability.BuyOrder;
+        capabilities[2] = Capability.PriceFunction;
     }
+
 
     /// @inheritdoc ISwapAdapter
     function getTokens(bytes32)
