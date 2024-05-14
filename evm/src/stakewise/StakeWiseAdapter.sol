@@ -131,27 +131,32 @@ contract StakeWiseAdapter is ISwapAdapter {
         bool simulateTrade
     ) internal view returns (Fraction memory) {
         uint256 numerator;
+        uint256 amountToSwap = amount;
         if (!simulateTrade) {
             if (sellToken == address(osETH)) {
                 // redeem, amount is osETH to spend
-                return Fraction(vault.convertToAssets(amount), amount);
+                return Fraction(vault.convertToAssets(amountToSwap), amountToSwap);
             } else {
                 // mint, amount is ETH to spend
-                return Fraction(vault.convertToShares(amount), amount);
+                return Fraction(vault.convertToShares(amountToSwap), amountToSwap);
             }
         }
+
+        /// @dev we use small unit of amount to swap for post-trade price to avoid rounding errors
+        amountToSwap = 10**18 / 100000;
+
         if (sellToken == address(osETH)) {
             // redeem, amount is osETH to spend
-            uint256 sharesAfter = vault.totalShares() - amount;
+            uint256 sharesAfter = vault.totalShares() - amountToSwap;
             uint256 assetsAfter = vault.totalAssets() -
-                vault.convertToAssets(amount);
-            uint256 numerator = Math.mulDiv(amount, assetsAfter, sharesAfter);
-            return Fraction(numerator, amount);
+                vault.convertToAssets(amountToSwap);
+            uint256 numerator = Math.mulDiv(amountToSwap, assetsAfter, sharesAfter);
+            return Fraction(numerator, amountToSwap);
         } else {
             // mint, amount is ETH to spend
-            uint256 assetsAfter = vault.totalAssets() + amount;
+            uint256 assetsAfter = vault.totalAssets() + amountToSwap;
             uint256 totalSharesBefore = vault.totalShares();
-            uint256 mintedShares = vault.convertToShares(amount);
+            uint256 mintedShares = vault.convertToShares(amountToSwap);
             uint256 sharesAfter = totalSharesBefore +
                 Math.mulDiv(
                     assetsAfter,
@@ -165,7 +170,7 @@ contract StakeWiseAdapter is ISwapAdapter {
                 assetsAfter,
                 Math.Rounding.Ceil
             );
-            return Fraction(numerator, amount);
+            return Fraction(numerator, amountToSwap);
         }
     }
 
