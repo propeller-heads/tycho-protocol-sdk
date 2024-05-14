@@ -20,7 +20,9 @@ contract StakeWiseAdapter is ISwapAdapter {
 
     /// @dev Check input tokens
     modifier checkInputTokens(address sellToken, address buyToken) {
-        if(sellToken == address(0) && sellToken != address(osETH) || sellToken != address(osETH) && buyToken != address(0)) {
+        if(sellToken == address(0) && buyToken == address(osETH) || sellToken == address(osETH) && buyToken == address(0)) {   
+        }
+        else {
             revert Unavailable("This adapter only supports ETH<->osETH swaps");
         }
         _;
@@ -210,7 +212,6 @@ contract StakeWiseAdapter is ISwapAdapter {
         if (buyToken != address(0)) {
             // ETH->osETH
             uint256 amountIn = vault.convertToAssets(amountBought);
-            uint256 sharesBefore = vault.getShares(address(this));
 
             (bool sent_, ) = address(vault).call{value: amountIn}("");
             if(!sent_) { revert Unavailable("Ether transfer failed"); }
