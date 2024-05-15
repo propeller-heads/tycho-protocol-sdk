@@ -1,4 +1,4 @@
-use crate::{abi, pool_factories};
+use crate::abi;
 use anyhow::Result;
 use itertools::Itertools;
 use std::collections::HashMap;
@@ -31,7 +31,7 @@ pub fn map_components(block: eth::v2::Block) -> Result<BlockTransactionProtocolC
                         if is_deployment_tx_from_deployer(tx, FRAX_ALT_DEPLOYER)
                             && log.address == VAULT_ADDRESS
                         {
-                            Some(create_vault_component(tx.into()))
+                            Some(create_vault_component(&tx.into()))
                         } else {
                             None
                         }
@@ -76,48 +76,50 @@ pub fn map_relative_balances(
             let mut deltas = Vec::new();
 
             if let Some(ev) =
-                abi::vault::events::PoolBalanceChanged::match_and_decode(vault_log.log)
+                abi::sfraxeth_contract::events::Withdraw::match_and_decode(vault_log.log)
+            {
+                // let component_id = format!("0x{}", hex::encode(&ev.pool_id[..20]));
+
+                // if store
+                //     .get_last(format!("pool:{}", component_id))
+                //     .is_some()
+                // {
+                //     for (token, delta) in ev.tokens.iter().zip(ev.deltas.iter()) {
+                //         deltas.push(BalanceDelta {
+                //             ord: vault_log.ordinal(),
+                //             tx: Some(vault_log.receipt.transaction.into()),
+                //             token: token.to_vec(),
+                //             delta: delta.to_signed_bytes_be(),
+                //             component_id: component_id.as_bytes().to_vec(),
+                //         });
+                //     }
+                // }
+            } else if let Some(ev) =
+                abi::sfraxeth_contract::events::Deposit::match_and_decode(vault_log.log)
             {
                 let component_id = format!("0x{}", hex::encode(&ev.pool_id[..20]));
 
-                if store
-                    .get_last(format!("pool:{}", component_id))
-                    .is_some()
-                {
-                    for (token, delta) in ev.tokens.iter().zip(ev.deltas.iter()) {
-                        deltas.push(BalanceDelta {
-                            ord: vault_log.ordinal(),
-                            tx: Some(vault_log.receipt.transaction.into()),
-                            token: token.to_vec(),
-                            delta: delta.to_signed_bytes_be(),
-                            component_id: component_id.as_bytes().to_vec(),
-                        });
-                    }
-                }
-            } else if let Some(ev) = abi::vault::events::Swap::match_and_decode(vault_log.log) {
-                let component_id = format!("0x{}", hex::encode(&ev.pool_id[..20]));
-
-                if store
-                    .get_last(format!("pool:{}", component_id))
-                    .is_some()
-                {
-                    deltas.extend_from_slice(&[
-                        BalanceDelta {
-                            ord: vault_log.ordinal(),
-                            tx: Some(vault_log.receipt.transaction.into()),
-                            token: ev.token_in.to_vec(),
-                            delta: ev.amount_in.to_signed_bytes_be(),
-                            component_id: component_id.as_bytes().to_vec(),
-                        },
-                        BalanceDelta {
-                            ord: vault_log.ordinal(),
-                            tx: Some(vault_log.receipt.transaction.into()),
-                            token: ev.token_out.to_vec(),
-                            delta: ev.amount_out.neg().to_signed_bytes_be(),
-                            component_id: component_id.as_bytes().to_vec(),
-                        },
-                    ]);
-                }
+                // if store
+                //     .get_last(format!("pool:{}", component_id))
+                //     .is_some()
+                // {
+                //     deltas.extend_from_slice(&[
+                //         BalanceDelta {
+                //             ord: vault_log.ordinal(),
+                //             tx: Some(vault_log.receipt.transaction.into()),
+                //             token: ev.token_in.to_vec(),
+                //             delta: ev.amount_in.to_signed_bytes_be(),
+                //             component_id: component_id.as_bytes().to_vec(),
+                //         },
+                //         BalanceDelta {
+                //             ord: vault_log.ordinal(),
+                //             tx: Some(vault_log.receipt.transaction.into()),
+                //             token: ev.token_out.to_vec(),
+                //             delta: ev.amount_out.neg().to_signed_bytes_be(),
+                //             component_id: component_id.as_bytes().to_vec(),
+                //         },
+                //     ]);
+                // }
             }
 
             deltas
@@ -224,4 +226,11 @@ fn create_vault_component(tx: &Transaction) -> ProtocolComponent {
     ProtocolComponent::at_contract(VAULT_ADDRESS, tx)
         .with_tokens(&[LOCKED_ASSET_ADDRESS])
         .as_swap_type("sfraxEth_vault", ImplementationType::Vm)
+}
+
+fn maybe_get_component_from_store(
+    store: &StoreGetInt64,
+    component_id: &[u8],
+) -> Option<ProtocolComponent> {
+    store.get_last(format!("pool:{}", hex::encode(component_id)))
 }

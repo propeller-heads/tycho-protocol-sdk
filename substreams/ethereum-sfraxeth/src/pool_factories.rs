@@ -1,9 +1,6 @@
 use crate::abi;
 use substreams::{hex, scalar::BigInt};
-use substreams_ethereum::{
-    pb::eth::v2::{Call, Log},
-    Event, Function,
-};
+use substreams_ethereum::pb::eth::v2::{Call, Log};
 use tycho_substreams::prelude::*;
 
 /// This trait defines some helpers for serializing and deserializing `Vec<BigInt` which is needed

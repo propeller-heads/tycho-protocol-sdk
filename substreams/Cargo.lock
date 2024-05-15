@@ -228,6 +228,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "ethereum-sfraxeth"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "bytes",
+ "ethabi 18.0.0",
+ "getrandom",
+ "hex",
+ "hex-literal 0.4.1",
+ "itertools 0.12.1",
+ "num-bigint",
+ "prost 0.11.9",
+ "prost-types 0.12.3",
+ "regex",
+ "substreams",
+ "substreams-ethereum",
+ "tycho-substreams",
+]
+
+[[package]]
 name = "ethereum-types"
 version = "0.13.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -757,9 +777,9 @@ dependencies = [
 
 [[package]]
 name = "regex"
-version = "1.10.3"
+version = "1.10.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b62dbe01f0b06f9d8dc7d49e05a0785f153b00b2c227856282f671e0318c9b15"
+checksum = "c117dbdfde9c8308975b6a18d71f3f385c89461f7b3fb054288ecf2a2058ba4c"
 dependencies = [
  "aho-corasick",
  "memchr",
