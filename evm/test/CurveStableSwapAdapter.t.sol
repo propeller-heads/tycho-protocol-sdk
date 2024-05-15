@@ -71,7 +71,8 @@ contract CurveStableSwapAdapterTest is Test, ISwapAdapterTypes {
     }
 
     function testSwapSellIncreasingCurveStableSwap() public {
-        executeIncreasingSwaps(OrderSide.Sell);
+        executeIncreasingSwapsStableSwap(OrderSide.Sell);
+        executeIncreasingSwapsCryptoSwap(OrderSide.Sell);
     }
 
     function executeIncreasingSwaps(OrderSide side) internal {

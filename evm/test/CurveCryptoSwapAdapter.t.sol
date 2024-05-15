@@ -30,6 +30,15 @@ contract CurveCryptoSwapAdapterTest is Test, ISwapAdapterTypes {
         vm.label(WETH_TRIPOOL, "WETH_TRIPOOL");
     }
 
+    function testScemo() public {
+        try ICurveCryptoPool(0x80466c64868E1ab14a1Ddf27A676C3fcBE638Fe5).get_dy(0, 1, 10**6) returns (uint256 j) {
+            console.log("Pass", j);
+        }
+        catch {
+            console.log("Err");
+        }
+    }
+
     function testSwapFuzzCurveCryptoSwap(uint256 specifiedAmount) public {
         OrderSide side = OrderSide.Sell;
 
