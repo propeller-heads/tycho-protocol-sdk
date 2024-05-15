@@ -5,7 +5,6 @@ import "forge-std/Test.sol";
 import "src/interfaces/ISwapAdapterTypes.sol";
 import "src/libraries/FractionMath.sol";
 import "src/sDai/sDaiSwapAdapter.sol";
-import "forge-std/console.sol";
 
 /// @title sDaiSwapAdapterTest
 
@@ -69,7 +68,6 @@ contract sDaiSwapAdapterTest is Test, ISwapAdapterTypes {
         }
     }
 
-    /// @dev check why crossProduct1 != crossProduct2
     function testPriceKeepDaiForSDai() public {
         uint256[] memory amounts = new uint256[](TEST_ITERATIONS);
 
@@ -83,19 +81,12 @@ contract sDaiSwapAdapterTest is Test, ISwapAdapterTypes {
             adapter.price(PAIR, DAI_ADDRESS, SDAI_ADDRESS, amounts);
 
         for (uint256 i = 1; i < TEST_ITERATIONS - 1; i++) {
-            // console.log("TEST ITERATION: ", i);
-            // console.log("CrossProduct1: ", prices[i].numerator * prices[i +
-            // 1].denominator);
-            // console.log("CrossProduct2: ", prices[i + 1].numerator *
-            // prices[i].denominator);
-
             assertEq(FractionMath.compareFractions(prices[i], prices[i + 1]), 0);
             assertGt(prices[i].denominator, 0);
             assertGt(prices[i + 1].denominator, 0);
         }
     }
 
-    /// @dev check why crossProduct1 != crossProduct2
     function testPriceKeepSDaiForDai() public {
         uint256[] memory amounts = new uint256[](TEST_ITERATIONS);
 
@@ -109,12 +100,6 @@ contract sDaiSwapAdapterTest is Test, ISwapAdapterTypes {
             adapter.price(PAIR, SDAI_ADDRESS, DAI_ADDRESS, amounts);
 
         for (uint256 i = 1; i < TEST_ITERATIONS - 1; i++) {
-            // console.log("TEST ITERATION: ", i);
-            // console.log("CrossProduct1: ", prices[i].numerator * prices[i +
-            // 1].denominator);
-            // console.log("CrossProduct2: ", prices[i + 1].numerator *
-            // prices[i].denominator);
-
             assertEq(FractionMath.compareFractions(prices[i], prices[i + 1]), 0);
             assertGt(prices[i].denominator, 0);
             assertGt(prices[i + 1].denominator, 0);
@@ -267,7 +252,6 @@ contract sDaiSwapAdapterTest is Test, ISwapAdapterTypes {
         }
     }
 
-    /// @dev check why this test is failing
     function testSwapSellIncreasingDai() public {
         executeIncreasingSwapsDaiForSDai(OrderSide.Sell);
     }
@@ -329,8 +313,6 @@ contract sDaiSwapAdapterTest is Test, ISwapAdapterTypes {
     function testGetLimitsSDai() public {
         uint256[] memory limits =
             adapter.getLimits(PAIR, DAI_ADDRESS, SDAI_ADDRESS);
-        console.log("Limit SellDai Dai: ", limits[0]);
-        console.log("Limit SellDai sDai: ", limits[1]);
         assertEq(limits.length, 2);
     }
 }
