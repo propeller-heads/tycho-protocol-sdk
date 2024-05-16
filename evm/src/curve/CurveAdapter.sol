@@ -35,7 +35,7 @@ contract CurveAdapter is ISwapAdapter {
         override
         returns (Fraction[] memory)
     {
-        revert NotImplemented("CurveStableSwapAdapter.price");
+        revert NotImplemented("CurveAdapter.price");
     }
 
     /// @inheritdoc ISwapAdapter
