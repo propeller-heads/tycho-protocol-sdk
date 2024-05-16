@@ -91,11 +91,7 @@ contract sDaiSwapAdapter is ISwapAdapter {
 
         trade.gasUsed = gasBefore - gasleft();
 
-        if (side == OrderSide.Sell) {
-            trade.price = getPriceAt(sellToken);
-        } else {
-            trade.price = getPriceAt(buyToken);
-        }
+        trade.price = getPriceAt(sellToken);
     }
 
     /// @inheritdoc ISwapAdapter
