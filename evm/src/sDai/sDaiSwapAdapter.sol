@@ -94,7 +94,7 @@ contract sDaiSwapAdapter is ISwapAdapter {
         if (side == OrderSide.Sell) {
             trade.price = getPriceAt(sellToken);
         } else {
-            trade.price = getPriceAt(sellToken);
+            trade.price = getPriceAt(buyToken);
         }
     }
 
