@@ -52,6 +52,7 @@ contract CurveAdapter is ISwapAdapter {
         address poolAddress = address(bytes20(poolId));
         (int128 sellTokenIndex, int128 buyTokenIndex,) =
             registry.get_coin_indices(poolAddress, sellToken, buyToken);
+            
         uint256 gasBefore = gasleft();
 
         if (side == OrderSide.Sell) {
@@ -69,7 +70,7 @@ contract CurveAdapter is ISwapAdapter {
             );
         }
         trade.gasUsed = gasBefore - gasleft();
-        trade.price = getPriceAt(poolAddress, sellTokenIndexFixed, buyTokenIndexFixed);
+        trade.price = getPriceAt(poolAddress, sellTokenIndex, buyTokenIndex);
     }
 
     /// @inheritdoc ISwapAdapter
@@ -150,13 +151,17 @@ contract CurveAdapter is ISwapAdapter {
         int128 sellTokenIndex,
         int128 buyTokenIndex
     ) internal view returns (Fraction memory) {
-        uint256 amountIn = pool.balances(sellTokenIndex) / 100000;
+        // uint256 amountIn = pool.balances(sellTokenIndex) / 100000;
+        uint256 amountIn;
+        uint256 sellTokenIndexFixed = uint256(uint128(sellTokenIndex));
         if(isStablePool(pool)) {
+            amountIn = ICurveStablePool(pool).balances(sellTokenIndexFixed) / 100000;
             return Fraction(
                 ICurveStablePool(pool).get_dy(sellTokenIndex, buyTokenIndex, amountIn), amountIn
             );
         }
         else {
+            amountIn = ICurveCryptoPool(pool).balances(sellTokenIndexFixed) / 100000;
             return Fraction(
                 ICurveCryptoPool(pool).get_dy(uint256(uint128(sellTokenIndex)), uint256(uint128(buyTokenIndex)), amountIn), amountIn
             );
