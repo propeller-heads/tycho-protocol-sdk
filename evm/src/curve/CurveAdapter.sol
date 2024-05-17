@@ -52,7 +52,7 @@ contract CurveAdapter is ISwapAdapter {
         address poolAddress = address(bytes20(poolId));
         (int128 sellTokenIndex, int128 buyTokenIndex,) =
             registry.get_coin_indices(poolAddress, sellToken, buyToken);
-            
+
         uint256 gasBefore = gasleft();
 
         if (side == OrderSide.Sell) {
@@ -154,16 +154,25 @@ contract CurveAdapter is ISwapAdapter {
         // uint256 amountIn = pool.balances(sellTokenIndex) / 100000;
         uint256 amountIn;
         uint256 sellTokenIndexFixed = uint256(uint128(sellTokenIndex));
-        if(isStablePool(pool)) {
-            amountIn = ICurveStablePool(pool).balances(sellTokenIndexFixed) / 100000;
+        if (isStablePool(pool)) {
+            amountIn =
+                ICurveStablePool(pool).balances(sellTokenIndexFixed) / 100000;
             return Fraction(
-                ICurveStablePool(pool).get_dy(sellTokenIndex, buyTokenIndex, amountIn), amountIn
+                ICurveStablePool(pool).get_dy(
+                    sellTokenIndex, buyTokenIndex, amountIn
+                ),
+                amountIn
             );
-        }
-        else {
-            amountIn = ICurveCryptoPool(pool).balances(sellTokenIndexFixed) / 100000;
+        } else {
+            amountIn =
+                ICurveCryptoPool(pool).balances(sellTokenIndexFixed) / 100000;
             return Fraction(
-                ICurveCryptoPool(pool).get_dy(uint256(uint128(sellTokenIndex)), uint256(uint128(buyTokenIndex)), amountIn), amountIn
+                ICurveCryptoPool(pool).get_dy(
+                    uint256(uint128(sellTokenIndex)),
+                    uint256(uint128(buyTokenIndex)),
+                    amountIn
+                ),
+                amountIn
             );
         }
     }
@@ -188,11 +197,17 @@ contract CurveAdapter is ISwapAdapter {
         sellToken.safeTransferFrom(msg.sender, address(this), amount);
         sellToken.safeIncreaseAllowance(address(pool), amount);
 
-        if(isStablePool(pool)) {
-            ICurveStablePool(pool).exchange(sellTokenIndex, buyTokenIndex, amount, 0);
-        }
-        else {
-            ICurveCryptoPool(pool).exchange(uint256(uint128(sellTokenIndex)), uint256(uint128(buyTokenIndex)), amount, 0);
+        if (isStablePool(pool)) {
+            ICurveStablePool(pool).exchange(
+                sellTokenIndex, buyTokenIndex, amount, 0
+            );
+        } else {
+            ICurveCryptoPool(pool).exchange(
+                uint256(uint128(sellTokenIndex)),
+                uint256(uint128(buyTokenIndex)),
+                amount,
+                0
+            );
         }
 
         calculatedAmount = buyToken.balanceOf(address(this)) - buyTokenBalBefore;
@@ -202,10 +217,11 @@ contract CurveAdapter is ISwapAdapter {
     /// @dev Check whether a pool is a StableSwap pool or CryptoSwap pool
     /// @param poolAddress address of the pool
     function isStablePool(address poolAddress) internal view returns (bool) {
-        try ICurveCryptoPool(poolAddress).get_dy(0, 1, 10**6) returns (uint256 j) {
+        try ICurveCryptoPool(poolAddress).get_dy(0, 1, 10 ** 6) returns (
+            uint256 j
+        ) {
             return false;
-        }
-        catch {
+        } catch {
             return true;
         }
     }
