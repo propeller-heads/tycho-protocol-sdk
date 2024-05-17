@@ -187,15 +187,7 @@ contract CurveAdapterTest is Test, ISwapAdapterTypes {
         assertGe(tokens.length, 2);
     }
 
-    function testGetPoolIdsCurveStableSwap() public {
-        bytes32 pair = bytes32(bytes20(USDT_TRIPOOL));
-        bytes32[] memory poolIds = adapter.getPoolIds(0, 2);
-
-        assertEq(poolIds.length, 2);
-    }
-
-    function testGetPoolIdsCurveCryptoSwap() public {
-        bytes32 pair = bytes32(bytes20(WETH_TRIPOOL));
+    function testGetPoolIdsCurveSwap() public {
         bytes32[] memory poolIds = adapter.getPoolIds(0, 2);
 
         assertEq(poolIds.length, 2);

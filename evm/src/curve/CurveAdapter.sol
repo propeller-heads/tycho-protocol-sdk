@@ -151,7 +151,6 @@ contract CurveAdapter is ISwapAdapter {
         int128 sellTokenIndex,
         int128 buyTokenIndex
     ) internal view returns (Fraction memory) {
-        // uint256 amountIn = pool.balances(sellTokenIndex) / 100000;
         uint256 amountIn;
         uint256 sellTokenIndexFixed = uint256(uint128(sellTokenIndex));
         if (isStablePool(pool)) {
@@ -218,7 +217,7 @@ contract CurveAdapter is ISwapAdapter {
     /// @param poolAddress address of the pool
     function isStablePool(address poolAddress) internal view returns (bool) {
         try ICurveCryptoPool(poolAddress).get_dy(0, 1, 10 ** 6) returns (
-            uint256 j
+            uint256
         ) {
             return false;
         } catch {
