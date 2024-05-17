@@ -179,24 +179,16 @@ contract sDaiSwapAdapterTest is Test, ISwapAdapterTypes {
         uint256 dai_balance_after = DAI.balanceOf(address(this));
         uint256 sDai_balance_after = SDAI.balanceOf(address(this));
 
-        if (trade.calculatedAmount > 0) {
-            if (side == OrderSide.Buy) {
-                assertEq(
-                    specifiedAmount, sDai_balance_after - sDai_balance_before
-                );
-                assertEq(
-                    trade.calculatedAmount,
-                    dai_balance_before - dai_balance_after
-                );
-            } else {
-                assertEq(
-                    specifiedAmount, dai_balance_before - dai_balance_after
-                );
-                assertEq(
-                    trade.calculatedAmount,
-                    sDai_balance_after - sDai_balance_before
-                );
-            }
+        if (side == OrderSide.Buy) {
+            assertEq(specifiedAmount, sDai_balance_after - sDai_balance_before);
+            assertEq(
+                trade.calculatedAmount, dai_balance_before - dai_balance_after
+            );
+        } else {
+            assertEq(specifiedAmount, dai_balance_before - dai_balance_after);
+            assertEq(
+                trade.calculatedAmount, sDai_balance_after - sDai_balance_before
+            );
         }
     }
 
@@ -231,24 +223,16 @@ contract sDaiSwapAdapterTest is Test, ISwapAdapterTypes {
         uint256 sDai_balance_after = SDAI.balanceOf(address(this));
         uint256 dai_balance_after = DAI.balanceOf(address(this));
 
-        if (trade.calculatedAmount > 0) {
-            if (side == OrderSide.Buy) {
-                assertEq(
-                    specifiedAmount, dai_balance_after - dai_balance_before
-                );
-                assertEq(
-                    trade.calculatedAmount,
-                    sDai_balance_before - sDai_balance_after
-                );
-            } else {
-                assertEq(
-                    specifiedAmount, sDai_balance_before - sDai_balance_after
-                );
-                assertEq(
-                    trade.calculatedAmount,
-                    dai_balance_after - dai_balance_before
-                );
-            }
+        if (side == OrderSide.Buy) {
+            assertEq(specifiedAmount, dai_balance_after - dai_balance_before);
+            assertEq(
+                trade.calculatedAmount, sDai_balance_before - sDai_balance_after
+            );
+        } else {
+            assertEq(specifiedAmount, sDai_balance_before - sDai_balance_after);
+            assertEq(
+                trade.calculatedAmount, dai_balance_after - dai_balance_before
+            );
         }
     }
 
@@ -303,11 +287,11 @@ contract sDaiSwapAdapterTest is Test, ISwapAdapterTypes {
         assertEq(tokens.length, 2);
     }
 
-    function testGetCapabilities(bytes32, address, address) public {
+    function testGetCapabilitiesSDai(bytes32, address, address) public {
         Capability[] memory res =
             adapter.getCapabilities(PAIR, DAI_ADDRESS, SDAI_ADDRESS);
 
-        assertEq(res.length, 3);
+        assertEq(res.length, 4);
     }
 
     function testGetLimitsSDai() public {
