@@ -1,0 +1,242 @@
+type stakedfrax_approval @entity {
+    id: ID!
+    evt_tx_hash: String!
+    evt_index: BigInt!
+    evt_block_time: String!
+    evt_block_number: BigInt!
+    amount: BigDecimal!
+    owner: String!
+    spender: String!
+}
+type stakedfrax_deposit @entity {
+    id: ID!
+    evt_tx_hash: String!
+    evt_index: BigInt!
+    evt_block_time: String!
+    evt_block_number: BigInt!
+    assets: BigDecimal!
+    caller: String!
+    owner: String!
+    shares: BigDecimal!
+}
+type stakedfrax_distribute_rewards @entity {
+    id: ID!
+    evt_tx_hash: String!
+    evt_index: BigInt!
+    evt_block_time: String!
+    evt_block_number: BigInt!
+    rewards_to_distribute: BigDecimal!
+}
+type stakedfrax_set_max_distribution_per_second_per_asset @entity {
+    id: ID!
+    evt_tx_hash: String!
+    evt_index: BigInt!
+    evt_block_time: String!
+    evt_block_number: BigInt!
+    new_max: BigDecimal!
+    old_max: BigDecimal!
+}
+type stakedfrax_sync_rewards @entity {
+    id: ID!
+    evt_tx_hash: String!
+    evt_index: BigInt!
+    evt_block_time: String!
+    evt_block_number: BigInt!
+    cycle_end: Int!
+    last_sync: Int!
+    reward_cycle_amount: BigDecimal!
+}
+type stakedfrax_timelock_transfer_started @entity {
+    id: ID!
+    evt_tx_hash: String!
+    evt_index: BigInt!
+    evt_block_time: String!
+    evt_block_number: BigInt!
+    new_timelock: String!
+    previous_timelock: String!
+}
+type stakedfrax_timelock_transferred @entity {
+    id: ID!
+    evt_tx_hash: String!
+    evt_index: BigInt!
+    evt_block_time: String!
+    evt_block_number: BigInt!
+    new_timelock: String!
+    previous_timelock: String!
+}
+type stakedfrax_transfer @entity {
+    id: ID!
+    evt_tx_hash: String!
+    evt_index: BigInt!
+    evt_block_time: String!
+    evt_block_number: BigInt!
+    amount: BigDecimal!
+    from: String!
+    to: String!
+}
+type stakedfrax_withdraw @entity {
+    id: ID!
+    evt_tx_hash: String!
+    evt_index: BigInt!
+    evt_block_time: String!
+    evt_block_number: BigInt!
+    assets: BigDecimal!
+    caller: String!
+    owner: String!
+    receiver: String!
+    shares: BigDecimal!
+}
+type stakedfrax_call_accept_transfer_timelock @entity {
+    id: ID!
+    call_tx_hash: String!
+    call_block_time: String!
+    call_block_number: BigInt!
+    call_ordinal: BigInt!
+    call_success: Boolean!
+}
+type stakedfrax_call_approve @entity {
+    id: ID!
+    call_tx_hash: String!
+    call_block_time: String!
+    call_block_number: BigInt!
+    call_ordinal: BigInt!
+    call_success: Boolean!
+    amount: BigDecimal!
+    output_param0: Boolean!
+    spender: String!
+}
+type stakedfrax_call_deposit @entity {
+    id: ID!
+    call_tx_hash: String!
+    call_block_time: String!
+    call_block_number: BigInt!
+    call_ordinal: BigInt!
+    call_success: Boolean!
+    output__shares: BigDecimal!
+    u_assets: BigDecimal!
+    u_receiver: String!
+}
+type stakedfrax_call_deposit_with_signature @entity {
+    id: ID!
+    call_tx_hash: String!
+    call_block_time: String!
+    call_block_number: BigInt!
+    call_ordinal: BigInt!
+    call_success: Boolean!
+    output__shares: BigDecimal!
+    u_approve_max: Boolean!
+    u_assets: BigDecimal!
+    u_deadline: BigDecimal!
+    u_r: String!
+    u_receiver: String!
+    u_s: String!
+    u_v: Int!
+}
+type stakedfrax_call_mint @entity {
+    id: ID!
+    call_tx_hash: String!
+    call_block_time: String!
+    call_block_number: BigInt!
+    call_ordinal: BigInt!
+    call_success: Boolean!
+    output__assets: BigDecimal!
+    u_receiver: String!
+    u_shares: BigDecimal!
+}
+type stakedfrax_call_permit @entity {
+    id: ID!
+    call_tx_hash: String!
+    call_block_time: String!
+    call_block_number: BigInt!
+    call_ordinal: BigInt!
+    call_success: Boolean!
+    deadline: BigDecimal!
+    owner: String!
+    r: String!
+    s: String!
+    spender: String!
+    v: Int!
+    value: BigDecimal!
+}
+type stakedfrax_call_redeem @entity {
+    id: ID!
+    call_tx_hash: String!
+    call_block_time: String!
+    call_block_number: BigInt!
+    call_ordinal: BigInt!
+    call_success: Boolean!
+    output__assets: BigDecimal!
+    u_owner: String!
+    u_receiver: String!
+    u_shares: BigDecimal!
+}
+type stakedfrax_call_renounce_timelock @entity {
+    id: ID!
+    call_tx_hash: String!
+    call_block_time: String!
+    call_block_number: BigInt!
+    call_ordinal: BigInt!
+    call_success: Boolean!
+}
+type stakedfrax_call_set_max_distribution_per_second_per_asset @entity {
+    id: ID!
+    call_tx_hash: String!
+    call_block_time: String!
+    call_block_number: BigInt!
+    call_ordinal: BigInt!
+    call_success: Boolean!
+    u_max_distribution_per_second_per_asset: BigDecimal!
+}
+type stakedfrax_call_sync_rewards_and_distribution @entity {
+    id: ID!
+    call_tx_hash: String!
+    call_block_time: String!
+    call_block_number: BigInt!
+    call_ordinal: BigInt!
+    call_success: Boolean!
+}
+type stakedfrax_call_transfer @entity {
+    id: ID!
+    call_tx_hash: String!
+    call_block_time: String!
+    call_block_number: BigInt!
+    call_ordinal: BigInt!
+    call_success: Boolean!
+    amount: BigDecimal!
+    output_param0: Boolean!
+    to: String!
+}
+type stakedfrax_call_transfer_from @entity {
+    id: ID!
+    call_tx_hash: String!
+    call_block_time: String!
+    call_block_number: BigInt!
+    call_ordinal: BigInt!
+    call_success: Boolean!
+    amount: BigDecimal!
+    from: String!
+    output_param0: Boolean!
+    to: String!
+}
+type stakedfrax_call_transfer_timelock @entity {
+    id: ID!
+    call_tx_hash: String!
+    call_block_time: String!
+    call_block_number: BigInt!
+    call_ordinal: BigInt!
+    call_success: Boolean!
+    u_new_timelock: String!
+}
+type stakedfrax_call_withdraw @entity {
+    id: ID!
+    call_tx_hash: String!
+    call_block_time: String!
+    call_block_number: BigInt!
+    call_ordinal: BigInt!
+    call_success: Boolean!
+    output__shares: BigDecimal!
+    u_assets: BigDecimal!
+    u_owner: String!
+    u_receiver: String!
+}
+
