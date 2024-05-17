@@ -28,15 +28,10 @@ contract sDaiSwapAdapter is ISwapAdapter {
     /// @dev Check if swap between provided sellToken and buyToken are supported
     /// by this adapter
     modifier checkInputTokens(address sellToken, address buyToken) {
-        if (sellToken == buyToken) {
-            revert Unavailable("This pool only supports DAI<->sDAI swaps");
-        }
-        if (sellToken == savingsDai.asset() && buyToken != address(savingsDai))
-        {
-            revert Unavailable("This pool only supports DAI<->sDAI swaps");
-        }
-        if (sellToken == address(savingsDai) && buyToken != savingsDai.asset())
-        {
+        if (
+            sellToken == address(dai) && buyToken == address(savingsDai)
+                || sellToken == address(savingsDai) && buyToken == address(dai)
+        ) {} else {
             revert Unavailable("This pool only supports DAI<->sDAI swaps");
         }
 
@@ -123,10 +118,11 @@ contract sDaiSwapAdapter is ISwapAdapter {
         override
         returns (Capability[] memory capabilities)
     {
-        capabilities = new Capability[](3);
+        capabilities = new Capability[](4);
         capabilities[0] = Capability.SellOrder;
         capabilities[1] = Capability.BuyOrder;
         capabilities[2] = Capability.PriceFunction;
+        capabilities[3] = Capability.ConstantPrice;
     }
 
     /// @inheritdoc ISwapAdapter
