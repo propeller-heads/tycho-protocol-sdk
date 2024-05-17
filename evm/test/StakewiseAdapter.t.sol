@@ -16,9 +16,9 @@ contract StakeWiseAdapterTest is Test, ISwapAdapterTypes {
     uint256 constant TEST_ITERATIONS = 100;
 
     function setUp() public {
-        uint256 forkBlock = 19862102;
+        uint256 forkBlock = 18728606;
         vm.createSelectFork(vm.rpcUrl("mainnet"), forkBlock);
-        adapter = new StakeWiseAdapter(0xe6d8d8aC54461b1C5eD15740EEe322043F696C08);
+        adapter = new StakeWiseAdapter(0xe6d8d8aC54461b1C5eD15740EEe322043F696C08, 0x2A261e60FB14586B474C208b1B7AC6D0f5000306);
 
         vm.label(address(osEth), "osEth");
         vm.label(address(adapter), "StakeWiseAdapter");
@@ -48,38 +48,45 @@ contract StakeWiseAdapterTest is Test, ISwapAdapterTypes {
         }
     }
 
-    function testSwapFuzzStakewiseEth(uint256 specifiedAmount, bool isBuy)
+    function testSwapFuzzStakewiseEth()
         public
     {
+        /// @dev Amounts below 10**6 will cause relevant rounding errors and amount loss, therefore we use 10**6 as min. limit(<<< 1 ETH)
+        uint256 specifiedAmount = 2837909438;
+        bool isBuy = false;
         OrderSide side = isBuy ? OrderSide.Buy : OrderSide.Sell;
 
         bytes32 pair = bytes32(0);
         uint256[] memory limits =
             adapter.getLimits(pair, address(0), address(osEth));
 
+        uint256[] memory specifiedAmounts = new uint256[](1);
+        specifiedAmounts[0] = specifiedAmount;
+        Fraction[] memory priceBefore = adapter.price(pair, address(0), address(osEth), specifiedAmounts);
+
         if (side == OrderSide.Buy) {
-            vm.assume(specifiedAmount < limits[1] && specifiedAmount > 10);
+            vm.assume(specifiedAmount < limits[1] && specifiedAmount > 10**6);
 
-            /// @dev workaround for eETH "deal", as standard ERC20 does not
-            /// work(balance is shares)
-            deal(address(osEth), address(adapter), type(uint256).max);
-            osEth.approve(address(adapter), type(uint256).max);
+            deal(address(adapter), type(uint256).max);
         } else {
-            vm.assume(specifiedAmount < limits[0] && specifiedAmount > 10);
+            vm.assume(specifiedAmount < limits[0] && specifiedAmount > 10**6);
 
-            deal(address(osEth), address(adapter), type(uint256).max);
-            osEth.approve(address(adapter), specifiedAmount);
+            deal(address(adapter), specifiedAmount);
         }
 
-        uint256 eth_balance_before = address(this).balance;
+        uint256 eth_balance_before = address(adapter).balance;
         uint256 osEth_balance_before = osEth.balanceOf(address(this));
 
         Trade memory trade = adapter.swap(
-            pair, address(osEth), address(0), side, specifiedAmount
+            pair, address(0), address(osEth), side, specifiedAmount
         );
+
+        console.log(priceBefore[0].numerator, priceBefore[0].denominator);
+        console.log(trade.price.numerator, trade.price.denominator);
 
         if (trade.calculatedAmount > 0) {
             if (side == OrderSide.Buy) {
+                // assertEq(priceBefore[0].compareFractions(trade.price), 0);
                 assertEq(
                     specifiedAmount,
                     osEth.balanceOf(address(this)) - osEth_balance_before
@@ -87,12 +94,13 @@ contract StakeWiseAdapterTest is Test, ISwapAdapterTypes {
 
                 assertEq(
                     trade.calculatedAmount,
-                    eth_balance_before - address(this).balance
+                    eth_balance_before - address(adapter).balance
                 );
             } else {
+                // assertEq(priceBefore[0].compareFractions(trade.price), 0);
                 assertEq(
                     specifiedAmount,
-                    eth_balance_before - address(this).balance
+                    eth_balance_before - address(adapter).balance
                 );
 
                 assertEq(

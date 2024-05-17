@@ -22,6 +22,7 @@ instances:
       id: 0
     arguments:
       - "0xAC0F906E433d58FA868F936E8A43230473652885"
+      - "0x2A261e60FB14586B474C208b1B7AC6D0f5000306"
 
 # Specify some automatic test cases in case getPoolIds and
 # getTokens are not implemented.
