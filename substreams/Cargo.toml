@@ -1,8 +1,8 @@
 [workspace]
 members = [
+    "ethereum-frax", 
     "ethereum-balancer",
     "crates/tycho-substreams",
-    "ethereum_frax"
 ]
 resolver = "2"
 

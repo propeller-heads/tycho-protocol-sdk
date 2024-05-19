@@ -1,6 +1,6 @@
 specVersion: v0.1.0
 package:
-  name: ethereum_frax
+  name: ethereum-frax
   version: v0.1.0
 
 imports:

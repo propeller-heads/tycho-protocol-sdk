@@ -1,6 +1,6 @@
 [package]
-name = "ethereum_frax"
-version = "0.0.1"
+name = "ethereum-frax"
+version = "0.1.0"
 edition = "2021"
 
 [lib]
@@ -8,7 +8,6 @@ name = "substreams"
 crate-type = ["cdylib"]
 
 [dependencies]
-
 substreams.workspace = true
 substreams-ethereum.workspace = true
 prost.workspace = true
