@@ -12,9 +12,9 @@ use tycho_substreams::{
     balances::aggregate_balances_changes, contract::extract_contract_changes, prelude::*,
 };
 
-const VAULT_ADDRESS: [u8; 20] = hex!("ac3E018457B222d93114458476f3E3416Abbe38F");
-const LOCKED_ASSET_ADDRESS: [u8; 20] = hex!("5E8422345238F34275888049021821E8E08CAa1f");
-const FRAX_ALT_DEPLOYER: [u8; 20] = hex!("4600D3b12c39AF925C2C07C487d31D17c1e32A35"); // https://etherscan.io/tx/0xd78dbe6cba652eb844de5aa473636c202fb6366c1bfc5ff8d5a26c1a24b37b07
+const VAULT_ADDRESS: [u8; 20] = hex!("A663B02CF0a4b149d2aD41910CB81e23e1c41c32");
+const LOCKED_ASSET_ADDRESS: [u8; 20] = hex!("5E8422345238F34275888049021821E8E08CAa1f"); //FraxETH
+const FRAX_ALT_DEPLOYER: [u8; 20] = hex!("e2314E9445A0cbf2C0571d77A7b0705BD1e90912"); // https://etherscan.io/tx/0xecd4ab27bc3b4c300b11405fc6a156ee316ad3f4c24f63130cbcbc49ae6bef55
 
 #[substreams::handlers::map]
 pub fn map_components(block: eth::v2::Block) -> Result<BlockTransactionProtocolComponents> {
