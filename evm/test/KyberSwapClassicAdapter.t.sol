@@ -30,7 +30,7 @@ contract KyberSwapClassicAdapterTest is Test, ISwapAdapterTypes {
         vm.label(WBTC_WETH_PAIR, "WBTC_WETH_PAIR");
     }
 
-    function testPriceFuzzKyberswap(uint256 amount0, uint256 amount1) public {
+    function testPriceFuzzKyberSwap(uint256 amount0, uint256 amount1) public {
         bytes32 pair = bytes32(bytes20(WBTC_WETH_PAIR));
         uint256[] memory limits = adapter.getLimits(pair, WBTC, WETH);
         vm.assume(amount0 > 0 && amount0 < limits[0]);
@@ -48,7 +48,7 @@ contract KyberSwapClassicAdapterTest is Test, ISwapAdapterTypes {
         }
     }
 
-    function testPriceDecreasingKyberswap() public {
+    function testPriceDecreasingKyberSwap() public {
         bytes32 pair = bytes32(bytes20(WBTC_WETH_PAIR));
         uint256[] memory amounts = new uint256[](TEST_ITERATIONS);
 
@@ -65,24 +65,27 @@ contract KyberSwapClassicAdapterTest is Test, ISwapAdapterTypes {
         }
     }
 
-    function testSwapFuzzKyberswap(uint256 specifiedAmount, bool isBuy)
-        public
-    {
+    function testSwapFuzzKyberSwapWbtcForWeth(
+        uint256 specifiedAmount,
+        bool isBuy
+    ) public {
         OrderSide side = isBuy ? OrderSide.Buy : OrderSide.Sell;
 
         bytes32 pair = bytes32(bytes20(WBTC_WETH_PAIR));
-        vm.assume(specifiedAmount > 10 ** 6);
+
         uint256[] memory limits = adapter.getLimits(pair, WBTC, WETH);
 
         Fraction[] memory priceBefore;
 
         if (side == OrderSide.Buy) {
             vm.assume(specifiedAmount < limits[1]);
+            vm.assume(specifiedAmount > 10 ** 12);
 
             deal(WBTC, address(this), type(uint256).max);
             IERC20(WBTC).approve(address(adapter), type(uint256).max);
         } else {
             vm.assume(specifiedAmount < limits[0]);
+            vm.assume(specifiedAmount > 10 ** 2);
 
             deal(WBTC, address(this), specifiedAmount);
             IERC20(WBTC).approve(address(adapter), specifiedAmount);
@@ -92,7 +95,7 @@ contract KyberSwapClassicAdapterTest is Test, ISwapAdapterTypes {
             priceBefore = adapter.price(pair, WBTC, WETH, specifiedAmounts);
         }
 
-        uint256 WBTC_balance = IERC20(WBTC).balanceOf(address(this));
+        uint256 wbtc_balance = IERC20(WBTC).balanceOf(address(this));
         uint256 weth_balance = IERC20(WETH).balanceOf(address(this));
 
         Trade memory trade =
@@ -106,30 +109,86 @@ contract KyberSwapClassicAdapterTest is Test, ISwapAdapterTypes {
                 );
                 assertEq(
                     trade.calculatedAmount,
-                    WBTC_balance - IERC20(WBTC).balanceOf(address(this))
+                    wbtc_balance - IERC20(WBTC).balanceOf(address(this))
                 );
             } else {
                 assertEq(
                     specifiedAmount,
-                    WBTC_balance - IERC20(WBTC).balanceOf(address(this))
+                    wbtc_balance - IERC20(WBTC).balanceOf(address(this))
                 );
                 assertEq(
                     trade.calculatedAmount,
                     IERC20(WETH).balanceOf(address(this)) - weth_balance
                 );
-                assertEq(
-                    trade.price.compareFractions(priceBefore[0]),
-                    0
-                );
+                assertEq(trade.price.compareFractions(priceBefore[0]), 0);
             }
         }
     }
 
-    function testSwapSellIncreasingKyberswap() public {
-        executeIncreasingSwapsKyberswap(OrderSide.Sell);
+    function testSwapFuzzKyberSwapWethForWbtc(
+        uint256 specifiedAmount,
+        bool isBuy
+    ) public {
+        OrderSide side = isBuy ? OrderSide.Buy : OrderSide.Sell;
+
+        bytes32 pair = bytes32(bytes20(WBTC_WETH_PAIR));
+        uint256[] memory limits = adapter.getLimits(pair, WETH, WBTC);
+
+        Fraction[] memory priceBefore;
+
+        if (side == OrderSide.Buy) {
+            vm.assume(specifiedAmount < limits[1]);
+            vm.assume(specifiedAmount > 10 ** 2);
+
+            deal(WETH, address(this), type(uint256).max);
+            IERC20(WETH).approve(address(adapter), type(uint256).max);
+        } else {
+            vm.assume(specifiedAmount < limits[0]);
+            vm.assume(specifiedAmount > 10 ** 12);
+
+            deal(WETH, address(this), specifiedAmount);
+            IERC20(WETH).approve(address(adapter), specifiedAmount);
+
+            uint256[] memory specifiedAmounts = new uint256[](1);
+            specifiedAmounts[0] = specifiedAmount;
+            priceBefore = adapter.price(pair, WETH, WBTC, specifiedAmounts);
+        }
+
+        uint256 weth_balance = IERC20(WETH).balanceOf(address(this));
+        uint256 wbtc_balance = IERC20(WBTC).balanceOf(address(this));
+
+        Trade memory trade =
+            adapter.swap(pair, WETH, WBTC, side, specifiedAmount);
+
+        if (trade.calculatedAmount > 0) {
+            if (side == OrderSide.Buy) {
+                assertEq(
+                    specifiedAmount,
+                    IERC20(WBTC).balanceOf(address(this)) - wbtc_balance
+                );
+                assertEq(
+                    trade.calculatedAmount,
+                    weth_balance - IERC20(WETH).balanceOf(address(this))
+                );
+            } else {
+                assertEq(
+                    specifiedAmount,
+                    weth_balance - IERC20(WETH).balanceOf(address(this))
+                );
+                assertEq(
+                    trade.calculatedAmount,
+                    IERC20(WBTC).balanceOf(address(this)) - wbtc_balance
+                );
+                assertEq(trade.price.compareFractions(priceBefore[0]), 0);
+            }
+        }
     }
 
-    function executeIncreasingSwapsKyberswap(OrderSide side) internal {
+    function testSwapSellIncreasingKyberSwap() public {
+        executeIncreasingSwapsKyberSwap(OrderSide.Sell);
+    }
+
+    function executeIncreasingSwapsKyberSwap(OrderSide side) internal {
         bytes32 pair = bytes32(bytes20(WBTC_WETH_PAIR));
 
         uint256[] memory amounts = new uint256[](TEST_ITERATIONS);
@@ -156,8 +215,8 @@ contract KyberSwapClassicAdapterTest is Test, ISwapAdapterTypes {
         }
     }
 
-    function testSwapBuyIncreasingKyberswap() public {
-        executeIncreasingSwapsKyberswap(OrderSide.Buy);
+    function testSwapBuyIncreasingKyberSwap() public {
+        executeIncreasingSwapsKyberSwap(OrderSide.Buy);
     }
 
     function testGetCapabilities(bytes32 pair, address t0, address t1) public {
