@@ -4,8 +4,8 @@ pragma solidity ^0.8.13;
 
 import {ISwapAdapter} from "src/interfaces/ISwapAdapter.sol";
 import {IERC20, SafeERC20} from "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
-import {Math} from "openzeppelin-contracts/contracts/utils/Math/Math.sol";
-import {SafeCast} from '@openzeppelin/contracts/utils/math/SafeCast.sol';
+import {Math} from "openzeppelin-contracts/contracts/utils/math/Math.sol";
+import {SafeCast} from 'openzeppelin-contracts/contracts/utils/math/SafeCast.sol';
 
 /// @title StakeWise Adapter
 /// @dev This Adapter supports ETH<->osETH swaps
