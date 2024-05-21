@@ -74,6 +74,8 @@ contract KyberSwapClassicAdapterTest is Test, ISwapAdapterTypes {
         vm.assume(specifiedAmount > 10 ** 6);
         uint256[] memory limits = adapter.getLimits(pair, WBTC, WETH);
 
+        Fraction[] memory priceBefore;
+
         if (side == OrderSide.Buy) {
             vm.assume(specifiedAmount < limits[1]);
 
@@ -84,6 +86,10 @@ contract KyberSwapClassicAdapterTest is Test, ISwapAdapterTypes {
 
             deal(WBTC, address(this), specifiedAmount);
             IERC20(WBTC).approve(address(adapter), specifiedAmount);
+
+            uint256[] memory specifiedAmounts = new uint256[](1);
+            specifiedAmounts[0] = specifiedAmount;
+            priceBefore = adapter.price(pair, WBTC, WETH, specifiedAmounts);
         }
 
         uint256 WBTC_balance = IERC20(WBTC).balanceOf(address(this));
@@ -110,6 +116,10 @@ contract KyberSwapClassicAdapterTest is Test, ISwapAdapterTypes {
                 assertEq(
                     trade.calculatedAmount,
                     IERC20(WETH).balanceOf(address(this)) - weth_balance
+                );
+                assertEq(
+                    trade.price.compareFractions(priceBefore[0]),
+                    0
                 );
             }
         }
