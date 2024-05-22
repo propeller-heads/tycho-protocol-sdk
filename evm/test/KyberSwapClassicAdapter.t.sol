@@ -30,9 +30,31 @@ contract KyberSwapClassicAdapterTest is Test, ISwapAdapterTypes {
         vm.label(WBTC_WETH_PAIR, "WBTC_WETH_PAIR");
     }
 
-    function testPriceFuzzKyberSwap(uint256 amount0, uint256 amount1) public {
+    function testPriceFuzzKyberSwapWbtcForWeth(uint256 amount0, uint256 amount1)
+        public
+    {
         bytes32 pair = bytes32(bytes20(WBTC_WETH_PAIR));
         uint256[] memory limits = adapter.getLimits(pair, WBTC, WETH);
+        vm.assume(amount0 > 0 && amount0 < limits[0]);
+        vm.assume(amount1 > 0 && amount1 < limits[0]);
+
+        uint256[] memory amounts = new uint256[](2);
+        amounts[0] = amount0;
+        amounts[1] = amount1;
+
+        Fraction[] memory prices = adapter.price(pair, WBTC, WETH, amounts);
+
+        for (uint256 i = 0; i < prices.length; i++) {
+            assertGt(prices[i].numerator, 0);
+            assertGt(prices[i].denominator, 0);
+        }
+    }
+
+    function testPriceFuzzKyberSwapWethForWbtc(uint256 amount0, uint256 amount1)
+        public
+    {
+        bytes32 pair = bytes32(bytes20(WBTC_WETH_PAIR));
+        uint256[] memory limits = adapter.getLimits(pair, WETH, WBTC);
         vm.assume(amount0 > 0 && amount0 < limits[0]);
         vm.assume(amount1 > 0 && amount1 < limits[0]);
 
@@ -48,7 +70,24 @@ contract KyberSwapClassicAdapterTest is Test, ISwapAdapterTypes {
         }
     }
 
-    function testPriceDecreasingKyberSwap() public {
+    function testPriceDecreasingKyberSwapWbtcForWeth() public {
+        bytes32 pair = bytes32(bytes20(WBTC_WETH_PAIR));
+        uint256[] memory amounts = new uint256[](TEST_ITERATIONS);
+
+        for (uint256 i = 0; i < TEST_ITERATIONS; i++) {
+            amounts[i] = i * 10 ** 2;
+        }
+
+        Fraction[] memory prices = adapter.price(pair, WBTC, WETH, amounts);
+
+        for (uint256 i = 0; i < TEST_ITERATIONS - 1; i++) {
+            assertEq(prices[i].compareFractions(prices[i + 1]), 1);
+            assertGt(prices[i].denominator, 0);
+            assertGt(prices[i + 1].denominator, 0);
+        }
+    }
+
+    function testPriceDecreasingKyberSwapWethForWbtc() public {
         bytes32 pair = bytes32(bytes20(WBTC_WETH_PAIR));
         uint256[] memory amounts = new uint256[](TEST_ITERATIONS);
 
@@ -184,11 +223,50 @@ contract KyberSwapClassicAdapterTest is Test, ISwapAdapterTypes {
         }
     }
 
-    function testSwapSellIncreasingKyberSwap() public {
-        executeIncreasingSwapsKyberSwap(OrderSide.Sell);
+    function testSwapSellIncreasingKyberSwapWbtcForWeth() public {
+        executeIncreasingSwapsKyberSwapWbtcForWeth(OrderSide.Sell);
     }
 
-    function executeIncreasingSwapsKyberSwap(OrderSide side) internal {
+    function executeIncreasingSwapsKyberSwapWbtcForWeth(OrderSide side)
+        internal
+    {
+        bytes32 pair = bytes32(bytes20(WBTC_WETH_PAIR));
+
+        uint256[] memory amounts = new uint256[](TEST_ITERATIONS);
+        for (uint256 i = 0; i < TEST_ITERATIONS; i++) {
+            amounts[i] = side == OrderSide.Sell ? i * 10 ** 5 : i * 10 ** 16;
+        }
+
+        Trade[] memory trades = new Trade[](TEST_ITERATIONS);
+        uint256 beforeSwap;
+        for (uint256 i = 0; i < TEST_ITERATIONS; i++) {
+            beforeSwap = vm.snapshot();
+
+            deal(WBTC, address(this), type(uint256).max);
+            IERC20(WBTC).approve(address(adapter), type(uint256).max);
+
+            trades[i] = adapter.swap(pair, WBTC, WETH, side, amounts[i]);
+            vm.revertTo(beforeSwap);
+        }
+
+        for (uint256 i = 1; i < TEST_ITERATIONS - 1; i++) {
+            assertLe(trades[i].calculatedAmount, trades[i + 1].calculatedAmount);
+            assertLe(trades[i].gasUsed, trades[i + 1].gasUsed);
+            assertEq(trades[i].price.compareFractions(trades[i + 1].price), 1);
+        }
+    }
+
+    function testSwapBuyIncreasingKyberSwapWbtcForWeth() public {
+        executeIncreasingSwapsKyberSwapWbtcForWeth(OrderSide.Buy);
+    }
+
+    function testSwapSellIncreasingKyberSwapWethForWbtc() public {
+        executeIncreasingSwapsKyberSwapWethForWbtc(OrderSide.Sell);
+    }
+
+    function executeIncreasingSwapsKyberSwapWethForWbtc(OrderSide side)
+        internal
+    {
         bytes32 pair = bytes32(bytes20(WBTC_WETH_PAIR));
 
         uint256[] memory amounts = new uint256[](TEST_ITERATIONS);
@@ -215,8 +293,8 @@ contract KyberSwapClassicAdapterTest is Test, ISwapAdapterTypes {
         }
     }
 
-    function testSwapBuyIncreasingKyberSwap() public {
-        executeIncreasingSwapsKyberSwap(OrderSide.Buy);
+    function testSwapBuyIncreasingKyberSwapWethForWbtc() public {
+        executeIncreasingSwapsKyberSwapWethForWbtc(OrderSide.Buy);
     }
 
     function testGetCapabilities(bytes32 pair, address t0, address t1) public {
