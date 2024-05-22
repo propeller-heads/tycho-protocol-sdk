@@ -1,0 +1,55 @@
+syntax = "proto3";
+
+import "google/protobuf/timestamp.proto";
+
+package contract.v1;
+
+message Events {
+    repeated sdai_Approval sdai_approvals = 1;
+    repeated sdai_Deposit sdai_deposits = 2;
+    repeated sdai_Transfer sdai_transfers = 3;
+    repeated sdai_Withdraw sdai_withdraws = 4;
+}
+
+message sdai_Approval {
+    string evt_tx_hash = 1;
+    uint32 evt_index = 2;
+    google.protobuf.Timestamp evt_block_time = 3;
+    uint64 evt_block_number = 4;
+    bytes owner = 5;
+    bytes spender = 6;
+    string value = 7;
+}
+
+message sdai_Deposit {
+    string evt_tx_hash = 1;
+    uint32 evt_index = 2;
+    google.protobuf.Timestamp evt_block_time = 3;
+    uint64 evt_block_number = 4;
+    bytes sender = 5;
+    bytes owner = 6;
+    string assets = 7;
+    string shares = 8;
+}
+
+message sdai_Transfer {
+    string evt_tx_hash = 1;
+    uint32 evt_index = 2;
+    google.protobuf.Timestamp evt_block_time = 3;
+    uint64 evt_block_number = 4;
+    bytes from = 5;
+    bytes to = 6;
+    string value = 7;
+}
+
+message sdai_Withdraw {
+    string evt_tx_hash = 1;
+    uint32 evt_index = 2;
+    google.protobuf.Timestamp evt_block_time = 3;
+    uint64 evt_block_number = 4;
+    bytes sender = 5;
+    bytes receiver = 6;
+    bytes owner = 7;
+    string assets = 8;
+    string shares = 9;
+}
