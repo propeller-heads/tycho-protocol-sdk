@@ -30,9 +30,10 @@ contract KyberSwapElasticAdapterTest is Test, ISwapAdapterTypes {
         vm.label(DAI_USDC_PAIR, "DAI_USDC_PAIR");
     }
 
-    function testSwapFuzzKyberSwapElastic(uint256 specifiedAmount, bool isBuy)
-        public
-    {
+    function testSwapFuzzKyberSwapElasticDaiForUsdc(
+        uint256 specifiedAmount,
+        bool isBuy
+    ) public {
         OrderSide side = isBuy ? OrderSide.Buy : OrderSide.Sell;
 
         bytes32 pair = bytes32(bytes20(DAI_USDC_PAIR));
@@ -79,7 +80,7 @@ contract KyberSwapElasticAdapterTest is Test, ISwapAdapterTypes {
         }
     }
 
-    function testSwapFuzzKyberSwapElasticInverse(
+    function testSwapFuzzKyberSwapElasticUsdcForDai(
         uint256 specifiedAmount,
         bool isBuy
     ) public {
@@ -129,11 +130,44 @@ contract KyberSwapElasticAdapterTest is Test, ISwapAdapterTypes {
         }
     }
 
-    function testSwapSellIncreasingKyberSwapElastic() public {
-        executeIncreasingSwaps(OrderSide.Sell);
+    function testSwapSellIncreasingKyberSwapElasticDaiForUsdc() public {
+        executeIncreasingSwapsDaiForUsdc(OrderSide.Sell);
     }
 
-    function executeIncreasingSwaps(OrderSide side) internal {
+    function executeIncreasingSwapsDaiForUsdc(OrderSide side) internal {
+        bytes32 pair = bytes32(bytes20(DAI_USDC_PAIR));
+
+        uint256[] memory amounts = new uint256[](TEST_ITERATIONS);
+        for (uint256 i = 0; i < TEST_ITERATIONS; i++) {
+            amounts[i] = 1000 * i * 10 ** 6;
+        }
+
+        Trade[] memory trades = new Trade[](TEST_ITERATIONS);
+        uint256 beforeSwap;
+        for (uint256 i = 0; i < TEST_ITERATIONS; i++) {
+            beforeSwap = vm.snapshot();
+
+            deal(DAI, address(this), amounts[i]);
+            IERC20(DAI).approve(address(adapter), amounts[i]);
+
+            trades[i] = adapter.swap(pair, DAI, USDC, side, amounts[i]);
+            vm.revertTo(beforeSwap);
+        }
+
+        for (uint256 i = 1; i < TEST_ITERATIONS - 1; i++) {
+            assertLe(trades[i].calculatedAmount, trades[i + 1].calculatedAmount);
+        }
+    }
+
+    function testSwapBuyIncreasingKyberSwapElasticDaiForUsdc() public {
+        executeIncreasingSwapsDaiForUsdc(OrderSide.Buy);
+    }
+
+    function testSwapSellIncreasingKyberSwapElasticUsdcForDai() public {
+        executeIncreasingSwapsUsdcForDai(OrderSide.Sell);
+    }
+
+    function executeIncreasingSwapsUsdcForDai(OrderSide side) internal {
         bytes32 pair = bytes32(bytes20(DAI_USDC_PAIR));
 
         uint256[] memory amounts = new uint256[](TEST_ITERATIONS);
@@ -158,8 +192,8 @@ contract KyberSwapElasticAdapterTest is Test, ISwapAdapterTypes {
         }
     }
 
-    function testSwapBuyIncreasingKyberSwapElastic() public {
-        executeIncreasingSwaps(OrderSide.Buy);
+    function testSwapBuyIncreasingKyberSwapElasticUsdcForDai() public {
+        executeIncreasingSwapsUsdcForDai(OrderSide.Buy);
     }
 
     function testGetCapabilitiesKyberSwapElastic(
