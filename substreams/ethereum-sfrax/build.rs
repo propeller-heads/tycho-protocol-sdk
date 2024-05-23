@@ -19,7 +19,7 @@ fn main() -> Result<(), anyhow::Error> {
             .generate()?
             .write_to_file(file_output_names[i])?;
 
-        i = i + 1;
+        i += 1;
     }
 
     Ok(())
