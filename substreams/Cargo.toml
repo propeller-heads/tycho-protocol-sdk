@@ -1,6 +1,6 @@
 [workspace]
 members = [
-    "ethereum-frax", 
+    "ethereum-sfrax", 
     "ethereum-balancer",
     "crates/tycho-substreams",
 ]

@@ -1,5 +1,5 @@
 [package]
-name = "ethereum-frax"
+name = "ethereum-sfrax"
 version = "0.1.0"
 edition = "2021"
 
