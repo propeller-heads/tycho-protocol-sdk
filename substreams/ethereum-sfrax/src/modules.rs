@@ -203,7 +203,7 @@ fn is_deployment_tx_from_deployer(
     deployer_address: [u8; 20],
 ) -> bool {
     let zero_address = hex!("0000000000000000000000000000000000000000");
-    tx.to.as_slice() == zero_address && tx.from.as_slice() == &deployer_address
+    tx.to.as_slice() == zero_address && tx.from.as_slice() == deployer_address
 }
 
 fn create_vault_component(tx: &Transaction) -> ProtocolComponent {
