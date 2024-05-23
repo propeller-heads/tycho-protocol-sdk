@@ -209,5 +209,5 @@ fn is_deployment_tx_from_deployer(
 fn create_vault_component(tx: &Transaction) -> ProtocolComponent {
     ProtocolComponent::at_contract(VAULT_ADDRESS.as_slice(), tx)
         .with_tokens(&[LOCKED_ASSET_ADDRESS])
-        .as_swap_type("sfraxeth_vault", ImplementationType::Vm)
+        .as_swap_type("sfrax_vault", ImplementationType::Vm)
 }
