@@ -205,9 +205,9 @@ pub fn extract_contract_changes<F: Fn(&[u8]) -> bool>(
                         .extend_from_slice(&code_change.new_code);
                 });
 
-            if !storage_changes.is_empty()
-                || !balance_changes.is_empty()
-                || !code_changes.is_empty()
+            if !storage_changes.is_empty() ||
+                !balance_changes.is_empty() ||
+                !code_changes.is_empty()
             {
                 transaction_contract_changes
                     .entry(block_tx.index.into())
