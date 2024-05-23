@@ -13,7 +13,7 @@ use tycho_substreams::{
 };
 
 const VAULT_ADDRESS: [u8; 20] = hex!("A663B02CF0a4b149d2aD41910CB81e23e1c41c32");
-const LOCKED_ASSET_ADDRESS: [u8; 20] = hex!("5E8422345238F34275888049021821E8E08CAa1f"); //FraxETH
+const LOCKED_ASSET_ADDRESS: [u8; 20] = hex!("853d955aCEf822Db058eb8505911ED77F175b99e"); //Frax Stable Coin
 const FRAX_ALT_DEPLOYER: [u8; 20] = hex!("e2314E9445A0cbf2C0571d77A7b0705BD1e90912"); // https://etherscan.io/tx/0xecd4ab27bc3b4c300b11405fc6a156ee316ad3f4c24f63130cbcbc49ae6bef55
 
 #[substreams::handlers::map]
