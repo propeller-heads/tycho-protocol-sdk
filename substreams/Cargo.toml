@@ -1,7 +1,7 @@
 [workspace]
 members = [
-    "ethereum-sfrax", 
     "ethereum-balancer",
+    "ethereum-sfrax", 
     "crates/tycho-substreams",
 ]
 resolver = "2"
@@ -15,7 +15,7 @@ prost-types = "0.12.3"
 hex-literal = "0.4.1"
 hex = "0.4.3"
 ethabi = "18.0.0"
-tycho-substreams = {path  ="crates/tycho-substreams"}
+tycho-substreams = { path  = "crates/tycho-substreams"}
 
 [profile.release]
 lto = true
