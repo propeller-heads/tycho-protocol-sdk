@@ -7,7 +7,7 @@ fn main() -> Result<(), anyhow::Error> {
     let file_names = ["abi/stakedfrax_contract.abi.json"];
     let file_output_names = ["src/abi/stakedfrax_contract.rs"];
 
-    for (i, f) in file_names.into_iter().enumerate() { 
+    for (i, f) in file_names.into_iter().enumerate() {
         let contents = fs::read_to_string(f).expect("Should have been able to read the file");
 
         // sanitize fields and attributes starting with an underscore
