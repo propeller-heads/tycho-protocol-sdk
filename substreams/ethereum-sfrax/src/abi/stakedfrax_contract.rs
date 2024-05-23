@@ -1,4 +1,4 @@
-    const INTERNAL_ERR: &'static str = "`ethabi_derive` internal error";
+    const INTERNAL_ERR: &str = "`ethabi_derive` internal error";
     /// Contract's functions.
     #[allow(dead_code, unused_imports, unused_variables)]
     pub mod functions {
@@ -27,7 +27,7 @@
             pub fn output(data: &[u8]) -> Result<[u8; 32usize], String> {
                 let mut values = ethabi::decode(
                         &[ethabi::ParamType::FixedBytes(32usize)],
-                        data.as_ref(),
+                        data,
                     )
                     .map_err(|e| format!("unable to decode output data: {:?}", e))?;
                 Ok({
@@ -55,8 +55,7 @@
                     ],
                 };
                 let responses = substreams_ethereum::rpc::eth_call(&rpc_calls).responses;
-                let response = responses
-                    .get(0)
+                let response = responses.first()
                     .expect("one response should have existed");
                 if response.failed {
                     return None;
@@ -117,11 +116,11 @@
             pub fn output(data: &[u8]) -> Result<substreams::scalar::BigInt, String> {
                 let mut values = ethabi::decode(
                         &[ethabi::ParamType::Uint(256usize)],
-                        data.as_ref(),
+                        data,
                     )
                     .map_err(|e| format!("unable to decode output data: {:?}", e))?;
                 Ok({
-                    let mut v = [0 as u8; 32];
+                    let mut v = [0_u8; 32];
                     values
                         .pop()
                         .expect("one output data should have existed")
@@ -145,8 +144,7 @@
                     ],
                 };
                 let responses = substreams_ethereum::rpc::eth_call(&rpc_calls).responses;
-                let response = responses
-                    .get(0)
+                let response = responses.first()
                     .expect("one response should have existed");
                 if response.failed {
                     return None;
@@ -208,11 +206,11 @@
             pub fn output(data: &[u8]) -> Result<substreams::scalar::BigInt, String> {
                 let mut values = ethabi::decode(
                         &[ethabi::ParamType::Uint(256usize)],
-                        data.as_ref(),
+                        data,
                     )
                     .map_err(|e| format!("unable to decode output data: {:?}", e))?;
                 Ok({
-                    let mut v = [0 as u8; 32];
+                    let mut v = [0_u8; 32];
                     values
                         .pop()
                         .expect("one output data should have existed")
@@ -236,8 +234,7 @@
                     ],
                 };
                 let responses = substreams_ethereum::rpc::eth_call(&rpc_calls).responses;
-                let response = responses
-                    .get(0)
+                let response = responses.first()
                     .expect("one response should have existed");
                 if response.failed {
                     return None;
@@ -299,11 +296,11 @@
             pub fn output(data: &[u8]) -> Result<substreams::scalar::BigInt, String> {
                 let mut values = ethabi::decode(
                         &[ethabi::ParamType::Uint(256usize)],
-                        data.as_ref(),
+                        data,
                     )
                     .map_err(|e| format!("unable to decode output data: {:?}", e))?;
                 Ok({
-                    let mut v = [0 as u8; 32];
+                    let mut v = [0_u8; 32];
                     values
                         .pop()
                         .expect("one output data should have existed")
@@ -327,8 +324,7 @@
                     ],
                 };
                 let responses = substreams_ethereum::rpc::eth_call(&rpc_calls).responses;
-                let response = responses
-                    .get(0)
+                let response = responses.first()
                     .expect("one response should have existed");
                 if response.failed {
                     return None;
@@ -462,11 +458,11 @@
             pub fn output(data: &[u8]) -> Result<substreams::scalar::BigInt, String> {
                 let mut values = ethabi::decode(
                         &[ethabi::ParamType::Uint(256usize)],
-                        data.as_ref(),
+                        data,
                     )
                     .map_err(|e| format!("unable to decode output data: {:?}", e))?;
                 Ok({
-                    let mut v = [0 as u8; 32];
+                    let mut v = [0_u8; 32];
                     values
                         .pop()
                         .expect("one output data should have existed")
@@ -490,8 +486,7 @@
                     ],
                 };
                 let responses = substreams_ethereum::rpc::eth_call(&rpc_calls).responses;
-                let response = responses
-                    .get(0)
+                let response = responses.first()
                     .expect("one response should have existed");
                 if response.failed {
                     return None;
@@ -558,7 +553,7 @@
                         .as_bytes()
                         .to_vec(),
                     amount: {
-                        let mut v = [0 as u8; 32];
+                        let mut v = [0_u8; 32];
                         values
                             .pop()
                             .expect(INTERNAL_ERR)
@@ -602,7 +597,7 @@
             pub fn output(data: &[u8]) -> Result<bool, String> {
                 let mut values = ethabi::decode(
                         &[ethabi::ParamType::Bool],
-                        data.as_ref(),
+                        data,
                     )
                     .map_err(|e| format!("unable to decode output data: {:?}", e))?;
                 Ok(
@@ -627,8 +622,7 @@
                     ],
                 };
                 let responses = substreams_ethereum::rpc::eth_call(&rpc_calls).responses;
-                let response = responses
-                    .get(0)
+                let response = responses.first()
                     .expect("one response should have existed");
                 if response.failed {
                     return None;
@@ -689,7 +683,7 @@
             pub fn output(data: &[u8]) -> Result<Vec<u8>, String> {
                 let mut values = ethabi::decode(
                         &[ethabi::ParamType::Address],
-                        data.as_ref(),
+                        data,
                     )
                     .map_err(|e| format!("unable to decode output data: {:?}", e))?;
                 Ok(
@@ -716,8 +710,7 @@
                     ],
                 };
                 let responses = substreams_ethereum::rpc::eth_call(&rpc_calls).responses;
-                let response = responses
-                    .get(0)
+                let response = responses.first()
                     .expect("one response should have existed");
                 if response.failed {
                     return None;
@@ -800,11 +793,11 @@
             pub fn output(data: &[u8]) -> Result<substreams::scalar::BigInt, String> {
                 let mut values = ethabi::decode(
                         &[ethabi::ParamType::Uint(256usize)],
-                        data.as_ref(),
+                        data,
                     )
                     .map_err(|e| format!("unable to decode output data: {:?}", e))?;
                 Ok({
-                    let mut v = [0 as u8; 32];
+                    let mut v = [0_u8; 32];
                     values
                         .pop()
                         .expect("one output data should have existed")
@@ -828,8 +821,7 @@
                     ],
                 };
                 let responses = substreams_ethereum::rpc::eth_call(&rpc_calls).responses;
-                let response = responses
-                    .get(0)
+                let response = responses.first()
                     .expect("one response should have existed");
                 if response.failed {
                     return None;
@@ -909,7 +901,7 @@
                             .expect(INTERNAL_ERR);
                         (
                             {
-                                let mut v = [0 as u8; 32];
+                                let mut v = [0_u8; 32];
                                 tuple_elements[0usize]
                                     .clone()
                                     .into_uint()
@@ -918,7 +910,7 @@
                                 substreams::scalar::BigInt::from_unsigned_bytes_be(&v)
                             },
                             {
-                                let mut v = [0 as u8; 32];
+                                let mut v = [0_u8; 32];
                                 tuple_elements[1usize]
                                     .clone()
                                     .into_uint()
@@ -927,7 +919,7 @@
                                 substreams::scalar::BigInt::from_unsigned_bytes_be(&v)
                             },
                             {
-                                let mut v = [0 as u8; 32];
+                                let mut v = [0_u8; 32];
                                 tuple_elements[2usize]
                                     .clone()
                                     .into_uint()
@@ -938,7 +930,7 @@
                         )
                     },
                     u_delta_time: {
-                        let mut v = [0 as u8; 32];
+                        let mut v = [0_u8; 32];
                         values
                             .pop()
                             .expect(INTERNAL_ERR)
@@ -1004,11 +996,11 @@
             pub fn output(data: &[u8]) -> Result<substreams::scalar::BigInt, String> {
                 let mut values = ethabi::decode(
                         &[ethabi::ParamType::Uint(256usize)],
-                        data.as_ref(),
+                        data,
                     )
                     .map_err(|e| format!("unable to decode output data: {:?}", e))?;
                 Ok({
-                    let mut v = [0 as u8; 32];
+                    let mut v = [0_u8; 32];
                     values
                         .pop()
                         .expect("one output data should have existed")
@@ -1032,8 +1024,7 @@
                     ],
                 };
                 let responses = substreams_ethereum::rpc::eth_call(&rpc_calls).responses;
-                let response = responses
-                    .get(0)
+                let response = responses.first()
                     .expect("one response should have existed");
                 if response.failed {
                     return None;
@@ -1092,7 +1083,7 @@
                 values.reverse();
                 Ok(Self {
                     shares: {
-                        let mut v = [0 as u8; 32];
+                        let mut v = [0_u8; 32];
                         values
                             .pop()
                             .expect(INTERNAL_ERR)
@@ -1133,11 +1124,11 @@
             pub fn output(data: &[u8]) -> Result<substreams::scalar::BigInt, String> {
                 let mut values = ethabi::decode(
                         &[ethabi::ParamType::Uint(256usize)],
-                        data.as_ref(),
+                        data,
                     )
                     .map_err(|e| format!("unable to decode output data: {:?}", e))?;
                 Ok({
-                    let mut v = [0 as u8; 32];
+                    let mut v = [0_u8; 32];
                     values
                         .pop()
                         .expect("one output data should have existed")
@@ -1161,8 +1152,7 @@
                     ],
                 };
                 let responses = substreams_ethereum::rpc::eth_call(&rpc_calls).responses;
-                let response = responses
-                    .get(0)
+                let response = responses.first()
                     .expect("one response should have existed");
                 if response.failed {
                     return None;
@@ -1221,7 +1211,7 @@
                 values.reverse();
                 Ok(Self {
                     assets: {
-                        let mut v = [0 as u8; 32];
+                        let mut v = [0_u8; 32];
                         values
                             .pop()
                             .expect(INTERNAL_ERR)
@@ -1262,11 +1252,11 @@
             pub fn output(data: &[u8]) -> Result<substreams::scalar::BigInt, String> {
                 let mut values = ethabi::decode(
                         &[ethabi::ParamType::Uint(256usize)],
-                        data.as_ref(),
+                        data,
                     )
                     .map_err(|e| format!("unable to decode output data: {:?}", e))?;
                 Ok({
-                    let mut v = [0 as u8; 32];
+                    let mut v = [0_u8; 32];
                     values
                         .pop()
                         .expect("one output data should have existed")
@@ -1290,8 +1280,7 @@
                     ],
                 };
                 let responses = substreams_ethereum::rpc::eth_call(&rpc_calls).responses;
-                let response = responses
-                    .get(0)
+                let response = responses.first()
                     .expect("one response should have existed");
                 if response.failed {
                     return None;
@@ -1353,11 +1342,11 @@
             pub fn output(data: &[u8]) -> Result<substreams::scalar::BigInt, String> {
                 let mut values = ethabi::decode(
                         &[ethabi::ParamType::Uint(8usize)],
-                        data.as_ref(),
+                        data,
                     )
                     .map_err(|e| format!("unable to decode output data: {:?}", e))?;
                 Ok({
-                    let mut v = [0 as u8; 32];
+                    let mut v = [0_u8; 32];
                     values
                         .pop()
                         .expect("one output data should have existed")
@@ -1381,8 +1370,7 @@
                     ],
                 };
                 let responses = substreams_ethereum::rpc::eth_call(&rpc_calls).responses;
-                let response = responses
-                    .get(0)
+                let response = responses.first()
                     .expect("one response should have existed");
                 if response.failed {
                     return None;
@@ -1442,7 +1430,7 @@
                 values.reverse();
                 Ok(Self {
                     u_assets: {
-                        let mut v = [0 as u8; 32];
+                        let mut v = [0_u8; 32];
                         values
                             .pop()
                             .expect(INTERNAL_ERR)
@@ -1493,11 +1481,11 @@
             pub fn output(data: &[u8]) -> Result<substreams::scalar::BigInt, String> {
                 let mut values = ethabi::decode(
                         &[ethabi::ParamType::Uint(256usize)],
-                        data.as_ref(),
+                        data,
                     )
                     .map_err(|e| format!("unable to decode output data: {:?}", e))?;
                 Ok({
-                    let mut v = [0 as u8; 32];
+                    let mut v = [0_u8; 32];
                     values
                         .pop()
                         .expect("one output data should have existed")
@@ -1521,8 +1509,7 @@
                     ],
                 };
                 let responses = substreams_ethereum::rpc::eth_call(&rpc_calls).responses;
-                let response = responses
-                    .get(0)
+                let response = responses.first()
                     .expect("one response should have existed");
                 if response.failed {
                     return None;
@@ -1595,7 +1582,7 @@
                 values.reverse();
                 Ok(Self {
                     u_assets: {
-                        let mut v = [0 as u8; 32];
+                        let mut v = [0_u8; 32];
                         values
                             .pop()
                             .expect(INTERNAL_ERR)
@@ -1612,7 +1599,7 @@
                         .as_bytes()
                         .to_vec(),
                     u_deadline: {
-                        let mut v = [0 as u8; 32];
+                        let mut v = [0_u8; 32];
                         values
                             .pop()
                             .expect(INTERNAL_ERR)
@@ -1627,7 +1614,7 @@
                         .into_bool()
                         .expect(INTERNAL_ERR),
                     u_v: {
-                        let mut v = [0 as u8; 32];
+                        let mut v = [0_u8; 32];
                         values
                             .pop()
                             .expect(INTERNAL_ERR)
@@ -1688,7 +1675,7 @@
                                     .as_slice(),
                             ),
                         ),
-                        ethabi::Token::Bool(self.u_approve_max.clone()),
+                        ethabi::Token::Bool(self.u_approve_max),
                         ethabi::Token::Uint(
                             ethabi::Uint::from_big_endian(
                                 match self.u_v.clone().to_bytes_be() {
@@ -1718,11 +1705,11 @@
             pub fn output(data: &[u8]) -> Result<substreams::scalar::BigInt, String> {
                 let mut values = ethabi::decode(
                         &[ethabi::ParamType::Uint(256usize)],
-                        data.as_ref(),
+                        data,
                     )
                     .map_err(|e| format!("unable to decode output data: {:?}", e))?;
                 Ok({
-                    let mut v = [0 as u8; 32];
+                    let mut v = [0_u8; 32];
                     values
                         .pop()
                         .expect("one output data should have existed")
@@ -1746,8 +1733,7 @@
                     ],
                 };
                 let responses = substreams_ethereum::rpc::eth_call(&rpc_calls).responses;
-                let response = responses
-                    .get(0)
+                let response = responses.first()
                     .expect("one response should have existed");
                 if response.failed {
                     return None;
@@ -1809,11 +1795,11 @@
             pub fn output(data: &[u8]) -> Result<substreams::scalar::BigInt, String> {
                 let mut values = ethabi::decode(
                         &[ethabi::ParamType::Uint(256usize)],
-                        data.as_ref(),
+                        data,
                     )
                     .map_err(|e| format!("unable to decode output data: {:?}", e))?;
                 Ok({
-                    let mut v = [0 as u8; 32];
+                    let mut v = [0_u8; 32];
                     values
                         .pop()
                         .expect("one output data should have existed")
@@ -1837,8 +1823,7 @@
                     ],
                 };
                 let responses = substreams_ethereum::rpc::eth_call(&rpc_calls).responses;
-                let response = responses
-                    .get(0)
+                let response = responses.first()
                     .expect("one response should have existed");
                 if response.failed {
                     return None;
@@ -1922,11 +1907,11 @@
             pub fn output(data: &[u8]) -> Result<substreams::scalar::BigInt, String> {
                 let mut values = ethabi::decode(
                         &[ethabi::ParamType::Uint(256usize)],
-                        data.as_ref(),
+                        data,
                     )
                     .map_err(|e| format!("unable to decode output data: {:?}", e))?;
                 Ok({
-                    let mut v = [0 as u8; 32];
+                    let mut v = [0_u8; 32];
                     values
                         .pop()
                         .expect("one output data should have existed")
@@ -1950,8 +1935,7 @@
                     ],
                 };
                 let responses = substreams_ethereum::rpc::eth_call(&rpc_calls).responses;
-                let response = responses
-                    .get(0)
+                let response = responses.first()
                     .expect("one response should have existed");
                 if response.failed {
                     return None;
@@ -2013,11 +1997,11 @@
             pub fn output(data: &[u8]) -> Result<substreams::scalar::BigInt, String> {
                 let mut values = ethabi::decode(
                         &[ethabi::ParamType::Uint(256usize)],
-                        data.as_ref(),
+                        data,
                     )
                     .map_err(|e| format!("unable to decode output data: {:?}", e))?;
                 Ok({
-                    let mut v = [0 as u8; 32];
+                    let mut v = [0_u8; 32];
                     values
                         .pop()
                         .expect("one output data should have existed")
@@ -2041,8 +2025,7 @@
                     ],
                 };
                 let responses = substreams_ethereum::rpc::eth_call(&rpc_calls).responses;
-                let response = responses
-                    .get(0)
+                let response = responses.first()
                     .expect("one response should have existed");
                 if response.failed {
                     return None;
@@ -2126,11 +2109,11 @@
             pub fn output(data: &[u8]) -> Result<substreams::scalar::BigInt, String> {
                 let mut values = ethabi::decode(
                         &[ethabi::ParamType::Uint(256usize)],
-                        data.as_ref(),
+                        data,
                     )
                     .map_err(|e| format!("unable to decode output data: {:?}", e))?;
                 Ok({
-                    let mut v = [0 as u8; 32];
+                    let mut v = [0_u8; 32];
                     values
                         .pop()
                         .expect("one output data should have existed")
@@ -2154,8 +2137,7 @@
                     ],
                 };
                 let responses = substreams_ethereum::rpc::eth_call(&rpc_calls).responses;
-                let response = responses
-                    .get(0)
+                let response = responses.first()
                     .expect("one response should have existed");
                 if response.failed {
                     return None;
@@ -2239,11 +2221,11 @@
             pub fn output(data: &[u8]) -> Result<substreams::scalar::BigInt, String> {
                 let mut values = ethabi::decode(
                         &[ethabi::ParamType::Uint(256usize)],
-                        data.as_ref(),
+                        data,
                     )
                     .map_err(|e| format!("unable to decode output data: {:?}", e))?;
                 Ok({
-                    let mut v = [0 as u8; 32];
+                    let mut v = [0_u8; 32];
                     values
                         .pop()
                         .expect("one output data should have existed")
@@ -2267,8 +2249,7 @@
                     ],
                 };
                 let responses = substreams_ethereum::rpc::eth_call(&rpc_calls).responses;
-                let response = responses
-                    .get(0)
+                let response = responses.first()
                     .expect("one response should have existed");
                 if response.failed {
                     return None;
@@ -2352,11 +2333,11 @@
             pub fn output(data: &[u8]) -> Result<substreams::scalar::BigInt, String> {
                 let mut values = ethabi::decode(
                         &[ethabi::ParamType::Uint(256usize)],
-                        data.as_ref(),
+                        data,
                     )
                     .map_err(|e| format!("unable to decode output data: {:?}", e))?;
                 Ok({
-                    let mut v = [0 as u8; 32];
+                    let mut v = [0_u8; 32];
                     values
                         .pop()
                         .expect("one output data should have existed")
@@ -2380,8 +2361,7 @@
                     ],
                 };
                 let responses = substreams_ethereum::rpc::eth_call(&rpc_calls).responses;
-                let response = responses
-                    .get(0)
+                let response = responses.first()
                     .expect("one response should have existed");
                 if response.failed {
                     return None;
@@ -2441,7 +2421,7 @@
                 values.reverse();
                 Ok(Self {
                     u_shares: {
-                        let mut v = [0 as u8; 32];
+                        let mut v = [0_u8; 32];
                         values
                             .pop()
                             .expect(INTERNAL_ERR)
@@ -2492,11 +2472,11 @@
             pub fn output(data: &[u8]) -> Result<substreams::scalar::BigInt, String> {
                 let mut values = ethabi::decode(
                         &[ethabi::ParamType::Uint(256usize)],
-                        data.as_ref(),
+                        data,
                     )
                     .map_err(|e| format!("unable to decode output data: {:?}", e))?;
                 Ok({
-                    let mut v = [0 as u8; 32];
+                    let mut v = [0_u8; 32];
                     values
                         .pop()
                         .expect("one output data should have existed")
@@ -2520,8 +2500,7 @@
                     ],
                 };
                 let responses = substreams_ethereum::rpc::eth_call(&rpc_calls).responses;
-                let response = responses
-                    .get(0)
+                let response = responses.first()
                     .expect("one response should have existed");
                 if response.failed {
                     return None;
@@ -2583,7 +2562,7 @@
             pub fn output(data: &[u8]) -> Result<String, String> {
                 let mut values = ethabi::decode(
                         &[ethabi::ParamType::String],
-                        data.as_ref(),
+                        data,
                     )
                     .map_err(|e| format!("unable to decode output data: {:?}", e))?;
                 Ok(
@@ -2608,8 +2587,7 @@
                     ],
                 };
                 let responses = substreams_ethereum::rpc::eth_call(&rpc_calls).responses;
-                let response = responses
-                    .get(0)
+                let response = responses.first()
                     .expect("one response should have existed");
                 if response.failed {
                     return None;
@@ -2692,11 +2670,11 @@
             pub fn output(data: &[u8]) -> Result<substreams::scalar::BigInt, String> {
                 let mut values = ethabi::decode(
                         &[ethabi::ParamType::Uint(256usize)],
-                        data.as_ref(),
+                        data,
                     )
                     .map_err(|e| format!("unable to decode output data: {:?}", e))?;
                 Ok({
-                    let mut v = [0 as u8; 32];
+                    let mut v = [0_u8; 32];
                     values
                         .pop()
                         .expect("one output data should have existed")
@@ -2720,8 +2698,7 @@
                     ],
                 };
                 let responses = substreams_ethereum::rpc::eth_call(&rpc_calls).responses;
-                let response = responses
-                    .get(0)
+                let response = responses.first()
                     .expect("one response should have existed");
                 if response.failed {
                     return None;
@@ -2783,7 +2760,7 @@
             pub fn output(data: &[u8]) -> Result<Vec<u8>, String> {
                 let mut values = ethabi::decode(
                         &[ethabi::ParamType::Address],
-                        data.as_ref(),
+                        data,
                     )
                     .map_err(|e| format!("unable to decode output data: {:?}", e))?;
                 Ok(
@@ -2810,8 +2787,7 @@
                     ],
                 };
                 let responses = substreams_ethereum::rpc::eth_call(&rpc_calls).responses;
-                let response = responses
-                    .get(0)
+                let response = responses.first()
                     .expect("one response should have existed");
                 if response.failed {
                     return None;
@@ -2897,7 +2873,7 @@
                         .as_bytes()
                         .to_vec(),
                     value: {
-                        let mut v = [0 as u8; 32];
+                        let mut v = [0_u8; 32];
                         values
                             .pop()
                             .expect(INTERNAL_ERR)
@@ -2907,7 +2883,7 @@
                         substreams::scalar::BigInt::from_unsigned_bytes_be(&v)
                     },
                     deadline: {
-                        let mut v = [0 as u8; 32];
+                        let mut v = [0_u8; 32];
                         values
                             .pop()
                             .expect(INTERNAL_ERR)
@@ -2917,7 +2893,7 @@
                         substreams::scalar::BigInt::from_unsigned_bytes_be(&v)
                     },
                     v: {
-                        let mut v = [0 as u8; 32];
+                        let mut v = [0_u8; 32];
                         values
                             .pop()
                             .expect(INTERNAL_ERR)
@@ -3042,7 +3018,7 @@
                 values.reverse();
                 Ok(Self {
                     assets: {
-                        let mut v = [0 as u8; 32];
+                        let mut v = [0_u8; 32];
                         values
                             .pop()
                             .expect(INTERNAL_ERR)
@@ -3083,11 +3059,11 @@
             pub fn output(data: &[u8]) -> Result<substreams::scalar::BigInt, String> {
                 let mut values = ethabi::decode(
                         &[ethabi::ParamType::Uint(256usize)],
-                        data.as_ref(),
+                        data,
                     )
                     .map_err(|e| format!("unable to decode output data: {:?}", e))?;
                 Ok({
-                    let mut v = [0 as u8; 32];
+                    let mut v = [0_u8; 32];
                     values
                         .pop()
                         .expect("one output data should have existed")
@@ -3111,8 +3087,7 @@
                     ],
                 };
                 let responses = substreams_ethereum::rpc::eth_call(&rpc_calls).responses;
-                let response = responses
-                    .get(0)
+                let response = responses.first()
                     .expect("one response should have existed");
                 if response.failed {
                     return None;
@@ -3174,11 +3149,11 @@
             pub fn output(data: &[u8]) -> Result<substreams::scalar::BigInt, String> {
                 let mut values = ethabi::decode(
                         &[ethabi::ParamType::Uint(256usize)],
-                        data.as_ref(),
+                        data,
                     )
                     .map_err(|e| format!("unable to decode output data: {:?}", e))?;
                 Ok({
-                    let mut v = [0 as u8; 32];
+                    let mut v = [0_u8; 32];
                     values
                         .pop()
                         .expect("one output data should have existed")
@@ -3202,8 +3177,7 @@
                     ],
                 };
                 let responses = substreams_ethereum::rpc::eth_call(&rpc_calls).responses;
-                let response = responses
-                    .get(0)
+                let response = responses.first()
                     .expect("one response should have existed");
                 if response.failed {
                     return None;
@@ -3262,7 +3236,7 @@
                 values.reverse();
                 Ok(Self {
                     shares: {
-                        let mut v = [0 as u8; 32];
+                        let mut v = [0_u8; 32];
                         values
                             .pop()
                             .expect(INTERNAL_ERR)
@@ -3303,11 +3277,11 @@
             pub fn output(data: &[u8]) -> Result<substreams::scalar::BigInt, String> {
                 let mut values = ethabi::decode(
                         &[ethabi::ParamType::Uint(256usize)],
-                        data.as_ref(),
+                        data,
                     )
                     .map_err(|e| format!("unable to decode output data: {:?}", e))?;
                 Ok({
-                    let mut v = [0 as u8; 32];
+                    let mut v = [0_u8; 32];
                     values
                         .pop()
                         .expect("one output data should have existed")
@@ -3331,8 +3305,7 @@
                     ],
                 };
                 let responses = substreams_ethereum::rpc::eth_call(&rpc_calls).responses;
-                let response = responses
-                    .get(0)
+                let response = responses.first()
                     .expect("one response should have existed");
                 if response.failed {
                     return None;
@@ -3391,7 +3364,7 @@
                 values.reverse();
                 Ok(Self {
                     shares: {
-                        let mut v = [0 as u8; 32];
+                        let mut v = [0_u8; 32];
                         values
                             .pop()
                             .expect(INTERNAL_ERR)
@@ -3432,11 +3405,11 @@
             pub fn output(data: &[u8]) -> Result<substreams::scalar::BigInt, String> {
                 let mut values = ethabi::decode(
                         &[ethabi::ParamType::Uint(256usize)],
-                        data.as_ref(),
+                        data,
                     )
                     .map_err(|e| format!("unable to decode output data: {:?}", e))?;
                 Ok({
-                    let mut v = [0 as u8; 32];
+                    let mut v = [0_u8; 32];
                     values
                         .pop()
                         .expect("one output data should have existed")
@@ -3460,8 +3433,7 @@
                     ],
                 };
                 let responses = substreams_ethereum::rpc::eth_call(&rpc_calls).responses;
-                let response = responses
-                    .get(0)
+                let response = responses.first()
                     .expect("one response should have existed");
                 if response.failed {
                     return None;
@@ -3547,7 +3519,7 @@
                                 ],
                             ),
                         ],
-                        data.as_ref(),
+                        data,
                     )
                     .map_err(|e| format!("unable to decode output data: {:?}", e))?;
                 Ok({
@@ -3558,7 +3530,7 @@
                         .expect(INTERNAL_ERR);
                     (
                         {
-                            let mut v = [0 as u8; 32];
+                            let mut v = [0_u8; 32];
                             tuple_elements[0usize]
                                 .clone()
                                 .into_uint()
@@ -3567,7 +3539,7 @@
                             substreams::scalar::BigInt::from_unsigned_bytes_be(&v)
                         },
                         {
-                            let mut v = [0 as u8; 32];
+                            let mut v = [0_u8; 32];
                             tuple_elements[1usize]
                                 .clone()
                                 .into_uint()
@@ -3576,7 +3548,7 @@
                             substreams::scalar::BigInt::from_unsigned_bytes_be(&v)
                         },
                         {
-                            let mut v = [0 as u8; 32];
+                            let mut v = [0_u8; 32];
                             tuple_elements[2usize]
                                 .clone()
                                 .into_uint()
@@ -3610,8 +3582,7 @@
                     ],
                 };
                 let responses = substreams_ethereum::rpc::eth_call(&rpc_calls).responses;
-                let response = responses
-                    .get(0)
+                let response = responses.first()
                     .expect("one response should have existed");
                 if response.failed {
                     return None;
@@ -3684,7 +3655,7 @@
                 values.reverse();
                 Ok(Self {
                     assets: {
-                        let mut v = [0 as u8; 32];
+                        let mut v = [0_u8; 32];
                         values
                             .pop()
                             .expect(INTERNAL_ERR)
@@ -3725,11 +3696,11 @@
             pub fn output(data: &[u8]) -> Result<substreams::scalar::BigInt, String> {
                 let mut values = ethabi::decode(
                         &[ethabi::ParamType::Uint(256usize)],
-                        data.as_ref(),
+                        data,
                     )
                     .map_err(|e| format!("unable to decode output data: {:?}", e))?;
                 Ok({
-                    let mut v = [0 as u8; 32];
+                    let mut v = [0_u8; 32];
                     values
                         .pop()
                         .expect("one output data should have existed")
@@ -3753,8 +3724,7 @@
                     ],
                 };
                 let responses = substreams_ethereum::rpc::eth_call(&rpc_calls).responses;
-                let response = responses
-                    .get(0)
+                let response = responses.first()
                     .expect("one response should have existed");
                 if response.failed {
                     return None;
@@ -3816,11 +3786,11 @@
             pub fn output(data: &[u8]) -> Result<substreams::scalar::BigInt, String> {
                 let mut values = ethabi::decode(
                         &[ethabi::ParamType::Uint(256usize)],
-                        data.as_ref(),
+                        data,
                     )
                     .map_err(|e| format!("unable to decode output data: {:?}", e))?;
                 Ok({
-                    let mut v = [0 as u8; 32];
+                    let mut v = [0_u8; 32];
                     values
                         .pop()
                         .expect("one output data should have existed")
@@ -3844,8 +3814,7 @@
                     ],
                 };
                 let responses = substreams_ethereum::rpc::eth_call(&rpc_calls).responses;
-                let response = responses
-                    .get(0)
+                let response = responses.first()
                     .expect("one response should have existed");
                 if response.failed {
                     return None;
@@ -3910,7 +3879,7 @@
                 values.reverse();
                 Ok(Self {
                     u_shares: {
-                        let mut v = [0 as u8; 32];
+                        let mut v = [0_u8; 32];
                         values
                             .pop()
                             .expect(INTERNAL_ERR)
@@ -3971,11 +3940,11 @@
             pub fn output(data: &[u8]) -> Result<substreams::scalar::BigInt, String> {
                 let mut values = ethabi::decode(
                         &[ethabi::ParamType::Uint(256usize)],
-                        data.as_ref(),
+                        data,
                     )
                     .map_err(|e| format!("unable to decode output data: {:?}", e))?;
                 Ok({
-                    let mut v = [0 as u8; 32];
+                    let mut v = [0_u8; 32];
                     values
                         .pop()
                         .expect("one output data should have existed")
@@ -3999,8 +3968,7 @@
                     ],
                 };
                 let responses = substreams_ethereum::rpc::eth_call(&rpc_calls).responses;
-                let response = responses
-                    .get(0)
+                let response = responses.first()
                     .expect("one response should have existed");
                 if response.failed {
                     return None;
@@ -4119,13 +4087,13 @@
                             ethabi::ParamType::Uint(40usize),
                             ethabi::ParamType::Uint(216usize),
                         ],
-                        data.as_ref(),
+                        data,
                     )
                     .map_err(|e| format!("unable to decode output data: {:?}", e))?;
                 values.reverse();
                 Ok((
                     {
-                        let mut v = [0 as u8; 32];
+                        let mut v = [0_u8; 32];
                         values
                             .pop()
                             .expect(INTERNAL_ERR)
@@ -4135,7 +4103,7 @@
                         substreams::scalar::BigInt::from_unsigned_bytes_be(&v)
                     },
                     {
-                        let mut v = [0 as u8; 32];
+                        let mut v = [0_u8; 32];
                         values
                             .pop()
                             .expect(INTERNAL_ERR)
@@ -4145,7 +4113,7 @@
                         substreams::scalar::BigInt::from_unsigned_bytes_be(&v)
                     },
                     {
-                        let mut v = [0 as u8; 32];
+                        let mut v = [0_u8; 32];
                         values
                             .pop()
                             .expect(INTERNAL_ERR)
@@ -4179,8 +4147,7 @@
                     ],
                 };
                 let responses = substreams_ethereum::rpc::eth_call(&rpc_calls).responses;
-                let response = responses
-                    .get(0)
+                let response = responses.first()
                     .expect("one response should have existed");
                 if response.failed {
                     return None;
@@ -4253,7 +4220,7 @@
                 values.reverse();
                 Ok(Self {
                     u_max_distribution_per_second_per_asset: {
-                        let mut v = [0 as u8; 32];
+                        let mut v = [0_u8; 32];
                         values
                             .pop()
                             .expect(INTERNAL_ERR)
@@ -4335,11 +4302,11 @@
             pub fn output(data: &[u8]) -> Result<substreams::scalar::BigInt, String> {
                 let mut values = ethabi::decode(
                         &[ethabi::ParamType::Uint(256usize)],
-                        data.as_ref(),
+                        data,
                     )
                     .map_err(|e| format!("unable to decode output data: {:?}", e))?;
                 Ok({
-                    let mut v = [0 as u8; 32];
+                    let mut v = [0_u8; 32];
                     values
                         .pop()
                         .expect("one output data should have existed")
@@ -4363,8 +4330,7 @@
                     ],
                 };
                 let responses = substreams_ethereum::rpc::eth_call(&rpc_calls).responses;
-                let response = responses
-                    .get(0)
+                let response = responses.first()
                     .expect("one response should have existed");
                 if response.failed {
                     return None;
@@ -4426,7 +4392,7 @@
             pub fn output(data: &[u8]) -> Result<String, String> {
                 let mut values = ethabi::decode(
                         &[ethabi::ParamType::String],
-                        data.as_ref(),
+                        data,
                     )
                     .map_err(|e| format!("unable to decode output data: {:?}", e))?;
                 Ok(
@@ -4451,8 +4417,7 @@
                     ],
                 };
                 let responses = substreams_ethereum::rpc::eth_call(&rpc_calls).responses;
-                let response = responses
-                    .get(0)
+                let response = responses.first()
                     .expect("one response should have existed");
                 if response.failed {
                     return None;
@@ -4550,7 +4515,7 @@
             pub fn output(data: &[u8]) -> Result<Vec<u8>, String> {
                 let mut values = ethabi::decode(
                         &[ethabi::ParamType::Address],
-                        data.as_ref(),
+                        data,
                     )
                     .map_err(|e| format!("unable to decode output data: {:?}", e))?;
                 Ok(
@@ -4577,8 +4542,7 @@
                     ],
                 };
                 let responses = substreams_ethereum::rpc::eth_call(&rpc_calls).responses;
-                let response = responses
-                    .get(0)
+                let response = responses.first()
                     .expect("one response should have existed");
                 if response.failed {
                     return None;
@@ -4639,11 +4603,11 @@
             pub fn output(data: &[u8]) -> Result<substreams::scalar::BigInt, String> {
                 let mut values = ethabi::decode(
                         &[ethabi::ParamType::Uint(256usize)],
-                        data.as_ref(),
+                        data,
                     )
                     .map_err(|e| format!("unable to decode output data: {:?}", e))?;
                 Ok({
-                    let mut v = [0 as u8; 32];
+                    let mut v = [0_u8; 32];
                     values
                         .pop()
                         .expect("one output data should have existed")
@@ -4667,8 +4631,7 @@
                     ],
                 };
                 let responses = substreams_ethereum::rpc::eth_call(&rpc_calls).responses;
-                let response = responses
-                    .get(0)
+                let response = responses.first()
                     .expect("one response should have existed");
                 if response.failed {
                     return None;
@@ -4730,11 +4693,11 @@
             pub fn output(data: &[u8]) -> Result<substreams::scalar::BigInt, String> {
                 let mut values = ethabi::decode(
                         &[ethabi::ParamType::Uint(256usize)],
-                        data.as_ref(),
+                        data,
                     )
                     .map_err(|e| format!("unable to decode output data: {:?}", e))?;
                 Ok({
-                    let mut v = [0 as u8; 32];
+                    let mut v = [0_u8; 32];
                     values
                         .pop()
                         .expect("one output data should have existed")
@@ -4758,8 +4721,7 @@
                     ],
                 };
                 let responses = substreams_ethereum::rpc::eth_call(&rpc_calls).responses;
-                let response = responses
-                    .get(0)
+                let response = responses.first()
                     .expect("one response should have existed");
                 if response.failed {
                     return None;
@@ -4826,7 +4788,7 @@
                         .as_bytes()
                         .to_vec(),
                     amount: {
-                        let mut v = [0 as u8; 32];
+                        let mut v = [0_u8; 32];
                         values
                             .pop()
                             .expect(INTERNAL_ERR)
@@ -4868,7 +4830,7 @@
             pub fn output(data: &[u8]) -> Result<bool, String> {
                 let mut values = ethabi::decode(
                         &[ethabi::ParamType::Bool],
-                        data.as_ref(),
+                        data,
                     )
                     .map_err(|e| format!("unable to decode output data: {:?}", e))?;
                 Ok(
@@ -4893,8 +4855,7 @@
                     ],
                 };
                 let responses = substreams_ethereum::rpc::eth_call(&rpc_calls).responses;
-                let response = responses
-                    .get(0)
+                let response = responses.first()
                     .expect("one response should have existed");
                 if response.failed {
                     return None;
@@ -4972,7 +4933,7 @@
                         .as_bytes()
                         .to_vec(),
                     amount: {
-                        let mut v = [0 as u8; 32];
+                        let mut v = [0_u8; 32];
                         values
                             .pop()
                             .expect(INTERNAL_ERR)
@@ -5015,7 +4976,7 @@
             pub fn output(data: &[u8]) -> Result<bool, String> {
                 let mut values = ethabi::decode(
                         &[ethabi::ParamType::Bool],
-                        data.as_ref(),
+                        data,
                     )
                     .map_err(|e| format!("unable to decode output data: {:?}", e))?;
                 Ok(
@@ -5040,8 +5001,7 @@
                     ],
                 };
                 let responses = substreams_ethereum::rpc::eth_call(&rpc_calls).responses;
-                let response = responses
-                    .get(0)
+                let response = responses.first()
                     .expect("one response should have existed");
                 if response.failed {
                     return None;
@@ -5168,7 +5128,7 @@
                 values.reverse();
                 Ok(Self {
                     u_assets: {
-                        let mut v = [0 as u8; 32];
+                        let mut v = [0_u8; 32];
                         values
                             .pop()
                             .expect(INTERNAL_ERR)
@@ -5229,11 +5189,11 @@
             pub fn output(data: &[u8]) -> Result<substreams::scalar::BigInt, String> {
                 let mut values = ethabi::decode(
                         &[ethabi::ParamType::Uint(256usize)],
-                        data.as_ref(),
+                        data,
                     )
                     .map_err(|e| format!("unable to decode output data: {:?}", e))?;
                 Ok({
-                    let mut v = [0 as u8; 32];
+                    let mut v = [0_u8; 32];
                     values
                         .pop()
                         .expect("one output data should have existed")
@@ -5257,8 +5217,7 @@
                     ],
                 };
                 let responses = substreams_ethereum::rpc::eth_call(&rpc_calls).responses;
-                let response = responses
-                    .get(0)
+                let response = responses.first()
                     .expect("one response should have existed");
                 if response.failed {
                     return None;
@@ -5349,7 +5308,7 @@
                 if log.data.len() != 32usize {
                     return false;
                 }
-                return log.topics.get(0).expect("bounds already checked").as_ref()
+                return log.topics.first().expect("bounds already checked").as_ref()
                     == Self::TOPIC_ID;
             }
             pub fn decode(
@@ -5395,7 +5354,7 @@
                         .as_bytes()
                         .to_vec(),
                     amount: {
-                        let mut v = [0 as u8; 32];
+                        let mut v = [0_u8; 32];
                         values
                             .pop()
                             .expect(INTERNAL_ERR)
@@ -5467,7 +5426,7 @@
                 if log.data.len() != 64usize {
                     return false;
                 }
-                return log.topics.get(0).expect("bounds already checked").as_ref()
+                return log.topics.first().expect("bounds already checked").as_ref()
                     == Self::TOPIC_ID;
             }
             pub fn decode(
@@ -5516,7 +5475,7 @@
                         .as_bytes()
                         .to_vec(),
                     assets: {
-                        let mut v = [0 as u8; 32];
+                        let mut v = [0_u8; 32];
                         values
                             .pop()
                             .expect(INTERNAL_ERR)
@@ -5526,7 +5485,7 @@
                         substreams::scalar::BigInt::from_unsigned_bytes_be(&v)
                     },
                     shares: {
-                        let mut v = [0 as u8; 32];
+                        let mut v = [0_u8; 32];
                         values
                             .pop()
                             .expect(INTERNAL_ERR)
@@ -5595,7 +5554,7 @@
                 if log.data.len() != 32usize {
                     return false;
                 }
-                return log.topics.get(0).expect("bounds already checked").as_ref()
+                return log.topics.first().expect("bounds already checked").as_ref()
                     == Self::TOPIC_ID;
             }
             pub fn decode(
@@ -5609,7 +5568,7 @@
                 values.reverse();
                 Ok(Self {
                     rewards_to_distribute: {
-                        let mut v = [0 as u8; 32];
+                        let mut v = [0_u8; 32];
                         values
                             .pop()
                             .expect(INTERNAL_ERR)
@@ -5679,7 +5638,7 @@
                 if log.data.len() != 64usize {
                     return false;
                 }
-                return log.topics.get(0).expect("bounds already checked").as_ref()
+                return log.topics.first().expect("bounds already checked").as_ref()
                     == Self::TOPIC_ID;
             }
             pub fn decode(
@@ -5696,7 +5655,7 @@
                 values.reverse();
                 Ok(Self {
                     old_max: {
-                        let mut v = [0 as u8; 32];
+                        let mut v = [0_u8; 32];
                         values
                             .pop()
                             .expect(INTERNAL_ERR)
@@ -5706,7 +5665,7 @@
                         substreams::scalar::BigInt::from_unsigned_bytes_be(&v)
                     },
                     new_max: {
-                        let mut v = [0 as u8; 32];
+                        let mut v = [0_u8; 32];
                         values
                             .pop()
                             .expect(INTERNAL_ERR)
@@ -5777,7 +5736,7 @@
                 if log.data.len() != 96usize {
                     return false;
                 }
-                return log.topics.get(0).expect("bounds already checked").as_ref()
+                return log.topics.first().expect("bounds already checked").as_ref()
                     == Self::TOPIC_ID;
             }
             pub fn decode(
@@ -5795,7 +5754,7 @@
                 values.reverse();
                 Ok(Self {
                     cycle_end: {
-                        let mut v = [0 as u8; 32];
+                        let mut v = [0_u8; 32];
                         values
                             .pop()
                             .expect(INTERNAL_ERR)
@@ -5805,7 +5764,7 @@
                         substreams::scalar::BigInt::from_unsigned_bytes_be(&v)
                     },
                     last_sync: {
-                        let mut v = [0 as u8; 32];
+                        let mut v = [0_u8; 32];
                         values
                             .pop()
                             .expect(INTERNAL_ERR)
@@ -5815,7 +5774,7 @@
                         substreams::scalar::BigInt::from_unsigned_bytes_be(&v)
                     },
                     reward_cycle_amount: {
-                        let mut v = [0 as u8; 32];
+                        let mut v = [0_u8; 32];
                         values
                             .pop()
                             .expect(INTERNAL_ERR)
@@ -5882,10 +5841,10 @@
                 if log.topics.len() != 3usize {
                     return false;
                 }
-                if log.data.len() != 0usize {
+                if !log.data.is_empty() {
                     return false;
                 }
-                return log.topics.get(0).expect("bounds already checked").as_ref()
+                return log.topics.first().expect("bounds already checked").as_ref()
                     == Self::TOPIC_ID;
             }
             pub fn decode(
@@ -5982,10 +5941,10 @@
                 if log.topics.len() != 3usize {
                     return false;
                 }
-                if log.data.len() != 0usize {
+                if !log.data.is_empty() {
                     return false;
                 }
-                return log.topics.get(0).expect("bounds already checked").as_ref()
+                return log.topics.first().expect("bounds already checked").as_ref()
                     == Self::TOPIC_ID;
             }
             pub fn decode(
@@ -6086,7 +6045,7 @@
                 if log.data.len() != 32usize {
                     return false;
                 }
-                return log.topics.get(0).expect("bounds already checked").as_ref()
+                return log.topics.first().expect("bounds already checked").as_ref()
                     == Self::TOPIC_ID;
             }
             pub fn decode(
@@ -6132,7 +6091,7 @@
                         .as_bytes()
                         .to_vec(),
                     amount: {
-                        let mut v = [0 as u8; 32];
+                        let mut v = [0_u8; 32];
                         values
                             .pop()
                             .expect(INTERNAL_ERR)
@@ -6205,7 +6164,7 @@
                 if log.data.len() != 64usize {
                     return false;
                 }
-                return log.topics.get(0).expect("bounds already checked").as_ref()
+                return log.topics.first().expect("bounds already checked").as_ref()
                     == Self::TOPIC_ID;
             }
             pub fn decode(
@@ -6270,7 +6229,7 @@
                         .as_bytes()
                         .to_vec(),
                     assets: {
-                        let mut v = [0 as u8; 32];
+                        let mut v = [0_u8; 32];
                         values
                             .pop()
                             .expect(INTERNAL_ERR)
@@ -6280,7 +6239,7 @@
                         substreams::scalar::BigInt::from_unsigned_bytes_be(&v)
                     },
                     shares: {
-                        let mut v = [0 as u8; 32];
+                        let mut v = [0_u8; 32];
                         values
                             .pop()
                             .expect(INTERNAL_ERR)
