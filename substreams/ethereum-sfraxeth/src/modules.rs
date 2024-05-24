@@ -27,8 +27,8 @@ pub fn map_components(block: eth::v2::Block) -> Result<BlockTransactionProtocolC
                     .logs_with_calls()
                     .filter(|(_, call)| !call.call.state_reverted)
                     .filter_map(|(log, _)| {
-                        if is_deployment_tx_from_deployer(tx, FRAX_ALT_DEPLOYER)
-                            && log.address == VAULT_ADDRESS
+                        if is_deployment_tx_from_deployer(tx, FRAX_ALT_DEPLOYER) &&
+                            log.address == VAULT_ADDRESS
                         {
                             Some(create_vault_component(&tx.into()))
                         } else {
@@ -185,9 +185,9 @@ pub fn map_protocol_changes(
             .drain()
             .sorted_unstable_by_key(|(index, _)| *index)
             .filter_map(|(_, change)| {
-                if change.contract_changes.is_empty()
-                    && change.component_changes.is_empty()
-                    && change.balance_changes.is_empty()
+                if change.contract_changes.is_empty() &&
+                    change.component_changes.is_empty() &&
+                    change.balance_changes.is_empty()
                 {
                     None
                 } else {
@@ -203,7 +203,7 @@ fn is_deployment_tx_from_deployer(
     deployer_address: [u8; 20],
 ) -> bool {
     let zero_address = hex!("0000000000000000000000000000000000000000");
-    tx.to.as_slice() == zero_address && tx.from.as_slice() == &deployer_address
+    tx.to.as_slice() == zero_address && tx.from.as_slice() == deployer_address
 }
 
 fn create_vault_component(tx: &Transaction) -> ProtocolComponent {
