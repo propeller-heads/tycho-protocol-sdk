@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [lib]
-name = "ethereum_balancer"
+name = "ethereum_sfrax"
 crate-type = ["cdylib"]
 
 [dependencies]
