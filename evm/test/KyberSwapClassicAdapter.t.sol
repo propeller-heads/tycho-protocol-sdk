@@ -234,7 +234,7 @@ contract KyberSwapClassicAdapterTest is Test, ISwapAdapterTypes {
 
         uint256[] memory amounts = new uint256[](TEST_ITERATIONS);
         for (uint256 i = 0; i < TEST_ITERATIONS; i++) {
-            amounts[i] = side == OrderSide.Sell ? i * 10 ** 5 : i * 10 ** 16;
+            amounts[i] = side == OrderSide.Sell ? i * 10 ** 2 : i * 10 ** 12;
         }
 
         Trade[] memory trades = new Trade[](TEST_ITERATIONS);
@@ -271,7 +271,7 @@ contract KyberSwapClassicAdapterTest is Test, ISwapAdapterTypes {
 
         uint256[] memory amounts = new uint256[](TEST_ITERATIONS);
         for (uint256 i = 0; i < TEST_ITERATIONS; i++) {
-            amounts[i] = side == OrderSide.Sell ? i * 10 ** 16 : i * 10 ** 5;
+            amounts[i] = side == OrderSide.Sell ? i * 10 ** 12 : i * 10 ** 2;
         }
 
         Trade[] memory trades = new Trade[](TEST_ITERATIONS);

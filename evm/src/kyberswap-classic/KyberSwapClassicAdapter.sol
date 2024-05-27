@@ -173,8 +173,8 @@ contract KyberSwapClassicAdapter is ISwapAdapter {
     {
         tokens = new address[](2);
         IPair pair = IPair(address(bytes20(poolId)));
-        tokens[0] = address(pair.token0());
-        tokens[1] = address(pair.token1());
+        tokens[0] = pair.token0();
+        tokens[1] = pair.token1();
     }
 
     /// @inheritdoc ISwapAdapter
@@ -212,15 +212,14 @@ contract KyberSwapClassicAdapter is ISwapAdapter {
         uint256 feeInPrecision,
         uint256 amount
     ) internal returns (uint256 calculatedAmount) {
-        address swapper = msg.sender;
         uint256 amountOut =
             getAmountOut(amount, vReserveIn, vReserveOut, feeInPrecision);
 
-        IERC20(sellToken).safeTransferFrom(swapper, address(pair), amount);
+        IERC20(sellToken).safeTransferFrom(msg.sender, address(pair), amount);
         if (zero2one) {
-            pair.swap(0, amountOut, swapper, "");
+            pair.swap(0, amountOut, msg.sender, "");
         } else {
-            pair.swap(amountOut, 0, swapper, "");
+            pair.swap(amountOut, 0, msg.sender, "");
         }
         return amountOut;
     }
@@ -240,9 +239,13 @@ contract KyberSwapClassicAdapter is ISwapAdapter {
     ) internal returns (uint256 calculatedAmount) {
         address[] memory poolsPath = new address[](1);
         IERC20[] memory tokensPath = new IERC20[](2);
-        poolsPath[0] = address(pair);
-        tokensPath[0] = IERC20(sellToken);
+        address pairAddress = address(pair);
+        IERC20 sellTokenContract = IERC20(sellToken);
+
+        poolsPath[0] = pairAddress;
+        tokensPath[0] = sellTokenContract;
         tokensPath[1] = IERC20(buyToken);
+
         uint256[] memory amountsIn =
             router.getAmountsIn(amountOut, poolsPath, tokensPath);
 
@@ -250,14 +253,16 @@ contract KyberSwapClassicAdapter is ISwapAdapter {
             return 0;
         }
 
-        IERC20(sellToken).safeTransferFrom(
-            msg.sender, address(pair), amountsIn[0]
+        sellTokenContract.safeTransferFrom(
+            msg.sender, pairAddress, amountsIn[0]
         );
+
         if (zero2one) {
             pair.swap(0, amountOut, msg.sender, "");
         } else {
             pair.swap(amountOut, 0, msg.sender, "");
         }
+
         return amountsIn[0];
     }
 
