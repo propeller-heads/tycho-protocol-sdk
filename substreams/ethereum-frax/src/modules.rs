@@ -187,7 +187,7 @@ pub fn store_balances(deltas: BlockBalanceDeltas, store: StoreAddBigInt) {
 /// This is the main map that handles most of the indexing of this substream.
 /// Every contract change is grouped by transaction index via the `transaction_contract_changes`
 ///  map. Each block of code will extend the `TransactionContractChanges` struct with the
-///  cooresponding changes (balance, component, contract), inserting a new one if it doesn't exist.
+///  corresponding changes (balance, component, contract), inserting a new one if it doesn't exist.
 ///  At the very end, the map can easily be sorted by index to ensure the final
 /// `BlockContractChanges`  is ordered by transactions properly.
 #[substreams::handlers::map]
