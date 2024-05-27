@@ -93,15 +93,15 @@ pub fn map_relative_balances(
                         .get_last(format!("pool:{0}", hex::encode(WSTETH_ADDRESS)))
                         .is_some()
                         && ev.from == WSTETH_ADDRESS 
-                        { 
-                            deltas.push(BalanceDelta {
-                            ord: vault_log.ordinal(),
-                            tx: Some(vault_log.receipt.transaction.into()),
-                            token: LOCKED_ASSET_ADDRESS.to_vec(),
-                            delta: ev.value.to_signed_bytes_be(),
-                            component_id: WSTETH_ADDRESS.to_vec(),
-                        })
-                    }
+                { 
+                    deltas.push(BalanceDelta {
+                        ord: vault_log.ordinal(),
+                        tx: Some(vault_log.receipt.transaction.into()),
+                        token: LOCKED_ASSET_ADDRESS.to_vec(),
+                        delta: ev.value.to_signed_bytes_be(),
+                        component_id: WSTETH_ADDRESS.to_vec(),
+                    })
+                }
             }
             deltas
         })
