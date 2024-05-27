@@ -21,9 +21,12 @@ modules:
     kind: map
     initialBlock: 12369300
     inputs:
+      - params: string
       - source: sf.ethereum.type.v2.Block
     output:
       type: proto:tycho.evm.v1.GroupedTransactionProtocolComponents
+    doc: 
+      params contain the address of the FraxSwap contract factory
 
   - name: store_components
     kind: store
