@@ -68,6 +68,7 @@ pub fn store_components(map: BlockTransactionProtocolComponents, store: StoreAdd
     );
 }
 
+// updates the reward rate to be accounted for at each block for the totalAsset locked in the vault
 #[substreams::handlers::map]
 pub fn map_rewards_cycle(block: eth::v2::Block) -> Result<BlockRewardCycles, anyhow::Error> {
     let reward_cycles = block
