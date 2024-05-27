@@ -98,7 +98,7 @@ pub fn map_relative_balances(
                         ord: vault_log.ordinal(),
                         tx: Some(vault_log.receipt.transaction.into()),
                         token: LOCKED_ASSET_ADDRESS.to_vec(),
-                        delta: ev.value.to_signed_bytes_be(),
+                        delta: ev.value.neg().to_signed_bytes_be(),
                         component_id: WSTETH_ADDRESS.to_vec(),
                     })
                 }
