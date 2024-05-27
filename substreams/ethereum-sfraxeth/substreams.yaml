@@ -8,8 +8,10 @@ protobuf:
     - tycho/evm/v1/vm.proto
     - tycho/evm/v1/common.proto
     - tycho/evm/v1/utils.proto
+    - contract.proto
   importPaths:
     - ../../proto
+    - ./proto
 
 binaries:
   default:
@@ -32,6 +34,22 @@ modules:
     valueType: int64
     inputs:
       - map: map_components
+
+  - name: map_reward_cycles
+    kind: map
+    initialBlock: 15686045
+    inputs:
+      - source: sf.ethereum.type.v2.Block
+    output:
+      type: substreams:ethereum-sfrax-eth:proto:contract.RewardCycle
+
+  - name: store_reward_cycles
+    kind: store
+    initialBlock: 15686045
+    updatePolicy: set
+    valueType: bytes
+    inputs:
+      - map: map_reward_cycles
 
   - name: map_relative_balances
     kind: map

@@ -1,11 +1,14 @@
 use crate::abi;
-use anyhow::Result;
+use crate::pb::contract::v1::RewardCycle;
 use itertools::Itertools;
-use std::collections::HashMap;
+use std::{collections::HashMap, ops::Div};
 use substreams::{
     hex,
     pb::substreams::StoreDeltas,
-    store::{StoreAdd, StoreAddBigInt, StoreAddInt64, StoreGet, StoreGetInt64, StoreNew},
+    store::{
+        StoreAdd, StoreAddBigInt, StoreAddInt64, StoreGet, StoreGetInt64, StoreNew, StoreSet,
+        StoreSetProto,
+    },
 };
 use substreams_ethereum::{pb::eth, Event};
 use tycho_substreams::{
@@ -17,7 +20,9 @@ const LOCKED_ASSET_ADDRESS: [u8; 20] = hex!("5E8422345238F34275888049021821E8E08
 const FRAX_ALT_DEPLOYER: [u8; 20] = hex!("4600D3b12c39AF925C2C07C487d31D17c1e32A35"); // https://etherscan.io/tx/0xd78dbe6cba652eb844de5aa473636c202fb6366c1bfc5ff8d5a26c1a24b37b07
 
 #[substreams::handlers::map]
-pub fn map_components(block: eth::v2::Block) -> Result<BlockTransactionProtocolComponents> {
+pub fn map_components(
+    block: eth::v2::Block,
+) -> Result<BlockTransactionProtocolComponents, anyhow::Error> {
     // We store these as a hashmap by tx hash since we need to agg by tx hash later
     Ok(BlockTransactionProtocolComponents {
         tx_components: block
@@ -27,8 +32,8 @@ pub fn map_components(block: eth::v2::Block) -> Result<BlockTransactionProtocolC
                     .logs_with_calls()
                     .filter(|(_, call)| !call.call.state_reverted)
                     .filter_map(|(log, _)| {
-                        if is_deployment_tx_from_deployer(tx, FRAX_ALT_DEPLOYER) &&
-                            log.address == VAULT_ADDRESS
+                        if is_deployment_tx_from_deployer(tx, FRAX_ALT_DEPLOYER)
+                            && log.address == VAULT_ADDRESS
                         {
                             Some(create_vault_component(&tx.into()))
                         } else {
@@ -61,6 +66,45 @@ pub fn store_components(map: BlockTransactionProtocolComponents, store: StoreAdd
     );
 }
 
+#[substreams::handlers::map]
+pub fn map_rewards_cycle(block: eth::v2::Block) -> Result<Vec<RewardCycle>, anyhow::Error> {
+    let reward_cycle = block
+        .logs()
+        .filter(|log| log.address() == VAULT_ADDRESS)
+        .filter_map(|vault_log| {
+            if let Some(ev) =
+                abi::sfraxeth_contract::events::NewRewardsCycle::match_and_decode(vault_log.log)
+            {
+                let reward_cycle = ev.cycle_end - substreams::scalar::BigInt::from(block.number);
+                let reward_rate = ev
+                    .reward_amount
+                    .div(reward_cycle.to_owned());
+                Some(RewardCycle {
+                    ord: vault_log.ordinal(),
+                    cycle_length: reward_cycle.to_signed_bytes_be(),
+                    reward_rate: reward_rate.to_signed_bytes_be(),
+                })
+            } else {
+                None
+            }
+        })
+        .collect::<Vec<_>>();
+
+    Ok(reward_cycle)
+}
+
+#[substreams::handlers::store]
+pub fn store_reward_cycles(reward_cycles: Vec<RewardCycle>, store: StoreSetProto<RewardCycle>) {
+    reward_cycles
+        .into_iter()
+        .for_each(|reward_cycle| {
+            store.set(
+                reward_cycle.ord,
+                format!("reward_cycle:{0}", hex::encode(&VAULT_ADDRESS)),
+                &reward_cycle,
+            );
+        });
+}
 /// Since the `PoolBalanceChanged` and `Swap` events administer only deltas, we need to leverage a
 /// map and a  store to be able to tally up final balances for tokens in a pool.
 #[substreams::handlers::map]
@@ -81,13 +125,22 @@ pub fn map_relative_balances(
                     .get_last(format!("pool:{0}", hex::encode(VAULT_ADDRESS)))
                     .is_some()
                 {
-                    deltas.push(BalanceDelta {
-                        ord: vault_log.ordinal(),
-                        tx: Some(vault_log.receipt.transaction.into()),
-                        token: LOCKED_ASSET_ADDRESS.to_vec(),
-                        delta: ev.assets.neg().to_signed_bytes_be(),
-                        component_id: VAULT_ADDRESS.to_vec(),
-                    })
+                    deltas.extend_from_slice(&[
+                        BalanceDelta {
+                            ord: vault_log.ordinal(),
+                            tx: Some(vault_log.receipt.transaction.into()),
+                            token: LOCKED_ASSET_ADDRESS.to_vec(),
+                            delta: ev.assets.neg().to_signed_bytes_be(),
+                            component_id: VAULT_ADDRESS.to_vec(),
+                        },
+                        BalanceDelta {
+                            ord: vault_log.ordinal(),
+                            tx: Some(vault_log.receipt.transaction.into()),
+                            token: VAULT_ADDRESS.to_vec(),
+                            delta: ev.shares.neg().to_signed_bytes_be(),
+                            component_id: VAULT_ADDRESS.to_vec(),
+                        },
+                    ])
                 }
             } else if let Some(ev) =
                 abi::sfraxeth_contract::events::Deposit::match_and_decode(vault_log.log)
@@ -96,13 +149,22 @@ pub fn map_relative_balances(
                     .get_last(format!("pool:{0}", hex::encode(VAULT_ADDRESS)))
                     .is_some()
                 {
-                    deltas.push(BalanceDelta {
-                        ord: vault_log.ordinal(),
-                        tx: Some(vault_log.receipt.transaction.into()),
-                        token: LOCKED_ASSET_ADDRESS.to_vec(),
-                        delta: ev.assets.to_signed_bytes_be(),
-                        component_id: VAULT_ADDRESS.to_vec(),
-                    })
+                    deltas.extend_from_slice(&[
+                        BalanceDelta {
+                            ord: vault_log.ordinal(),
+                            tx: Some(vault_log.receipt.transaction.into()),
+                            token: LOCKED_ASSET_ADDRESS.to_vec(),
+                            delta: ev.assets.to_signed_bytes_be(),
+                            component_id: VAULT_ADDRESS.to_vec(),
+                        },
+                        BalanceDelta {
+                            ord: vault_log.ordinal(),
+                            tx: Some(vault_log.receipt.transaction.into()),
+                            token: VAULT_ADDRESS.to_vec(),
+                            delta: ev.shares.to_signed_bytes_be(),
+                            component_id: VAULT_ADDRESS.to_vec(),
+                        },
+                    ])
                 }
             }
 
@@ -185,9 +247,9 @@ pub fn map_protocol_changes(
             .drain()
             .sorted_unstable_by_key(|(index, _)| *index)
             .filter_map(|(_, change)| {
-                if change.contract_changes.is_empty() &&
-                    change.component_changes.is_empty() &&
-                    change.balance_changes.is_empty()
+                if change.contract_changes.is_empty()
+                    && change.component_changes.is_empty()
+                    && change.balance_changes.is_empty()
                 {
                     None
                 } else {

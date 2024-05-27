@@ -63,3 +63,9 @@ message sfraxeth_Withdraw {
     string assets = 8;
     string shares = 9;
 }
+
+message RewardCycle {
+    uint64 ord = 1;
+    bytes cycle_length = 2;
+    bytes reward_rate = 3;
+}
