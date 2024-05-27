@@ -12,9 +12,8 @@ use tycho_substreams::{
     balances::aggregate_balances_changes, contract::extract_contract_changes, prelude::*,
 };
 
-const VAULT_ADDRESS: [u8; 20] = hex!("ac3E018457B222d93114458476f3E3416Abbe38F");
-const LOCKED_ASSET_ADDRESS: [u8; 20] = hex!("5E8422345238F34275888049021821E8E08CAa1f");
-const FRAX_ALT_DEPLOYER: [u8; 20] = hex!("4600D3b12c39AF925C2C07C487d31D17c1e32A35"); // https://etherscan.io/tx/0xd78dbe6cba652eb844de5aa473636c202fb6366c1bfc5ff8d5a26c1a24b37b07
+const SDAI_ADDRESS: [u8; 20] = hex!("83F20F44975D03b1b09e64809B757c47f942BEeA");
+const DAI_ADDRESS = [u8; 20] = hex!("6b175474e89094c44da98b954eedeac495271d0f");
 
 #[substreams::handlers::map]
 pub fn map_components(block: eth::v2::Block) -> Result<BlockTransactionProtocolComponents> {
@@ -36,12 +35,6 @@ pub fn map_components(block: eth::v2::Block) -> Result<BlockTransactionProtocolC
                         }
                     })
                     .collect::<Vec<_>>();
-
-                if !components.is_empty() {
-                    Some(TransactionProtocolComponents { tx: Some(tx.into()), components })
-                } else {
-                    None
-                }
             })
             .collect::<Vec<_>>(),
     })
