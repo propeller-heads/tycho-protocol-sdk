@@ -17,10 +17,14 @@ contract CurveAdapter is ISwapAdapter {
     using SafeERC20 for IERC20;
 
     ICurveRegistry immutable registry;
+    address constant WETH_ADDRESS = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
 
     constructor(address _registry) {
         registry = ICurveRegistry(_registry);
     }
+
+    /// @dev enable receive as this contract supports ETH
+    receive() external payable {}
 
     /**
      * @dev It is not possible to reproduce the swap in a view mode (like
@@ -50,6 +54,8 @@ contract CurveAdapter is ISwapAdapter {
             return trade;
         }
         address poolAddress = address(bytes20(poolId));
+        bool isMetaPool = registry.is_meta(poolAddress);
+
         (int128 sellTokenIndex, int128 buyTokenIndex,) =
             registry.get_coin_indices(poolAddress, sellToken, buyToken);
 
@@ -62,15 +68,17 @@ contract CurveAdapter is ISwapAdapter {
                 IERC20(buyToken),
                 sellTokenIndex,
                 buyTokenIndex,
-                specifiedAmount
+                specifiedAmount,
+                isMetaPool
             );
         } else {
             revert Unavailable(
                 "OrderSide.Buy is not available for this adapter"
             );
         }
+
         trade.gasUsed = gasBefore - gasleft();
-        trade.price = getPriceAt(poolAddress, sellTokenIndex, buyTokenIndex);
+        trade.price = getPriceAt(poolAddress, sellTokenIndex, buyTokenIndex, isMetaPool);
     }
 
     /// @inheritdoc ISwapAdapter
@@ -118,10 +126,23 @@ contract CurveAdapter is ISwapAdapter {
             }
             coinsLength++;
         }
-        tokens = new address[](coinsLength);
+        address[] memory tokensTmp = new address[](coinsLength);
+        bool containsETH = false;
         for (uint256 j = 0; j < coinsLength; j++) {
+            if(coins[j] == WETH_ADDRESS) {
+                containsETH = true;
+            }
             tokens[j] = coins[j];
         }
+        
+        if(containsETH) {
+            tokens = new address[](coinsLength+1);
+            tokens[coinsLength] = address(0);
+        }
+        else {
+            tokens = tokensTmp;
+        }
+
     }
 
     /// @inheritdoc ISwapAdapter
@@ -145,11 +166,13 @@ contract CurveAdapter is ISwapAdapter {
     /// @param pool The pool to calculate token prices in.
     /// @param sellTokenIndex The index of token in the pool being sold.
     /// @param buyTokenIndex The index of token being sold among the pool tokens
+    /// @param isMetaPool Determine if the pool is a MetaPool
     /// @return The price as a fraction corresponding to the provided amount.
     function getPriceAt(
         address pool,
         int128 sellTokenIndex,
-        int128 buyTokenIndex
+        int128 buyTokenIndex,
+        bool isMetaPool
     ) internal view returns (Fraction memory) {
         uint256 amountIn;
         uint256 sellTokenIndexFixed = uint256(uint128(sellTokenIndex));
@@ -183,6 +206,7 @@ contract CurveAdapter is ISwapAdapter {
     /// @param sellTokenIndex The index of token in the pool being sold.
     /// @param buyTokenIndex The index of token being sold among the pool tokens
     /// @param amount The amount to be traded.
+    /// @param isMetaPool Determine if the pool is a MetaPool
     /// @return calculatedAmount The amount of tokens received.
     function sell(
         address pool,
@@ -190,7 +214,8 @@ contract CurveAdapter is ISwapAdapter {
         IERC20 buyToken,
         int128 sellTokenIndex,
         int128 buyTokenIndex,
-        uint256 amount
+        uint256 amount,
+        bool isMetaPool
     ) internal returns (uint256 calculatedAmount) {
         uint256 buyTokenBalBefore = buyToken.balanceOf(address(this));
         sellToken.safeTransferFrom(msg.sender, address(this), amount);
@@ -260,9 +285,19 @@ interface ICurveStablePool {
     function fee() external view returns (uint256);
 }
 
+interface ICurveStableSwapMetaPool {
+    function get_dy_underlying(int128 i, int128 j, uint256 dx)
+        external
+        view
+        returns (uint256); 
+}
+
 /// @dev Wrapped ported version of CurveRegistry to Solidity
 /// For params informations see: https://docs.curve.fi/registry/MetaRegistryAPI/
 interface ICurveRegistry {
+
+    function is_meta(address  _pool) external view returns (bool);
+
     function find_pool_for_coins(address _from, address _to, uint256 i)
         external
         view
