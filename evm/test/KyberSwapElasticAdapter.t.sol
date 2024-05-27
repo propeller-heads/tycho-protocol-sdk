@@ -20,9 +20,7 @@ contract KyberSwapElasticAdapterTest is Test, ISwapAdapterTypes {
     function setUp() public {
         uint256 forkBlock = 18384222;
         vm.createSelectFork(vm.rpcUrl("mainnet"), forkBlock);
-        adapter = new KyberSwapElasticAdapter(
-            0xC7a590291e07B9fe9E64b86c58fD8fC764308C4A
-        );
+        adapter = new KyberSwapElasticAdapter();
 
         vm.label(address(adapter), "KyberSwapElasticAdapter");
         vm.label(USDC, "USDC");
