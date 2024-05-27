@@ -1,13 +1,15 @@
-use crate::abi;
-use crate::pb::contract::v1::RewardCycle;
+use crate::{
+    abi,
+    pb::contract::v1::{BlockRewardCycles, RewardCycle},
+};
 use itertools::Itertools;
 use std::{collections::HashMap, ops::Div};
 use substreams::{
     hex,
     pb::substreams::StoreDeltas,
     store::{
-        StoreAdd, StoreAddBigInt, StoreAddInt64, StoreGet, StoreGetInt64, StoreNew, StoreSet,
-        StoreSetProto,
+        StoreAdd, StoreAddBigInt, StoreAddInt64, StoreGet, StoreGetInt64, StoreGetRaw, StoreNew,
+        StoreSet, StoreSetRaw,
     },
 };
 use substreams_ethereum::{pb::eth, Event};
@@ -67,8 +69,8 @@ pub fn store_components(map: BlockTransactionProtocolComponents, store: StoreAdd
 }
 
 #[substreams::handlers::map]
-pub fn map_rewards_cycle(block: eth::v2::Block) -> Result<Vec<RewardCycle>, anyhow::Error> {
-    let reward_cycle = block
+pub fn map_rewards_cycle(block: eth::v2::Block) -> Result<BlockRewardCycles, anyhow::Error> {
+    let reward_cycles = block
         .logs()
         .filter(|log| log.address() == VAULT_ADDRESS)
         .filter_map(|vault_log| {
@@ -81,7 +83,6 @@ pub fn map_rewards_cycle(block: eth::v2::Block) -> Result<Vec<RewardCycle>, anyh
                     .div(reward_cycle.to_owned());
                 Some(RewardCycle {
                     ord: vault_log.ordinal(),
-                    cycle_length: reward_cycle.to_signed_bytes_be(),
                     reward_rate: reward_rate.to_signed_bytes_be(),
                 })
             } else {
@@ -90,18 +91,19 @@ pub fn map_rewards_cycle(block: eth::v2::Block) -> Result<Vec<RewardCycle>, anyh
         })
         .collect::<Vec<_>>();
 
-    Ok(reward_cycle)
+    Ok(BlockRewardCycles { reward_cycles })
 }
 
 #[substreams::handlers::store]
-pub fn store_reward_cycles(reward_cycles: Vec<RewardCycle>, store: StoreSetProto<RewardCycle>) {
-    reward_cycles
+pub fn store_reward_cycles(block_reward_cycles: BlockRewardCycles, store: StoreSetRaw) {
+    block_reward_cycles
+        .reward_cycles
         .into_iter()
         .for_each(|reward_cycle| {
             store.set(
                 reward_cycle.ord,
                 format!("reward_cycle:{0}", hex::encode(&VAULT_ADDRESS)),
-                &reward_cycle,
+                &reward_cycle.reward_rate,
             );
         });
 }
@@ -111,8 +113,9 @@ pub fn store_reward_cycles(reward_cycles: Vec<RewardCycle>, store: StoreSetProto
 pub fn map_relative_balances(
     block: eth::v2::Block,
     store: StoreGetInt64,
+    reward_store: StoreGetRaw,
 ) -> Result<BlockBalanceDeltas, anyhow::Error> {
-    let balance_deltas = block
+    let mut balance_deltas = block
         .logs()
         .filter(|log| log.address() == VAULT_ADDRESS)
         .flat_map(|vault_log| {
@@ -172,6 +175,22 @@ pub fn map_relative_balances(
         })
         .collect::<Vec<_>>();
 
+    // once per block increase the fraxEth (storedTotalAssets) by the per block reward amount
+    // use the first tx as placeholder
+    if let Some(first_tx) = block.transactions().next() {
+        if let Some(reward_rate_signed_be_bytes) =
+            reward_store.get_last(format!("reward_cycle:{0}", hex::encode(&VAULT_ADDRESS)))
+        {
+            balance_deltas.push(BalanceDelta {
+                ord: first_tx.begin_ordinal,
+                tx: Some(first_tx.into()),
+                token: LOCKED_ASSET_ADDRESS.to_vec(),
+                delta: reward_rate_signed_be_bytes,
+                component_id: VAULT_ADDRESS.to_vec(),
+            })
+        }
+    }
+
     Ok(BlockBalanceDeltas { balance_deltas })
 }
 
@@ -195,7 +214,7 @@ pub fn map_protocol_changes(
     deltas: BlockBalanceDeltas,
     components_store: StoreGetInt64,
     balance_store: StoreDeltas, // Note, this map module is using the `deltas` mode for the store.
-) -> Result<BlockContractChanges> {
+) -> Result<BlockContractChanges, anyhow::Error> {
     // We merge contract changes by transaction (identified by transaction index) making it easy to
     //  sort them at the very end.
     let mut transaction_contract_changes: HashMap<_, TransactionContractChanges> = HashMap::new();

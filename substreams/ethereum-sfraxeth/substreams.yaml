@@ -41,7 +41,7 @@ modules:
     inputs:
       - source: sf.ethereum.type.v2.Block
     output:
-      type: substreams:ethereum-sfrax-eth:proto:contract.RewardCycle
+      type: substreams:ethereum-sfrax-eth:proto:contract.BlockRewardCycles
 
   - name: store_reward_cycles
     kind: store
@@ -57,6 +57,7 @@ modules:
     inputs:
       - source: sf.ethereum.type.v2.Block
       - store: store_components
+      - store: store_reward_cycles
     output:
       type: proto:tycho.evm.v1.BalanceDeltas
 
