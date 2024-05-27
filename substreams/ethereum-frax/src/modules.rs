@@ -14,9 +14,13 @@ use tycho_substreams::{
 };
 
 #[substreams::handlers::map]
-pub fn map_components(block: eth::v2::Block) -> Result<BlockTransactionProtocolComponents> {
+pub fn map_components(
+    param: String,
+    block: eth::v2::Block,
+) -> Result<BlockTransactionProtocolComponents> {
     // Gather contract changes by indexing `PoolCreated` events and analysing the `Create` call
     // We store these as a hashmap by tx hash since we need to agg by tx hash later
+    let tracked_factory_address = hex::decode(param).unwrap();
     Ok(BlockTransactionProtocolComponents {
         tx_components: block
             .transactions()
@@ -26,9 +30,9 @@ pub fn map_components(block: eth::v2::Block) -> Result<BlockTransactionProtocolC
                     .filter(|(_, call)| !call.call.state_reverted)
                     .filter_map(|(log, call)| {
                         pool_factories::address_map(
+                            tracked_factory_address.as_slice(),
                             call.call.address.as_slice(),
                             log,
-                            call.call,
                             &(tx.into()),
                         )
                     })
@@ -183,7 +187,7 @@ pub fn store_balances(deltas: BlockBalanceDeltas, store: StoreAddBigInt) {
 /// This is the main map that handles most of the indexing of this substream.
 /// Every contract change is grouped by transaction index via the `transaction_contract_changes`
 ///  map. Each block of code will extend the `TransactionContractChanges` struct with the
-///  cooresponding changes (balance, component, contract), inserting a new one if it doesn't exist.
+///  corresponding changes (balance, component, contract), inserting a new one if it doesn't exist.
 ///  At the very end, the map can easily be sorted by index to ensure the final
 /// `BlockContractChanges`  is ordered by transactions properly.
 #[substreams::handlers::map]
