@@ -14,6 +14,7 @@ use tycho_substreams::{
 
 const SDAI_ADDRESS: [u8; 20] = hex!("83F20F44975D03b1b09e64809B757c47f942BEeA");
 const DAI_ADDRESS = [u8; 20] = hex!("6b175474e89094c44da98b954eedeac495271d0f");
+const DEPLOYER_ADDRESS =[u8; 20] = hex!("3249936bddf8bf739d3f06d26c40eefc81029bd1");
 
 #[substreams::handlers::map]
 pub fn map_components(block: eth::v2::Block) -> Result<BlockTransactionProtocolComponents> {
@@ -26,8 +27,8 @@ pub fn map_components(block: eth::v2::Block) -> Result<BlockTransactionProtocolC
                     .logs_with_calls()
                     .filter(|(_, call)| !call.call.state_reverted)
                     .filter_map(|(log, _)| {
-                        if is_deployment_tx_from_deployer(tx, FRAX_ALT_DEPLOYER)
-                            && log.address == VAULT_ADDRESS
+                        if is_deployment_tx_from_deployer(tx, DEPLOYER_ADDRESS)
+                            && log.address == SDAI_ADDRESS
                         {
                             Some(create_vault_component(&tx.into()))
                         } else {
@@ -63,39 +64,58 @@ pub fn map_relative_balances(
 ) -> Result<BlockBalanceDeltas, anyhow::Error> {
     let balance_deltas = block
         .logs()
-        .filter(|log| log.address() == VAULT_ADDRESS)
+        .filter(|log| log.address() == SDAI_ADDRESS)
         .flat_map(|vault_log| {
             let mut deltas = Vec::new();
 
             if let Some(ev) =
-                abi::sfraxeth_contract::events::Withdraw::match_and_decode(vault_log.log)
-            {
+                abi::sdai_contract::events::Withdraw::match_and_decode(vault_log.log)
+            { // Burn sDAI, mint DAI
                 if store
-                    .get_last(format!("pool:{0}", hex::encode(VAULT_ADDRESS)))
+                    .get_last(format!("pool:{0}", hex::encode(SDAI_ADDRESS)))
                     .is_some()
                 {
-                    deltas.push(BalanceDelta {
-                        ord: vault_log.ordinal(),
-                        tx: Some(vault_log.receipt.transaction.into()),
-                        token: LOCKED_ASSET_ADDRESS.to_vec(),
-                        delta: ev.assets.neg().to_signed_bytes_be(),
-                        component_id: VAULT_ADDRESS.to_vec(),
-                    })
+                    deltas.extend_from_slice(&[
+                        BalanceDelta {
+                            ord: log.ordinal(),
+                            tx: Some(log.receipt.transaction.into()),
+                            token: SDAI_ADDRESS,
+                            delta: event.shares.neg().to_signed_bytes_be(),
+                            component_id: string_to_bytes(&component_id),
+                        },
+                        BalanceDelta {
+                            ord: log.ordinal(),
+                            tx: Some(log.receipt.transaction.into()),
+                            token: DAI_ADDRESS,
+                            delta: event.assets.to_signed_bytes_be(),
+                            component_id: string_to_bytes(&component_id),
+                        },
+                    ]);
                 }
-            } else if let Some(ev) =
+            }
+            else if let Some(ev) =
                 abi::sfraxeth_contract::events::Deposit::match_and_decode(vault_log.log)
-            {
+            { // burn DAI, mint sDAI
                 if store
-                    .get_last(format!("pool:{0}", hex::encode(VAULT_ADDRESS)))
+                    .get_last(format!("pool:{0}", hex::encode(SDAI_ADDRESS)))
                     .is_some()
                 {
-                    deltas.push(BalanceDelta {
-                        ord: vault_log.ordinal(),
-                        tx: Some(vault_log.receipt.transaction.into()),
-                        token: LOCKED_ASSET_ADDRESS.to_vec(),
-                        delta: ev.assets.to_signed_bytes_be(),
-                        component_id: VAULT_ADDRESS.to_vec(),
-                    })
+                    deltas.extend_from_slice(&[
+                        BalanceDelta {
+                            ord: log.ordinal(),
+                            tx: Some(log.receipt.transaction.into()),
+                            token: SDAI_ADDRESS,
+                            delta: event.shares.to_signed_bytes_be(),
+                            component_id: string_to_bytes(&component_id),
+                        },
+                        BalanceDelta {
+                            ord: log.ordinal(),
+                            tx: Some(log.receipt.transaction.into()),
+                            token: DAI_ADDRESS,
+                            delta: event.assets.neg().to_signed_bytes_be(),
+                            component_id: string_to_bytes(&component_id),
+                        },
+                    ]);
                 }
             }
 
@@ -200,7 +220,6 @@ fn is_deployment_tx_from_deployer(
 }
 
 fn create_vault_component(tx: &Transaction) -> ProtocolComponent {
-    ProtocolComponent::at_contract(VAULT_ADDRESS.as_slice(), tx)
-        .with_tokens(&[LOCKED_ASSET_ADDRESS])
-        .as_swap_type("sfraxeth_vault", ImplementationType::Vm)
+    ProtocolComponent::at_contract(SDAI_ADDRESS.as_slice(), tx)
+        .as_swap_type("sdai_token", ImplementationType::Vm)
 }
