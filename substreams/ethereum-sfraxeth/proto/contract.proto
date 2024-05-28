@@ -66,7 +66,8 @@ message sfraxeth_Withdraw {
 
 message RewardCycle {
     uint64 ord = 1;
-    bytes reward_rate = 3;
+    bytes reward_rate = 2;
+    string component_id = 3;
 }
 
 message BlockRewardCycles {

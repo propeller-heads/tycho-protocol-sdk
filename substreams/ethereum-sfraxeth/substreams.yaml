@@ -23,9 +23,12 @@ modules:
     kind: map
     initialBlock: 15686045
     inputs:
+      - param: string
       - source: sf.ethereum.type.v2.Block
     output:
       type: proto:tycho.evm.v1.GroupedTransactionProtocolComponents
+    doc: |
+      param is the address without the 0x prefix of the sfrax vault you want to track
 
   - name: store_components
     kind: store
