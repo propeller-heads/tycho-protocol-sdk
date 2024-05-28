@@ -50,6 +50,22 @@ modules:
     inputs:
       - map: map_relative_balances
 
+  - name: map_reward_cycles
+    kind: map
+    initialBlock: 15686045
+    inputs:
+      - source: sf.ethereum.type.v2.Block
+    output:
+      type: substreams:ethereum-sfrax:proto:contract.BlockRewardCycles
+
+  - name: store_reward_cycles
+    kind: store
+    initialBlock: 15686045
+    updatePolicy: set
+    valueType: bytes
+    inputs:
+      - map: map_reward_cycles
+
   - name: map_protocol_changes
     kind: map
     initialBlock: 15686045

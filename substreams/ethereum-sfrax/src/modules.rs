@@ -1,16 +1,24 @@
-use crate::abi;
+use crate::{
+    abi,
+    pb::contract::v1::{BlockRewardCycles, RewardCycle}
+};
 use anyhow::Result;
 use itertools::Itertools;
 use std::collections::HashMap;
 use substreams::{
     hex,
     pb::substreams::StoreDeltas,
-    store::{StoreAdd, StoreAddBigInt, StoreAddInt64, StoreGet, StoreGetInt64, StoreNew},
+    store::{
+        StoreAdd, StoreAddBigInt, StoreAddInt64, StoreGet, StoreGetInt64, StoreGetRaw, StoreNew,
+        StoreSet, StoreSetRaw,
+    },
 };
 use substreams_ethereum::{pb::eth, Event};
 use tycho_substreams::{
     balances::aggregate_balances_changes, contract::extract_contract_changes, prelude::*,
 };
+
+const REWARD_CYCLE_LENGTH: u64 = 1000;
 
 // ref: https://docs.frax.finance/smart-contracts/frxeth-and-sfrxeth-contract-addresses
 type AddressPair = ([u8; 20], [u8; 20]);
@@ -90,14 +98,53 @@ pub fn store_components(map: BlockTransactionProtocolComponents, store: StoreAdd
     );
 }
 
+#[substreams::handlers::map]
+pub fn map_rewards_cycle(block: eth::v2::Block) -> Result<BlockRewardCycles, anyhow::Error> {
+    let reward_cycles = block
+        .logs()
+        .filter_map(|vault_log| {
+            if let Some(ev) =
+                abi::stakedfrax_contract::events::SyncRewards::match_and_decode(vault_log.log)
+            {
+                let reward_cycle = ev.cycle_end - substreams::scalar::BigInt::from(block.number);
+                let reward_rate = ev
+                    .reward_cycle_amount.div_rem(&reward_cycle.to_owned()).0;
+                Some(RewardCycle {
+                    ord: vault_log.ordinal(),
+                    reward_rate: reward_rate.to_signed_bytes_be(),
+                    component_id: hex::encode(vault_log.address()),
+                })
+            } else {
+                None
+            }
+        })
+        .collect::<Vec<_>>();
+
+    Ok(BlockRewardCycles { reward_cycles })
+}
+
+pub fn store_reward_cycles(block_reward_cycles: BlockRewardCycles, store: StoreSetRaw) {
+    block_reward_cycles
+        .reward_cycles
+        .into_iter()
+        .for_each(|reward_cycle| {
+            store.set(
+                reward_cycle.ord,
+                format!("reward_cycle:{0}", reward_cycle.component_id),
+                &reward_cycle.reward_rate,
+            );
+        });
+}
+
 /// Since the `PoolBalanceChanged` and `Swap` events administer only deltas, we need to leverage a
 /// map and a  store to be able to tally up final balances for tokens in a pool.
 #[substreams::handlers::map]
 pub fn map_relative_balances(
     block: eth::v2::Block,
     store: StoreGetInt64,
+    reward_store: StoreGetRaw,
 ) -> Result<BlockBalanceDeltas, anyhow::Error> {
-    let balance_deltas = block
+    let mut balance_deltas = block
         .logs()
         .filter(|log| find_deployed_vault_address(log.address()).is_some())
         .flat_map(|vault_log| {
@@ -111,13 +158,24 @@ pub fn map_relative_balances(
                     .get_last(format!("pool:{0}", hex::encode(contract_address)))
                     .is_some()
                 {
-                    deltas.push(BalanceDelta {
-                        ord: vault_log.ordinal(),
-                        tx: Some(vault_log.receipt.transaction.into()),
-                        token: contract_address.to_vec(),
-                        delta: ev.assets.neg().to_signed_bytes_be(),
-                        component_id: contract_address.to_vec(),
-                    })
+                    deltas.extend_from_slice(&[
+                        BalanceDelta {
+                            ord: vault_log.ordinal(),
+                            tx: Some(vault_log.receipt.transaction.into()),
+                            token: match_underlying_asset(contract_address)
+                                .unwrap()
+                                .to_vec(),
+                            delta: ev.assets.neg().to_signed_bytes_be(),
+                            component_id: contract_address.to_vec(),
+                        }, 
+                        BalanceDelta {
+                            ord: vault_log.ordinal(),
+                            tx: Some(vault_log.receipt.transaction.into()),
+                            token: contract_address.to_vec(),
+                            delta: ev.shares.neg().to_signed_bytes_be(),
+                            component_id: contract_address.to_vec(),
+                        }
+                    ])
                 }
             } else if let Some(ev) =
                 abi::stakedfrax_contract::events::Deposit::match_and_decode(vault_log.log)
@@ -127,19 +185,57 @@ pub fn map_relative_balances(
                     .get_last(format!("pool:{0}", hex::encode(contract_address)))
                     .is_some()
                 {
-                    deltas.push(BalanceDelta {
-                        ord: vault_log.ordinal(),
-                        tx: Some(vault_log.receipt.transaction.into()),
-                        token: contract_address.to_vec(),
-                        delta: ev.assets.to_signed_bytes_be(),
-                        component_id: contract_address.to_vec(),
-                    })
+                    deltas.extend_from_slice(&[
+                        BalanceDelta {
+                            ord: vault_log.ordinal(),
+                            tx: Some(vault_log.receipt.transaction.into()),
+                            token: match_underlying_asset(contract_address)
+                                .unwrap()
+                                .to_vec(),
+                            delta: ev.assets.to_signed_bytes_be(),
+                            component_id: contract_address.to_vec(),
+                        }, 
+                        BalanceDelta {
+                            ord: vault_log.ordinal(),
+                            tx: Some(vault_log.receipt.transaction.into()),
+                            token: contract_address.to_vec(),
+                            delta: ev.shares.to_signed_bytes_be(),
+                            component_id: contract_address.to_vec(),
+                        }
+                    ])
                 }
             }
 
             deltas
         })
         .collect::<Vec<_>>();
+    
+    // once per block increase the fraxEth (i.e. value of sfraxEth.totalAssets()) by the reward rate
+    // use first tx as placeholder
+    ADDRESS_MAP
+        .iter()
+        .for_each(|(vault_address, _)| {
+
+            if let Some(reward_rate_signed_be_bytes) =
+                reward_store.get_last(format!("reward_cycle:{0}", hex::encode(vault_address)))
+            {
+                // ensure ord must be strictly increasing for each token address
+                let ord = block
+                    .transactions()
+                    .last()
+                    .map_or(1, |tx| tx.end_ordinal + 1);
+                balance_deltas.push(BalanceDelta {
+                    ord,
+                    tx: None,
+                    token: match_underlying_asset(vault_address)
+                        .unwrap()
+                        .to_vec(),
+                    delta: reward_rate_signed_be_bytes,
+                    component_id: vault_address.to_vec(),
+                })
+            }
+            return;
+        });
 
     Ok(BlockBalanceDeltas { balance_deltas })
 }
@@ -242,6 +338,10 @@ fn create_vault_component(
     ProtocolComponent::at_contract(component_id, tx)
         .with_tokens(&[locked_asset, component_id])
         .as_swap_type("sfrax_vault", ImplementationType::Vm)
+}
+
+fn match_underlying_asset(address: &[u8]) -> Option<[u8; 20]> {
+    find_deployed_vault_address(address).map(|(_, underlying_asset)| underlying_asset)
 }
 
 fn find_deployed_vault_address(vault_address: &[u8]) -> Option<AddressPair> {
