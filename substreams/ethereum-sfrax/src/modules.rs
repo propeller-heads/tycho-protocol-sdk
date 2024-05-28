@@ -12,12 +12,43 @@ use tycho_substreams::{
     balances::aggregate_balances_changes, contract::extract_contract_changes, prelude::*,
 };
 
-const VAULT_ADDRESS: [u8; 20] = hex!("A663B02CF0a4b149d2aD41910CB81e23e1c41c32");
-const LOCKED_ASSET_ADDRESS: [u8; 20] = hex!("853d955aCEf822Db058eb8505911ED77F175b99e"); //Frax Stable Coin
-const FRAX_ALT_DEPLOYER: [u8; 20] = hex!("e2314E9445A0cbf2C0571d77A7b0705BD1e90912"); // https://etherscan.io/tx/0xecd4ab27bc3b4c300b11405fc6a156ee316ad3f4c24f63130cbcbc49ae6bef55
+// ref: https://docs.frax.finance/smart-contracts/frxeth-and-sfrxeth-contract-addresses
+type AddressPair = ([u8; 20], [u8; 20]);
+const ADDRESS_MAP: &[AddressPair] = &[
+    (
+        hex!("95aB45875cFFdba1E5f451B950bC2E42c0053f39"),
+        hex!("178412e79c25968a32e89b11f63B33F733770c2A"),
+    ), // Arbitrum
+    (
+        hex!("3Cd55356433C89E50DC51aB07EE0fa0A95623D53"),
+        hex!("64048A7eEcF3a2F1BA9e144aAc3D7dB6e58F555e"),
+    ), // BSC
+    (
+        hex!("ac3E018457B222d93114458476f3E3416Abbe38F"),
+        hex!("5e8422345238f34275888049021821e8e08caa1f"),
+    ), // Ethereum
+    (
+        hex!("b90CCD563918fF900928dc529aA01046795ccb4A"),
+        hex!("9E73F99EE061C8807F69f9c6CCc44ea3d8c373ee"),
+    ), // Fantom
+    (
+        hex!("ecf91116348aF1cfFe335e9807f0051332BE128D"),
+        hex!("82bbd1b6f6De2B7bb63D3e1546e6b1553508BE99"),
+    ), // Moonbeam
+    (
+        hex!("484c2D6e3cDd945a8B2DF735e079178C1036578c"),
+        hex!("6806411765Af15Bddd26f8f544A34cC40cb9838B"),
+    ), // Optimism
+    (
+        hex!("6d1FdBB266fCc09A16a22016369210A15bb95761"),
+        hex!("Ee327F889d5947c1dc1934Bb208a1E792F953E96"),
+    ), // Polygon
+];
 
 #[substreams::handlers::map]
-pub fn map_components(block: eth::v2::Block) -> Result<BlockTransactionProtocolComponents> {
+pub fn map_components(param: String, block: eth::v2::Block) -> Result<BlockTransactionProtocolComponents> {
+    let (vault_address, locked_asset) = find_deployed_vault_address(param.as_bytes()).unwrap();
+
     // We store these as a hashmap by tx hash since we need to agg by tx hash later
     Ok(BlockTransactionProtocolComponents {
         tx_components: block
@@ -27,10 +58,8 @@ pub fn map_components(block: eth::v2::Block) -> Result<BlockTransactionProtocolC
                     .logs_with_calls()
                     .filter(|(_, call)| !call.call.state_reverted)
                     .filter_map(|(log, _)| {
-                        if is_deployment_tx_from_deployer(tx, FRAX_ALT_DEPLOYER) &&
-                            log.address == VAULT_ADDRESS
-                        {
-                            Some(create_vault_component(&tx.into()))
+                        if is_deployment_tx(tx) && log.address == vault_address {
+                            Some(create_vault_component(&tx.into(), &vault_address, &locked_asset))
                         } else {
                             None
                         }
@@ -70,38 +99,40 @@ pub fn map_relative_balances(
 ) -> Result<BlockBalanceDeltas, anyhow::Error> {
     let balance_deltas = block
         .logs()
-        .filter(|log| log.address() == VAULT_ADDRESS)
+        .filter(|log| find_deployed_vault_address(log.address()).is_some())
         .flat_map(|vault_log| {
             let mut deltas = Vec::new();
 
             if let Some(ev) =
                 abi::stakedfrax_contract::events::Withdraw::match_and_decode(vault_log.log)
             {
+                let contract_address = vault_log.address();
                 if store
-                    .get_last(format!("pool:{0}", hex::encode(VAULT_ADDRESS)))
+                    .get_last(format!("pool:{0}", hex::encode(contract_address)))
                     .is_some()
                 {
                     deltas.push(BalanceDelta {
                         ord: vault_log.ordinal(),
                         tx: Some(vault_log.receipt.transaction.into()),
-                        token: LOCKED_ASSET_ADDRESS.to_vec(),
+                        token: contract_address.to_vec(),
                         delta: ev.assets.neg().to_signed_bytes_be(),
-                        component_id: VAULT_ADDRESS.to_vec(),
+                        component_id: contract_address.to_vec(),
                     })
                 }
             } else if let Some(ev) =
                 abi::stakedfrax_contract::events::Deposit::match_and_decode(vault_log.log)
             {
+                let contract_address = vault_log.address();
                 if store
-                    .get_last(format!("pool:{0}", hex::encode(VAULT_ADDRESS)))
+                    .get_last(format!("pool:{0}", hex::encode(contract_address)))
                     .is_some()
                 {
                     deltas.push(BalanceDelta {
                         ord: vault_log.ordinal(),
                         tx: Some(vault_log.receipt.transaction.into()),
-                        token: LOCKED_ASSET_ADDRESS.to_vec(),
+                        token: contract_address.to_vec(),
                         delta: ev.assets.to_signed_bytes_be(),
-                        component_id: VAULT_ADDRESS.to_vec(),
+                        component_id: contract_address.to_vec(),
                     })
                 }
             }
@@ -198,16 +229,24 @@ pub fn map_protocol_changes(
     })
 }
 
-fn is_deployment_tx_from_deployer(
-    tx: &eth::v2::TransactionTrace,
-    deployer_address: [u8; 20],
-) -> bool {
+fn is_deployment_tx(tx: &eth::v2::TransactionTrace) -> bool {
     let zero_address = hex!("0000000000000000000000000000000000000000");
-    tx.to.as_slice() == zero_address && tx.from.as_slice() == deployer_address
+    tx.to.as_slice() == zero_address || tx.to.is_empty()
 }
 
-fn create_vault_component(tx: &Transaction) -> ProtocolComponent {
-    ProtocolComponent::at_contract(VAULT_ADDRESS.as_slice(), tx)
-        .with_tokens(&[LOCKED_ASSET_ADDRESS])
+fn create_vault_component(
+    tx: &Transaction,
+    component_id: &[u8],
+    locked_asset: &[u8],
+) -> ProtocolComponent {
+    ProtocolComponent::at_contract(component_id, tx)
+        .with_tokens(&[locked_asset, component_id])
         .as_swap_type("sfrax_vault", ImplementationType::Vm)
+}
+
+fn find_deployed_vault_address(vault_address: &[u8]) -> Option<AddressPair> {
+    ADDRESS_MAP
+        .iter()
+        .find(|(_, addr)| addr == vault_address)
+        .copied()
 }
