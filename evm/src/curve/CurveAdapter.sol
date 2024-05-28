@@ -54,10 +54,8 @@ contract CurveAdapter is ISwapAdapter {
             return trade;
         }
         address poolAddress = address(bytes20(poolId));
-        bool isMetaPool = registry.is_meta(poolAddress);
 
-        (int128 sellTokenIndex, int128 buyTokenIndex,) =
-            registry.get_coin_indices(poolAddress, sellToken, buyToken);
+        (sellTokenIndex, buyTokenIndex,) = registry.get_coin_indices(poolAddress, sellToken, buyToken);
 
         uint256 gasBefore = gasleft();
 
@@ -68,8 +66,7 @@ contract CurveAdapter is ISwapAdapter {
                 IERC20(buyToken),
                 sellTokenIndex,
                 buyTokenIndex,
-                specifiedAmount,
-                isMetaPool
+                specifiedAmount
             );
         } else {
             revert Unavailable(
@@ -178,18 +175,18 @@ contract CurveAdapter is ISwapAdapter {
         uint256 sellTokenIndexFixed = uint256(uint128(sellTokenIndex));
         if (isStablePool(pool)) {
             amountIn =
-                ICurveStablePool(pool).balances(sellTokenIndexFixed) / 100000;
+                ICurveStableSwapPool(pool).balances(sellTokenIndexFixed) / 100000;
             return Fraction(
-                ICurveStablePool(pool).get_dy(
+                ICurveStableSwapPool(pool).get_dy(
                     sellTokenIndex, buyTokenIndex, amountIn
                 ),
                 amountIn
             );
         } else {
             amountIn =
-                ICurveCryptoPool(pool).balances(sellTokenIndexFixed) / 100000;
+                ICurveCryptoSwapPool(pool).balances(sellTokenIndexFixed) / 100000;
             return Fraction(
-                ICurveCryptoPool(pool).get_dy(
+                ICurveCryptoSwapPool(pool).get_dy(
                     uint256(uint128(sellTokenIndex)),
                     uint256(uint128(buyTokenIndex)),
                     amountIn
@@ -200,38 +197,52 @@ contract CurveAdapter is ISwapAdapter {
     }
 
     /// @notice Executes a sell order on a given pool.
-    /// @param pool The pool to trade on.
+    /// @param poolAddress The address of the pool to trade on.
     /// @param sellToken IERC20 instance of the token being sold.
     /// @param buyToken IERC20 instance of the token being bought.
     /// @param sellTokenIndex The index of token in the pool being sold.
     /// @param buyTokenIndex The index of token being sold among the pool tokens
     /// @param amount The amount to be traded.
-    /// @param isMetaPool Determine if the pool is a MetaPool
     /// @return calculatedAmount The amount of tokens received.
     function sell(
-        address pool,
+        address poolAddress,
         IERC20 sellToken,
         IERC20 buyToken,
         int128 sellTokenIndex,
         int128 buyTokenIndex,
-        uint256 amount,
-        bool isMetaPool
+        uint256 amount
     ) internal returns (uint256 calculatedAmount) {
+
+        // See if is a meta pool and 
+        // bool isMetaPool = registry.is_meta_pool(poolAddress);
+
         uint256 buyTokenBalBefore = buyToken.balanceOf(address(this));
         sellToken.safeTransferFrom(msg.sender, address(this), amount);
-        sellToken.safeIncreaseAllowance(address(pool), amount);
+        // Why is it casting again a poolAddress into address?
+        sellToken.safeIncreaseAllowance(address(poolAddress), amount);
 
-        if (isStablePool(pool)) {
-            ICurveStablePool(pool).exchange(
-                sellTokenIndex, buyTokenIndex, amount, 0
-            );
+        if(isStablePool(poolAddress)) {
+            if(registry.is_meta_pool(poolAddress)) { // Swap underlying tokens in LP
+                
+                ICurveStableSwapMetaPool(poolAddress)
+                .exchange_underlying(sellTokenIndex, buyTokenIndex, amount, 0);
+            }
+            else {
+
+                ICurveStableSwapPool(poolAddress)
+                .exchange(sellTokenIndex, buyTokenIndex, amount, 0);
+            }
         } else {
-            ICurveCryptoPool(pool).exchange(
-                uint256(uint128(sellTokenIndex)),
-                uint256(uint128(buyTokenIndex)),
-                amount,
-                0
-            );
+            if (address(sellToken) == WETH_ADDRESS || address(buyToken) == WETH_ADDRESS) { // Swap ETH-Something
+
+                ICurveCryptoSwapMetaPool(poolAddress)
+                .exchange_underlying(uint256(sellTokenIndex), uint256(buyTokenIndex), amount, 0);
+            } else {
+
+                ICurveCryptoSwapPool(poolAddress)
+                .exchange(uint256(sellTokenIndex), uint256(buyTokenIndex), amount, 0);
+            }
+
         }
 
         calculatedAmount = buyToken.balanceOf(address(this)) - buyTokenBalBefore;
@@ -241,7 +252,7 @@ contract CurveAdapter is ISwapAdapter {
     /// @dev Check whether a pool is a StableSwap pool or CryptoSwap pool
     /// @param poolAddress address of the pool
     function isStablePool(address poolAddress) internal view returns (bool) {
-        try ICurveCryptoPool(poolAddress).get_dy(0, 1, 10 ** 6) returns (
+        try ICurveCryptoSwapPool(poolAddress).get_dy(0, 1, 10 ** 6) returns (
             uint256
         ) {
             return false;
@@ -249,36 +260,80 @@ contract CurveAdapter is ISwapAdapter {
             return true;
         }
     }
+
+    /// @dev Gey the indexes of specified token addresses in a specified pool
+    /// @param poolAddress address of the pool we want to gett indexes of
+    /// @param sellToken The token being sold
+    /// @param buyToken The token being bought
+    /// @param sellTokenIndex The index of the sellToken in the specified pool
+    /// @param buyTokenIndex The index of the buyToken in the specified pool
+    function getCoinsIndices(address poolAddress, address sellToken, address buyToken) 
+        internal 
+        view 
+        returns (int128 sellTokenIndex, int128 buyTokenIndex ) {
+
+            if (sellToken == address(0)) {
+
+                sellToken == WETH_ADDRESS;
+                (int128 sellTokenIndex, int128 buyTokenIndex,) =
+                registry.get_coin_indices(poolAddress, sellToken, buyToken);
+
+            } else if (buyToken == address(0)) {
+                buyToken == WETH_ADDRESS;
+                (int128 sellTokenIndex, int128 buyTokenIndex,) =
+                registry.get_coin_indices(poolAddress, sellToken, buyToken);
+
+            } else {    
+                (int128 sellTokenIndex, int128 buyTokenIndex,) =
+                registry.get_coin_indices(poolAddress, sellToken, buyToken);
+                
+            }
+    }
 }
 
 /// @dev Wrapped ported version of Curve Plain Pool to Solidity
 /// For params informations see:
 /// https://docs.curve.fi/stableswap-exchange/stableswap/pools/plain_pools/
-interface ICurveCryptoPool {
-    function exchange(uint256 i, uint256 j, uint256 dx, uint256 min_dy)
-        external;
-
+interface ICurveCryptoSwapPool {
     function get_dy(uint256 i, uint256 j, uint256 dx)
         external
         view
-        returns (uint256);
+    returns (uint256);
+
+    function exchange(uint256 i, uint256 j, uint256 dx, uint256 min_dy)
+        external
+    returns (uint256);
 
     function balances(uint256 arg0) external view returns (uint256);
 
     function fee() external view returns (uint256);
 }
+/// @dev
+/// A title that should describe the contract/interface
+/// The name of the author
+interface ICurveCryptoSwapMetaPool {
+    function get_dy(uint256 i, uint256 j, uint256 dx)
+        external
+        view
+    returns (uint256); 
+
+    function exchange_underlying(uint256 i, uint256 j, uint256 dx, uint256 min_dy)
+        external
+    returns (uint256);
+}
 
 /// @dev Wrapped ported version of Curve Plain Pool to Solidity
 /// For params informations see:
 /// https://docs.curve.fi/stableswap-exchange/stableswap/pools/plain_pools/
-interface ICurveStablePool {
-    function exchange(int128 i, int128 j, uint256 dx, uint256 min_dy)
-        external;
+interface ICurveStableSwapPool {
 
     function get_dy(int128 i, int128 j, uint256 dx)
         external
         view
-        returns (uint256);
+    returns (uint256);
+
+    function exchange(int128 i, int128 j, uint256 dx, uint256 min_dy)
+    external;
 
     function balances(uint256 arg0) external view returns (uint256);
 
@@ -289,24 +344,26 @@ interface ICurveStableSwapMetaPool {
     function get_dy_underlying(int128 i, int128 j, uint256 dx)
         external
         view
-        returns (uint256); 
-}
+    returns (uint256); 
+
+    function exchange_underlying(int128 i, int128 j, uint256 dx, uint256 min_dy)
+        external
+    returns (uint256);
+        
+}    
 
 /// @dev Wrapped ported version of CurveRegistry to Solidity
 /// For params informations see: https://docs.curve.fi/registry/MetaRegistryAPI/
 interface ICurveRegistry {
 
-    function is_meta(address  _pool) external view returns (bool);
+    function is_meta_pool(address  _pool) external view returns (bool);
 
     function find_pool_for_coins(address _from, address _to, uint256 i)
         external
         view
         returns (address);
 
-    function pool_count() external view returns (uint256);
-
-    function pool_list(uint256 _index) external view returns (address);
-
+    function pool_count() external view returns (uint256);poolAddress, sellToken, buyToken
     function get_fees(address _pool)
         external
         view
