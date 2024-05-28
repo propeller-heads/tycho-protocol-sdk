@@ -26,8 +26,8 @@ contract KyberSwapClassicAdapter is ISwapAdapter {
 
     uint256 constant PRECISION = (10 ** 18);
 
-    IFactory factory;
-    IRouter router;
+    IFactory immutable factory;
+    IRouter immutable router;
 
     constructor(address _router) {
         router = IRouter(_router);
@@ -95,15 +95,8 @@ contract KyberSwapClassicAdapter is ISwapAdapter {
         uint256 gasBefore = gasleft();
 
         if (side == OrderSide.Sell) {
-            trade.calculatedAmount = sell(
-                pair,
-                sellToken,
-                zero2one,
-                tradeParams.vr0,
-                tradeParams.vr1,
-                tradeParams.feeInPrecision,
-                specifiedAmount
-            );
+            trade.calculatedAmount =
+                sell(pair, sellToken, buyToken, zero2one, specifiedAmount);
         } else {
             trade.calculatedAmount =
                 buy(pair, sellToken, buyToken, zero2one, specifiedAmount);
@@ -111,25 +104,19 @@ contract KyberSwapClassicAdapter is ISwapAdapter {
 
         trade.gasUsed = gasBefore - gasleft();
 
-        if (side == OrderSide.Sell) {
-            trade.price = getPriceAt(
-                specifiedAmount,
-                tradeParams.r0,
-                tradeParams.r1,
-                tradeParams.vr0,
-                tradeParams.vr1,
-                tradeParams.feeInPrecision
-            );
+        if (zero2one) {
+            (,, tradeParams.vr0, tradeParams.vr1,) = pair.getTradeInfo();
         } else {
-            trade.price = getPriceAt(
-                trade.calculatedAmount,
-                tradeParams.r0,
-                tradeParams.r1,
-                tradeParams.vr0,
-                tradeParams.vr1,
-                tradeParams.feeInPrecision
-            );
+            (,, tradeParams.vr1, tradeParams.vr0,) = pair.getTradeInfo();
         }
+
+        /// @dev a fractional value (1/100000) of the trading liquidity, to
+        /// impact as little as possible on the slippage
+        trade.price = Fraction(
+            tradeParams.vr1 * (PRECISION - tradeParams.feeInPrecision)
+                / PRECISION,
+            tradeParams.vr0
+        );
     }
 
     /// @inheritdoc ISwapAdapter
@@ -197,31 +184,34 @@ contract KyberSwapClassicAdapter is ISwapAdapter {
     /// @notice Executes a sell order on a given pool.
     /// @param pair The pair to trade on.
     /// @param sellToken The token being sold.
-    /// @param zero2one Whether the sell token is token0 or token1.
-    /// @param vReserveIn The virtual reserve of the token being sold.
-    /// @param vReserveOut The virtual reserve of the token being bought.
+    /// @param buyToken The token being bought.
     /// @param amount The amount to be traded.
-    /// @param feeInPrecision Fee in PRECISION points
     /// @return calculatedAmount The amount of tokens received.
     function sell(
         IPair pair,
         address sellToken,
+        address buyToken,
         bool zero2one,
-        uint112 vReserveIn,
-        uint112 vReserveOut,
-        uint256 feeInPrecision,
         uint256 amount
     ) internal returns (uint256 calculatedAmount) {
-        uint256 amountOut =
-            getAmountOut(amount, vReserveIn, vReserveOut, feeInPrecision);
+        address[] memory poolsPath = new address[](1);
+        IERC20[] memory tokensPath = new IERC20[](2);
+        IERC20 sellTokenContract = IERC20(sellToken);
 
-        IERC20(sellToken).safeTransferFrom(msg.sender, address(pair), amount);
+        poolsPath[0] = address(pair);
+        tokensPath[0] = sellTokenContract;
+        tokensPath[1] = IERC20(buyToken);
+
+        uint256[] memory amountsOut =
+            router.getAmountsOut(amount, poolsPath, tokensPath);
+
+        sellTokenContract.safeTransferFrom(msg.sender, address(pair), amount);
         if (zero2one) {
-            pair.swap(0, amountOut, msg.sender, "");
+            pair.swap(0, amountsOut[1], msg.sender, "");
         } else {
-            pair.swap(amountOut, 0, msg.sender, "");
+            pair.swap(amountsOut[1], 0, msg.sender, "");
         }
-        return amountOut;
+        return amountsOut[1];
     }
 
     /// @notice Execute a buy order on a given pool.
@@ -317,17 +307,13 @@ contract KyberSwapClassicAdapter is ISwapAdapter {
         uint256 denominator = vReserveIn + amountInWithFee;
         uint256 amountOut = numerator / denominator;
 
-        // get new reserves
-        uint256 newReserveOut = reserveOut - amountOut;
-        uint256 newReserveIn = reserveIn + amountIn;
-
         // get new amplified reserves
-        uint256 newVReserveIn = vReserveIn + newReserveIn - reserveIn;
-        uint256 newVReserveOut = vReserveOut + newReserveOut - reserveOut;
+        uint256 newVReserveIn = vReserveIn + amountIn;
+        uint256 newVReserveOut = vReserveOut - amountOut;
 
         return Fraction(
-            newVReserveOut,
-            newVReserveIn * (PRECISION - feeInPrecision) / PRECISION
+            newVReserveOut * (PRECISION - feeInPrecision) / PRECISION,
+            newVReserveIn
         );
     }
 }
@@ -336,6 +322,11 @@ interface IRouter {
     function factory() external view returns (address);
     function getAmountsIn(
         uint256 amountOut,
+        address[] calldata poolsPath,
+        IERC20[] calldata path
+    ) external view returns (uint256[] memory amounts);
+    function getAmountsOut(
+        uint256 amounntIn,
         address[] calldata poolsPath,
         IERC20[] calldata path
     ) external view returns (uint256[] memory amounts);

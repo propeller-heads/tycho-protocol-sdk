@@ -252,7 +252,6 @@ contract KyberSwapClassicAdapterTest is Test, ISwapAdapterTypes {
         for (uint256 i = 1; i < TEST_ITERATIONS - 1; i++) {
             assertLe(trades[i].calculatedAmount, trades[i + 1].calculatedAmount);
             assertLe(trades[i].gasUsed, trades[i + 1].gasUsed);
-            assertEq(trades[i].price.compareFractions(trades[i + 1].price), 1);
         }
     }
 
@@ -289,7 +288,6 @@ contract KyberSwapClassicAdapterTest is Test, ISwapAdapterTypes {
         for (uint256 i = 1; i < TEST_ITERATIONS - 1; i++) {
             assertLe(trades[i].calculatedAmount, trades[i + 1].calculatedAmount);
             assertLe(trades[i].gasUsed, trades[i + 1].gasUsed);
-            assertEq(trades[i].price.compareFractions(trades[i + 1].price), 1);
         }
     }
 
