@@ -63,10 +63,11 @@ pub fn map_components(
             .transactions()
             .filter_map(|tx| {
                 let components = tx
-                    .logs_with_calls()
-                    .filter(|(_, call)| !call.call.state_reverted)
-                    .filter_map(|(log, _)| {
-                        if is_deployment_tx(tx) && log.address == vault_address {
+                    .calls()
+                    .filter(|call| !call.call.state_reverted)
+                    .filter_map(|_| {
+                        // address doesn't exist before contract deployment, hence the first tx with a log.address = vault_address is the deployment tx
+                        if is_deployment_tx(&tx, &vault_address) {
                             Some(create_vault_component(&tx.into(), &vault_address, &locked_asset))
                         } else {
                             None
@@ -322,9 +323,21 @@ pub fn map_protocol_changes(
     })
 }
 
-fn is_deployment_tx(tx: &eth::v2::TransactionTrace) -> bool {
-    let zero_address = hex!("0000000000000000000000000000000000000000");
-    tx.to.as_slice() == zero_address || tx.to.is_empty()
+fn is_deployment_tx(tx: &eth::v2::TransactionTrace, vault_address: &[u8]) -> bool {
+    let created_accounts = tx
+        .calls
+        .iter()
+        .flat_map(|call| {
+            call.account_creations
+                .iter()
+                .map(|ac| ac.account.to_owned())
+        })
+        .collect::<Vec<_>>();
+
+    if let Some(deployed_address) = created_accounts.first() {
+        return deployed_address.as_slice() == vault_address;
+    }
+    return false;
 }
 
 fn create_vault_component(
@@ -344,6 +357,6 @@ fn match_underlying_asset(address: &[u8]) -> Option<[u8; 20]> {
 fn find_deployed_vault_address(vault_address: &[u8]) -> Option<AddressPair> {
     ADDRESS_MAP
         .iter()
-        .find(|(_, addr)| addr == vault_address)
+        .find(|(addr, _)| addr == vault_address)
         .copied()
 }
