@@ -55,8 +55,8 @@ pub fn map_components(
     params: String,
     block: eth::v2::Block,
 ) -> Result<BlockTransactionProtocolComponents, anyhow::Error> {
-    // let address_bytes = hex::decode(&vault_address).unwrap();
-    let (vault_address, locked_asset) = find_deployed_vault_address(params.as_bytes()).unwrap();
+    let (vault_address, locked_asset) =
+        find_deployed_vault_address(hex::decode(params).unwrap().as_slice()).unwrap();
     // We store these as a hashmap by tx hash since we need to agg by tx hash later
     Ok(BlockTransactionProtocolComponents {
         tx_components: block
@@ -214,6 +214,7 @@ pub fn map_relative_balances(
                     // 3. `lastRewardAmount` is update with the `nextReward` (2nd parameter) in the event
                     // Hence the reward_store at key `reward_cycle:{contract_address}` will is updated in this block. We want to use the
                     // first value of the record at the beginning of the block (before the store_reward_cycles writes to that key)
+                    // ref: https://github.com/FraxFinance/frax-solidity/blob/85039d4dff2fb24d8a1ba6efc1ebf7e464df9dcf/src/hardhat/contracts/FraxETH/sfrxETH.sol.old#L984
                     let last_reward_amount = reward_store
                         .get_first(format!("reward_cycle:{0}", hex::encode(contract_address)))
                         .unwrap();
