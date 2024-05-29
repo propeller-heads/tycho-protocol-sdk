@@ -1,6 +1,6 @@
 use crate::{
     abi,
-    pb::contract::v1::{BlockRewardCycles, RewardCycle}
+    pb::contract::v1::{BlockRewardCycles, RewardCycle},
 };
 use anyhow::Result;
 use itertools::Itertools;
@@ -17,8 +17,6 @@ use substreams_ethereum::{pb::eth, Event};
 use tycho_substreams::{
     balances::aggregate_balances_changes, contract::extract_contract_changes, prelude::*,
 };
-
-const REWARD_CYCLE_LENGTH: u64 = 1000;
 
 // ref: https://docs.frax.finance/smart-contracts/frxeth-and-sfrxeth-contract-addresses
 type AddressPair = ([u8; 20], [u8; 20]);
@@ -54,7 +52,10 @@ const ADDRESS_MAP: &[AddressPair] = &[
 ];
 
 #[substreams::handlers::map]
-pub fn map_components(param: String, block: eth::v2::Block) -> Result<BlockTransactionProtocolComponents> {
+pub fn map_components(
+    param: String,
+    block: eth::v2::Block,
+) -> Result<BlockTransactionProtocolComponents> {
     let (vault_address, locked_asset) = find_deployed_vault_address(param.as_bytes()).unwrap();
 
     // We store these as a hashmap by tx hash since we need to agg by tx hash later
@@ -108,7 +109,9 @@ pub fn map_rewards_cycle(block: eth::v2::Block) -> Result<BlockRewardCycles, any
             {
                 let reward_cycle = ev.cycle_end - substreams::scalar::BigInt::from(block.number);
                 let reward_rate = ev
-                    .reward_cycle_amount.div_rem(&reward_cycle.to_owned()).0;
+                    .reward_cycle_amount
+                    .div_rem(&reward_cycle.to_owned())
+                    .0;
                 Some(RewardCycle {
                     ord: vault_log.ordinal(),
                     reward_rate: reward_rate.to_signed_bytes_be(),
@@ -167,14 +170,14 @@ pub fn map_relative_balances(
                                 .to_vec(),
                             delta: ev.assets.neg().to_signed_bytes_be(),
                             component_id: contract_address.to_vec(),
-                        }, 
+                        },
                         BalanceDelta {
                             ord: vault_log.ordinal(),
                             tx: Some(vault_log.receipt.transaction.into()),
                             token: contract_address.to_vec(),
                             delta: ev.shares.neg().to_signed_bytes_be(),
                             component_id: contract_address.to_vec(),
-                        }
+                        },
                     ])
                 }
             } else if let Some(ev) =
@@ -194,14 +197,14 @@ pub fn map_relative_balances(
                                 .to_vec(),
                             delta: ev.assets.to_signed_bytes_be(),
                             component_id: contract_address.to_vec(),
-                        }, 
+                        },
                         BalanceDelta {
                             ord: vault_log.ordinal(),
                             tx: Some(vault_log.receipt.transaction.into()),
                             token: contract_address.to_vec(),
                             delta: ev.shares.to_signed_bytes_be(),
                             component_id: contract_address.to_vec(),
-                        }
+                        },
                     ])
                 }
             }
@@ -209,13 +212,12 @@ pub fn map_relative_balances(
             deltas
         })
         .collect::<Vec<_>>();
-    
+
     // once per block increase the fraxEth (i.e. value of sfraxEth.totalAssets()) by the reward rate
     // use first tx as placeholder
     ADDRESS_MAP
         .iter()
         .for_each(|(vault_address, _)| {
-
             if let Some(reward_rate_signed_be_bytes) =
                 reward_store.get_last(format!("reward_cycle:{0}", hex::encode(vault_address)))
             {

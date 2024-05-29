@@ -8,8 +8,10 @@ protobuf:
     - tycho/evm/v1/vm.proto
     - tycho/evm/v1/common.proto
     - tycho/evm/v1/utils.proto
+    - contract.proto
   importPaths:
     - ../../proto
+    - ./proto
 
 binaries:
   default:
@@ -24,6 +26,9 @@ modules:
       - source: sf.ethereum.type.v2.Block
     output:
       type: proto:tycho.evm.v1.GroupedTransactionProtocolComponents
+    doc: |
+      param is the address without the 0x prefix of the sfrax vault you want to track
+
 
   - name: store_components
     kind: store
@@ -39,6 +44,7 @@ modules:
     inputs:
       - source: sf.ethereum.type.v2.Block
       - store: store_components
+      - store: store_reward_cycles
     output:
       type: proto:tycho.evm.v1.BalanceDeltas
 

@@ -220,8 +220,8 @@ dependencies = [
  "hex-literal 0.4.1",
  "itertools 0.12.1",
  "num-bigint",
- "prost 0.11.9",
- "prost-types 0.12.3",
+ "prost",
+ "prost-types",
  "substreams",
  "substreams-ethereum",
  "tycho-substreams",
@@ -239,8 +239,8 @@ dependencies = [
  "hex-literal 0.4.1",
  "itertools 0.12.1",
  "num-bigint",
- "prost 0.11.9",
- "prost-types 0.12.3",
+ "prost",
+ "prost-types",
  "regex",
  "substreams",
  "substreams-ethereum",
@@ -651,17 +651,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0b82eaa1d779e9a4bc1c3217db8ffbeabaae1dca241bf70183242128d48681cd"
 dependencies = [
  "bytes",
- "prost-derive 0.11.9",
-]
-
-[[package]]
-name = "prost"
-version = "0.12.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "146c289cda302b98a28d40c8b3b90498d6e526dd24ac2ecea73e4e491685b94a"
-dependencies = [
- "bytes",
- "prost-derive 0.12.3",
+ "prost-derive",
 ]
 
 [[package]]
@@ -678,8 +668,8 @@ dependencies = [
  "multimap",
  "petgraph",
  "prettyplease",
- "prost 0.11.9",
- "prost-types 0.11.9",
+ "prost",
+ "prost-types",
  "regex",
  "syn 1.0.109",
  "tempfile",
@@ -700,34 +690,12 @@ dependencies = [
 ]
 
 [[package]]
-name = "prost-derive"
-version = "0.12.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "efb6c9a1dd1def8e2124d17e83a20af56f1570d6c2d2bd9e266ccb768df3840e"
-dependencies = [
- "anyhow",
- "itertools 0.10.5",
- "proc-macro2",
- "quote",
- "syn 2.0.52",
-]
-
-[[package]]
 name = "prost-types"
 version = "0.11.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "213622a1460818959ac1181aaeb2dc9c7f63df720db7d788b3e24eacd1983e13"
 dependencies = [
- "prost 0.11.9",
-]
-
-[[package]]
-name = "prost-types"
-version = "0.12.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "193898f59edcf43c26227dcd4c8427f00d99d61e95dcde58dabd49fa291d470e"
-dependencies = [
- "prost 0.12.3",
+ "prost",
 ]
 
 [[package]]
@@ -900,9 +868,9 @@ dependencies = [
  "num-integer",
  "num-traits",
  "pad",
- "prost 0.11.9",
+ "prost",
  "prost-build",
- "prost-types 0.11.9",
+ "prost-types",
  "substreams-macro",
  "thiserror",
 ]
@@ -948,9 +916,9 @@ dependencies = [
  "ethabi 17.2.0",
  "getrandom",
  "num-bigint",
- "prost 0.11.9",
+ "prost",
  "prost-build",
- "prost-types 0.11.9",
+ "prost-types",
  "substreams",
 ]
 
@@ -1074,7 +1042,7 @@ version = "0.1.0"
 dependencies = [
  "hex",
  "itertools 0.12.1",
- "prost 0.11.9",
+ "prost",
  "substreams",
  "substreams-ethereum",
 ]
