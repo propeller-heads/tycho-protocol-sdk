@@ -3,7 +3,7 @@ use crate::{
     pb::contract::v1::{BlockRewardCycles, RewardCycle},
 };
 use itertools::Itertools;
-use std::{collections::HashMap, ops::Div};
+use std::collections::HashMap;
 use substreams::{
     hex,
     pb::substreams::StoreDeltas,
@@ -52,11 +52,11 @@ const ADDRESS_MAP: &[AddressPair] = &[
 
 #[substreams::handlers::map]
 pub fn map_components(
-    param: String,
+    params: String,
     block: eth::v2::Block,
 ) -> Result<BlockTransactionProtocolComponents, anyhow::Error> {
     // let address_bytes = hex::decode(&vault_address).unwrap();
-    let (vault_address, locked_asset) = find_deployed_vault_address(param.as_bytes()).unwrap();
+    let (vault_address, locked_asset) = find_deployed_vault_address(params.as_bytes()).unwrap();
     // We store these as a hashmap by tx hash since we need to agg by tx hash later
     Ok(BlockTransactionProtocolComponents {
         tx_components: block
@@ -107,13 +107,9 @@ pub fn map_rewards_cycle(block: eth::v2::Block) -> Result<BlockRewardCycles, any
             if let Some(ev) =
                 abi::sfraxeth_contract::events::NewRewardsCycle::match_and_decode(vault_log.log)
             {
-                let reward_cycle = ev.cycle_end - substreams::scalar::BigInt::from(block.number);
-                let reward_rate = ev
-                    .reward_amount
-                    .div(reward_cycle.to_owned());
                 Some(RewardCycle {
                     ord: vault_log.ordinal(),
-                    reward_rate: reward_rate.to_signed_bytes_be(),
+                    next_reward_amount: ev.reward_amount.to_signed_bytes_be(),
                     component_id: hex::encode(vault_log.address()),
                 })
             } else {
@@ -134,7 +130,7 @@ pub fn store_reward_cycles(block_reward_cycles: BlockRewardCycles, store: StoreS
             store.set(
                 reward_cycle.ord,
                 format!("reward_cycle:{0}", reward_cycle.component_id),
-                &reward_cycle.reward_rate,
+                &reward_cycle.next_reward_amount,
             );
         });
 }
@@ -144,7 +140,7 @@ pub fn map_relative_balances(
     store: StoreGetInt64,
     reward_store: StoreGetRaw,
 ) -> Result<BlockBalanceDeltas, anyhow::Error> {
-    let mut balance_deltas = block
+    let balance_deltas = block
         .logs()
         .filter(|log| find_deployed_vault_address(log.address()).is_some())
         .flat_map(|vault_log| {
@@ -204,37 +200,38 @@ pub fn map_relative_balances(
                         },
                     ])
                 }
+            } else if abi::sfraxeth_contract::events::NewRewardsCycle::match_and_decode(vault_log)
+                .is_some()
+            {
+                let contract_address = vault_log.address();
+                if store
+                    .get_last(format!("pool:{0}", hex::encode(contract_address)))
+                    .is_some()
+                {
+                    // When the NextRewardsCycle event is emitted:
+                    // 1. `lastRewardAmount` is read from storage
+                    // 2. `storedTotalAssets` is incremented by the `lastRewardAmount` in the event
+                    // 3. `lastRewardAmount` is update with the `nextReward` (2nd parameter) in the event
+                    // Hence the reward_store at key `reward_cycle:{contract_address}` will is updated in this block. We want to use the
+                    // first value of the record at the beginning of the block (before the store_reward_cycles writes to that key)
+                    let last_reward_amount = reward_store
+                        .get_first(format!("reward_cycle:{0}", hex::encode(contract_address)))
+                        .unwrap();
+                    deltas.push(BalanceDelta {
+                        ord: vault_log.ordinal(),
+                        tx: Some(vault_log.receipt.transaction.into()),
+                        token: match_underlying_asset(contract_address)
+                            .unwrap()
+                            .to_vec(),
+                        delta: last_reward_amount,
+                        component_id: contract_address.to_vec(),
+                    });
+                }
             }
 
             deltas
         })
         .collect::<Vec<_>>();
-
-    // once per block increase the fraxEth (i.e. value of sfraxEth.totalAssets()) by the reward rate
-    // use first tx as placeholder
-    ADDRESS_MAP
-        .iter()
-        .for_each(|(vault_address, _)| {
-            if let Some(reward_rate_signed_be_bytes) =
-                reward_store.get_last(format!("reward_cycle:{0}", hex::encode(vault_address)))
-            {
-                // ensure ord must be strictly increasing for each token address
-                let ord = block
-                    .transactions()
-                    .last()
-                    .map_or(1, |tx| tx.end_ordinal + 1);
-                balance_deltas.push(BalanceDelta {
-                    ord,
-                    tx: None,
-                    token: match_underlying_asset(vault_address)
-                        .unwrap()
-                        .to_vec(),
-                    delta: reward_rate_signed_be_bytes,
-                    component_id: vault_address.to_vec(),
-                })
-            }
-            return;
-        });
 
     Ok(BlockBalanceDeltas { balance_deltas })
 }

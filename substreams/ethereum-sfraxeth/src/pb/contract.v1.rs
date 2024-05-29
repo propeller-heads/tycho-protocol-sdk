@@ -113,7 +113,7 @@ pub struct RewardCycle {
     #[prost(uint64, tag="1")]
     pub ord: u64,
     #[prost(bytes="vec", tag="2")]
-    pub reward_rate: ::prost::alloc::vec::Vec<u8>,
+    pub next_reward_amount: ::prost::alloc::vec::Vec<u8>,
     #[prost(string, tag="3")]
     pub component_id: ::prost::alloc::string::String,
 }
