@@ -57,7 +57,7 @@ contract CurveAdapter is ISwapAdapter {
         }
         address poolAddress = address(bytes20(poolId));
 
-        bool isMetaPool = registry.is_meta_pool(poolAddress);
+        bool isMetaPool = registry.is_meta(poolAddress);
 
         (int128 sellTokenIndex, int128 buyTokenIndex) =
             getCoinsIndices(poolAddress, sellToken, buyToken);
@@ -410,7 +410,7 @@ interface ICurveStableSwapMetaPool {
 /// @dev Wrapped ported version of CurveRegistry to Solidity
 /// For params informations see: https://docs.curve.fi/registry/MetaRegistryAPI/
 interface ICurveRegistry {
-    function is_meta_pool(address _pool) external view returns (bool);
+    function is_meta(address _pool) external view returns (bool);
 
     function find_pool_for_coins(address _from, address _to, uint256 i)
         external
