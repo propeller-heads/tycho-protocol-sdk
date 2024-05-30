@@ -12,36 +12,34 @@ use tycho_substreams::{
     balances::aggregate_balances_changes, contract::extract_contract_changes, prelude::*,
 };
 
-// ref: https://docs.frax.finance/smart-contracts/frxeth-and-sfrxeth-contract-addresses
+// ref:
+// https://docs.frax.finance/smart-contracts/sfrax-contract-addresses
+// https://docs.frax.finance/smart-contracts/frax
 type AddressPair = ([u8; 20], [u8; 20]);
 const ADDRESS_MAP: &[AddressPair] = &[
     (
-        hex!("95aB45875cFFdba1E5f451B950bC2E42c0053f39"),
-        hex!("178412e79c25968a32e89b11f63B33F733770c2A"),
+        hex!("e3b3FE7bcA19cA77Ad877A5Bebab186bEcfAD906"),
+        hex!("17FC002b466eEc40DaE837Fc4bE5c67993ddBd6F"),
     ), // Arbitrum
     (
-        hex!("3Cd55356433C89E50DC51aB07EE0fa0A95623D53"),
-        hex!("64048A7eEcF3a2F1BA9e144aAc3D7dB6e58F555e"),
+        hex!("a63f56985F9C7F3bc9fFc5685535649e0C1a55f3"),
+        hex!("90C97F71E18723b0Cf0dfa30ee176Ab653E89F40"),
     ), // BSC
     (
-        hex!("ac3E018457B222d93114458476f3E3416Abbe38F"),
-        hex!("5e8422345238f34275888049021821e8e08caa1f"),
+        hex!("A663B02CF0a4b149d2aD41910CB81e23e1c41c32"),
+        hex!("853d955aCEf822Db058eb8505911ED77F175b99e"),
     ), // Ethereum
     (
-        hex!("b90CCD563918fF900928dc529aA01046795ccb4A"),
-        hex!("9E73F99EE061C8807F69f9c6CCc44ea3d8c373ee"),
-    ), // Fantom
+        hex!("3405E88af759992937b84E58F2Fe691EF0EeA320"), 
+        hex!("D24C2Ad096400B6FBcd2ad8B24E7acBc21A1da64"),
+    ), //Avalanche
     (
-        hex!("ecf91116348aF1cfFe335e9807f0051332BE128D"),
-        hex!("82bbd1b6f6De2B7bb63D3e1546e6b1553508BE99"),
-    ), // Moonbeam
-    (
-        hex!("484c2D6e3cDd945a8B2DF735e079178C1036578c"),
-        hex!("6806411765Af15Bddd26f8f544A34cC40cb9838B"),
+        hex!("2Dd1B4D4548aCCeA497050619965f91f78b3b532"),
+        hex!("2E3D870790dC77A83DD1d18184Acc7439A53f475"),
     ), // Optimism
     (
-        hex!("6d1FdBB266fCc09A16a22016369210A15bb95761"),
-        hex!("Ee327F889d5947c1dc1934Bb208a1E792F953E96"),
+        hex!("2C37fb628b35dfdFD515d41B0cAAe11B542773C3"),
+        hex!("45c32fA6DF82ead1e2EF74d17b76547EDdFaFF89"),
     ), // Polygon
 ];
 
@@ -58,10 +56,10 @@ pub fn map_components(
             .transactions()
             .filter_map(|tx| {
                 let components = tx
-                    .logs_with_calls()
-                    .filter(|(_, call)| !call.call.state_reverted)
-                    .filter_map(|(log, _)| {
-                        if is_deployment_tx(tx) && log.address == vault_address {
+                    .calls()
+                    .filter(| call| !call.call.state_reverted)
+                    .filter_map(|_| {
+                        if is_deployment_tx(tx, &vault_address) {
                             Some(create_vault_component(&tx.into(), &vault_address, &locked_asset))
                         } else {
                             None
@@ -102,80 +100,83 @@ pub fn map_relative_balances(
 ) -> Result<BlockBalanceDeltas, anyhow::Error> {
     let balance_deltas = block
         .logs()
-        .filter(|log| find_deployed_vault_address(log.address()).is_some())
+        // .filter(|log| find_deployed_vault_address(log.address()).is_some())
         .flat_map(|vault_log| {
             let mut deltas = Vec::new();
 
             if let Some(ev) =
                 abi::stakedfrax_contract::events::Withdraw::match_and_decode(vault_log.log)
             {
-                let contract_address = vault_log.address();
+                let address = hex::encode(vault_log.address());
+                let component_id = format!("0x{}", address);
                 if store
-                    .get_last(format!("pool:{0}", hex::encode(contract_address)))
+                    .get_last(format!("pool:{}", component_id))
                     .is_some()
                 {
                     deltas.extend_from_slice(&[
                         BalanceDelta {
                             ord: vault_log.ordinal(),
                             tx: Some(vault_log.receipt.transaction.into()),
-                            token: match_underlying_asset(contract_address)
+                            token: match_underlying_asset(vault_log.address())
                                 .unwrap()
                                 .to_vec(),
                             delta: ev.assets.neg().to_signed_bytes_be(),
-                            component_id: contract_address.to_vec(),
+                            component_id: component_id.as_bytes().to_vec(),
                         },
                         BalanceDelta {
                             ord: vault_log.ordinal(),
                             tx: Some(vault_log.receipt.transaction.into()),
-                            token: contract_address.to_vec(),
+                            token: component_id.as_bytes().to_vec(),
                             delta: ev.shares.neg().to_signed_bytes_be(),
-                            component_id: contract_address.to_vec(),
+                            component_id: component_id.as_bytes().to_vec(),
                         },
                     ])
                 }
             } else if let Some(ev) =
                 abi::stakedfrax_contract::events::Deposit::match_and_decode(vault_log.log)
             {
-                let contract_address = vault_log.address();
+                let address = hex::encode(vault_log.address());
+                let component_id = format!("0x{}", address);
                 if store
-                    .get_last(format!("pool:{0}", hex::encode(contract_address)))
+                    .get_last(format!("pool:{}", component_id))
                     .is_some()
                 {
                     deltas.extend_from_slice(&[
                         BalanceDelta {
                             ord: vault_log.ordinal(),
                             tx: Some(vault_log.receipt.transaction.into()),
-                            token: match_underlying_asset(contract_address)
+                            token: match_underlying_asset(vault_log.address())
                                 .unwrap()
                                 .to_vec(),
                             delta: ev.assets.to_signed_bytes_be(),
-                            component_id: contract_address.to_vec(),
+                            component_id: component_id.as_bytes().to_vec(),
                         },
                         BalanceDelta {
                             ord: vault_log.ordinal(),
                             tx: Some(vault_log.receipt.transaction.into()),
-                            token: contract_address.to_vec(),
+                            token: component_id.as_bytes().to_vec(),
                             delta: ev.shares.to_signed_bytes_be(),
-                            component_id: contract_address.to_vec(),
+                            component_id: component_id.as_bytes().to_vec(),
                         },
                     ])
                 }
             } else if let Some(ev) =
                 abi::stakedfrax_contract::events::DistributeRewards::match_and_decode(vault_log.log)
             {
-                let contract_address = vault_log.address();
+                let address = hex::encode(vault_log.address());
+                let component_id = format!("0x{}", address);
                 if store
-                    .get_last(format!("pool:{0}", hex::encode(contract_address)))
+                    .get_last(format!("pool:{}", component_id))
                     .is_some()
                 {
                     deltas.push(BalanceDelta {
                         ord: vault_log.ordinal(),
                         tx: Some(vault_log.receipt.transaction.into()),
-                        token: contract_address.to_vec(),
+                        token: match_underlying_asset(vault_log.address()).unwrap().to_vec(),
                         delta: ev
                             .rewards_to_distribute
                             .to_signed_bytes_be(),
-                        component_id: contract_address.to_vec(),
+                        component_id: component_id.as_bytes().to_vec(),
                     });
                 }
             }
@@ -271,9 +272,21 @@ pub fn map_protocol_changes(
     })
 }
 
-fn is_deployment_tx(tx: &eth::v2::TransactionTrace) -> bool {
-    let zero_address = hex!("0000000000000000000000000000000000000000");
-    tx.to.as_slice() == zero_address || tx.to.is_empty()
+fn is_deployment_tx(tx: &eth::v2::TransactionTrace, vault_address: &[u8]) -> bool {
+    let created_accounts = tx
+        .calls
+        .iter()
+        .flat_map(|call| {
+            call.account_creations
+                .iter()
+                .map(|ac| ac.account.to_owned())
+        })
+        .collect::<Vec<_>>();
+
+    if let Some(deployed_address) = created_accounts.first() {
+        return deployed_address.as_slice() == vault_address;
+    }
+    false
 }
 
 fn create_vault_component(
@@ -293,6 +306,6 @@ fn match_underlying_asset(address: &[u8]) -> Option<[u8; 20]> {
 fn find_deployed_vault_address(vault_address: &[u8]) -> Option<AddressPair> {
     ADDRESS_MAP
         .iter()
-        .find(|(_, addr)| addr == vault_address)
+        .find(|( addr, _)| addr == vault_address)
         .copied()
 }
