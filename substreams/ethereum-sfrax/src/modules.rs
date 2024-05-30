@@ -1,7 +1,4 @@
-use crate::{
-    abi,
-    pb::contract::v1::{BlockRewardCycles, RewardCycle},
-};
+use crate::abi;
 use anyhow::Result;
 use itertools::Itertools;
 use std::collections::HashMap;
@@ -9,7 +6,7 @@ use substreams::{
     hex,
     pb::substreams::StoreDeltas,
     store::{
-        StoreAddBigInt, StoreAddInt64, StoreGet, StoreGetInt64, StoreNew, StoreAdd},
+        StoreAdd, StoreAddBigInt, StoreAddInt64, StoreGet, StoreGetInt64, StoreNew},
 };
 use substreams_ethereum::{pb::eth, Event};
 use tycho_substreams::{
@@ -51,11 +48,11 @@ const ADDRESS_MAP: &[AddressPair] = &[
 
 #[substreams::handlers::map]
 pub fn map_components(
-    param: String,
+    params: String,
     block: eth::v2::Block,
 ) -> Result<BlockTransactionProtocolComponents> {
-    let (vault_address, locked_asset) = find_deployed_vault_address(param.as_bytes()).unwrap();
-
+    let (vault_address, locked_asset) =
+        find_deployed_vault_address(hex::decode(params).unwrap().as_slice()).unwrap();
     // We store these as a hashmap by tx hash since we need to agg by tx hash later
     Ok(BlockTransactionProtocolComponents {
         tx_components: block
@@ -104,7 +101,7 @@ pub fn map_relative_balances(
     block: eth::v2::Block,
     store: StoreGetInt64,
 ) -> Result<BlockBalanceDeltas, anyhow::Error> {
-    let mut balance_deltas = block
+    let balance_deltas = block
         .logs()
         .filter(|log| find_deployed_vault_address(log.address()).is_some())
         .flat_map(|vault_log| {
@@ -164,8 +161,23 @@ pub fn map_relative_balances(
                         },
                     ])
                 }
-            }
-
+            } else if let Some(ev) = 
+                abi::stakedfrax_contract::events::DistributeRewards::match_and_decode(vault_log.log)
+                {
+                    let contract_address = vault_log.address();
+                    if store
+                        .get_last(format!("pool:{0}", hex::encode(contract_address)))
+                        .is_some()
+                    {
+                        deltas.push(BalanceDelta {
+                            ord: vault_log.ordinal(),
+                            tx: Some(vault_log.receipt.transaction.into()),
+                            token: contract_address.to_vec(),
+                            delta: ev.rewards_to_distribute.to_signed_bytes_be(),
+                            component_id: contract_address.to_vec(),
+                        });
+                    }
+                }
             deltas
         })
         .collect::<Vec<_>>();
