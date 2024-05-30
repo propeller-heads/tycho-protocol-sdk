@@ -9,9 +9,7 @@ use substreams::{
     hex,
     pb::substreams::StoreDeltas,
     store::{
-        StoreAdd, StoreAddBigInt, StoreAddInt64, StoreGet, StoreGetInt64, StoreGetRaw, StoreNew,
-        StoreSet, StoreSetRaw,
-    },
+        StoreAddBigInt, StoreAddInt64, StoreGet, StoreGetInt64, StoreNew, StoreAdd},
 };
 use substreams_ethereum::{pb::eth, Event};
 use tycho_substreams::{
@@ -99,53 +97,12 @@ pub fn store_components(map: BlockTransactionProtocolComponents, store: StoreAdd
     );
 }
 
-#[substreams::handlers::map]
-pub fn map_rewards_cycle(block: eth::v2::Block) -> Result<BlockRewardCycles, anyhow::Error> {
-    let reward_cycles = block
-        .logs()
-        .filter_map(|vault_log| {
-            if let Some(ev) =
-                abi::stakedfrax_contract::events::SyncRewards::match_and_decode(vault_log.log)
-            {
-                let reward_cycle = ev.cycle_end - substreams::scalar::BigInt::from(block.number);
-                let reward_rate = ev
-                    .reward_cycle_amount
-                    .div_rem(&reward_cycle.to_owned())
-                    .0;
-                Some(RewardCycle {
-                    ord: vault_log.ordinal(),
-                    reward_rate: reward_rate.to_signed_bytes_be(),
-                    component_id: hex::encode(vault_log.address()),
-                })
-            } else {
-                None
-            }
-        })
-        .collect::<Vec<_>>();
-
-    Ok(BlockRewardCycles { reward_cycles })
-}
-
-pub fn store_reward_cycles(block_reward_cycles: BlockRewardCycles, store: StoreSetRaw) {
-    block_reward_cycles
-        .reward_cycles
-        .into_iter()
-        .for_each(|reward_cycle| {
-            store.set(
-                reward_cycle.ord,
-                format!("reward_cycle:{0}", reward_cycle.component_id),
-                &reward_cycle.reward_rate,
-            );
-        });
-}
-
 /// Since the `PoolBalanceChanged` and `Swap` events administer only deltas, we need to leverage a
 /// map and a  store to be able to tally up final balances for tokens in a pool.
 #[substreams::handlers::map]
 pub fn map_relative_balances(
     block: eth::v2::Block,
     store: StoreGetInt64,
-    reward_store: StoreGetRaw,
 ) -> Result<BlockBalanceDeltas, anyhow::Error> {
     let mut balance_deltas = block
         .logs()
@@ -212,32 +169,6 @@ pub fn map_relative_balances(
             deltas
         })
         .collect::<Vec<_>>();
-
-    // once per block increase the fraxEth (i.e. value of sfraxEth.totalAssets()) by the reward rate
-    // use first tx as placeholder
-    ADDRESS_MAP
-        .iter()
-        .for_each(|(vault_address, _)| {
-            if let Some(reward_rate_signed_be_bytes) =
-                reward_store.get_last(format!("reward_cycle:{0}", hex::encode(vault_address)))
-            {
-                // ensure ord must be strictly increasing for each token address
-                let ord = block
-                    .transactions()
-                    .last()
-                    .map_or(1, |tx| tx.end_ordinal + 1);
-                balance_deltas.push(BalanceDelta {
-                    ord,
-                    tx: None,
-                    token: match_underlying_asset(vault_address)
-                        .unwrap()
-                        .to_vec(),
-                    delta: reward_rate_signed_be_bytes,
-                    component_id: vault_address.to_vec(),
-                })
-            }
-            return;
-        });
 
     Ok(BlockBalanceDeltas { balance_deltas })
 }

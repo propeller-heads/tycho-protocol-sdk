@@ -11,7 +11,6 @@ protobuf:
     - contract.proto
   importPaths:
     - ../../proto
-    - ./proto
 
 binaries:
   default:
@@ -38,16 +37,6 @@ modules:
     inputs:
       - map: map_components
 
-  - name: map_relative_balances
-    kind: map
-    initialBlock: 15686045 # An arbitrary block that should change based on your requirements
-    inputs:
-      - source: sf.ethereum.type.v2.Block
-      - store: store_components
-      - store: store_reward_cycles
-    output:
-      type: proto:tycho.evm.v1.BalanceDeltas
-
   - name: store_balances
     kind: store
     initialBlock: 15686045
@@ -56,22 +45,15 @@ modules:
     inputs:
       - map: map_relative_balances
 
-  - name: map_reward_cycles
+  - name: map_relative_balances
     kind: map
-    initialBlock: 15686045
+    initialBlock: 15686045 # An arbitrary block that should change based on your requirements
     inputs:
       - source: sf.ethereum.type.v2.Block
+      - store: store_components
     output:
-      type: substreams:ethereum-sfrax:proto:contract.BlockRewardCycles
-
-  - name: store_reward_cycles
-    kind: store
-    initialBlock: 15686045
-    updatePolicy: set
-    valueType: bytes
-    inputs:
-      - map: map_reward_cycles
-
+      type: proto:tycho.evm.v1.BalanceDeltas
+      
   - name: map_protocol_changes
     kind: map
     initialBlock: 15686045
