@@ -94,7 +94,7 @@ pub fn map_relative_balances(
                 }
             }
             else if let Some(ev) =
-                abi::sfraxeth_contract::events::Deposit::match_and_decode(vault_log.log)
+                abi::sdai_contract::events::Deposit::match_and_decode(vault_log.log)
             { // burn DAI, mint sDAI
                 if store
                     .get_last(format!("pool:{0}", hex::encode(SDAI_ADDRESS)))
