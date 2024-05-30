@@ -66,8 +66,9 @@ pub fn map_components(
                     .calls()
                     .filter(|call| !call.call.state_reverted)
                     .filter_map(|_| {
-                        // address doesn't exist before contract deployment, hence the first tx with a log.address = vault_address is the deployment tx
-                        if is_deployment_tx(&tx, &vault_address) {
+                        // address doesn't exist before contract deployment, hence the first tx with
+                        // a log.address = vault_address is the deployment tx
+                        if is_deployment_tx(tx, &vault_address) {
                             Some(create_vault_component(&tx.into(), &vault_address, &locked_asset))
                         } else {
                             None
@@ -212,10 +213,12 @@ pub fn map_relative_balances(
                     // When the NextRewardsCycle event is emitted:
                     // 1. `lastRewardAmount` is read from storage
                     // 2. `storedTotalAssets` is incremented by the `lastRewardAmount` in the event
-                    // 3. `lastRewardAmount` is update with the `nextReward` (2nd parameter) in the event
-                    // Hence the reward_store at key `reward_cycle:{contract_address}` will is updated in this block. We want to use the
-                    // first value of the record at the beginning of the block (before the store_reward_cycles writes to that key)
-                    // ref: https://github.com/FraxFinance/frax-solidity/blob/85039d4dff2fb24d8a1ba6efc1ebf7e464df9dcf/src/hardhat/contracts/FraxETH/sfrxETH.sol.old#L984
+                    // 3. `lastRewardAmount` is update with the `nextReward` (2nd parameter) in the
+                    //    event
+                    // Hence the reward_store at key `reward_cycle:{contract_address}` will is
+                    // updated in this block. We want to use the first value of
+                    // the record at the beginning of the block (before the store_reward_cycles
+                    // writes to that key) ref: https://github.com/FraxFinance/frax-solidity/blob/85039d4dff2fb24d8a1ba6efc1ebf7e464df9dcf/src/hardhat/contracts/FraxETH/sfrxETH.sol.old#L984
                     let last_reward_amount = reward_store
                         .get_first(format!("reward_cycle:{0}", hex::encode(contract_address)))
                         .unwrap();
@@ -310,9 +313,9 @@ pub fn map_protocol_changes(
             .drain()
             .sorted_unstable_by_key(|(index, _)| *index)
             .filter_map(|(_, change)| {
-                if change.contract_changes.is_empty()
-                    && change.component_changes.is_empty()
-                    && change.balance_changes.is_empty()
+                if change.contract_changes.is_empty() &&
+                    change.component_changes.is_empty() &&
+                    change.balance_changes.is_empty()
                 {
                     None
                 } else {
@@ -337,7 +340,7 @@ fn is_deployment_tx(tx: &eth::v2::TransactionTrace, vault_address: &[u8]) -> boo
     if let Some(deployed_address) = created_accounts.first() {
         return deployed_address.as_slice() == vault_address;
     }
-    return false;
+    false
 }
 
 fn create_vault_component(
