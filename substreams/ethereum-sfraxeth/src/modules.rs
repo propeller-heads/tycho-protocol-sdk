@@ -17,46 +17,13 @@ use tycho_substreams::{
     balances::aggregate_balances_changes, contract::extract_contract_changes, prelude::*,
 };
 
-// ref: https://docs.frax.finance/smart-contracts/frxeth-and-sfrxeth-contract-addresses
-type AddressPair = ([u8; 20], [u8; 20]); // (vault_address, locked_asset) big endian bytes representation
-const ADDRESS_MAP: &[AddressPair] = &[
-    (
-        hex!("95aB45875cFFdba1E5f451B950bC2E42c0053f39"),
-        hex!("178412e79c25968a32e89b11f63B33F733770c2A"),
-    ), // Arbitrum
-    (
-        hex!("3Cd55356433C89E50DC51aB07EE0fa0A95623D53"),
-        hex!("64048A7eEcF3a2F1BA9e144aAc3D7dB6e58F555e"),
-    ), // BSC
-    (
-        hex!("ac3E018457B222d93114458476f3E3416Abbe38F"),
-        hex!("5e8422345238f34275888049021821e8e08caa1f"),
-    ), // Ethereum
-    (
-        hex!("b90CCD563918fF900928dc529aA01046795ccb4A"),
-        hex!("9E73F99EE061C8807F69f9c6CCc44ea3d8c373ee"),
-    ), // Fantom
-    (
-        hex!("ecf91116348aF1cfFe335e9807f0051332BE128D"),
-        hex!("82bbd1b6f6De2B7bb63D3e1546e6b1553508BE99"),
-    ), // Moonbeam
-    (
-        hex!("484c2D6e3cDd945a8B2DF735e079178C1036578c"),
-        hex!("6806411765Af15Bddd26f8f544A34cC40cb9838B"),
-    ), // Optimism
-    (
-        hex!("6d1FdBB266fCc09A16a22016369210A15bb95761"),
-        hex!("Ee327F889d5947c1dc1934Bb208a1E792F953E96"),
-    ), // Polygon
-];
-
 #[substreams::handlers::map]
 pub fn map_components(
     params: String,
     block: eth::v2::Block,
 ) -> Result<BlockTransactionProtocolComponents, anyhow::Error> {
-    let (vault_address, locked_asset) =
-        find_deployed_vault_address(hex::decode(params).unwrap().as_slice()).unwrap();
+    let vault_address = hex::decode(params).unwrap();
+    let locked_asset = match_underlying_asset(&vault_address).unwrap();
     // We store these as a hashmap by tx hash since we need to agg by tx hash later
     Ok(BlockTransactionProtocolComponents {
         tx_components: block
@@ -102,7 +69,7 @@ pub fn store_components(map: BlockTransactionProtocolComponents, store: StoreAdd
 
 // updates the reward rate to be accounted for at each block for the totalAsset locked in the vault
 #[substreams::handlers::map]
-pub fn map_rewards_cycle(block: eth::v2::Block) -> Result<BlockRewardCycles, anyhow::Error> {
+pub fn map_reward_cycles(block: eth::v2::Block) -> Result<BlockRewardCycles, anyhow::Error> {
     let reward_cycles = block
         .logs()
         .filter_map(|vault_log| {
@@ -145,7 +112,7 @@ pub fn map_relative_balances(
 ) -> Result<BlockBalanceDeltas, anyhow::Error> {
     let balance_deltas = block
         .logs()
-        .filter(|log| find_deployed_vault_address(log.address()).is_some())
+        .filter(|log| match_underlying_asset(log.address()).is_some())
         .flat_map(|vault_log| {
             let mut deltas = Vec::new();
 
@@ -224,18 +191,19 @@ pub fn map_relative_balances(
                     // updated in this block. We want to use the first value of
                     // the record at the beginning of the block (before the store_reward_cycles
                     // writes to that key) ref: https://github.com/FraxFinance/frax-solidity/blob/85039d4dff2fb24d8a1ba6efc1ebf7e464df9dcf/src/hardhat/contracts/FraxETH/sfrxETH.sol.old#L984
-                    let last_reward_amount = reward_store
-                        .get_first(format!("reward_cycle:{}", address_hex))
-                        .unwrap();
-                    deltas.push(BalanceDelta {
-                        ord: vault_log.ordinal(),
-                        tx: Some(vault_log.receipt.transaction.into()),
-                        token: match_underlying_asset(address_bytes_be)
-                            .unwrap()
-                            .to_vec(),
-                        delta: last_reward_amount,
-                        component_id: address_hex.as_bytes().to_vec(),
-                    });
+                    if let Some(last_reward_amount) =
+                        reward_store.get_first(format!("reward_cycle:{}", address_hex))
+                    {
+                        deltas.push(BalanceDelta {
+                            ord: vault_log.ordinal(),
+                            tx: Some(vault_log.receipt.transaction.into()),
+                            token: match_underlying_asset(address_bytes_be)
+                                .unwrap()
+                                .to_vec(),
+                            delta: last_reward_amount,
+                            component_id: address_hex.as_bytes().to_vec(),
+                        });
+                    }
                 }
             }
 
@@ -318,9 +286,9 @@ pub fn map_protocol_changes(
             .drain()
             .sorted_unstable_by_key(|(index, _)| *index)
             .filter_map(|(_, change)| {
-                if change.contract_changes.is_empty() &&
-                    change.component_changes.is_empty() &&
-                    change.balance_changes.is_empty()
+                if change.contract_changes.is_empty()
+                    && change.component_changes.is_empty()
+                    && change.balance_changes.is_empty()
                 {
                     None
                 } else {
@@ -358,13 +326,38 @@ fn create_vault_component(
         .as_swap_type("sfraxeth_vault", ImplementationType::Vm)
 }
 
-fn match_underlying_asset(address: &[u8]) -> Option<[u8; 20]> {
-    find_deployed_vault_address(address).map(|(_, underlying_asset)| underlying_asset)
-}
-
-fn find_deployed_vault_address(vault_address: &[u8]) -> Option<AddressPair> {
-    ADDRESS_MAP
-        .iter()
-        .find(|(addr, _)| addr == vault_address)
-        .copied()
+// ref: https://docs.frax.finance/smart-contracts/frxeth-and-sfrxeth-contract-addresses
+fn match_underlying_asset(address_bytes: &[u8]) -> Option<[u8; 20]> {
+    // basedo on ADDRESS_MAP create a match condition to return the locked_asset
+    match address_bytes {
+        hex!("95aB45875cFFdba1E5f451B950bC2E42c0053f39") => {
+            // Arbitrum
+            Some(hex!("178412e79c25968a32e89b11f63B33F733770c2A"))
+        }
+        hex!("3Cd55356433C89E50DC51aB07EE0fa0A95623D53") => {
+            // BSC
+            Some(hex!("64048A7eEcF3a2F1BA9e144aAc3D7dB6e58F555e"))
+        }
+        hex!("ac3E018457B222d93114458476f3E3416Abbe38F") => {
+            // Ethereum
+            Some(hex!("5e8422345238f34275888049021821e8e08caa1f"))
+        }
+        hex!("b90CCD563918fF900928dc529aA01046795ccb4A") => {
+            // Fantom
+            Some(hex!("9E73F99EE061C8807F69f9c6CCc44ea3d8c373ee"))
+        }
+        hex!("ecf91116348aF1cfFe335e9807f0051332BE128D") => {
+            // Moonbeam
+            Some(hex!("82bbd1b6f6De2B7bb63D3e1546e6b1553508BE99"))
+        }
+        hex!("484c2D6e3cDd945a8B2DF735e079178C1036578c") => {
+            // Optimism
+            Some(hex!("6806411765Af15Bddd26f8f544A34cC40cb9838B"))
+        }
+        hex!("6d1FdBB266fCc09A16a22016369210A15bb95761") => {
+            // Polygon
+            Some(hex!("Ee327F889d5947c1dc1934Bb208a1E792F953E96"))
+        }
+        _ => None,
+    }
 }
