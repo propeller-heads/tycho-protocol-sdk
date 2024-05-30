@@ -30,7 +30,7 @@ const ADDRESS_MAP: &[AddressPair] = &[
         hex!("853d955aCEf822Db058eb8505911ED77F175b99e"),
     ), // Ethereum
     (
-        hex!("3405E88af759992937b84E58F2Fe691EF0EeA320"), 
+        hex!("3405E88af759992937b84E58F2Fe691EF0EeA320"),
         hex!("D24C2Ad096400B6FBcd2ad8B24E7acBc21A1da64"),
     ), //Avalanche
     (
@@ -57,7 +57,7 @@ pub fn map_components(
             .filter_map(|tx| {
                 let components = tx
                     .calls()
-                    .filter(| call| !call.call.state_reverted)
+                    .filter(|call| !call.call.state_reverted)
                     .filter_map(|_| {
                         if is_deployment_tx(tx, &vault_address) {
                             Some(create_vault_component(&tx.into(), &vault_address, &locked_asset))
@@ -91,8 +91,6 @@ pub fn store_components(map: BlockTransactionProtocolComponents, store: StoreAdd
     );
 }
 
-/// Since the `PoolBalanceChanged` and `Swap` events administer only deltas, we need to leverage a
-/// map and a  store to be able to tally up final balances for tokens in a pool.
 #[substreams::handlers::map]
 pub fn map_relative_balances(
     block: eth::v2::Block,
@@ -100,7 +98,7 @@ pub fn map_relative_balances(
 ) -> Result<BlockBalanceDeltas, anyhow::Error> {
     let balance_deltas = block
         .logs()
-        // .filter(|log| find_deployed_vault_address(log.address()).is_some())
+        .filter(|log| find_deployed_vault_address(log.address()).is_some())
         .flat_map(|vault_log| {
             let mut deltas = Vec::new();
 
@@ -172,7 +170,9 @@ pub fn map_relative_balances(
                     deltas.push(BalanceDelta {
                         ord: vault_log.ordinal(),
                         tx: Some(vault_log.receipt.transaction.into()),
-                        token: match_underlying_asset(vault_log.address()).unwrap().to_vec(),
+                        token: match_underlying_asset(vault_log.address())
+                            .unwrap()
+                            .to_vec(),
                         delta: ev
                             .rewards_to_distribute
                             .to_signed_bytes_be(),
@@ -306,6 +306,6 @@ fn match_underlying_asset(address: &[u8]) -> Option<[u8; 20]> {
 fn find_deployed_vault_address(vault_address: &[u8]) -> Option<AddressPair> {
     ADDRESS_MAP
         .iter()
-        .find(|( addr, _)| addr == vault_address)
+        .find(|(addr, _)| addr == vault_address)
         .copied()
 }
