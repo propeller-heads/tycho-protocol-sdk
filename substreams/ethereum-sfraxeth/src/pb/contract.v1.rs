@@ -114,8 +114,8 @@ pub struct RewardCycle {
     pub ord: u64,
     #[prost(bytes="vec", tag="2")]
     pub next_reward_amount: ::prost::alloc::vec::Vec<u8>,
-    #[prost(string, tag="3")]
-    pub component_id: ::prost::alloc::string::String,
+    #[prost(bytes="vec", tag="3")]
+    pub vault_address: ::prost::alloc::vec::Vec<u8>,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]

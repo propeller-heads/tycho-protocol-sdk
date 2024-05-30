@@ -18,7 +18,7 @@ use tycho_substreams::{
 };
 
 // ref: https://docs.frax.finance/smart-contracts/frxeth-and-sfrxeth-contract-addresses
-type AddressPair = ([u8; 20], [u8; 20]);
+type AddressPair = ([u8; 20], [u8; 20]); // (vault_address, locked_asset) big endian bytes representation
 const ADDRESS_MAP: &[AddressPair] = &[
     (
         hex!("95aB45875cFFdba1E5f451B950bC2E42c0053f39"),
@@ -112,7 +112,7 @@ pub fn map_rewards_cycle(block: eth::v2::Block) -> Result<BlockRewardCycles, any
                 Some(RewardCycle {
                     ord: vault_log.ordinal(),
                     next_reward_amount: ev.reward_amount.to_signed_bytes_be(),
-                    component_id: hex::encode(vault_log.address()),
+                    vault_address: vault_log.address().to_vec(), // be bytes
                 })
             } else {
                 None
@@ -129,9 +129,10 @@ pub fn store_reward_cycles(block_reward_cycles: BlockRewardCycles, store: StoreS
         .reward_cycles
         .into_iter()
         .for_each(|reward_cycle| {
+            let address_hex = format!("0x{}", hex::encode(&reward_cycle.vault_address));
             store.set(
                 reward_cycle.ord,
-                format!("reward_cycle:{0}", reward_cycle.component_id),
+                format!("reward_cycle:{}", address_hex),
                 &reward_cycle.next_reward_amount,
             );
         });
@@ -151,63 +152,67 @@ pub fn map_relative_balances(
             if let Some(ev) =
                 abi::sfraxeth_contract::events::Withdraw::match_and_decode(vault_log.log)
             {
-                let contract_address = vault_log.address();
+                let address_bytes_be = vault_log.address();
+                let address_hex = format!("0x{}", hex::encode(address_bytes_be));
+
                 if store
-                    .get_last(format!("pool:{0}", hex::encode(contract_address)))
+                    .get_last(format!("pool:{}", address_hex))
                     .is_some()
                 {
                     deltas.extend_from_slice(&[
                         BalanceDelta {
                             ord: vault_log.ordinal(),
                             tx: Some(vault_log.receipt.transaction.into()),
-                            token: match_underlying_asset(contract_address)
+                            token: match_underlying_asset(address_bytes_be)
                                 .unwrap()
                                 .to_vec(),
                             delta: ev.assets.neg().to_signed_bytes_be(),
-                            component_id: contract_address.to_vec(),
+                            component_id: address_hex.as_bytes().to_vec(),
                         },
                         BalanceDelta {
                             ord: vault_log.ordinal(),
                             tx: Some(vault_log.receipt.transaction.into()),
-                            token: contract_address.to_vec(),
+                            token: address_bytes_be.to_vec(),
                             delta: ev.shares.neg().to_signed_bytes_be(),
-                            component_id: contract_address.to_vec(),
+                            component_id: address_hex.as_bytes().to_vec(),
                         },
                     ])
                 }
             } else if let Some(ev) =
                 abi::sfraxeth_contract::events::Deposit::match_and_decode(vault_log.log)
             {
-                let contract_address = vault_log.address();
+                let address_bytes_be = vault_log.address();
+                let address_hex = format!("0x{}", hex::encode(address_bytes_be));
                 if store
-                    .get_last(format!("pool:{0}", hex::encode(contract_address)))
+                    .get_last(format!("pool:{}", address_hex))
                     .is_some()
                 {
                     deltas.extend_from_slice(&[
                         BalanceDelta {
                             ord: vault_log.ordinal(),
                             tx: Some(vault_log.receipt.transaction.into()),
-                            token: match_underlying_asset(contract_address)
+                            token: match_underlying_asset(address_bytes_be)
                                 .unwrap()
                                 .to_vec(),
                             delta: ev.assets.to_signed_bytes_be(),
-                            component_id: contract_address.to_vec(),
+                            component_id: address_hex.as_bytes().to_vec(),
                         },
                         BalanceDelta {
                             ord: vault_log.ordinal(),
                             tx: Some(vault_log.receipt.transaction.into()),
-                            token: contract_address.to_vec(),
+                            token: address_bytes_be.to_vec(),
                             delta: ev.shares.to_signed_bytes_be(),
-                            component_id: contract_address.to_vec(),
+                            component_id: address_hex.as_bytes().to_vec(),
                         },
                     ])
                 }
             } else if abi::sfraxeth_contract::events::NewRewardsCycle::match_and_decode(vault_log)
                 .is_some()
             {
-                let contract_address = vault_log.address();
+                let address_bytes_be = vault_log.address();
+                let address_hex = format!("0x{}", hex::encode(address_bytes_be));
                 if store
-                    .get_last(format!("pool:{0}", hex::encode(contract_address)))
+                    .get_last(format!("pool:{}", address_hex))
                     .is_some()
                 {
                     // When the NextRewardsCycle event is emitted:
@@ -215,21 +220,21 @@ pub fn map_relative_balances(
                     // 2. `storedTotalAssets` is incremented by the `lastRewardAmount` in the event
                     // 3. `lastRewardAmount` is update with the `nextReward` (2nd parameter) in the
                     //    event
-                    // Hence the reward_store at key `reward_cycle:{contract_address}` will is
+                    // Hence the reward_store at key `reward_cycle:{address_hex}` will is
                     // updated in this block. We want to use the first value of
                     // the record at the beginning of the block (before the store_reward_cycles
                     // writes to that key) ref: https://github.com/FraxFinance/frax-solidity/blob/85039d4dff2fb24d8a1ba6efc1ebf7e464df9dcf/src/hardhat/contracts/FraxETH/sfrxETH.sol.old#L984
                     let last_reward_amount = reward_store
-                        .get_first(format!("reward_cycle:{0}", hex::encode(contract_address)))
+                        .get_first(format!("reward_cycle:{}", address_hex))
                         .unwrap();
                     deltas.push(BalanceDelta {
                         ord: vault_log.ordinal(),
                         tx: Some(vault_log.receipt.transaction.into()),
-                        token: match_underlying_asset(contract_address)
+                        token: match_underlying_asset(address_bytes_be)
                             .unwrap()
                             .to_vec(),
                         delta: last_reward_amount,
-                        component_id: contract_address.to_vec(),
+                        component_id: address_hex.as_bytes().to_vec(),
                     });
                 }
             }
