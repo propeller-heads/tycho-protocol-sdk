@@ -47,7 +47,7 @@ modules:
 
   - name: map_relative_balances
     kind: map
-    initialBlock: 18378085 # An arbitrary block that should change based on your requirements
+    initialBlock: 18378085
     inputs:
       - source: sf.ethereum.type.v2.Block
       - store: store_components
