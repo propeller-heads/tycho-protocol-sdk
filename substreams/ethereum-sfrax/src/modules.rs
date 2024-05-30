@@ -5,8 +5,7 @@ use std::collections::HashMap;
 use substreams::{
     hex,
     pb::substreams::StoreDeltas,
-    store::{
-        StoreAdd, StoreAddBigInt, StoreAddInt64, StoreGet, StoreGetInt64, StoreNew},
+    store::{StoreAdd, StoreAddBigInt, StoreAddInt64, StoreGet, StoreGetInt64, StoreNew},
 };
 use substreams_ethereum::{pb::eth, Event};
 use tycho_substreams::{
@@ -161,23 +160,25 @@ pub fn map_relative_balances(
                         },
                     ])
                 }
-            } else if let Some(ev) = 
+            } else if let Some(ev) =
                 abi::stakedfrax_contract::events::DistributeRewards::match_and_decode(vault_log.log)
+            {
+                let contract_address = vault_log.address();
+                if store
+                    .get_last(format!("pool:{0}", hex::encode(contract_address)))
+                    .is_some()
                 {
-                    let contract_address = vault_log.address();
-                    if store
-                        .get_last(format!("pool:{0}", hex::encode(contract_address)))
-                        .is_some()
-                    {
-                        deltas.push(BalanceDelta {
-                            ord: vault_log.ordinal(),
-                            tx: Some(vault_log.receipt.transaction.into()),
-                            token: contract_address.to_vec(),
-                            delta: ev.rewards_to_distribute.to_signed_bytes_be(),
-                            component_id: contract_address.to_vec(),
-                        });
-                    }
+                    deltas.push(BalanceDelta {
+                        ord: vault_log.ordinal(),
+                        tx: Some(vault_log.receipt.transaction.into()),
+                        token: contract_address.to_vec(),
+                        delta: ev
+                            .rewards_to_distribute
+                            .to_signed_bytes_be(),
+                        component_id: contract_address.to_vec(),
+                    });
                 }
+            }
             deltas
         })
         .collect::<Vec<_>>();
