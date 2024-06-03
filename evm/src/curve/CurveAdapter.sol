@@ -7,6 +7,7 @@ import {
     IERC20,
     SafeERC20
 } from "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
+import "src/libraries/FractionMath.sol";
 
 /// @dev custom RESERVE_LIMIT_FACTOR for limits for this adapter(underestimate)
 uint256 constant RESERVE_LIMIT_FACTOR = 10;
@@ -15,6 +16,7 @@ uint256 constant RESERVE_LIMIT_FACTOR = 10;
 /// @dev This contract supports both CryptoSwap and StableSwap Curve pools
 contract CurveAdapter is ISwapAdapter {
     using SafeERC20 for IERC20;
+    using FractionMath for Fraction;
 
     uint256 constant PRECISION = (10 ** 6);
 
@@ -274,11 +276,11 @@ contract CurveAdapter is ISwapAdapter {
         if (isStablePool(poolAddress)) {
             if (isMetaPool) {
                 ICurveStableSwapMetaPool(poolAddress).exchange_underlying(
-                    sellTokenIndex, buyTokenIndex, amount, 0
+                    sellTokenIndex, buyTokenIndex, amount, 1
                 );
             } else {
                 ICurveStableSwapPool(poolAddress).exchange(
-                    sellTokenIndex, buyTokenIndex, amount, 0
+                    sellTokenIndex, buyTokenIndex, amount, 1
                 );
             }
         } else {
@@ -287,11 +289,11 @@ contract CurveAdapter is ISwapAdapter {
                     || address(buyToken) == WETH_ADDRESS
             ) {
                 ICurveCryptoSwapMetaPool(poolAddress).exchange_underlying(
-                    sellTokenIndexUint, buyTokenIndexUint, amount, 0
+                    sellTokenIndexUint, buyTokenIndexUint, amount, 1
                 );
             } else {
                 ICurveCryptoSwapPool(poolAddress).exchange(
-                    sellTokenIndexUint, buyTokenIndexUint, amount, 0
+                    sellTokenIndexUint, buyTokenIndexUint, amount, 1
                 );
             }
         }
