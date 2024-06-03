@@ -205,6 +205,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "ethereum_kyberswap_classic"
+version = "0.0.1"
+dependencies = [
+ "anyhow",
+ "ethabi",
+ "getrandom",
+ "hex-literal",
+ "num-bigint",
+ "num-traits",
+ "prost",
+ "prost-types",
+ "regex",
+ "substreams",
+ "substreams-database-change",
+ "substreams-entity-change",
+ "substreams-ethereum",
+]
+
+[[package]]
 name = "fastrand"
 version = "2.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -849,25 +868,6 @@ dependencies = [
  "quote",
  "substreams-ethereum-abigen",
  "syn 1.0.109",
-]
-
-[[package]]
-name = "substreams-init-test"
-version = "0.0.1"
-dependencies = [
- "anyhow",
- "ethabi",
- "getrandom",
- "hex-literal",
- "num-bigint",
- "num-traits",
- "prost",
- "prost-types",
- "regex",
- "substreams",
- "substreams-database-change",
- "substreams-entity-change",
- "substreams-ethereum",
 ]
 
 [[package]]

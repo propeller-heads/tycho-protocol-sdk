@@ -3,21 +3,24 @@ use anyhow::Result;
 use itertools::Itertools;
 use std::collections::HashMap;
 use substreams::{
-    hex,
     pb::substreams::StoreDeltas,
-    store::{StoreAdd, StoreAddBigInt, StoreAddInt64, StoreGet, StoreGetInt64, StoreNew},
+    store::{
+        StoreAddBigInt, StoreGet, StoreGetInt64, StoreGetProto, StoreNew, StoreSet, StoreSetProto,
+    },
 };
 use substreams_ethereum::{pb::eth, Event};
 use tycho_substreams::{
     balances::aggregate_balances_changes, contract::extract_contract_changes, prelude::*,
 };
 
-const VAULT_ADDRESS: &[u8] = &hex!("BA12222222228d8Ba445958a75a0704d566BF2C8");
-
 #[substreams::handlers::map]
-pub fn map_components(block: eth::v2::Block) -> Result<BlockTransactionProtocolComponents> {
+pub fn map_components(
+    param: String,
+    block: eth::v2::Block,
+) -> Result<BlockTransactionProtocolComponents> {
     // Gather contract changes by indexing `PoolCreated` events and analysing the `Create` call
     // We store these as a hashmap by tx hash since we need to agg by tx hash later
+    let tracked_factory_address = hex::decode(param).unwrap();
     Ok(BlockTransactionProtocolComponents {
         tx_components: block
             .transactions()
@@ -27,9 +30,9 @@ pub fn map_components(block: eth::v2::Block) -> Result<BlockTransactionProtocolC
                     .filter(|(_, call)| !call.call.state_reverted)
                     .filter_map(|(log, call)| {
                         pool_factories::address_map(
+                            tracked_factory_address.as_slice(),
                             call.call.address.as_slice(),
                             log,
-                            call.call,
                             &(tx.into()),
                         )
                     })
@@ -45,78 +48,103 @@ pub fn map_components(block: eth::v2::Block) -> Result<BlockTransactionProtocolC
     })
 }
 
-/// Simply stores the `ProtocolComponent`s with the pool id as the key
+/// Stores the `ProtocolComponent`s with the pool id as the key, together with the token pair as
+/// events do not contain the pair info
 #[substreams::handlers::store]
-pub fn store_components(map: BlockTransactionProtocolComponents, store: StoreAddInt64) {
-    store.add_many(
-        0,
-        &map.tx_components
-            .iter()
-            .flat_map(|tx_components| &tx_components.components)
-            .map(|component| format!("pool:{0}", component.id))
-            .collect::<Vec<_>>(),
-        1,
-    );
+pub fn store_components(
+    map: BlockTransactionProtocolComponents,
+    store: StoreSetProto<ProtocolComponent>,
+) {
+    map.tx_components
+        .iter()
+        .for_each(|tx_components| {
+            tx_components
+                .components
+                .iter()
+                .for_each(|component| store_component(&store, component));
+        })
 }
 
-/// Since the `PoolBalanceChanged` and `Swap` events administer only deltas, we need to leverage a
+/// we need to leverage a
 /// map and a  store to be able to tally up final balances for tokens in a pool.
 #[substreams::handlers::map]
 pub fn map_relative_balances(
     block: eth::v2::Block,
-    store: StoreGetInt64,
+    store: StoreGetProto<ProtocolComponent>,
 ) -> Result<BlockBalanceDeltas, anyhow::Error> {
     let balance_deltas = block
         .logs()
-        .filter(|log| log.address() == VAULT_ADDRESS)
-        .flat_map(|vault_log| {
+        .flat_map(|log| {
             let mut deltas = Vec::new();
 
-            if let Some(ev) =
-                abi::vault::events::PoolBalanceChanged::match_and_decode(vault_log.log)
-            {
-                let component_id = format!("0x{}", hex::encode(&ev.pool_id[..20]));
+            if let Some(event) = abi::pool_contract::events::Mint::match_and_decode(log) {
+                // Mint event: (reserve0, reserve1) += (amount0, amount1)
+                let component_id = address_to_hex(log.address());
 
-                if store
-                    .get_last(format!("pool:{}", component_id))
-                    .is_some()
-                {
-                    for (token, delta) in ev.tokens.iter().zip(ev.deltas.iter()) {
-                        deltas.push(BalanceDelta {
-                            ord: vault_log.ordinal(),
-                            tx: Some(vault_log.receipt.transaction.into()),
-                            token: token.to_vec(),
-                            delta: delta.to_signed_bytes_be(),
-                            component_id: component_id.as_bytes().to_vec(),
-                        });
-                    }
-                }
-            } else if let Some(ev) = abi::vault::events::Swap::match_and_decode(vault_log.log) {
-                let component_id = format!("0x{}", hex::encode(&ev.pool_id[..20]));
-
-                if store
-                    .get_last(format!("pool:{}", component_id))
-                    .is_some()
-                {
+                if let Some((token0, token1)) = maybe_get_pool_tokens(&store, &component_id) {
                     deltas.extend_from_slice(&[
                         BalanceDelta {
-                            ord: vault_log.ordinal(),
-                            tx: Some(vault_log.receipt.transaction.into()),
-                            token: ev.token_in.to_vec(),
-                            delta: ev.amount_in.to_signed_bytes_be(),
-                            component_id: component_id.as_bytes().to_vec(),
+                            ord: log.ordinal(),
+                            tx: Some(log.receipt.transaction.into()),
+                            token: token0,
+                            delta: event.amount0.to_signed_bytes_be(),
+                            component_id: string_to_bytes(&component_id),
                         },
                         BalanceDelta {
-                            ord: vault_log.ordinal(),
-                            tx: Some(vault_log.receipt.transaction.into()),
-                            token: ev.token_out.to_vec(),
-                            delta: ev.amount_out.neg().to_signed_bytes_be(),
-                            component_id: component_id.as_bytes().to_vec(),
+                            ord: log.ordinal(),
+                            tx: Some(log.receipt.transaction.into()),
+                            token: token1,
+                            delta: event.amount1.to_signed_bytes_be(),
+                            component_id: string_to_bytes(&component_id),
+                        },
+                    ]);
+                }
+            } else if let Some(event) = abi::pool_contract::events::Burn::match_and_decode(log) {
+                // Burn event: (reserve0, reserve1) -= (amount0, amount1)
+                let component_id = address_to_hex(log.address());
+
+                if let Some((token0, token1)) = maybe_get_pool_tokens(&store, &component_id) {
+                    deltas.extend_from_slice(&[
+                        BalanceDelta {
+                            ord: log.ordinal(),
+                            tx: Some(log.receipt.transaction.into()),
+                            token: token0,
+                            delta: event.amount0.neg().to_signed_bytes_be(),
+                            component_id: string_to_bytes(&component_id),
+                        },
+                        BalanceDelta {
+                            ord: log.ordinal(),
+                            tx: Some(log.receipt.transaction.into()),
+                            token: token1,
+                            delta: event.amount1.neg().to_signed_bytes_be(),
+                            component_id: string_to_bytes(&component_id),
+                        },
+                    ]);
+                }
+            } else if let Some(event) = abi::pool_contract::events::Swap::match_and_decode(log) {
+                // Swap event: (reserve0, reserve1) += (amount0In - amount0Out, amount1In -
+                // amount1Out)
+                let component_id = address_to_hex(log.address());
+
+                if let Some((token0, token1)) = maybe_get_pool_tokens(&store, &component_id) {
+                    deltas.extend_from_slice(&[
+                        BalanceDelta {
+                            ord: log.ordinal(),
+                            tx: Some(log.receipt.transaction.into()),
+                            token: token0.clone(),
+                            delta: (event.amount0_in - event.amount0_out).to_signed_bytes_be(),
+                            component_id: string_to_bytes(&component_id),
+                        },
+                        BalanceDelta {
+                            ord: log.ordinal(),
+                            tx: Some(log.receipt.transaction.into()),
+                            token: token1.clone(),
+                            delta: (event.amount1_in - event.amount1_out).to_signed_bytes_be(),
+                            component_id: string_to_bytes(&component_id),
                         },
                     ]);
                 }
             }
-
             deltas
         })
         .collect::<Vec<_>>();
@@ -134,7 +162,7 @@ pub fn store_balances(deltas: BlockBalanceDeltas, store: StoreAddBigInt) {
 /// This is the main map that handles most of the indexing of this substream.
 /// Every contract change is grouped by transaction index via the `transaction_contract_changes`
 ///  map. Each block of code will extend the `TransactionContractChanges` struct with the
-///  cooresponding changes (balance, component, contract), inserting a new one if it doesn't exist.
+///  corresponding changes (balance, component, contract), inserting a new one if it doesn't exist.
 ///  At the very end, the map can easily be sorted by index to ensure the final
 /// `BlockContractChanges`  is ordered by transactions properly.
 #[substreams::handlers::map]
@@ -207,4 +235,25 @@ pub fn map_protocol_changes(
             })
             .collect::<Vec<_>>(),
     })
+}
+
+fn maybe_get_pool_tokens(
+    store: &StoreGetProto<ProtocolComponent>,
+    component_id: &str,
+) -> Option<(Vec<u8>, Vec<u8>)> {
+    store
+        .get_last(format!("pool:{}", component_id))
+        .map(|component| (component.tokens[0].to_vec(), component.tokens[1].to_vec()))
+}
+
+fn address_to_hex(address: &[u8]) -> String {
+    format!("0x{}", hex::encode(address))
+}
+
+fn string_to_bytes(string: &str) -> Vec<u8> {
+    string.as_bytes().to_vec()
+}
+
+fn store_component(store: &StoreSetProto<ProtocolComponent>, component: &ProtocolComponent) {
+    store.set(1, format!("pool:{}", component.id), component);
 }
