@@ -12,30 +12,34 @@ use tycho_substreams::{
     balances::aggregate_balances_changes, contract::extract_contract_changes, prelude::*,
 };
 
-const SDAI_ADDRESS: [u8; 20] = hex!("83F20F44975D03b1b09e64809B757c47f942BEeA");
-const DAI_ADDRESS = [u8; 20] = hex!("6b175474e89094c44da98b954eedeac495271d0f");
-const DEPLOYER_ADDRESS =[u8; 20] = hex!("3249936bddf8bf739d3f06d26c40eefc81029bd1");
-
 #[substreams::handlers::map]
-pub fn map_components(block: eth::v2::Block) -> Result<BlockTransactionProtocolComponents> {
+pub fn map_components(params: String, block: eth::v2::Block) -> Result<BlockTransactionProtocolComponents> {
+
+    let sdai_address = hex::decode(params).unwrap();
+    let dai_address = find_deployed_underlying_address(&sdai_address).unwrap();
+
     // We store these as a hashmap by tx hash since we need to agg by tx hash later
     Ok(BlockTransactionProtocolComponents {
         tx_components: block
             .transactions()
             .filter_map(|tx| {
                 let components = tx
-                    .logs_with_calls()
-                    .filter(|(_, call)| !call.call.state_reverted)
-                    .filter_map(|(log, _)| {
-                        if is_deployment_tx_from_deployer(tx, DEPLOYER_ADDRESS)
-                            && log.address == SDAI_ADDRESS
+                    .calls()
+                    .filter(|call| !call.call.state_reverted)
+                    .filter_map(|_| {
+                        if is_deployment_tx(tx, &sdai_address)
                         {
-                            Some(create_vault_component(&tx.into()))
+                            Some(create_vault_component(&tx.into(), &sdai_address, &dai_address))
                         } else {
                             None
                         }
                     })
                     .collect::<Vec<_>>();
+                if !components.is_empty() {
+                    Some(TransactionProtocolComponents { tx: Some(tx.into()), components })
+                } else {
+                    None
+                }
             })
             .collect::<Vec<_>>(),
     })
@@ -64,31 +68,34 @@ pub fn map_relative_balances(
 ) -> Result<BlockBalanceDeltas, anyhow::Error> {
     let balance_deltas = block
         .logs()
-        .filter(|log| log.address() == SDAI_ADDRESS)
+        .filter(|log| find_deployed_underlying_address(log.address()).is_some())
         .flat_map(|vault_log| {
             let mut deltas = Vec::new();
+
+            let address_bytes_be = vault_log.address();
+            let address_hex = format!("0x{}", hex::encode(address_bytes_be));
 
             if let Some(ev) =
                 abi::sdai_contract::events::Withdraw::match_and_decode(vault_log.log)
             { // Burn sDAI, mint DAI
                 if store
-                    .get_last(format!("pool:{0}", hex::encode(SDAI_ADDRESS)))
+                    .get_last(format!("pool:{}", address_hex))
                     .is_some()
                 {
                     deltas.extend_from_slice(&[
                         BalanceDelta {
-                            ord: log.ordinal(),
-                            tx: Some(log.receipt.transaction.into()),
-                            token: SDAI_ADDRESS,
-                            delta: event.shares.neg().to_signed_bytes_be(),
-                            component_id: string_to_bytes(&component_id),
+                            ord: vault_log.ordinal(),
+                            tx: Some(vault_log.receipt.transaction.into()),
+                            token: address_bytes_be.to_vec(),
+                            delta: ev.shares.neg().to_signed_bytes_be(),
+                            component_id: address_hex.as_bytes().to_vec(),
                         },
                         BalanceDelta {
-                            ord: log.ordinal(),
-                            tx: Some(log.receipt.transaction.into()),
-                            token: DAI_ADDRESS,
-                            delta: event.assets.to_signed_bytes_be(),
-                            component_id: string_to_bytes(&component_id),
+                            ord: vault_log.ordinal(),
+                            tx: Some(vault_log.receipt.transaction.into()),
+                            token: find_deployed_underlying_address(address_bytes_be).unwrap().to_vec(),
+                            delta: ev.assets.to_signed_bytes_be(),
+                            component_id: address_hex.as_bytes().to_vec(),
                         },
                     ]);
                 }
@@ -97,23 +104,23 @@ pub fn map_relative_balances(
                 abi::sdai_contract::events::Deposit::match_and_decode(vault_log.log)
             { // burn DAI, mint sDAI
                 if store
-                    .get_last(format!("pool:{0}", hex::encode(SDAI_ADDRESS)))
+                    .get_last(format!("pool:{}", address_hex))
                     .is_some()
                 {
                     deltas.extend_from_slice(&[
                         BalanceDelta {
-                            ord: log.ordinal(),
-                            tx: Some(log.receipt.transaction.into()),
-                            token: SDAI_ADDRESS,
-                            delta: event.shares.to_signed_bytes_be(),
-                            component_id: string_to_bytes(&component_id),
+                            ord: vault_log.ordinal(),
+                            tx: Some(vault_log.receipt.transaction.into()),
+                            token: address_bytes_be.to_vec(),
+                            delta: ev.shares.to_signed_bytes_be(),
+                            component_id: address_hex.as_bytes().to_vec(),
                         },
                         BalanceDelta {
-                            ord: log.ordinal(),
-                            tx: Some(log.receipt.transaction.into()),
-                            token: DAI_ADDRESS,
-                            delta: event.assets.neg().to_signed_bytes_be(),
-                            component_id: string_to_bytes(&component_id),
+                            ord: vault_log.ordinal(),
+                            tx: Some(vault_log.receipt.transaction.into()),
+                            token: find_deployed_underlying_address(address_bytes_be).unwrap().to_vec(),
+                            delta: ev.assets.neg().to_signed_bytes_be(),
+                            component_id: address_hex.as_bytes().to_vec(),
                         },
                     ]);
                 }
@@ -211,15 +218,39 @@ pub fn map_protocol_changes(
     })
 }
 
-fn is_deployment_tx_from_deployer(
-    tx: &eth::v2::TransactionTrace,
-    deployer_address: [u8; 20],
-) -> bool {
-    let zero_address = hex!("0000000000000000000000000000000000000000");
-    tx.to.as_slice() == zero_address && tx.from.as_slice() == &deployer_address
+fn is_deployment_tx(tx: &eth::v2::TransactionTrace, vault_address: &[u8]) -> bool {
+    let created_accounts = tx
+        .calls
+        .iter()
+        .flat_map(|call| {
+            call.account_creations
+                .iter()
+                .map(|ac| ac.account.to_owned())
+        })
+        .collect::<Vec<_>>();
+
+    if let Some(deployed_address) = created_accounts.first() {
+        return deployed_address.as_slice() == vault_address;
+    }
+    false
 }
 
-fn create_vault_component(tx: &Transaction) -> ProtocolComponent {
-    ProtocolComponent::at_contract(SDAI_ADDRESS.as_slice(), tx)
-        .as_swap_type("sdai_token", ImplementationType::Vm)
+fn create_vault_component(
+    tx: &Transaction,
+    component_id: &[u8],
+    locked_asset: &[u8],
+) -> ProtocolComponent {
+    ProtocolComponent::at_contract(component_id, tx)
+        .with_tokens(&[locked_asset, component_id])
+        .as_swap_type("DAI_SAVINGS_RATE", ImplementationType::Vm)
+}
+
+fn find_deployed_underlying_address(vault_address: &[u8]) -> Option<[u8; 20]> {
+    match vault_address {
+        hex!("83F20F44975D03b1b09e64809B757c47f942BEeA") => {
+            // Ethereum
+            Some(hex!("6b175474e89094c44da98b954eedeac495271d0f"))
+        }
+        _ => None,
+    }
 }

@@ -21,6 +21,7 @@ modules:
     kind: map
     initialBlock: 16428133
     inputs:
+      - params: string
       - source: sf.ethereum.type.v2.Block
     output:
       type: proto:tycho.evm.v1.GroupedTransactionProtocolComponents
