@@ -23,7 +23,7 @@ tycho-substreams.workspace = true
 
 [build-dependencies]
 anyhow = "1"
-substreams-ethereum = "0.9"
+substreams-ethereum.workspace = true
 regex = "1.10.4"
 
 # Required so that ethabi > ethereum-types build correctly under wasm32-unknown-unknown
