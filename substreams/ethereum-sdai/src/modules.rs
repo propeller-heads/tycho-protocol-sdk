@@ -13,8 +13,10 @@ use tycho_substreams::{
 };
 
 #[substreams::handlers::map]
-pub fn map_components(params: String, block: eth::v2::Block) -> Result<BlockTransactionProtocolComponents> {
-
+pub fn map_components(
+    params: String,
+    block: eth::v2::Block,
+) -> Result<BlockTransactionProtocolComponents> {
     let sdai_address = hex::decode(params).unwrap();
     let dai_address = find_deployed_underlying_address(&sdai_address).unwrap();
 
@@ -27,8 +29,7 @@ pub fn map_components(params: String, block: eth::v2::Block) -> Result<BlockTran
                     .calls()
                     .filter(|call| !call.call.state_reverted)
                     .filter_map(|_| {
-                        if is_deployment_tx(tx, &sdai_address)
-                        {
+                        if is_deployment_tx(tx, &sdai_address) {
                             Some(create_vault_component(&tx.into(), &sdai_address, &dai_address))
                         } else {
                             None
@@ -75,9 +76,9 @@ pub fn map_relative_balances(
             let address_bytes_be = vault_log.address();
             let address_hex = format!("0x{}", hex::encode(address_bytes_be));
 
-            if let Some(ev) =
-                abi::sdai_contract::events::Withdraw::match_and_decode(vault_log.log)
-            { // Burn sDAI, mint DAI
+            if let Some(ev) = abi::sdai_contract::events::Withdraw::match_and_decode(vault_log.log)
+            {
+                // Burn sDAI, mint DAI
                 if store
                     .get_last(format!("pool:{}", address_hex))
                     .is_some()
@@ -93,16 +94,18 @@ pub fn map_relative_balances(
                         BalanceDelta {
                             ord: vault_log.ordinal(),
                             tx: Some(vault_log.receipt.transaction.into()),
-                            token: find_deployed_underlying_address(address_bytes_be).unwrap().to_vec(),
+                            token: find_deployed_underlying_address(address_bytes_be)
+                                .unwrap()
+                                .to_vec(),
                             delta: ev.assets.to_signed_bytes_be(),
                             component_id: address_hex.as_bytes().to_vec(),
                         },
                     ]);
                 }
-            }
-            else if let Some(ev) =
+            } else if let Some(ev) =
                 abi::sdai_contract::events::Deposit::match_and_decode(vault_log.log)
-            { // burn DAI, mint sDAI
+            {
+                // burn DAI, mint sDAI
                 if store
                     .get_last(format!("pool:{}", address_hex))
                     .is_some()
@@ -118,7 +121,9 @@ pub fn map_relative_balances(
                         BalanceDelta {
                             ord: vault_log.ordinal(),
                             tx: Some(vault_log.receipt.transaction.into()),
-                            token: find_deployed_underlying_address(address_bytes_be).unwrap().to_vec(),
+                            token: find_deployed_underlying_address(address_bytes_be)
+                                .unwrap()
+                                .to_vec(),
                             delta: ev.assets.neg().to_signed_bytes_be(),
                             component_id: address_hex.as_bytes().to_vec(),
                         },
@@ -205,9 +210,9 @@ pub fn map_protocol_changes(
             .drain()
             .sorted_unstable_by_key(|(index, _)| *index)
             .filter_map(|(_, change)| {
-                if change.contract_changes.is_empty()
-                    && change.component_changes.is_empty()
-                    && change.balance_changes.is_empty()
+                if change.contract_changes.is_empty() &&
+                    change.component_changes.is_empty() &&
+                    change.balance_changes.is_empty()
                 {
                     None
                 } else {
