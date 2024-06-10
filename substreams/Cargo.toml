@@ -2,6 +2,7 @@
 members = [
     "ethereum-balancer",
     "crates/tycho-substreams",
+    "ethereum-kyberswap-elastic"
 ]
 resolver = "2"
 

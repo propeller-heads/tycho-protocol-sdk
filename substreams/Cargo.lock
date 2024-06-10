@@ -30,6 +30,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d468802bab17cbc0cc575e9b053f41e72aa36bfa6b7f55e3529ffa43161b97fa"
 
 [[package]]
+name = "base64"
+version = "0.13.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9e1b586273c5702936fe7b7d6896644d8be71e6314cfe09d3167c95f712589e8"
+
+[[package]]
 name = "bigdecimal"
 version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -223,6 +229,28 @@ dependencies = [
  "prost 0.11.9",
  "prost-types 0.12.3",
  "substreams",
+ "substreams-ethereum",
+ "tycho-substreams",
+]
+
+[[package]]
+name = "ethereum-kyberswap-elastic"
+version = "0.0.1"
+dependencies = [
+ "anyhow",
+ "ethabi 17.2.0",
+ "getrandom",
+ "hex",
+ "hex-literal 0.3.4",
+ "itertools 0.12.1",
+ "num-bigint",
+ "num-traits",
+ "prost 0.11.9",
+ "prost-types 0.11.9",
+ "regex",
+ "substreams",
+ "substreams-database-change",
+ "substreams-entity-change",
  "substreams-ethereum",
  "tycho-substreams",
 ]
@@ -885,6 +913,29 @@ dependencies = [
  "prost-types 0.11.9",
  "substreams-macro",
  "thiserror",
+]
+
+[[package]]
+name = "substreams-database-change"
+version = "1.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ed32ca6fc7fa4b7a684d3abd5bb0545aadd2df82402e7336443cdbb6f8b350c3"
+dependencies = [
+ "prost 0.11.9",
+ "prost-types 0.11.9",
+ "substreams",
+]
+
+[[package]]
+name = "substreams-entity-change"
+version = "1.3.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e2c7fca123abff659d15ed30da5b605fa954a29e912c94260c488d0d18f9107d"
+dependencies = [
+ "base64",
+ "prost 0.11.9",
+ "prost-types 0.11.9",
+ "substreams",
 ]
 
 [[package]]
