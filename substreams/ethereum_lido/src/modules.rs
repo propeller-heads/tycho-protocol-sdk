@@ -79,8 +79,8 @@ pub fn map_relative_balances(
             {
                 if store
                     .get_last(format!("pool:{0}", hex::encode(WSTETH_ADDRESS)))
-                    .is_some()
-                    && ev.to == WSTETH_ADDRESS
+                    .is_some() &&
+                    ev.to == WSTETH_ADDRESS
                 {
                     deltas.push(BalanceDelta {
                         ord: vault_log.ordinal(),
@@ -90,10 +90,10 @@ pub fn map_relative_balances(
                         component_id: WSTETH_ADDRESS.to_vec(),
                     })
                 } else if store
-                        .get_last(format!("pool:{0}", hex::encode(WSTETH_ADDRESS)))
-                        .is_some()
-                        && ev.from == WSTETH_ADDRESS 
-                { 
+                    .get_last(format!("pool:{0}", hex::encode(WSTETH_ADDRESS)))
+                    .is_some() &&
+                    ev.from == WSTETH_ADDRESS
+                {
                     deltas.push(BalanceDelta {
                         ord: vault_log.ordinal(),
                         tx: Some(vault_log.receipt.transaction.into()),
@@ -107,7 +107,7 @@ pub fn map_relative_balances(
         })
         .collect::<Vec<_>>();
 
-        Ok(BlockBalanceDeltas { balance_deltas })
+    Ok(BlockBalanceDeltas { balance_deltas })
 }
 
 /// It's significant to include both the `pool_id` and the `token_id` for each balance delta as the
