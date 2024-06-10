@@ -348,6 +348,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "ethereum-kyberswap-elastic"
+version = "0.0.1"
+dependencies = [
+ "anyhow",
+ "ethabi 17.2.0",
+ "getrandom",
+ "hex",
+ "hex-literal 0.3.4",
+ "itertools 0.12.1",
+ "num-bigint",
+ "num-traits",
+ "prost 0.11.9",
+ "prost-types 0.11.9",
+ "regex",
+ "substreams",
+ "substreams-database-change",
+ "substreams-entity-change",
+ "substreams-ethereum",
+ "tycho-substreams",
+]
+
+[[package]]
 name = "ethereum-kyberswap-classic"
 version = "0.0.1"
 dependencies = [
