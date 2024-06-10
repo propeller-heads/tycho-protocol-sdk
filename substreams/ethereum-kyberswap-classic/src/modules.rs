@@ -3,6 +3,7 @@ use anyhow::Result;
 use itertools::Itertools;
 use std::collections::HashMap;
 use substreams::{
+    hex,
     pb::substreams::StoreDeltas,
     store::{
         StoreAddBigInt, StoreGet, StoreGetInt64, StoreGetProto, StoreNew, StoreSet, StoreSetProto,
@@ -20,7 +21,9 @@ pub fn map_components(
 ) -> Result<BlockTransactionProtocolComponents> {
     // Gather contract changes by indexing `PoolCreated` events and analysing the `Create` call
     // We store these as a hashmap by tx hash since we need to agg by tx hash later
-    let tracked_factory_address = hex::decode(param).unwrap();
+    let factory_address = hex::decode(param).unwrap();
+    let tracked_factory_address = find_deployed_underlying_address(&factory_address).unwrap();
+
     Ok(BlockTransactionProtocolComponents {
         tx_components: block
             .transactions()
@@ -256,4 +259,14 @@ fn string_to_bytes(string: &str) -> Vec<u8> {
 
 fn store_component(store: &StoreSetProto<ProtocolComponent>, component: &ProtocolComponent) {
     store.set(1, format!("pool:{}", component.id), component);
+}
+
+fn find_deployed_underlying_address(vault_address: &[u8]) -> Option<[u8; 20]> {
+    match vault_address {
+        hex!("1c87257F5e8609940Bc751a07BB085Bb7f8cDBE6") => {
+            // Ethereum
+            Some(hex!("1c87257F5e8609940Bc751a07BB085Bb7f8cDBE6"))
+        }
+        _ => None,
+    }
 }

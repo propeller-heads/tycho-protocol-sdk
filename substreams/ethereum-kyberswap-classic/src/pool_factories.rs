@@ -17,10 +17,10 @@ pub fn address_map(
 ) -> Option<ProtocolComponent> {
     if *pool_factory_address == *tracked_factory_address {
         let pool_created =
-            abi::factory_contract::events::PairCreated::match_and_decode(log).unwrap();
+            abi::factory_contract::events::PoolCreated::match_and_decode(log).unwrap();
 
         Some(
-            ProtocolComponent::at_contract(&pool_created.pair, tx)
+            ProtocolComponent::at_contract(&pool_created.pool, tx)
                 .with_tokens(&[pool_created.token0, pool_created.token1])
                 .as_swap_type("kyberswap_classic_pool", ImplementationType::Vm),
         )

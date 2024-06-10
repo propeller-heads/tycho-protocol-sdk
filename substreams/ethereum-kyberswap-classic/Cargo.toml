@@ -1,10 +1,10 @@
 [package]
-name = "ethereum_kyberswap_classic"
+name = "ethereum-kyberswap-classic"
 version = "0.0.1"
 edition = "2021"
 
 [lib]
-name = "substreams"
+name = "ethereum_kyberswap_classic"
 crate-type = ["cdylib"]
 
 [dependencies]
@@ -18,6 +18,10 @@ substreams = "0.5"
 substreams-ethereum = "0.9"
 substreams-database-change = "1"
 substreams-entity-change = "1"
+tycho-substreams.workspace = true
+hex.workspace = true
+anyhow = "1.0.75"
+itertools = "0.12.0"
 
 # Required so that ethabi > ethereum-types build correctly under wasm32-unknown-unknown
 [target.wasm32-unknown-unknown.dependencies]
