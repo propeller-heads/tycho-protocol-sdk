@@ -42,6 +42,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9e1b586273c5702936fe7b7d6896644d8be71e6314cfe09d3167c95f712589e8"
 
 [[package]]
+name = "base64"
+version = "0.13.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9e1b586273c5702936fe7b7d6896644d8be71e6314cfe09d3167c95f712589e8"
+
+[[package]]
 name = "bigdecimal"
 version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -339,6 +345,28 @@ dependencies = [
  "substreams",
  "substreams-ethereum",
  "tycho-substreams 0.2.0 (git+https://github.com/propeller-heads/tycho-protocol-sdk.git?rev=3c08359)",
+]
+
+[[package]]
+name = "ethereum-kyberswap-classic"
+version = "0.0.1"
+dependencies = [
+ "anyhow",
+ "ethabi 17.2.0",
+ "getrandom",
+ "hex",
+ "hex-literal 0.3.4",
+ "itertools 0.12.1",
+ "num-bigint",
+ "num-traits",
+ "prost 0.11.9",
+ "prost-types 0.11.9",
+ "regex",
+ "substreams",
+ "substreams-database-change",
+ "substreams-entity-change",
+ "substreams-ethereum",
+ "tycho-substreams",
 ]
 
 [[package]]

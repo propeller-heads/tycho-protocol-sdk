@@ -13,6 +13,7 @@ members = [
     "ethereum-template-factory",
     "ethereum-template-singleton",
     "ethereum-uniswap-v4",
+    "ethereum-kyberswap-classic"
 ]
 resolver = "2"
 
