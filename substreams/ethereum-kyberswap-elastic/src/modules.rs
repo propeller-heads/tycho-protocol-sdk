@@ -147,6 +147,29 @@ pub fn map_relative_balances(
                     ]);
                 }
             }
+            else if let Some(event) = abi::pool_contract::events::BurnRTokens::match_and_decode(log) {
+                // Swap event: (reserve0, reserve1) +/-= (deltaQty0, deltaQty1)
+                let component_id = address_to_hex(log.address());
+
+                if let Some((token0, token1)) = maybe_get_pool_tokens(&store, &component_id) {
+                    deltas.extend_from_slice(&[
+                        BalanceDelta {
+                            ord: log.ordinal(),
+                            tx: Some(log.receipt.transaction.into()),
+                            token: token0.clone(),
+                            delta: event.qty0.neg().to_signed_bytes_be(),
+                            component_id: string_to_bytes(&component_id),
+                        },
+                        BalanceDelta {
+                            ord: log.ordinal(),
+                            tx: Some(log.receipt.transaction.into()),
+                            token: token1.clone(),
+                            delta: event.qty1.neg().to_signed_bytes_be(),
+                            component_id: string_to_bytes(&component_id),
+                        },
+                    ]);
+                }
+            }
             deltas
         })
         .collect::<Vec<_>>();
