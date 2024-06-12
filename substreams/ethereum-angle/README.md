@@ -4,6 +4,10 @@
 bash run.bash
 ```
 
+## Requirements
+
+Python 3.8+ required (needed for pushing the params into the substream).
+
 ## Parameters
 
 The `params.json` file is a list of objects where each object describes an anglecoin and the data we need in order to process and produce a `ProtocolComponent`. The fields are described as followed:
