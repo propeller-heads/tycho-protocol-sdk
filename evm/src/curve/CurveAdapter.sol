@@ -80,6 +80,7 @@ contract CurveAdapter is ISwapAdapter {
             return trade;
         }
         SellParams memory sellParams;
+
         {
             sellParams.poolAddress = address(bytes20(poolId));
             sellParams.sellToken = sellToken;
@@ -117,19 +118,17 @@ contract CurveAdapter is ISwapAdapter {
                 }
             }
 
-            (sellParams.sellTokenIndex, sellParams.buyTokenIndex) =
-            getCoinsIndices(
+            (
+                sellParams.sellTokenIndex,
+                sellParams.buyTokenIndex,
+                sellParams.isSwappingUnderlying
+            ) = getCoinsIndices(
                 sellParams.poolAddress,
                 sellParams.sellToken,
                 sellParams.buyToken
             );
-            sellParams.isSwappingUnderlying = shouldSwapUnderlying(
-                sellParams.sellToken,
-                sellParams.buyToken,
-                coins,
-                underlying_coins
-            );
         }
+
         uint256 gasBefore = gasleft();
 
         if (side == OrderSide.Sell) {
@@ -152,9 +151,11 @@ contract CurveAdapter is ISwapAdapter {
         returns (uint256[] memory limits)
     {
         address poolAddress = address(bytes20(poolId));
-        (int128 sellTokenIndex, int128 buyTokenIndex,) =
-            registry.get_coin_indices(poolAddress, sellToken, buyToken);
-        uint256[8] memory poolBalances = registry.get_balances(poolAddress);
+        (int128 sellTokenIndex, int128 buyTokenIndex, bool isUnderlying) =
+            getCoinsIndices(poolAddress, sellToken, buyToken);
+        uint256[8] memory poolBalances = isUnderlying
+            ? registry.get_underlying_balances(poolAddress)
+            : registry.get_balances(poolAddress);
 
         limits = new uint256[](2);
         uint256 sellTokenIndexUint = uint256(uint128(sellTokenIndex));
@@ -296,9 +297,10 @@ contract CurveAdapter is ISwapAdapter {
         IERC20 buyToken = IERC20(sellParams.buyToken);
         IERC20 sellToken = IERC20(sellParams.sellToken);
         // uint256 buyTokenBalBefore = buyToken.balanceOf(address(this));
-        uint256 buyTokenBalBefore = sellParams.buyToken == ETH_ADDRESS
-            ? address(this).balance
-            : buyToken.balanceOf(address(this));
+        uint256 buyTokenBalBefore = (
+            sellParams.buyToken == ETH_ADDRESS
+                || sellParams.buyToken == address(0)
+        ) ? address(this).balance : buyToken.balanceOf(address(this));
         uint256 minReturnedTokens = 0;
 
         if (sellParams.poolType == PoolType.STABLE_POOL) {
@@ -315,16 +317,16 @@ contract CurveAdapter is ISwapAdapter {
                 sellToken.safeTransferFrom(
                     msg.sender, address(this), sellParams.specifiedAmount
                 );
+                sellToken.safeIncreaseAllowance(
+                    sellParams.poolAddress, sellParams.specifiedAmount
+                );
+                ICurveStableSwapPool(sellParams.poolAddress).exchange(
+                    sellParams.sellTokenIndex,
+                    sellParams.buyTokenIndex,
+                    sellParams.specifiedAmount,
+                    minReturnedTokens
+                );
             }
-            sellToken.safeIncreaseAllowance(
-                sellParams.poolAddress, sellParams.specifiedAmount
-            );
-            ICurveStableSwapPool(sellParams.poolAddress).exchange(
-                sellParams.sellTokenIndex,
-                sellParams.buyTokenIndex,
-                sellParams.specifiedAmount,
-                minReturnedTokens
-            );
         } else if (sellParams.poolType == PoolType.STABLE_POOL_META) {
             sellToken.safeTransferFrom(
                 msg.sender, address(this), sellParams.specifiedAmount
@@ -382,11 +384,13 @@ contract CurveAdapter is ISwapAdapter {
             revert Unavailable("This pool type is not supported");
         }
 
-        if (sellParams.buyToken == ETH_ADDRESS) {
+        if (
+            sellParams.buyToken == ETH_ADDRESS
+                || sellParams.buyToken == address(0)
+        ) {
             calculatedAmount = address(this).balance - buyTokenBalBefore;
-            (bool sent, ) = address(msg.sender).call{value: calculatedAmount}("");
+            (bool sent,) = address(msg.sender).call{value: calculatedAmount}("");
             require(sent, "Eth transfer failed");
-
         } else {
             calculatedAmount =
                 buyToken.balanceOf(address(this)) - buyTokenBalBefore;
@@ -397,51 +401,26 @@ contract CurveAdapter is ISwapAdapter {
     /// @notice Get indices of coins to swap
     /// @dev If the pool is meta the registry.get_coin_indices includes the
     /// underlying addresses (appended to the array from index 1 to length-1)
+    /// @param poolAddress The address of the pool
+    /// @param sellToken The token being sold
     /// @param buyToken The token being bought
-    /// @param sellTokenIndex The index of the sellToken in the specified pool
-    /// @param buyTokenIndex The index of the buyToken in the specified pool
     function getCoinsIndices(
         address poolAddress,
         address sellToken,
         address buyToken
-    ) internal view returns (int128 sellTokenIndex, int128 buyTokenIndex) {
+    )
+        internal
+        view
+        returns (int128 sellTokenIndex, int128 buyTokenIndex, bool isUnderlying)
+    {
         if (sellToken == address(0)) {
             sellToken = WETH_ADDRESS;
         }
         if (buyToken == address(0)) {
             buyToken = WETH_ADDRESS;
         }
-        (sellTokenIndex, buyTokenIndex,) =
+        (sellTokenIndex, buyTokenIndex, isUnderlying) =
             registry.get_coin_indices(poolAddress, sellToken, buyToken);
-    }
-
-    /// @notice Determine if the Swap is intended to exchange
-    /// token<->underlyingToken or token<->LP
-    /// @param sellToken The token to sell
-    /// @param buyToken The token to buy
-    /// @param coins The tokens in the pool
-    /// @param underlying_coins The underlying tokens in the pool
-    function shouldSwapUnderlying(
-        address sellToken,
-        address buyToken,
-        address[] memory coins,
-        address[] memory underlying_coins
-    ) internal pure returns (bool) {
-        for (uint256 i = 0; i < coins.length; i++) {
-            if (coins[i] == sellToken || coins[i] == buyToken) {
-                return false;
-            }
-        }
-
-        for (uint256 j = 0; j < underlying_coins.length; j++) {
-            if (
-                underlying_coins[j] == sellToken
-                    || underlying_coins[j] == buyToken
-            ) {
-                return true;
-            }
-        }
-        return false;
     }
 
     /// @notice Determine the pool's type
@@ -614,6 +593,11 @@ interface ICurveRegistry {
         returns (int128, int128, bool);
 
     function get_balances(address _pool)
+        external
+        view
+        returns (uint256[8] memory);
+
+    function get_underlying_balances(address _pool)
         external
         view
         returns (uint256[8] memory);

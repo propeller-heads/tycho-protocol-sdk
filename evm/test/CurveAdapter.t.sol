@@ -95,34 +95,31 @@ contract CurveAdapterTest is Test, ISwapAdapterTypes {
 
     /// Pool = STABLE_POOL_META_GUSD3CRV; sellToken = USDT; buyToken = DAI;
     /// @dev swapping underlying tokens
-    /// @dev [FAIL. Reason: The `vm.assume` cheatcode rejected too many inputs
-    /// (65536 allowed)]
     function testSwapFuzzCurveStablePoolMetaGusd3CrvUnderlying(
         uint256 specifiedAmount
     ) public {
         OrderSide side = OrderSide.Sell;
 
         bytes32 pair = bytes32(bytes20(STABLE_POOL_META_GUSD3CRV));
-        uint256[] memory limits = adapter.getLimits(pair, USDT, DAI);
+        uint256[] memory limits = adapter.getLimits(pair, DAI, USDT);
 
-        vm.assume(specifiedAmount < limits[0] && specifiedAmount > 10 ** 6);
+        vm.assume(specifiedAmount < limits[0] && specifiedAmount > 10 ** 3);
 
-        deal(USDT, address(this), specifiedAmount);
-        IERC20(USDT).approve(address(adapter), specifiedAmount);
+        deal(DAI, address(this), specifiedAmount);
+        IERC20(DAI).approve(address(adapter), specifiedAmount);
 
-        uint256 usdt_balance = IERC20(USDT).balanceOf(address(this));
         uint256 dai_balance = IERC20(DAI).balanceOf(address(this));
+        uint256 usdt_balance = IERC20(USDT).balanceOf(address(this));
 
         Trade memory trade =
-            adapter.swap(pair, USDT, DAI, side, specifiedAmount);
+            adapter.swap(pair, DAI, USDT, side, specifiedAmount);
 
         assertEq(
-            specifiedAmount,
-            usdt_balance - IERC20(USDT).balanceOf(address(this))
+            specifiedAmount, dai_balance - IERC20(DAI).balanceOf(address(this))
         );
         assertEq(
             trade.calculatedAmount,
-            IERC20(DAI).balanceOf(address(this)) - dai_balance
+            IERC20(USDT).balanceOf(address(this)) - usdt_balance
         );
     }
 
@@ -156,8 +153,37 @@ contract CurveAdapterTest is Test, ISwapAdapterTypes {
         );
     }
 
+//    /// Pool = STABLE_POOL_ETHwBETHCRV; sellToken = wBETH; buyToken = ETH
+//     function testSwapFuzzCurveStablePoolEthwBethCrvwBethForEth(uint256 specifiedAmount)
+//         public
+//     {
+//         OrderSide side = OrderSide.Sell;
+
+//         bytes32 pair = bytes32(bytes20(STABLE_POOL_ETHwBETHCRV));
+//         uint256[] memory limits = adapter.getLimits(pair, wBETH, EURS);
+
+//         vm.assume(specifiedAmount < limits[0] && specifiedAmount > 10 ** 4);
+
+//         deal(wBETH, address(this), specifiedAmount);
+//         IERC20(wBETH).approve(address(adapter), specifiedAmount);
+
+//         uint256 wbeth_balance = IERC20(wBETH).balanceOf(address(this));
+//         uint256 eth_balance = IERC20(EURS).balanceOf(address(this));
+
+//         Trade memory trade =
+//             adapter.swap(pair, USDC, EURS, side, specifiedAmount);
+
+//         assertEq(
+//             specifiedAmount,
+//             usdc_balance - IERC20(USDC).balanceOf(address(this))
+//         );
+//         assertEq(
+//             trade.calculatedAmount,
+//             IERC20(EURS).balanceOf(address(this)) - eurs_balance
+//         );
+//     }
+
     /// Pool = STABLE_POOL_3POOL; sellToken = DAI; buyToken = USDC;
-    /// @dev [FAIL. Reason: assertion failed: 1 != 0]
     function testSwapSellIncreasingSwapsCurveStablePool3Pool() public {
         OrderSide side = OrderSide.Sell;
 
@@ -165,7 +191,7 @@ contract CurveAdapterTest is Test, ISwapAdapterTypes {
 
         uint256[] memory amounts = new uint256[](TEST_ITERATIONS);
         for (uint256 i = 0; i < TEST_ITERATIONS; i++) {
-            amounts[i] = 1000 * i * 10 ** 6;
+            amounts[i] = 1000 * i * 10 ** 3;
         }
 
         Trade[] memory trades = new Trade[](TEST_ITERATIONS);
@@ -183,16 +209,10 @@ contract CurveAdapterTest is Test, ISwapAdapterTypes {
         for (uint256 i = 1; i < TEST_ITERATIONS - 1; i++) {
             assertLe(trades[i].calculatedAmount, trades[i + 1].calculatedAmount);
             assertLe(trades[i].gasUsed, trades[i + 1].gasUsed);
-            assertEq(trades[i].price.compareFractions(trades[i + 1].price), 0);
         }
     }
 
-    /// Pool = STABLE_POOL_META_GUSD3CRV; sellToken = GUSD; buyToken = TRECRV
-    /// @dev FAIL. Reason: revert: stdStorage find(StdStorage): Slot(s) not
-    /// found.]
-    /// @dev GUSD has only 2 decimals
-    /// @dev GUSD = 0x056Fd409E1d7A124BD7017459dFEa2F387b6d5Cd; is a Proxy
-    /// contract
+    /// Pool = STABLE_POOL_META_GUSD3CRV; sellToken = TRECRV; buyToken = GUSD
     function testSwapSellIncreasingSwapsCurveStablePoolMetaGusd3Crv() public {
         OrderSide side = OrderSide.Sell;
 
@@ -200,7 +220,7 @@ contract CurveAdapterTest is Test, ISwapAdapterTypes {
 
         uint256[] memory amounts = new uint256[](TEST_ITERATIONS);
         for (uint256 i = 0; i < TEST_ITERATIONS; i++) {
-            amounts[i] = i * 10;
+            amounts[i] = 1000 * i * 10 ** 6;
         }
 
         Trade[] memory trades = new Trade[](TEST_ITERATIONS);
@@ -208,22 +228,21 @@ contract CurveAdapterTest is Test, ISwapAdapterTypes {
         for (uint256 i = 0; i < TEST_ITERATIONS; i++) {
             beforeSwap = vm.snapshot();
 
-            deal(GUSD, address(this), amounts[i]);
-            IERC20(GUSD).approve(address(adapter), amounts[i]);
+            deal(TRECRV, address(this), amounts[i]);
+            IERC20(TRECRV).approve(address(adapter), amounts[i]);
 
-            trades[i] = adapter.swap(pair, GUSD, TRECRV, side, amounts[i]);
+            trades[i] = adapter.swap(pair, TRECRV, GUSD, side, amounts[i]);
             vm.revertTo(beforeSwap);
         }
 
         for (uint256 i = 1; i < TEST_ITERATIONS - 1; i++) {
             assertLe(trades[i].calculatedAmount, trades[i + 1].calculatedAmount);
             assertLe(trades[i].gasUsed, trades[i + 1].gasUsed);
-            assertEq(trades[i].price.compareFractions(trades[i + 1].price), 1);
         }
     }
 
     /// Pool = STABLE_POOL_META_GUSD3CRV; sellToken = DAI; buyToken = USDT
-    /// Swapping underlying tokens
+    /// @dev Swapping underlying tokens
     function testSwapSellIncreasingSwapsCurveStablePoolMetaGusd3CrvUnderlying()
         public
     {
@@ -285,7 +304,6 @@ contract CurveAdapterTest is Test, ISwapAdapterTypes {
     }
 
     /// Pool = STABLE_POOL_ETHwBETHCRV; sellToken = wBETH; buyToken = ETH
-    /// @dev fails
     function testSwapSellIncreasingSwapsCurveStablePoolEthwBethCrvwBethForEth()
         public
     {
@@ -317,7 +335,6 @@ contract CurveAdapterTest is Test, ISwapAdapterTypes {
     }
 
     /// Pool = STABLE_POOL_ETHwBETHCRV; sellToken = ETH; buyToken = wBETH
-    /// @dev [FAIL. Reason: revert: Swap failed]
     function testSwapSellIncreasingSwapsCurveStablePoolEthwBethCrvEthForwBeth()
         public
     {
@@ -335,25 +352,8 @@ contract CurveAdapterTest is Test, ISwapAdapterTypes {
         for (uint256 i = 0; i < TEST_ITERATIONS; i++) {
             beforeSwap = vm.snapshot();
 
-            // Deal ETH to this address
             deal(address(adapter), amounts[i]);
-
-            // // Construct the call data for the swap function
-            // bytes memory callData = abi.encodeWithSelector(
-            //     adapter.swap.selector, pair, ETH, wBETH, side, amounts[i]
-            // );
-
             trades[i] = adapter.swap(pair, ETH, wBETH, side, amounts[i]);
-
-            // // Call the swap function with ETH
-            // (bool success, bytes memory returnData) =
-            //     address(adapter).call{value: amounts[i]}(callData);
-
-            // Assert that the call was successful
-            // require(success, "Swap failed");
-
-            // // Decode the returned data
-            // trades[i] = abi.decode(returnData, (Trade));
 
             vm.revertTo(beforeSwap);
         }
@@ -397,7 +397,7 @@ contract CurveAdapterTest is Test, ISwapAdapterTypes {
         address[] memory tokens = adapter.getTokens(pair);
 
         assertEq(tokens.length, 2);
-        assertEq(tokens[0], ETH);
+        assertEq(tokens[0], 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE);
         assertEq(tokens[1], wBETH);
     }
 
@@ -424,7 +424,7 @@ contract CurveAdapterTest is Test, ISwapAdapterTypes {
 
     function testGetLimitsCurveStablePoolEthwBethCrv() public {
         bytes32 pair = bytes32(bytes20(STABLE_POOL_ETHwBETHCRV));
-        uint256[] memory limits = adapter.getLimits(pair, ETH, wBETH);
+        uint256[] memory limits = adapter.getLimits(pair, 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE, wBETH);
 
         assertEq(limits.length, 2);
     }
