@@ -22,6 +22,7 @@
 //         STABLE_POOL, // Supports: exchange()
 //         CRYPTO_POOL, // Supports: exchange()
 //         STABLE_POOL_META // Supports: exchange(), underlying_exchange()
+
 //     }
 
 //     /// @dev Struct for sell params used to prevent stack too deep
@@ -152,25 +153,24 @@
 //         address poolAddress = address(bytes20(poolId));
 //         address sellToken_ = sellToken;
 //         address buyToken_ = buyToken;
-//         address[8] memory coins =
-//                 registry.get_coins(poolAddress);
+//         address[8] memory coins = registry.get_coins(poolAddress);
 
-//             /// @dev Support for Native ETH pools
-//             if (sellToken == address(0)) {
-//                 for (uint256 i = 0; i < coins.length; i++) {
-//                     if (coins[i] == ETH_ADDRESS) {
-//                         sellToken = ETH_ADDRESS;
-//                         break;
-//                     }
-//                 }
-//             } else if (buyToken == address(0)) {
-//                 for (uint256 i = 0; i < coins.length; i++) {
-//                     if (coins[i] == ETH_ADDRESS) {
-//                         buyToken = ETH_ADDRESS;
-//                         break;
-//                     }
+//         /// @dev Support for Native ETH pools
+//         if (sellToken == address(0)) {
+//             for (uint256 i = 0; i < coins.length; i++) {
+//                 if (coins[i] == ETH_ADDRESS) {
+//                     sellToken = ETH_ADDRESS;
+//                     break;
 //                 }
 //             }
+//         } else if (buyToken == address(0)) {
+//             for (uint256 i = 0; i < coins.length; i++) {
+//                 if (coins[i] == ETH_ADDRESS) {
+//                     buyToken = ETH_ADDRESS;
+//                     break;
+//                 }
+//             }
+//         }
 
 //         (int128 sellTokenIndex, int128 buyTokenIndex, bool isUnderlying) =
 //             getCoinsIndices(poolAddress, sellToken_, buyToken_);
@@ -456,12 +456,11 @@
 //         bool isMeta = registry.is_meta(pool);
 
 //         if (assetType < 3) {
-//             if(assetType == 0) {
+//             if (assetType == 0) {
 //                 return isMeta == false
 //                     ? PoolType.STABLE_POOL
 //                     : PoolType.STABLE_POOL_META;
-//             }
-//             else {
+//             } else {
 //                 return PoolType.STABLE_POOL;
 //             }
 //         } else if (assetType > 4) {
