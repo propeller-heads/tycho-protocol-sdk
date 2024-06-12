@@ -5,6 +5,7 @@ use serde::Deserialize;
 use std::collections::HashMap;
 use substreams::{
     pb::substreams::StoreDeltas,
+    scalar::BigInt,
     store::{StoreAddBigInt, StoreNew},
 };
 use substreams_ethereum::pb::eth;
@@ -122,18 +123,23 @@ pub fn map_relative_balances(
                         BalanceDelta {
                             ord: log.ordinal(),
                             tx: Some(log.receipt.transaction.into()),
-                            token: event.token_out,
-                            delta: event.amount_in.to_signed_bytes_be(),
+                            delta: if event.token_in == param.stablecoin {
+                                event.amount_in.to_signed_bytes_be()
+                            } else {
+                                BigInt::from(0).to_signed_bytes_be()
+                            },
+                            token: event.token_in,
                             component_id: hex::encode(param.proxy).into(),
                         },
                         BalanceDelta {
                             ord: log.ordinal(),
                             tx: Some(log.receipt.transaction.into()),
-                            token: event.token_in,
-                            delta: event
-                                .amount_out
-                                .neg()
-                                .to_signed_bytes_be(),
+                            delta: if event.token_out == param.stablecoin {
+                                event.amount_in.to_signed_bytes_be()
+                            } else {
+                                BigInt::from(0).to_signed_bytes_be()
+                            },
+                            token: event.token_out,
                             component_id: hex::encode(param.proxy).into(),
                         },
                     ]
@@ -181,7 +187,7 @@ fn map_protocol_changes(
                         .component_changes
                         .push(ProtocolComponent {
                             tx: Some(transaction),
-                            id: hex::encode(param.proxy).into(),
+                            id: hex::encode(param.proxy),
                             tokens: vec![param.stablecoin.to_vec(), param.anglecoin.to_vec()],
                             contracts: vec![param.proxy.into()],
                             change: ChangeType::Creation.into(),
