@@ -28,7 +28,7 @@ contract CurveAdapter is ISwapAdapter {
         bool isSwappingUnderlying; // Determine if the swap is between
     }
 
-    uint256 constant PRECISION = (10 ** 6);
+    uint256 constant PRECISION = 10 ** 5;
 
     ICurveRegistry immutable registry;
     address constant WETH_ADDRESS = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
@@ -75,21 +75,29 @@ contract CurveAdapter is ISwapAdapter {
             sellParams.sellToken = sellToken;
             sellParams.buyToken = buyToken;
             sellParams.specifiedAmount = specifiedAmount;
+
+            bool isEthPool; // pool is native ETH pool
             address[8] memory coins = registry.get_coins(sellParams.poolAddress);
 
             /// @dev Support for Native ETH pools, ETH pools cannot be Meta
             /// therefore we can directly access coins without using underlying
             if (sellToken == address(0)) {
                 for (uint256 i = 0; i < coins.length; i++) {
-                    if (coins[i] == ETH_ADDRESS) {
+                    if (coins[i] == ETH_ADDRESS || coins[i] == WETH_ADDRESS) {
                         sellParams.sellToken = ETH_ADDRESS;
+                        if (coins[i] == ETH_ADDRESS) {
+                            isEthPool = true;
+                        }
                         break;
                     }
                 }
             } else if (buyToken == address(0)) {
                 for (uint256 i = 0; i < coins.length; i++) {
-                    if (coins[i] == ETH_ADDRESS) {
+                    if (coins[i] == ETH_ADDRESS || coins[i] == WETH_ADDRESS) {
                         sellParams.buyToken = ETH_ADDRESS;
+                        if (coins[i] == ETH_ADDRESS) {
+                            isEthPool = true;
+                        }
                         break;
                     }
                 }
@@ -102,7 +110,8 @@ contract CurveAdapter is ISwapAdapter {
             ) = getCoinsIndices(
                 sellParams.poolAddress,
                 sellParams.sellToken,
-                sellParams.buyToken
+                sellParams.buyToken,
+                isEthPool
             );
         }
 
@@ -130,27 +139,35 @@ contract CurveAdapter is ISwapAdapter {
         address poolAddress = address(bytes20(poolId));
         address sellToken_ = sellToken;
         address buyToken_ = buyToken;
+        bool isEthPool;
         address[8] memory coins = registry.get_coins(poolAddress);
 
-        /// @dev Support for Native ETH pools
+        /// @dev Support for Native ETH pools, ETH pools cannot be Meta
+        /// therefore we can directly access coins without using underlying
         if (sellToken == address(0)) {
             for (uint256 i = 0; i < coins.length; i++) {
-                if (coins[i] == ETH_ADDRESS) {
+                if (coins[i] == ETH_ADDRESS || coins[i] == WETH_ADDRESS) {
                     sellToken_ = ETH_ADDRESS;
+                    if (coins[i] == ETH_ADDRESS) {
+                        isEthPool = true;
+                    }
                     break;
                 }
             }
         } else if (buyToken == address(0)) {
             for (uint256 i = 0; i < coins.length; i++) {
-                if (coins[i] == ETH_ADDRESS) {
+                if (coins[i] == ETH_ADDRESS || coins[i] == WETH_ADDRESS) {
                     buyToken_ = ETH_ADDRESS;
+                    if (coins[i] == ETH_ADDRESS) {
+                        isEthPool = true;
+                    }
                     break;
                 }
             }
         }
 
         (int128 sellTokenIndex, int128 buyTokenIndex, bool isUnderlying) =
-            getCoinsIndices(poolAddress, sellToken_, buyToken_);
+            getCoinsIndices(poolAddress, sellToken_, buyToken_, isEthPool);
 
         uint256[8] memory poolBalances = isUnderlying
             ? registry.get_underlying_balances(poolAddress)
@@ -190,13 +207,12 @@ contract CurveAdapter is ISwapAdapter {
             coinsLength++;
         }
         address[] memory tokensTmp = new address[](coinsLength);
-        bool containsETH = false;
+        bool containsETH;
         for (uint256 j = 0; j < coinsLength; j++) {
             if (coins[j] == WETH_ADDRESS) {
                 containsETH = true;
             }
             if (coins[j] == ETH_ADDRESS) {
-                containsETH = true;
                 continue;
             }
             tokensTmp[j] = coins[j];
@@ -262,6 +278,7 @@ contract CurveAdapter is ISwapAdapter {
                 amountIn = ICurveStableSwapPool(sellParams.poolAddress).balances(
                     sellTokenIndexUint
                 ) / PRECISION;
+
                 return Fraction(
                     ICurveStableSwapPool(sellParams.poolAddress).get_dy(
                         sellParams.sellTokenIndex,
@@ -299,13 +316,19 @@ contract CurveAdapter is ISwapAdapter {
     {
         IERC20 buyToken = IERC20(sellParams.buyToken);
         IERC20 sellToken = IERC20(sellParams.sellToken);
-        uint256 buyTokenBalBefore = (
-            sellParams.buyToken == ETH_ADDRESS
-                || sellParams.buyToken == address(0)
-        ) ? address(this).balance : buyToken.balanceOf(address(this));
-        uint256 minReturnedTokens = 0;
+        uint256 buyTokenBalBefore = (sellParams.buyToken == ETH_ADDRESS)
+            ? address(this).balance
+            : buyToken.balanceOf(address(this));
 
         if (sellParams.isSwappingUnderlying) {
+            if (
+                sellParams.buyToken == ETH_ADDRESS
+                    || sellParams.sellToken == ETH_ADDRESS
+            ) {
+                revert Unavailable(
+                    "ETH native(address(0)) is not supported in meta pools"
+                );
+            }
             sellToken.safeTransferFrom(
                 msg.sender, address(this), sellParams.specifiedAmount
             );
@@ -316,18 +339,19 @@ contract CurveAdapter is ISwapAdapter {
                 sellParams.sellTokenIndex,
                 sellParams.buyTokenIndex,
                 sellParams.specifiedAmount,
-                minReturnedTokens
+                0
             );
         } else {
             if (isInt128Pool(sellParams.poolAddress)) {
                 if (sellParams.sellToken == ETH_ADDRESS) {
+                    // ETH Pool
                     ICurveStableSwapPoolEth(sellParams.poolAddress).exchange{
                         value: sellParams.specifiedAmount
                     }(
                         sellParams.sellTokenIndex,
                         sellParams.buyTokenIndex,
                         sellParams.specifiedAmount,
-                        minReturnedTokens,
+                        0,
                         address(this)
                     );
                 } else {
@@ -341,7 +365,7 @@ contract CurveAdapter is ISwapAdapter {
                         sellParams.sellTokenIndex,
                         sellParams.buyTokenIndex,
                         sellParams.specifiedAmount,
-                        minReturnedTokens
+                        0
                     );
                 }
             } else {
@@ -349,14 +373,14 @@ contract CurveAdapter is ISwapAdapter {
                     uint256(uint128(sellParams.sellTokenIndex));
                 uint256 buyTokenIndexUint =
                     uint256(uint128(sellParams.buyTokenIndex));
-                if (sellParams.sellToken == address(0)) {
+                if (sellParams.sellToken == ETH_ADDRESS) {
                     ICurveCryptoSwapPoolEth(sellParams.poolAddress).exchange{
                         value: sellParams.specifiedAmount
                     }(
                         sellTokenIndexUint,
                         buyTokenIndexUint,
                         sellParams.specifiedAmount,
-                        minReturnedTokens,
+                        0,
                         true,
                         address(this)
                     );
@@ -371,16 +395,13 @@ contract CurveAdapter is ISwapAdapter {
                         sellTokenIndexUint,
                         buyTokenIndexUint,
                         sellParams.specifiedAmount,
-                        minReturnedTokens
+                        0
                     );
                 }
             }
         }
 
-        if (
-            sellParams.buyToken == ETH_ADDRESS
-                || sellParams.buyToken == address(0)
-        ) {
+        if (sellParams.buyToken == ETH_ADDRESS) {
             calculatedAmount = address(this).balance - buyTokenBalBefore;
             (bool sent,) = address(msg.sender).call{value: calculatedAmount}("");
             require(sent, "Eth transfer failed");
@@ -394,9 +415,10 @@ contract CurveAdapter is ISwapAdapter {
     /// @dev Check whether a pool is a StableSwap pool or CryptoSwap pool
     /// @param poolAddress address of the pool
     function isInt128Pool(address poolAddress) internal view returns (bool) {
-        try ICurveCryptoSwapPool(poolAddress).get_dy(0, 1, 10 ** 6) returns (
-            uint256
-        ) {
+        uint256[8] memory reserves = registry.get_balances(poolAddress);
+        try ICurveCryptoSwapPool(poolAddress).get_dy(
+            0, 1, reserves[0] / PRECISION
+        ) returns (uint256) {
             return false;
         } catch {
             return true;
@@ -412,7 +434,8 @@ contract CurveAdapter is ISwapAdapter {
     function getCoinsIndices(
         address poolAddress,
         address sellToken,
-        address buyToken
+        address buyToken,
+        bool isEthPool
     )
         internal
         view
@@ -420,10 +443,10 @@ contract CurveAdapter is ISwapAdapter {
     {
         address sellToken_ = sellToken;
         address buyToken_ = buyToken;
-        if (sellToken == address(0)) {
+        if (sellToken == ETH_ADDRESS && !isEthPool) {
             sellToken_ = WETH_ADDRESS;
         }
-        if (buyToken == address(0)) {
+        if (buyToken == ETH_ADDRESS && !isEthPool) {
             buyToken_ = WETH_ADDRESS;
         }
         (sellTokenIndex, buyTokenIndex, isUnderlying) =
