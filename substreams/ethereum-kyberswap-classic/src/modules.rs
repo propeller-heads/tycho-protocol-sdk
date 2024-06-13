@@ -19,11 +19,11 @@ pub fn map_components(
     param: String,
     block: eth::v2::Block,
 ) -> Result<BlockTransactionProtocolComponents> {
+    let factory_address = hex::decode(param).unwrap(); // elastic factory static fee
+    let factory2_address = find_deployed_underlying_address(&factory_address).unwrap(); // elastic factory dynamic fee
+
     // Gather contract changes by indexing `PoolCreated` events and analysing the `Create` call
     // We store these as a hashmap by tx hash since we need to agg by tx hash later
-    let factory_address = hex::decode(param).unwrap();
-    let tracked_factory_address = find_deployed_underlying_address(&factory_address).unwrap();
-
     Ok(BlockTransactionProtocolComponents {
         tx_components: block
             .transactions()
@@ -33,7 +33,8 @@ pub fn map_components(
                     .filter(|(_, call)| !call.call.state_reverted)
                     .filter_map(|(log, call)| {
                         pool_factories::address_map(
-                            tracked_factory_address.as_slice(),
+                            factory_address.as_slice(),
+                            factory2_address.as_slice(),
                             call.call.address.as_slice(),
                             log,
                             &(tx.into()),
@@ -81,7 +82,6 @@ pub fn map_relative_balances(
             let mut deltas = Vec::new();
 
             if let Some(event) = abi::pool_contract::events::Mint::match_and_decode(log) {
-                // Mint event: (reserve0, reserve1) += (amount0, amount1)
                 let component_id = address_to_hex(log.address());
 
                 if let Some((token0, token1)) = maybe_get_pool_tokens(&store, &component_id) {
@@ -103,7 +103,6 @@ pub fn map_relative_balances(
                     ]);
                 }
             } else if let Some(event) = abi::pool_contract::events::Burn::match_and_decode(log) {
-                // Burn event: (reserve0, reserve1) -= (amount0, amount1)
                 let component_id = address_to_hex(log.address());
 
                 if let Some((token0, token1)) = maybe_get_pool_tokens(&store, &component_id) {
@@ -125,8 +124,6 @@ pub fn map_relative_balances(
                     ]);
                 }
             } else if let Some(event) = abi::pool_contract::events::Swap::match_and_decode(log) {
-                // Swap event: (reserve0, reserve1) += (amount0In - amount0Out, amount1In -
-                // amount1Out)
                 let component_id = address_to_hex(log.address());
 
                 if let Some((token0, token1)) = maybe_get_pool_tokens(&store, &component_id) {
@@ -265,7 +262,7 @@ fn find_deployed_underlying_address(vault_address: &[u8]) -> Option<[u8; 20]> {
     match vault_address {
         hex!("1c87257F5e8609940Bc751a07BB085Bb7f8cDBE6") => {
             // Ethereum
-            Some(hex!("1c87257F5e8609940Bc751a07BB085Bb7f8cDBE6"))
+            Some(hex!("833e4083B7ae46CeA85695c4f7ed25CDAd8886dE"))
         }
         _ => None,
     }
