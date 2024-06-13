@@ -299,7 +299,6 @@ contract CurveAdapter is ISwapAdapter {
     {
         IERC20 buyToken = IERC20(sellParams.buyToken);
         IERC20 sellToken = IERC20(sellParams.sellToken);
-        // uint256 buyTokenBalBefore = buyToken.balanceOf(address(this));
         uint256 buyTokenBalBefore = (
             sellParams.buyToken == ETH_ADDRESS
                 || sellParams.buyToken == address(0)
@@ -329,8 +328,7 @@ contract CurveAdapter is ISwapAdapter {
                         sellParams.buyTokenIndex,
                         sellParams.specifiedAmount,
                         minReturnedTokens,
-                        true,
-                        msg.sender
+                        address(this)
                     );
                 } else {
                     sellToken.safeTransferFrom(
@@ -360,7 +358,7 @@ contract CurveAdapter is ISwapAdapter {
                         sellParams.specifiedAmount,
                         minReturnedTokens,
                         true,
-                        msg.sender
+                        address(this)
                     );
                 } else {
                     sellToken.safeTransferFrom(
@@ -485,7 +483,6 @@ interface ICurveStableSwapPoolEth {
         int128 j,
         uint256 dx,
         uint256 min_dy,
-        bool use_eth,
         address receiver
     ) external payable;
 }
