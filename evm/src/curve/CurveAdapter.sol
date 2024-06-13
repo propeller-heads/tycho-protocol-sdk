@@ -3,7 +3,10 @@ pragma experimental ABIEncoderV2;
 pragma solidity ^0.8.13;
 
 import {ISwapAdapter} from "src/interfaces/ISwapAdapter.sol";
-import {IERC20, SafeERC20} from "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
+import {
+    IERC20,
+    SafeERC20
+} from "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 import "src/libraries/FractionMath.sol";
 
 /// @dev custom RESERVE_LIMIT_FACTOR for limits for this adapter(underestimate)
@@ -45,12 +48,12 @@ contract CurveAdapter is ISwapAdapter {
      * architecture of Curve, it's not possible to calculate the storage
      * modifications of Curve inside the adapter.
      */
-    function price(
-        bytes32,
-        address,
-        address,
-        uint256[] memory
-    ) external pure override returns (Fraction[] memory) {
+    function price(bytes32, address, address, uint256[] memory)
+        external
+        pure
+        override
+        returns (Fraction[] memory)
+    {
         revert NotImplemented("CurveAdapter.price");
     }
 
@@ -72,11 +75,10 @@ contract CurveAdapter is ISwapAdapter {
             sellParams.sellToken = sellToken;
             sellParams.buyToken = buyToken;
             sellParams.specifiedAmount = specifiedAmount;
-            address[8] memory coins = registry.get_coins(
-                sellParams.poolAddress
-            );
+            address[8] memory coins = registry.get_coins(sellParams.poolAddress);
 
-            /// @dev Support for Native ETH pools, ETH pools cannot be Meta therefore we can directly access coins without using underlying
+            /// @dev Support for Native ETH pools, ETH pools cannot be Meta
+            /// therefore we can directly access coins without using underlying
             if (sellToken == address(0)) {
                 for (uint256 i = 0; i < coins.length; i++) {
                     if (coins[i] == ETH_ADDRESS) {
@@ -119,11 +121,12 @@ contract CurveAdapter is ISwapAdapter {
     }
 
     /// @inheritdoc ISwapAdapter
-    function getLimits(
-        bytes32 poolId,
-        address sellToken,
-        address buyToken
-    ) external view override returns (uint256[] memory limits) {
+    function getLimits(bytes32 poolId, address sellToken, address buyToken)
+        external
+        view
+        override
+        returns (uint256[] memory limits)
+    {
         address poolAddress = address(bytes20(poolId));
         address sellToken_ = sellToken;
         address buyToken_ = buyToken;
@@ -146,11 +149,8 @@ contract CurveAdapter is ISwapAdapter {
             }
         }
 
-        (
-            int128 sellTokenIndex,
-            int128 buyTokenIndex,
-            bool isUnderlying
-        ) = getCoinsIndices(poolAddress, sellToken_, buyToken_);
+        (int128 sellTokenIndex, int128 buyTokenIndex, bool isUnderlying) =
+            getCoinsIndices(poolAddress, sellToken_, buyToken_);
 
         uint256[8] memory poolBalances = isUnderlying
             ? registry.get_underlying_balances(poolAddress)
@@ -164,19 +164,23 @@ contract CurveAdapter is ISwapAdapter {
     }
 
     /// @inheritdoc ISwapAdapter
-    function getCapabilities(
-        bytes32,
-        address,
-        address
-    ) external pure override returns (Capability[] memory capabilities) {
+    function getCapabilities(bytes32, address, address)
+        external
+        pure
+        override
+        returns (Capability[] memory capabilities)
+    {
         capabilities = new Capability[](1);
         capabilities[0] = Capability.SellOrder;
     }
 
     /// @inheritdoc ISwapAdapter
-    function getTokens(
-        bytes32 poolId
-    ) external view override returns (address[] memory tokens) {
+    function getTokens(bytes32 poolId)
+        external
+        view
+        override
+        returns (address[] memory tokens)
+    {
         address[8] memory coins = registry.get_coins(address(bytes20(poolId)));
         uint256 coinsLength;
         for (uint256 i = 0; i < coins.length; i++) {
@@ -210,10 +214,12 @@ contract CurveAdapter is ISwapAdapter {
     }
 
     /// @inheritdoc ISwapAdapter
-    function getPoolIds(
-        uint256 offset,
-        uint256 limit
-    ) external view override returns (bytes32[] memory ids) {
+    function getPoolIds(uint256 offset, uint256 limit)
+        external
+        view
+        override
+        returns (bytes32[] memory ids)
+    {
         uint256 endIdx = offset + limit;
         if (endIdx > registry.pool_count()) {
             endIdx = registry.pool_count();
@@ -228,105 +234,91 @@ contract CurveAdapter is ISwapAdapter {
     /// @param sellParams Params for the price(see: struct SellParamsCache).
     /// @return (Fraction) price as a fraction corresponding to the provided
     /// amount.
-    function getPriceAt(
-        SellParamsCache memory sellParams
-    ) internal view returns (Fraction memory) {
+    function getPriceAt(SellParamsCache memory sellParams)
+        internal
+        view
+        returns (Fraction memory)
+    {
         uint256 amountIn;
-        uint256 sellTokenIndexUint = uint256(
-            uint128(sellParams.sellTokenIndex)
-        );
+        uint256 sellTokenIndexUint = uint256(uint128(sellParams.sellTokenIndex));
         uint256 buyTokenIndexUint = uint256(uint128(sellParams.buyTokenIndex));
 
         if (sellParams.isSwappingUnderlying) {
-            amountIn =
-                ICurveStableSwapMetaPool(sellParams.poolAddress).balances(
-                    sellTokenIndexUint
-                ) /
-                PRECISION;
+            amountIn = ICurveStableSwapMetaPool(sellParams.poolAddress).balances(
+                sellTokenIndexUint
+            ) / PRECISION;
 
-            if (sellParams.isSwappingUnderlying) {
-                return
-                    Fraction(
-                        ICurveStableSwapMetaPool(sellParams.poolAddress)
-                            .get_dy_underlying(
-                                sellParams.sellTokenIndex,
-                                sellParams.buyTokenIndex,
-                                amountIn
-                            ),
-                        amountIn
-                    );
-            }
+            return Fraction(
+                ICurveStableSwapMetaPool(sellParams.poolAddress)
+                    .get_dy_underlying(
+                    sellParams.sellTokenIndex,
+                    sellParams.buyTokenIndex,
+                    amountIn
+                ),
+                amountIn
+            );
         } else {
             if (isInt128Pool(sellParams.poolAddress)) {
-                amountIn =
-                    ICurveStableSwapPool(sellParams.poolAddress).balances(
-                        sellTokenIndexUint
-                    ) /
-                    PRECISION;
-                return
-                    Fraction(
-                        ICurveStableSwapPool(sellParams.poolAddress).get_dy(
-                            sellParams.sellTokenIndex,
-                            sellParams.buyTokenIndex,
-                            amountIn
-                        ),
+                amountIn = ICurveStableSwapPool(sellParams.poolAddress).balances(
+                    sellTokenIndexUint
+                ) / PRECISION;
+                return Fraction(
+                    ICurveStableSwapPool(sellParams.poolAddress).get_dy(
+                        sellParams.sellTokenIndex,
+                        sellParams.buyTokenIndex,
                         amountIn
-                    );
+                    ),
+                    amountIn
+                );
             } else {
-                amountIn =
-                    ICurveCryptoSwapPool(sellParams.poolAddress).balances(
-                        sellTokenIndexUint
-                    ) /
-                    PRECISION;
+                amountIn = ICurveCryptoSwapPool(sellParams.poolAddress).balances(
+                    sellTokenIndexUint
+                ) / PRECISION;
 
-                return
-                    Fraction(
-                        ICurveCryptoSwapPool(sellParams.poolAddress).get_dy(
-                            sellTokenIndexUint,
-                            buyTokenIndexUint,
-                            amountIn
-                        ),
-                        amountIn
-                    );
+                return Fraction(
+                    ICurveCryptoSwapPool(sellParams.poolAddress).get_dy(
+                        sellTokenIndexUint, buyTokenIndexUint, amountIn
+                    ),
+                    amountIn
+                );
             }
         }
     }
 
     /// @notice Executes a sell order on a given pool.
-    /// @dev Only metapools available (with LP token as counter pair) are Stable,
+    /// @dev Only metapools available (with LP token as counter pair) are
+    /// Stable,
     /// but after some research we've found that Curve deployed some pools that
-    /// are Crypto and use the int128 interface, therefore we optimistically support them too.
+    /// are Crypto and use the int128 interface, therefore we optimistically
+    /// support them too.
     /// @param sellParams Params for the trade(see: struct SellParamsCache).
     /// @return calculatedAmount The amount of tokens received.
-    function sell(
-        SellParamsCache memory sellParams
-    ) internal returns (uint256 calculatedAmount) {
+    function sell(SellParamsCache memory sellParams)
+        internal
+        returns (uint256 calculatedAmount)
+    {
         IERC20 buyToken = IERC20(sellParams.buyToken);
         IERC20 sellToken = IERC20(sellParams.sellToken);
         // uint256 buyTokenBalBefore = buyToken.balanceOf(address(this));
-        uint256 buyTokenBalBefore = (sellParams.buyToken == ETH_ADDRESS ||
-            sellParams.buyToken == address(0))
-            ? address(this).balance
-            : buyToken.balanceOf(address(this));
+        uint256 buyTokenBalBefore = (
+            sellParams.buyToken == ETH_ADDRESS
+                || sellParams.buyToken == address(0)
+        ) ? address(this).balance : buyToken.balanceOf(address(this));
         uint256 minReturnedTokens = 0;
 
         if (sellParams.isSwappingUnderlying) {
             sellToken.safeTransferFrom(
-                msg.sender,
-                address(this),
-                sellParams.specifiedAmount
+                msg.sender, address(this), sellParams.specifiedAmount
             );
             sellToken.safeIncreaseAllowance(
-                sellParams.poolAddress,
-                sellParams.specifiedAmount
+                sellParams.poolAddress, sellParams.specifiedAmount
             );
-            ICurveStableSwapMetaPool(sellParams.poolAddress)
-                .exchange_underlying(
-                    sellParams.sellTokenIndex,
-                    sellParams.buyTokenIndex,
-                    sellParams.specifiedAmount,
-                    minReturnedTokens
-                );
+            ICurveStableSwapMetaPool(sellParams.poolAddress).exchange_underlying(
+                sellParams.sellTokenIndex,
+                sellParams.buyTokenIndex,
+                sellParams.specifiedAmount,
+                minReturnedTokens
+            );
         } else {
             if (isInt128Pool(sellParams.poolAddress)) {
                 if (sellParams.sellToken == ETH_ADDRESS) {
@@ -342,13 +334,10 @@ contract CurveAdapter is ISwapAdapter {
                     );
                 } else {
                     sellToken.safeTransferFrom(
-                        msg.sender,
-                        address(this),
-                        sellParams.specifiedAmount
+                        msg.sender, address(this), sellParams.specifiedAmount
                     );
                     sellToken.safeIncreaseAllowance(
-                        sellParams.poolAddress,
-                        sellParams.specifiedAmount
+                        sellParams.poolAddress, sellParams.specifiedAmount
                     );
                     ICurveStableSwapPool(sellParams.poolAddress).exchange(
                         sellParams.sellTokenIndex,
@@ -358,12 +347,10 @@ contract CurveAdapter is ISwapAdapter {
                     );
                 }
             } else {
-                uint256 sellTokenIndexUint = uint256(
-                    uint128(sellParams.sellTokenIndex)
-                );
-                uint256 buyTokenIndexUint = uint256(
-                    uint128(sellParams.buyTokenIndex)
-                );
+                uint256 sellTokenIndexUint =
+                    uint256(uint128(sellParams.sellTokenIndex));
+                uint256 buyTokenIndexUint =
+                    uint256(uint128(sellParams.buyTokenIndex));
                 if (sellParams.sellToken == address(0)) {
                     ICurveCryptoSwapPoolEth(sellParams.poolAddress).exchange{
                         value: sellParams.specifiedAmount
@@ -377,13 +364,10 @@ contract CurveAdapter is ISwapAdapter {
                     );
                 } else {
                     sellToken.safeTransferFrom(
-                        msg.sender,
-                        address(this),
-                        sellParams.specifiedAmount
+                        msg.sender, address(this), sellParams.specifiedAmount
                     );
                     sellToken.safeIncreaseAllowance(
-                        sellParams.poolAddress,
-                        sellParams.specifiedAmount
+                        sellParams.poolAddress, sellParams.specifiedAmount
                     );
                     ICurveCryptoSwapPool(sellParams.poolAddress).exchange(
                         sellTokenIndexUint,
@@ -396,18 +380,15 @@ contract CurveAdapter is ISwapAdapter {
         }
 
         if (
-            sellParams.buyToken == ETH_ADDRESS ||
-            sellParams.buyToken == address(0)
+            sellParams.buyToken == ETH_ADDRESS
+                || sellParams.buyToken == address(0)
         ) {
             calculatedAmount = address(this).balance - buyTokenBalBefore;
-            (bool sent, ) = address(msg.sender).call{value: calculatedAmount}(
-                ""
-            );
+            (bool sent,) = address(msg.sender).call{value: calculatedAmount}("");
             require(sent, "Eth transfer failed");
         } else {
             calculatedAmount =
-                buyToken.balanceOf(address(this)) -
-                buyTokenBalBefore;
+                buyToken.balanceOf(address(this)) - buyTokenBalBefore;
             buyToken.safeTransfer(address(msg.sender), calculatedAmount);
         }
     }
@@ -447,8 +428,8 @@ contract CurveAdapter is ISwapAdapter {
         if (buyToken == address(0)) {
             buyToken_ = WETH_ADDRESS;
         }
-        (sellTokenIndex, buyTokenIndex, isUnderlying) = registry
-            .get_coin_indices(poolAddress, sellToken_, buyToken_);
+        (sellTokenIndex, buyTokenIndex, isUnderlying) =
+            registry.get_coin_indices(poolAddress, sellToken_, buyToken_);
     }
 }
 
@@ -456,18 +437,14 @@ contract CurveAdapter is ISwapAdapter {
 /// For params informations see:
 /// https://docs.curve.fi/stableswap-exchange/stableswap/pools/plain_pools/
 interface ICurveCryptoSwapPool {
-    function get_dy(
-        uint256 i,
-        uint256 j,
-        uint256 dx
-    ) external view returns (uint256);
+    function get_dy(uint256 i, uint256 j, uint256 dx)
+        external
+        view
+        returns (uint256);
 
-    function exchange(
-        uint256 i,
-        uint256 j,
-        uint256 dx,
-        uint256 min_dy
-    ) external payable;
+    function exchange(uint256 i, uint256 j, uint256 dx, uint256 min_dy)
+        external
+        payable;
 
     function balances(uint256 arg0) external view returns (uint256);
 
@@ -489,13 +466,13 @@ interface ICurveCryptoSwapPoolEth is ICurveCryptoSwapPool {
 /// For params informations see:
 /// https://docs.curve.fi/stableswap-exchange/stableswap/pools/plain_pools/
 interface ICurveStableSwapPool {
-    function get_dy(
-        int128 i,
-        int128 j,
-        uint256 dx
-    ) external view returns (uint256);
+    function get_dy(int128 i, int128 j, uint256 dx)
+        external
+        view
+        returns (uint256);
 
-    function exchange(int128 i, int128 j, uint256 dx, uint256 min_dy) external;
+    function exchange(int128 i, int128 j, uint256 dx, uint256 min_dy)
+        external;
 
     function balances(uint256 arg0) external view returns (uint256);
 
@@ -514,18 +491,14 @@ interface ICurveStableSwapPoolEth {
 }
 
 interface ICurveStableSwapMetaPool is ICurveStableSwapPool {
-    function get_dy_underlying(
-        int128 i,
-        int128 j,
-        uint256 dx
-    ) external view returns (uint256);
+    function get_dy_underlying(int128 i, int128 j, uint256 dx)
+        external
+        view
+        returns (uint256);
 
-    function exchange_underlying(
-        int128 i,
-        int128 j,
-        uint256 dx,
-        uint256 min_dy
-    ) external returns (uint256);
+    function exchange_underlying(int128 i, int128 j, uint256 dx, uint256 min_dy)
+        external
+        returns (uint256);
 }
 
 /// @dev Wrapped ported version of CurveRegistry to Solidity
@@ -533,21 +506,21 @@ interface ICurveStableSwapMetaPool is ICurveStableSwapPool {
 interface ICurveRegistry {
     function is_meta(address _pool) external view returns (bool);
 
-    function get_pool_asset_type(address _pool) external view returns (uint256);
+    function get_pool_asset_type(address _pool)
+        external
+        view
+        returns (uint256);
 
-    function find_pool_for_coins(
-        address _from,
-        address _to,
-        uint256 i
-    ) external view returns (address);
+    function find_pool_for_coins(address _from, address _to, uint256 i)
+        external
+        view
+        returns (address);
 
     function pool_count() external view returns (uint256);
 
     function pool_list(uint256 arg0) external view returns (address);
 
-    function get_fees(
-        address _pool
-    )
+    function get_fees(address _pool)
         external
         view
         returns (
@@ -563,25 +536,30 @@ interface ICurveRegistry {
             uint256
         );
 
-    function get_coins(address _pool) external view returns (address[8] memory);
+    function get_coins(address _pool)
+        external
+        view
+        returns (address[8] memory);
 
-    function get_underlying_coins(
-        address _pool
-    ) external view returns (address[8] memory);
+    function get_underlying_coins(address _pool)
+        external
+        view
+        returns (address[8] memory);
 
     function get_n_coins(address _pool) external view returns (uint256);
 
-    function get_coin_indices(
-        address _pool,
-        address _from,
-        address _to
-    ) external view returns (int128, int128, bool);
+    function get_coin_indices(address _pool, address _from, address _to)
+        external
+        view
+        returns (int128, int128, bool);
 
-    function get_balances(
-        address _pool
-    ) external view returns (uint256[8] memory);
+    function get_balances(address _pool)
+        external
+        view
+        returns (uint256[8] memory);
 
-    function get_underlying_balances(
-        address _pool
-    ) external view returns (uint256[8] memory);
+    function get_underlying_balances(address _pool)
+        external
+        view
+        returns (uint256[8] memory);
 }
