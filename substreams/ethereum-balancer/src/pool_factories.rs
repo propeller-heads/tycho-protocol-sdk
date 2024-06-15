@@ -34,12 +34,12 @@ impl SerializableVecBigInt for Vec<BigInt> {
 ///  - Weighted Pool Factories
 ///  - Linear Pool Factories
 ///  - Stable Pool Factories
-/// (Balancer does have a bit more (esp. in the deprecated section) that could be implemented as
-///  desired.)
-/// We use the specific ABIs to decode both the log event and corresponding call to gather
-///  `PoolCreated` event information alongside the `Create` call data that provide us details to
-///  fulfill both the required details + any extra `Attributes`
-/// Ref: https://docs.balancer.fi/reference/contracts/deployment-addresses/mainnet.html
+///     (Balancer does have a bit more (esp. in the deprecated section) that could be implemented as
+///     desired.)
+///     We use the specific ABIs to decode both the log event and corresponding call to gather
+///     `PoolCreated` event information alongside the `Create` call data that provide us details to
+///     fulfill both the required details + any extra `Attributes`
+///     Ref: https://docs.balancer.fi/reference/contracts/deployment-addresses/mainnet.html
 pub fn address_map(
     pool_factory_address: &[u8],
     log: &Log,

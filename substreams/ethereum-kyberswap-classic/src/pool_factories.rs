@@ -15,9 +15,7 @@ pub fn address_map(
     log: &Log,
     tx: &Transaction,
 ) -> Option<ProtocolComponent> {
-    if (abi::factory_contract::events::PoolCreated::match_and_decode(log)).is_none() {
-        return None;
-    }
+    (abi::factory_contract::events::PoolCreated::match_and_decode(log))?;
 
     if *pool_factory_address == *tracked_factory_address {
         // Static pool factory
