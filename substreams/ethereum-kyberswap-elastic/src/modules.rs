@@ -19,11 +19,11 @@ pub fn map_components(
     param: String,
     block: eth::v2::Block,
 ) -> Result<BlockTransactionProtocolComponents> {
-    // Gather contract changes by indexing `PoolCreated` events and analysing the `Create` call
-    // We store these as a hashmap by tx hash since we need to agg by tx hash later
     let factory_address = hex::decode(param).unwrap();
     let tracked_factory_address = find_deployed_underlying_address(&factory_address).unwrap();
 
+    // Gather contract changes by indexing `PoolCreated` events and analysing the `Create` call
+    // We store these as a hashmap by tx hash since we need to agg by tx hash later
     Ok(BlockTransactionProtocolComponents {
         tx_components: block
             .transactions()
@@ -146,8 +146,9 @@ pub fn map_relative_balances(
                         },
                     ]);
                 }
-            }
-            else if let Some(event) = abi::pool_contract::events::BurnRTokens::match_and_decode(log) {
+            } else if let Some(event) =
+                abi::pool_contract::events::BurnRTokens::match_and_decode(log)
+            {
                 // Swap event: (reserve0, reserve1) +/-= (deltaQty0, deltaQty1)
                 let component_id = address_to_hex(log.address());
 
