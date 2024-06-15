@@ -224,9 +224,9 @@ pub fn map_protocol_changes(
             .drain()
             .sorted_unstable_by_key(|(index, _)| *index)
             .filter_map(|(_, change)| {
-                if change.contract_changes.is_empty() &&
-                    change.component_changes.is_empty() &&
-                    change.balance_changes.is_empty()
+                if change.contract_changes.is_empty()
+                    && change.component_changes.is_empty()
+                    && change.balance_changes.is_empty()
                 {
                     None
                 } else {
@@ -261,8 +261,9 @@ fn store_component(store: &StoreSetProto<ProtocolComponent>, component: &Protoco
 fn find_deployed_underlying_address(vault_address: &[u8]) -> Option<[u8; 20]> {
     match vault_address {
         hex!("1c87257F5e8609940Bc751a07BB085Bb7f8cDBE6") => {
+            // Static Factory
             // Ethereum
-            Some(hex!("833e4083B7ae46CeA85695c4f7ed25CDAd8886dE"))
+            Some(hex!("833e4083B7ae46CeA85695c4f7ed25CDAd8886dE")) // Elastic Factory
         }
         _ => None,
     }

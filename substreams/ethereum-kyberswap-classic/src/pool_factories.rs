@@ -15,14 +15,29 @@ pub fn address_map(
     log: &Log,
     tx: &Transaction,
 ) -> Option<ProtocolComponent> {
-    if (*pool_factory_address == *tracked_factory_address || *pool_factory_address == *tracked_factory2_address) && !(abi::factory_contract::events::PoolCreated::match_and_decode(log)).is_none() {
+    if (abi::factory_contract::events::PoolCreated::match_and_decode(log)).is_none() {
+        return None;
+    }
+
+    if *pool_factory_address == *tracked_factory_address {
+        // Static pool factory
         let pool_created =
             abi::factory_contract::events::PoolCreated::match_and_decode(log).unwrap();
 
         Some(
             ProtocolComponent::at_contract(&pool_created.pool, tx)
                 .with_tokens(&[pool_created.token0, pool_created.token1])
-                .as_swap_type("kyberswap_classic_pool", ImplementationType::Vm),
+                .as_swap_type("kyberswap_classic_pool_static", ImplementationType::Vm),
+        )
+    } else if *pool_factory_address == *tracked_factory2_address {
+        // Dynamic pool factory
+        let pool_created =
+            abi::factory_contract::events::PoolCreated::match_and_decode(log).unwrap();
+
+        Some(
+            ProtocolComponent::at_contract(&pool_created.pool, tx)
+                .with_tokens(&[pool_created.token0, pool_created.token1])
+                .as_swap_type("kyberswap_classic_pool_dynamic", ImplementationType::Vm),
         )
     } else {
         None
