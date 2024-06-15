@@ -21,6 +21,7 @@ modules:
     kind: map
     initialBlock: 17291893
     inputs:
+      - params: string
       - source: sf.ethereum.type.v2.Block
     output:
       type: proto:tycho.evm.v1.GroupedTransactionProtocolComponents
@@ -28,8 +29,8 @@ modules:
   - name: store_components
     kind: store
     initialBlock: 17291893
-    updatePolicy: add
-    valueType: int64
+    updatePolicy: set
+    valueType: proto:tycho.evm.v1.ProtocolComponent
     inputs:
       - map: map_components
 
@@ -45,7 +46,7 @@ modules:
   - name: store_balances
     kind: store
     initialBlock: 17291893
-    updatePolicy: add
+    updatePolicy: set
     valueType: bigint
     inputs:
       - map: map_relative_balances
