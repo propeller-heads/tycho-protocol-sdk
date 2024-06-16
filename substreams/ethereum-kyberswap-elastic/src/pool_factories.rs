@@ -15,15 +15,13 @@ pub fn address_map(
     tx: &Transaction,
 ) -> Option<ProtocolComponent> {
     if *pool_factory_address == *tracked_factory_address {
-        abi::elasticfactory_contract::events::PoolCreated::match_and_decode(log)?;
-        let pool_created =
-            abi::elasticfactory_contract::events::PoolCreated::match_and_decode(log).unwrap();
-
-        Some(
-            ProtocolComponent::at_contract(&pool_created.pool, tx)
-                .with_tokens(&[pool_created.token0, pool_created.token1])
-                .with_attributes(&[("Tick", pool_created.tick_distance.as_string())])
-                .as_swap_type("kyberswap_elastic_pool", ImplementationType::Vm),
+        abi::elasticfactory_contract::events::PoolCreated::match_and_decode(log).map(
+            |pool_created| {
+                ProtocolComponent::at_contract(&pool_created.pool, tx)
+                    .with_tokens(&[pool_created.token0, pool_created.token1])
+                    .with_attributes(&[("Tick", pool_created.tick_distance.as_string())])
+                    .as_swap_type("kyberswap_elastic_pool", ImplementationType::Vm)
+            },
         )
     } else {
         None
