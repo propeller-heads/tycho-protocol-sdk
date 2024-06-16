@@ -19,7 +19,6 @@ pub fn map_components(
     block: eth::v2::Block,
 ) -> Result<BlockTransactionProtocolComponents> {
     let factory_address = hex::decode(param).unwrap();
-    let tracked_factory_address = find_deployed_underlying_address(&factory_address).unwrap();
 
     // Gather contract changes by indexing `PoolCreated` events and analysing the `Create` call
     // We store these as a hashmap by tx hash since we need to agg by tx hash later
@@ -169,7 +168,29 @@ pub fn map_relative_balances(
                         },
                     ]);
                 }
+            } else if let Some(event) = abi::pool_contract::events::Flash::match_and_decode(log) {
+                let component_id = address_to_hex(log.address());
+
+                if let Some((token0, token1)) = maybe_get_pool_tokens(&store, &component_id) {
+                    deltas.extend_from_slice(&[
+                        BalanceDelta {
+                            ord: log.ordinal(),
+                            tx: Some(log.receipt.transaction.into()),
+                            token: token0.clone(),
+                            delta: event.qty0.neg().to_signed_bytes_be(),
+                            component_id: string_to_bytes(&component_id),
+                        },
+                        BalanceDelta {
+                            ord: log.ordinal(),
+                            tx: Some(log.receipt.transaction.into()),
+                            token: token1.clone(),
+                            delta: event.qty1.neg().to_signed_bytes_be(),
+                            component_id: string_to_bytes(&component_id),
+                        },
+                    ]);
+                }
             }
+
             deltas
         })
         .collect::<Vec<_>>();
@@ -249,9 +270,9 @@ pub fn map_protocol_changes(
             .drain()
             .sorted_unstable_by_key(|(index, _)| *index)
             .filter_map(|(_, change)| {
-                if change.contract_changes.is_empty() &&
-                    change.component_changes.is_empty() &&
-                    change.balance_changes.is_empty()
+                if change.contract_changes.is_empty()
+                    && change.component_changes.is_empty()
+                    && change.balance_changes.is_empty()
                 {
                     None
                 } else {
