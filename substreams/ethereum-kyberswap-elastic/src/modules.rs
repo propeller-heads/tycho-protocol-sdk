@@ -3,7 +3,6 @@ use anyhow::Result;
 use itertools::Itertools;
 use std::collections::HashMap;
 use substreams::{
-    hex,
     pb::substreams::StoreDeltas,
     store::{
         StoreAddBigInt, StoreGet, StoreGetInt64, StoreGetProto, StoreNew, StoreSet, StoreSetProto,
@@ -20,7 +19,6 @@ pub fn map_components(
     block: eth::v2::Block,
 ) -> Result<BlockTransactionProtocolComponents> {
     let factory_address = hex::decode(param).unwrap();
-    let tracked_factory_address = find_deployed_underlying_address(&factory_address).unwrap();
 
     // Gather contract changes by indexing `PoolCreated` events and analysing the `Create` call
     // We store these as a hashmap by tx hash since we need to agg by tx hash later
@@ -33,7 +31,7 @@ pub fn map_components(
                     .filter(|(_, call)| !call.call.state_reverted)
                     .filter_map(|(log, call)| {
                         pool_factories::address_map(
-                            tracked_factory_address.as_slice(),
+                            factory_address.as_slice(),
                             call.call.address.as_slice(),
                             log,
                             &(tx.into()),
@@ -170,7 +168,29 @@ pub fn map_relative_balances(
                         },
                     ]);
                 }
+            } else if let Some(event) = abi::pool_contract::events::Flash::match_and_decode(log) {
+                let component_id = address_to_hex(log.address());
+
+                if let Some((token0, token1)) = maybe_get_pool_tokens(&store, &component_id) {
+                    deltas.extend_from_slice(&[
+                        BalanceDelta {
+                            ord: log.ordinal(),
+                            tx: Some(log.receipt.transaction.into()),
+                            token: token0.clone(),
+                            delta: event.qty0.neg().to_signed_bytes_be(),
+                            component_id: string_to_bytes(&component_id),
+                        },
+                        BalanceDelta {
+                            ord: log.ordinal(),
+                            tx: Some(log.receipt.transaction.into()),
+                            token: token1.clone(),
+                            delta: event.qty1.neg().to_signed_bytes_be(),
+                            component_id: string_to_bytes(&component_id),
+                        },
+                    ]);
+                }
             }
+
             deltas
         })
         .collect::<Vec<_>>();
@@ -282,14 +302,4 @@ fn string_to_bytes(string: &str) -> Vec<u8> {
 
 fn store_component(store: &StoreSetProto<ProtocolComponent>, component: &ProtocolComponent) {
     store.set(1, format!("pool:{}", component.id), component);
-}
-
-fn find_deployed_underlying_address(factory_address: &[u8]) -> Option<[u8; 20]> {
-    match factory_address {
-        hex!("C7a590291e07B9fe9E64b86c58fD8fC764308C4A") => {
-            // Ethereum
-            Some(hex!("C7a590291e07B9fe9E64b86c58fD8fC764308C4A"))
-        }
-        _ => None,
-    }
 }
