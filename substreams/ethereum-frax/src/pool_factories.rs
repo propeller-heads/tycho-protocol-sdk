@@ -16,14 +16,11 @@ pub fn address_map(
     tx: &Transaction,
 ) -> Option<ProtocolComponent> {
     if *pool_factory_address == *tracked_factory_address {
-        let pool_created =
-            abi::factory_contract::events::PairCreated::match_and_decode(log).unwrap();
-
-        Some(
+        abi::factory_contract::events::PairCreated::match_and_decode(log).map(|pool_created| {
             ProtocolComponent::at_contract(&pool_created.pair, tx)
                 .with_tokens(&[pool_created.token0, pool_created.token1])
-                .as_swap_type("frax_pool", ImplementationType::Vm),
-        )
+                .as_swap_type("frax_pool", ImplementationType::Vm)
+        })
     } else {
         None
     }
