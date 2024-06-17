@@ -1,5 +1,5 @@
 [workspace]
-members = ["ethereum-balancer", "ethereum-curve", "crates/tycho-substreams", "ethereum-etherfi]
+members = ["ethereum-balancer", "ethereum-curve", "crates/tycho-substreams", "ethereum-etherfi"]
 resolver = "2"
 
 
