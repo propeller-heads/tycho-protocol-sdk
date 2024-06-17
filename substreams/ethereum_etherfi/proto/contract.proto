@@ -1,0 +1,213 @@
+syntax = "proto3";
+
+import "google/protobuf/timestamp.proto";
+
+package contract.v1;
+
+message Events {
+    repeated pool_AdminChanged1 pool_admin_changed_1s = 1;
+    repeated pool_AdminChanged2 pool_admin_changed_2s = 2;
+    repeated pool_BeaconUpgraded1 pool_beacon_upgraded_1s = 3;
+    repeated pool_BeaconUpgraded2 pool_beacon_upgraded_2s = 4;
+    repeated pool_BnftHolderDeregistered pool_bnft_holder_deregistereds = 5;
+    repeated pool_BnftHolderRegistered pool_bnft_holder_registereds = 6;
+    repeated pool_Deposit pool_deposits = 7;
+    repeated pool_Initialized pool_initializeds = 8;
+    repeated pool_OwnershipTransferred pool_ownership_transferreds = 9;
+    repeated pool_Paused pool_pauseds = 10;
+    repeated pool_Rebase pool_rebases = 11;
+    repeated pool_Unpaused pool_unpauseds = 12;
+    repeated pool_UpdatedSchedulingPeriod pool_updated_scheduling_periods = 13;
+    repeated pool_UpdatedWhitelist pool_updated_whitelists = 14;
+    repeated pool_Upgraded1 pool_upgraded_1s = 15;
+    repeated pool_Upgraded2 pool_upgraded_2s = 16;
+    repeated pool_ValidatorApproved pool_validator_approveds = 17;
+    repeated pool_ValidatorRegistered pool_validator_registereds = 18;
+    repeated pool_ValidatorRegistrationCanceled pool_validator_registration_canceleds = 19;
+    repeated pool_WhitelistStatusUpdated pool_whitelist_status_updateds = 20;
+    repeated pool_Withdraw pool_withdraws = 21;
+}
+
+message pool_AdminChanged1 {
+    string evt_tx_hash = 1;
+    uint32 evt_index = 2;
+    google.protobuf.Timestamp evt_block_time = 3;
+    uint64 evt_block_number = 4;
+    bytes previous_admin = 5;
+    bytes new_admin = 6;
+}
+
+message pool_AdminChanged2 {
+    string evt_tx_hash = 1;
+    uint32 evt_index = 2;
+    google.protobuf.Timestamp evt_block_time = 3;
+    uint64 evt_block_number = 4;
+    bytes previous_admin = 5;
+    bytes new_admin = 6;
+}
+
+message pool_BeaconUpgraded1 {
+    string evt_tx_hash = 1;
+    uint32 evt_index = 2;
+    google.protobuf.Timestamp evt_block_time = 3;
+    uint64 evt_block_number = 4;
+    bytes beacon = 5;
+}
+
+message pool_BeaconUpgraded2 {
+    string evt_tx_hash = 1;
+    uint32 evt_index = 2;
+    google.protobuf.Timestamp evt_block_time = 3;
+    uint64 evt_block_number = 4;
+    bytes beacon = 5;
+}
+
+message pool_BnftHolderDeregistered {
+    string evt_tx_hash = 1;
+    uint32 evt_index = 2;
+    google.protobuf.Timestamp evt_block_time = 3;
+    uint64 evt_block_number = 4;
+    bytes user = 5;
+    string index = 6;
+}
+
+message pool_BnftHolderRegistered {
+    string evt_tx_hash = 1;
+    uint32 evt_index = 2;
+    google.protobuf.Timestamp evt_block_time = 3;
+    uint64 evt_block_number = 4;
+    bytes user = 5;
+    string index = 6;
+}
+
+message pool_Deposit {
+    string evt_tx_hash = 1;
+    uint32 evt_index = 2;
+    google.protobuf.Timestamp evt_block_time = 3;
+    uint64 evt_block_number = 4;
+    bytes sender = 5;
+    string amount = 6;
+    uint64 source = 7;
+    bytes referral = 8;
+}
+
+message pool_Initialized {
+    string evt_tx_hash = 1;
+    uint32 evt_index = 2;
+    google.protobuf.Timestamp evt_block_time = 3;
+    uint64 evt_block_number = 4;
+    uint64 version = 5;
+}
+
+message pool_OwnershipTransferred {
+    string evt_tx_hash = 1;
+    uint32 evt_index = 2;
+    google.protobuf.Timestamp evt_block_time = 3;
+    uint64 evt_block_number = 4;
+    bytes previous_owner = 5;
+    bytes new_owner = 6;
+}
+
+message pool_Paused {
+    string evt_tx_hash = 1;
+    uint32 evt_index = 2;
+    google.protobuf.Timestamp evt_block_time = 3;
+    uint64 evt_block_number = 4;
+    bytes account = 5;
+}
+
+message pool_Rebase {
+    string evt_tx_hash = 1;
+    uint32 evt_index = 2;
+    google.protobuf.Timestamp evt_block_time = 3;
+    uint64 evt_block_number = 4;
+    string total_eth_locked = 5;
+    string total_e_eth_shares = 6;
+}
+
+message pool_Unpaused {
+    string evt_tx_hash = 1;
+    uint32 evt_index = 2;
+    google.protobuf.Timestamp evt_block_time = 3;
+    uint64 evt_block_number = 4;
+    bytes account = 5;
+}
+
+message pool_UpdatedSchedulingPeriod {
+    string evt_tx_hash = 1;
+    uint32 evt_index = 2;
+    google.protobuf.Timestamp evt_block_time = 3;
+    uint64 evt_block_number = 4;
+    string new_period_in_seconds = 5;
+}
+
+message pool_UpdatedWhitelist {
+    string evt_tx_hash = 1;
+    uint32 evt_index = 2;
+    google.protobuf.Timestamp evt_block_time = 3;
+    uint64 evt_block_number = 4;
+    bytes user_address = 5;
+    bool value = 6;
+}
+
+message pool_Upgraded1 {
+    string evt_tx_hash = 1;
+    uint32 evt_index = 2;
+    google.protobuf.Timestamp evt_block_time = 3;
+    uint64 evt_block_number = 4;
+    bytes implementation = 5;
+}
+
+message pool_Upgraded2 {
+    string evt_tx_hash = 1;
+    uint32 evt_index = 2;
+    google.protobuf.Timestamp evt_block_time = 3;
+    uint64 evt_block_number = 4;
+    bytes implementation = 5;
+}
+
+message pool_ValidatorApproved {
+    string evt_tx_hash = 1;
+    uint32 evt_index = 2;
+    google.protobuf.Timestamp evt_block_time = 3;
+    uint64 evt_block_number = 4;
+    string validator_id = 5;
+}
+
+message pool_ValidatorRegistered {
+    string evt_tx_hash = 1;
+    uint32 evt_index = 2;
+    google.protobuf.Timestamp evt_block_time = 3;
+    uint64 evt_block_number = 4;
+    string validator_id = 5;
+    bytes signature = 6;
+    bytes pub_key = 7;
+    bytes deposit_root = 8;
+}
+
+message pool_ValidatorRegistrationCanceled {
+    string evt_tx_hash = 1;
+    uint32 evt_index = 2;
+    google.protobuf.Timestamp evt_block_time = 3;
+    uint64 evt_block_number = 4;
+    string validator_id = 5;
+}
+
+message pool_WhitelistStatusUpdated {
+    string evt_tx_hash = 1;
+    uint32 evt_index = 2;
+    google.protobuf.Timestamp evt_block_time = 3;
+    uint64 evt_block_number = 4;
+    bool value = 5;
+}
+
+message pool_Withdraw {
+    string evt_tx_hash = 1;
+    uint32 evt_index = 2;
+    google.protobuf.Timestamp evt_block_time = 3;
+    uint64 evt_block_number = 4;
+    bytes sender = 5;
+    bytes recipient = 6;
+    string amount = 7;
+    uint64 source = 8;
+}
