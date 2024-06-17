@@ -2,6 +2,7 @@ use crate::abi;
 use anyhow::Result;
 use itertools::Itertools;
 use std::collections::HashMap;
+use consts::{EETH_ADDRESS, WEETH_ADDRESS, ETH_ADDRESS, LIQUIDITY_POOL_ADDRESS};
 use substreams::{
     pb::substreams::StoreDeltas,
     store::{
@@ -18,7 +19,6 @@ pub fn map_components(
     params: String,
     block: eth::v2::Block,
 ) -> Result<BlockTransactionProtocolComponents> {
-    let factory_address = hex::decode(params).unwrap();
 
     Ok(BlockTransactionProtocolComponents {
         tx_components: block
@@ -28,12 +28,20 @@ pub fn map_components(
                     .logs_with_calls()
                     .filter(|(_, call)| !call.call.state_reverted)
                     .filter_map(|(log, call)| {
-                        pool_factories::address_map(
-                            factory_address.as_slice(),
-                            call.call.address.as_slice(),
-                            log,
-                            &(tx.into()),
-                        )
+                        if call.call.address.as_slice() != LIQUIDITY_POOL_ADDRESS.as_slice() {
+                           None
+                        }
+
+                        if let Some(event) = abi::pool_contract::events::Initialized::match_and_decode(log) {
+                            Some(
+                                ProtocolComponent::at_contract(&LIQUIDITY_POOL_ADDRESS, tx)
+                                    .with_tokens(&[EETH_ADDRESS, ETH_ADDRESS])
+                                    .as_swap_type("etherfi_liquidity_pool", ImplementationType::Vm),
+                            )
+                        }
+                        else {
+                            None
+                        }
                     })
                     .collect::<Vec<_>>();
 
