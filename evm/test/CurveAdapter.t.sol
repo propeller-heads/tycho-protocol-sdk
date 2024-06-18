@@ -35,7 +35,7 @@ contract CurveAdapterTest is Test, ISwapAdapterTypes {
     function setUp() public {
         uint256 forkBlock = 19719570;
         vm.createSelectFork(vm.rpcUrl("mainnet"), forkBlock);
-        adapter = new CurveAdapter(0x90E00ACe148ca3b23Ac1bC8C240C2a7Dd9c2d7f5);
+        adapter = new CurveAdapter(0xF98B45FA17DE75FB1aD0e7aFD971b0ca00e379fC);
 
         vm.label(address(adapter), "CurveAdapter");
         vm.label(USDT, "USDT");

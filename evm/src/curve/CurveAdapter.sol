@@ -25,7 +25,7 @@ contract CurveAdapter is ISwapAdapter {
         int128 sellTokenIndex; // index of the token being sold
         int128 buyTokenIndex; // index of the token being bought
         uint256 specifiedAmount; // amount to trade
-        bool isSwappingUnderlying; // Determine if the swap is between
+        bool isSwappingUnderlying; // Determine if the swap is between underlying tokens
     }
 
     uint256 constant PRECISION = 10 ** 5;
@@ -256,8 +256,8 @@ contract CurveAdapter is ISwapAdapter {
         returns (Fraction memory)
     {
         uint256 amountIn;
-        uint256 sellTokenIndexUint = uint256(uint128(sellParams.sellTokenIndex));
-        uint256 buyTokenIndexUint = uint256(uint128(sellParams.buyTokenIndex));
+        uint256 sellTokenIndexUint = uint256(sellParams.sellTokenIndex);
+        uint256 buyTokenIndexUint = uint256(sellParams.buyTokenIndex);
 
         if (sellParams.isSwappingUnderlying) {
             amountIn = ICurveStableSwapMetaPool(sellParams.poolAddress).balances(
