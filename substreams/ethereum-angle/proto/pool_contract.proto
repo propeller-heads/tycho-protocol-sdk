@@ -1,0 +1,29 @@
+syntax = "proto3";
+
+package eth.pool.v1;
+
+message Swaps {
+  repeated Swap swaps = 1;
+}
+
+message Redeems {
+    repeated Redeem redeems = 1;
+}
+
+message Swap {
+  string amount = 1;
+  repeated string tokens = 2;
+  repeated string amounts = 3;
+  repeated string forfeitTokens = 4;
+  string from = 5;
+  string to = 6;
+}
+
+message Redeem {
+  string tokenIn = 1;
+  string tokenOut = 2;
+  string amountIn = 3;
+  string amountOut = 4;
+  string from = 5;
+  string to = 6;
+}
