@@ -18,7 +18,7 @@ pub fn map_components(
     block: eth::v2::Block,
 ) -> Result<BlockTransactionProtocolComponents> {
     let eur_transmuter = hex::decode(params).unwrap();
-    let find_second_transmuter = find_deployed_underlying_address(&eur_transmuter);
+    let find_second_transmuter = find_usd_transmuter(&eur_transmuter);
     let second_transmuter;
     if find_second_transmuter.is_some() {
         usd_transmuter = eur_transmuter.unwrap();
