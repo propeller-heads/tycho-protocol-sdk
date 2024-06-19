@@ -24,13 +24,13 @@ modules:
       - params: string
       - source: sf.ethereum.type.v2.Block
     output:
-      type: proto:tycho.evm.v1.GroupedTransactionProtocolComponents
+      type: proto:tycho.evm.v1.BlockTransactionProtocolComponents
 
   - name: store_components
     kind: store
     initialBlock: 18012837
-    updatePolicy: add
-    valueType: int64
+    updatePolicy: set
+    valueType: string
     inputs:
       - map: map_components
 
@@ -41,12 +41,12 @@ modules:
       - source: sf.ethereum.type.v2.Block
       - store: store_components
     output:
-      type: proto:tycho.evm.v1.BalanceDeltas
+      type: proto:tycho.evm.v1.BlockBalanceDeltas
 
   - name: store_balances
     kind: store
     initialBlock: 18012837
-    updatePolicy: add
+    updatePolicy: set
     valueType: bigint
     inputs:
       - map: map_relative_balances

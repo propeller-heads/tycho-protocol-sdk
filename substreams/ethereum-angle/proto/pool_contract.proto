@@ -1,13 +1,12 @@
 syntax = "proto3";
 
-package eth.pool.v1;
+import "google/protobuf/timestamp.proto";
 
-message Swaps {
-  repeated Swap swaps = 1;
-}
+package contract.v1;
 
-message Redeems {
-    repeated Redeem redeems = 1;
+message Events {
+    repeated Swap swaps = 1;
+    repeated Redeem redeems = 2;
 }
 
 message Swap {

@@ -1,9 +1,8 @@
-use crate::{abi, consts::{AGTOKEN_ETHEREUM_TRANSMUTER, AGTOKEN_ETHEREUM_TRANSMUTER_SECOND, ETHEREUM_TRANSMUTER, ETHEREUM_TRANSMUTER_SECOND, TRANSMUTERS_EUR, TRANSMUTERS_USD}};
+use crate::{abi, consts};
 use anyhow::Result;
 use itertools::Itertools;
 use std::collections::HashMap;
 use substreams::{
-    hex,
     pb::substreams::StoreDeltas,
     store::{StoreAdd, StoreAddBigInt, StoreAddInt64, StoreGet, StoreGetInt64, StoreNew},
 };
@@ -19,12 +18,9 @@ pub fn map_components(
 ) -> Result<BlockTransactionProtocolComponents> {
     let eur_transmuter = hex::decode(params).unwrap();
     let find_second_transmuter = find_usd_transmuter(&eur_transmuter);
-    let second_transmuter;
+    let mut usd_transmuter: [u8; 20] = [0; 20];
     if find_second_transmuter.is_some() {
-        usd_transmuter = eur_transmuter.unwrap();
-    }
-    else {
-        None
+        usd_transmuter = find_second_transmuter.unwrap();
     }
 
     // We store these as a hashmap by tx hash since we need to agg by tx hash later
@@ -93,7 +89,7 @@ pub fn map_relative_balances(
                         BalanceDelta {
                             ord: vault_log.ordinal(),
                             tx: Some(vault_log.receipt.transaction.into()),
-                            token: ev.token_in.to_vec(),
+                            token: ev.token_in,
                             delta: ev.amount_in.to_signed_bytes_be(),
                             component_id: address_hex.as_bytes().to_vec(),
                         },
@@ -114,26 +110,26 @@ pub fn map_relative_balances(
                     .get_last(format!("pool:{}", address_hex))
                     .is_some()
                 {
-                    let agToken = find_ag_token(address_hex);
-
-                    // AgToken burn
-                    deltas.push(BalanceDelta {
-                        ord: vault_log.ordinal(),
-                        tx: Some(vault_log.receipt.transaction.into()),
-                        token: agToken.to_vec(),
-                        delta: ev.amount.neg().to_signed_bytes_be(),
-                        component_id: address_hex.as_bytes().to_vec()
-                    });
-
-                    // Tokens mint
-                    for i in 0..ev.tokens.len() {
+                    if let Some(ag_token) = find_ag_token(address_bytes_be) {
+                        // AgToken burn
                         deltas.push(BalanceDelta {
                             ord: vault_log.ordinal(),
                             tx: Some(vault_log.receipt.transaction.into()),
-                            token: ev.tokens[i].to_vec(),
-                            delta: ev.amounts[i].to_signed_bytes_be(),
+                            token: ag_token.to_vec(),
+                            delta: ev.amount.neg().to_signed_bytes_be(),
                             component_id: address_hex.as_bytes().to_vec()
                         });
+
+                        // Tokens mint
+                        for i in 0..ev.tokens.len() {
+                            deltas.push(BalanceDelta {
+                                ord: vault_log.ordinal(),
+                                tx: Some(vault_log.receipt.transaction.into()),
+                                token: ev.tokens[i].to_vec(),
+                                delta: ev.amounts[i].to_signed_bytes_be(),
+                                component_id: address_hex.as_bytes().to_vec()
+                            });
+                        }
                     }
                 }
             }
@@ -256,19 +252,29 @@ fn create_vault_component(
 }
 
 fn find_usd_transmuter(eur_transmuter: &[u8]) -> Option<[u8; 20]> {
-    for i in 0..TRANSMUTERS_USD.len() {
-        if !TRANSMUTERS_EUR[i].is_empty() {
-            Some(TRANSMUTERS_USD[i]);
-            break;
+    for i in 0..consts::TRANSMUTERS_USD.len() {
+        if !consts::TRANSMUTERS_EUR[i].is_empty() && consts::TRANSMUTERS_EUR[i] == eur_transmuter {
+            return Some(consts::TRANSMUTERS_USD[i]);
         }
     }
+    None
 }
 
 // agToken is the token burnt or minted, obtained by transmuter.agToken()
 fn find_ag_token(transmuter: &[u8]) -> Option<[u8; 20]> {
-    for i in 0..TRANSMUTERS_USD.len() {
-        if !TRANSMUTERS_EUR[i].is_empty() {
-            Some(TRANSMUTERS_USD[i]);
+    // Transmuter is EUR
+    for i in 0..consts::TRANSMUTERS_EUR.len() {
+        if !consts::TRANSMUTERS_EUR[i].is_empty() && consts::TRANSMUTERS_EUR[i] == transmuter{
+            return Some(consts::AGTOKENS_EUR[i]);
         }
     }
+
+    // Transmuter is USD
+    for j in 0..consts::TRANSMUTERS_USD.len() {
+        if !consts::TRANSMUTERS_USD[j].is_empty() && consts::TRANSMUTERS_USD[j] == transmuter{
+            return Some(consts::AGTOKENS_USD[j]);
+        }
+    }
+
+    None
 }

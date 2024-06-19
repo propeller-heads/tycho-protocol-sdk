@@ -8,16 +8,18 @@ name = "substreams"
 crate-type = ["cdylib"]
 
 [dependencies]
-ethabi = "17"
-hex-literal = "0.3.4"
-num-bigint = "0.4"
-num-traits = "0.2.15"
-prost = "0.11"
-prost-types = "0.11"
-substreams = "0.5"
-substreams-ethereum = "0.9"
-substreams-database-change = "1"
-substreams-entity-change = "1"
+substreams.workspace = true
+substreams-ethereum.workspace = true
+prost.workspace = true
+prost-types.workspace = true
+hex-literal.workspace = true
+ethabi.workspace = true
+hex.workspace = true
+bytes = "1.5.0"
+anyhow = "1.0.75"
+num-bigint = "0.4.4"
+itertools = "0.12.0"
+tycho-substreams.workspace = true
 
 # Required so that ethabi > ethereum-types build correctly under wasm32-unknown-unknown
 [target.wasm32-unknown-unknown.dependencies]
@@ -25,8 +27,8 @@ getrandom = { version = "0.2", features = ["custom"] }
 
 [build-dependencies]
 anyhow = "1"
-substreams-ethereum = "0.9"
-regex = "1.8"
+substreams-ethereum.workspace = true
+regex = "1.10.4"
 
 [profile.release]
 lto = true
