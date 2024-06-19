@@ -34,8 +34,7 @@ pub fn map_components(
                     .filter_map(|_| {
                         if is_deployment_tx(tx, &eur_transmuter) {
                             Some(create_vault_component(&tx.into(), &eur_transmuter))
-                        }
-                        else if is_deployment_tx(tx, &usd_transmuter) {
+                        } else if is_deployment_tx(tx, &usd_transmuter) {
                             Some(create_vault_component(&tx.into(), &usd_transmuter))
                         } else {
                             None
@@ -79,8 +78,7 @@ pub fn map_relative_balances(
             let address_bytes_be = vault_log.address();
             let address_hex = format!("0x{}", hex::encode(address_bytes_be));
 
-            if let Some(ev) = abi::pool_contract::events::Swap::match_and_decode(vault_log.log)
-            {
+            if let Some(ev) = abi::pool_contract::events::Swap::match_and_decode(vault_log.log) {
                 if store
                     .get_last(format!("pool:{}", address_hex))
                     .is_some()
@@ -117,7 +115,7 @@ pub fn map_relative_balances(
                             tx: Some(vault_log.receipt.transaction.into()),
                             token: ag_token.to_vec(),
                             delta: ev.amount.neg().to_signed_bytes_be(),
-                            component_id: address_hex.as_bytes().to_vec()
+                            component_id: address_hex.as_bytes().to_vec(),
                         });
 
                         // Tokens mint
@@ -127,7 +125,7 @@ pub fn map_relative_balances(
                                 tx: Some(vault_log.receipt.transaction.into()),
                                 token: ev.tokens[i].to_vec(),
                                 delta: ev.amounts[i].to_signed_bytes_be(),
-                                component_id: address_hex.as_bytes().to_vec()
+                                component_id: address_hex.as_bytes().to_vec(),
                             });
                         }
                     }
@@ -243,10 +241,7 @@ fn is_deployment_tx(tx: &eth::v2::TransactionTrace, vault_address: &[u8]) -> boo
     false
 }
 
-fn create_vault_component(
-    tx: &Transaction,
-    component_id: &[u8]
-) -> ProtocolComponent {
+fn create_vault_component(tx: &Transaction, component_id: &[u8]) -> ProtocolComponent {
     ProtocolComponent::at_contract(component_id, tx)
         .as_swap_type("ANGLE_TRANSMUTER", ImplementationType::Vm)
 }
@@ -264,14 +259,14 @@ fn find_usd_transmuter(eur_transmuter: &[u8]) -> Option<[u8; 20]> {
 fn find_ag_token(transmuter: &[u8]) -> Option<[u8; 20]> {
     // Transmuter is EUR
     for i in 0..consts::TRANSMUTERS_EUR.len() {
-        if !consts::TRANSMUTERS_EUR[i].is_empty() && consts::TRANSMUTERS_EUR[i] == transmuter{
+        if !consts::TRANSMUTERS_EUR[i].is_empty() && consts::TRANSMUTERS_EUR[i] == transmuter {
             return Some(consts::AGTOKENS_EUR[i]);
         }
     }
 
     // Transmuter is USD
     for j in 0..consts::TRANSMUTERS_USD.len() {
-        if !consts::TRANSMUTERS_USD[j].is_empty() && consts::TRANSMUTERS_USD[j] == transmuter{
+        if !consts::TRANSMUTERS_USD[j].is_empty() && consts::TRANSMUTERS_USD[j] == transmuter {
             return Some(consts::AGTOKENS_USD[j]);
         }
     }
