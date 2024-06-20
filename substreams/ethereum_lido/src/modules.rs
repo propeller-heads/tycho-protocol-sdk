@@ -14,7 +14,7 @@ use tycho_substreams::{
 
 const WSTETH_ADDRESS: [u8; 20] = hex!("7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0"); //wstETH
 const LOCKED_ASSET_ADDRESS: [u8; 20] = hex!("e19fc582dd93FA876CF4061Eb5456F310144F57b");
-const LIDO_DEPLOYER: [u8; 20] = hex!("4600D3b12c39AF925C2C07C487d31D17c1e32A35"); // https://etherscan.io/tx/0xd78dbe6cba652eb844de5aa473636c202fb6366c1bfc5ff8d5a26c1a24b37b07
+const LIDO_DEPLOYER: [u8; 20] = hex!("4600D3b12c39AF925C2C07C487d31D17c1e32A35");
 
 #[substreams::handlers::map]
 pub fn map_components(block: eth::v2::Block) -> Result<BlockTransactionProtocolComponents> {
