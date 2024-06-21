@@ -42,20 +42,64 @@ contract CurveAdapter is ISwapAdapter {
     /// @dev enable receive as this contract supports ETH
     receive() external payable {}
 
-    /**
-     * @dev It is not possible to reproduce the swap in a view mode (like
-     * Bancor, Uniswap v2, etc..) as the swap produce a change of storage in
-     * the Curve protocol, that impacts the price post trade. Due to the
-     * architecture of Curve, it's not possible to calculate the storage
-     * modifications of Curve inside the adapter.
-     */
-    function price(bytes32, address, address, uint256[] memory)
+    /// @inheritdoc ISwapAdapter
+    function price(bytes32 poolId, address sellToken, address buyToken, uint256[] memory specifiedAmounts)
         external
-        pure
+        view
         override
-        returns (Fraction[] memory)
+        returns (Fraction[] memory prices)
     {
-        revert NotImplemented("CurveAdapter.price");
+        SellParamsCache memory sellParams;
+        sellParams.poolAddress = address(bytes20(poolId));
+        sellParams.sellToken = sellToken;
+        sellParams.buyToken = buyToken;
+
+        bool isEthPool; // pool is native ETH pool
+        PoolCoins memory coins = getCoins(sellParams.poolAddress);
+
+        /// @dev Support for Native ETH pools, ETH pools cannot be Meta
+        /// therefore we can directly access coins without using underlying
+        if (sellToken == address(0)) {
+            for (uint256 i = 0; i < coins.coinsLength; i++) {
+                if (
+                    coins.addresses[i] == ETH_ADDRESS
+                        || coins.addresses[i] == WETH_ADDRESS
+                ) {
+                    sellParams.sellToken = ETH_ADDRESS;
+                    if (coins.addresses[i] == ETH_ADDRESS) {
+                        isEthPool = true;
+                    }
+                    break;
+                }
+            }
+        } else if (buyToken == address(0)) {
+            for (uint256 i = 0; i < coins.coinsLength; i++) {
+                if (
+                    coins.addresses[i] == ETH_ADDRESS
+                        || coins.addresses[i] == WETH_ADDRESS
+                ) {
+                    sellParams.buyToken = ETH_ADDRESS;
+                    if (coins.addresses[i] == ETH_ADDRESS) {
+                        isEthPool = true;
+                    }
+                    break;
+                }
+            }
+        }
+
+        (sellParams.sellTokenIndex, sellParams.buyTokenIndex) = getCoinsIndices(
+            sellParams.sellToken,
+            sellParams.buyToken,
+            coins,
+            isEthPool
+        );
+
+        prices = new Fraction[](specifiedAmounts.length);
+
+        for (uint256 i = 0; i < specifiedAmounts.length; i++) {
+            sellParams.specifiedAmount = specifiedAmounts[i];
+            prices[i] = getPriceAt(sellParams);
+        }
     }
 
     /// @inheritdoc ISwapAdapter
@@ -112,7 +156,6 @@ contract CurveAdapter is ISwapAdapter {
 
             (sellParams.sellTokenIndex, sellParams.buyTokenIndex) =
             getCoinsIndices(
-                sellParams.poolAddress,
                 sellParams.sellToken,
                 sellParams.buyToken,
                 coins,
@@ -179,7 +222,7 @@ contract CurveAdapter is ISwapAdapter {
         }
 
         (int128 sellTokenIndex, int128 buyTokenIndex) = getCoinsIndices(
-            poolAddress, sellToken_, buyToken_, coins, isEthPool
+            sellToken_, buyToken_, coins, isEthPool
         );
 
         limits = new uint256[](2);
@@ -233,9 +276,9 @@ contract CurveAdapter is ISwapAdapter {
 
     function getPoolIds(uint256, uint256)
         external
-        view
+        pure
         override
-        returns (bytes32[] memory ids)
+        returns (bytes32[] memory)
     {
         revert NotImplemented("CurveAdapter.getPoolIds");
     }
@@ -371,9 +414,8 @@ contract CurveAdapter is ISwapAdapter {
     function isInt128Pool(address poolAddress) internal view returns (bool) {
         ICurveStableSwapPool pool = ICurveStableSwapPool(poolAddress);
         uint256 reserve0 = pool.balances(0);
-        try ICurveCryptoSwapPool(poolAddress).get_dy(
-            0, 1, reserve0 / PRECISION
-        ) returns (uint256) {
+        try ICurveCryptoSwapPool(poolAddress).get_dy(0, 1, reserve0 / PRECISION)
+        returns (uint256) {
             return false;
         } catch {
             return true;
@@ -406,18 +448,16 @@ contract CurveAdapter is ISwapAdapter {
     /// @notice Get indices of coins to swap
     /// @dev If the pool is meta the registry.get_coin_indices includes the
     /// underlying addresses (appended to the array from index 1 to length-1)
-    /// @param poolAddress The address of the pool
     /// @param sellToken The token being sold
     /// @param buyToken The token being bought
     /// @param coins output of getCoins()
     /// @param isEthPool determine if pool has native ETH inside
     function getCoinsIndices(
-        address poolAddress,
         address sellToken,
         address buyToken,
         PoolCoins memory coins,
         bool isEthPool
-    ) internal view returns (int128 sellTokenIndex, int128 buyTokenIndex) {
+    ) internal pure returns (int128 sellTokenIndex, int128 buyTokenIndex) {
         address sellToken_ = sellToken;
         address buyToken_ = buyToken;
         if (sellToken == ETH_ADDRESS && !isEthPool) {
