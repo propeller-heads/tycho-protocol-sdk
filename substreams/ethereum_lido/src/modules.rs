@@ -7,13 +7,13 @@ use substreams::{
     pb::substreams::StoreDeltas,
     store::{StoreAdd, StoreAddBigInt, StoreAddInt64, StoreGet, StoreGetInt64, StoreNew},
 };
-use substreams_ethereum::{pb::eth, Event};
+use substreams_ethereum::{pb::eth, Function};
 use tycho_substreams::{
     balances::aggregate_balances_changes, contract::extract_contract_changes, prelude::*,
 };
 
 const WSTETH_ADDRESS: [u8; 20] = hex!("7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0"); //wstETH
-const LOCKED_ASSET_ADDRESS: [u8; 20] = hex!("e19fc582dd93FA876CF4061Eb5456F310144F57b");
+const LOCKED_ASSET_ADDRESS: [u8; 20] = hex!("e19fc582dd93FA876CF4061Eb5456F310144F57b"); //stETH
 const LIDO_DEPLOYER: [u8; 20] = hex!("4600D3b12c39AF925C2C07C487d31D17c1e32A35");
 
 #[substreams::handlers::map]
@@ -66,47 +66,75 @@ pub fn store_components(map: BlockTransactionProtocolComponents, store: StoreAdd
 #[substreams::handlers::map]
 pub fn map_relative_balances(
     block: eth::v2::Block,
-    store: StoreGetInt64,
 ) -> Result<BlockBalanceDeltas, anyhow::Error> {
     let balance_deltas = block
-        .logs()
-        .filter(|log| log.address() == WSTETH_ADDRESS)
-        .flat_map(|vault_log| {
+        .transactions()
+        .flat_map(|tx| {
             let mut deltas = Vec::new();
-
-            if let Some(ev) =
-                abi::wsteth_contract::events::Transfer::match_and_decode(vault_log.log)
-            {
-                if store
-                    .get_last(format!("pool:{0}", hex::encode(WSTETH_ADDRESS)))
-                    .is_some() &&
-                    ev.to == WSTETH_ADDRESS
-                {
-                    deltas.push(BalanceDelta {
-                        ord: vault_log.ordinal(),
-                        tx: Some(vault_log.receipt.transaction.into()),
-                        token: LOCKED_ASSET_ADDRESS.to_vec(),
-                        delta: ev.value.to_signed_bytes_be(),
-                        component_id: WSTETH_ADDRESS.to_vec(),
-                    })
-                } else if store
-                    .get_last(format!("pool:{0}", hex::encode(WSTETH_ADDRESS)))
-                    .is_some() &&
-                    ev.from == WSTETH_ADDRESS
-                {
-                    deltas.push(BalanceDelta {
-                        ord: vault_log.ordinal(),
-                        tx: Some(vault_log.receipt.transaction.into()),
-                        token: LOCKED_ASSET_ADDRESS.to_vec(),
-                        delta: ev.value.neg().to_signed_bytes_be(),
-                        component_id: WSTETH_ADDRESS.to_vec(),
-                    })
-                }
+            if tx.to == WSTETH_ADDRESS {
+                tx.calls.iter().for_each(|call| {
+                    // Wrap function
+                    match (
+                        abi::wsteth_contract::functions::Wrap::match_and_decode(call),
+                        abi::wsteth_contract::functions::Wrap::output(&call.return_data),
+                    ) {
+                        (Some(wrap_call), Ok(output_amount)) => {
+                            let amount_in = wrap_call
+                                .u_st_eth_amount
+                                .to_signed_bytes_be();
+                            let amount_out = output_amount.neg().to_signed_bytes_be();
+                            deltas.extend_from_slice(&[
+                                BalanceDelta {
+                                    ord: call.begin_ordinal,
+                                    tx: Some(tx.into()),
+                                    token: LOCKED_ASSET_ADDRESS.to_vec(),
+                                    delta: amount_in,
+                                    component_id: WSTETH_ADDRESS.to_vec(),
+                                },
+                                BalanceDelta {
+                                    ord: call.begin_ordinal,
+                                    tx: Some(tx.into()),
+                                    token: WSTETH_ADDRESS.to_vec(),
+                                    delta: amount_out,
+                                    component_id: WSTETH_ADDRESS.to_vec(),
+                                },
+                            ])
+                        }
+                        _ => {}
+                    }
+                    match (
+                        abi::wsteth_contract::functions::Unwrap::match_and_decode(call),
+                        abi::wsteth_contract::functions::Unwrap::output(&call.return_data),
+                    ) {
+                        (Some(unwrap_call), Ok(output_amount)) => {
+                            let amount_in = unwrap_call
+                                .u_wst_eth_amount
+                                .to_signed_bytes_be();
+                            let amount_out = output_amount.neg().to_signed_bytes_be();
+                            deltas.extend_from_slice(&[
+                                BalanceDelta {
+                                    ord: call.begin_ordinal,
+                                    tx: Some(tx.into()),
+                                    token: LOCKED_ASSET_ADDRESS.to_vec(),
+                                    delta: amount_out,
+                                    component_id: WSTETH_ADDRESS.to_vec(),
+                                },
+                                BalanceDelta {
+                                    ord: call.begin_ordinal,
+                                    tx: Some(tx.into()),
+                                    token: WSTETH_ADDRESS.to_vec(),
+                                    delta: amount_in,
+                                    component_id: WSTETH_ADDRESS.to_vec(),
+                                },
+                            ])
+                        }
+                        _ => {}
+                    }
+                })
             }
             deltas
         })
-        .collect::<Vec<_>>();
-
+        .collect_vec();
     Ok(BlockBalanceDeltas { balance_deltas })
 }
 
