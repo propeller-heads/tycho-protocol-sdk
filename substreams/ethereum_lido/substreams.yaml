@@ -41,7 +41,6 @@ modules:
     inputs:
       - source: sf.ethereum.type.v2.Block
       - store: store_components
-      - store: store_reward_cycles
     output:
       type: proto:tycho.evm.v1.BalanceDeltas
 
