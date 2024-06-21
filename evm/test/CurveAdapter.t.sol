@@ -35,7 +35,7 @@ contract CurveAdapterTest is Test, ISwapAdapterTypes {
     function setUp() public {
         uint256 forkBlock = 19719570;
         vm.createSelectFork(vm.rpcUrl("mainnet"), forkBlock);
-        adapter = new CurveAdapter(0xF98B45FA17DE75FB1aD0e7aFD971b0ca00e379fC);
+        adapter = new CurveAdapter();
 
         vm.label(address(adapter), "CurveAdapter");
         vm.label(USDT, "USDT");
@@ -137,72 +137,6 @@ contract CurveAdapterTest is Test, ISwapAdapterTypes {
         );
     }
 
-    function testSwapFuzzCurveStableMetaSwapTokenVsUnderlying(
-        uint256 specifiedAmount
-    ) public {
-        address coin0 = MIM;
-        address coin1 = USDT;
-
-        bytes32 pair = bytes32(bytes20(STABLE_META_POOL));
-        uint256[] memory limits = adapter.getLimits(pair, coin0, coin1);
-
-        vm.assume(specifiedAmount < limits[0] && specifiedAmount > 10 ** 16);
-
-        executeSwapFuzzMeta(pair, coin0, coin1, specifiedAmount);
-    }
-
-    function testSwapFuzzCurveStableMetaSwapTokenVsToken(
-        uint256 specifiedAmount
-    ) public {
-        address coin0 = MIM;
-        address coin1 = THREE_CRV_TOKEN;
-
-        bytes32 pair = bytes32(bytes20(STABLE_META_POOL));
-        uint256[] memory limits = adapter.getLimits(pair, coin0, coin1);
-
-        vm.assume(specifiedAmount < limits[0] && specifiedAmount > 10 ** 16);
-        executeSwapFuzzMeta(pair, coin0, coin1, specifiedAmount);
-    }
-
-    function testSwapFuzzCurveStableMetaSwapUnderlyingVsUnderlying(
-        uint256 specifiedAmount
-    ) public {
-        address coin0 = DAI;
-        address coin1 = USDC;
-
-        bytes32 pair = bytes32(bytes20(STABLE_META_POOL));
-        uint256[] memory limits = adapter.getLimits(pair, coin0, coin1);
-
-        vm.assume(specifiedAmount < limits[0] && specifiedAmount > 10 ** 16);
-
-        executeSwapFuzzMeta(pair, coin0, coin1, specifiedAmount);
-    }
-
-    function executeSwapFuzzMeta(
-        bytes32 pair,
-        address coin0,
-        address coin1,
-        uint256 specifiedAmount
-    ) internal {
-        deal(coin0, address(this), specifiedAmount);
-        IERC20(coin0).approve(address(adapter), specifiedAmount);
-
-        uint256 coin0_balance = IERC20(coin0).balanceOf(address(this));
-        uint256 coin1_balance = IERC20(coin1).balanceOf(address(this));
-
-        Trade memory trade =
-            adapter.swap(pair, coin0, coin1, OrderSide.Sell, specifiedAmount);
-
-        assertEq(
-            specifiedAmount,
-            coin0_balance - IERC20(coin0).balanceOf(address(this))
-        );
-        assertEq(
-            trade.calculatedAmount,
-            IERC20(coin1).balanceOf(address(this)) - coin1_balance
-        );
-    }
-
     function testSwapFuzzCurveStablePoolEthWithEth(uint256 specifiedAmount)
         public
     {
@@ -259,12 +193,6 @@ contract CurveAdapterTest is Test, ISwapAdapterTypes {
         executeIncreasingSwapsCryptoSwap(OrderSide.Sell);
     }
 
-    function testSwapSellIncreasingCurveMeta() public {
-        executeIncreasingSwapsStableSwapMeta(MIM, USDT);
-        executeIncreasingSwapsStableSwapMeta(MIM, THREE_CRV_TOKEN);
-        executeIncreasingSwapsStableSwapMeta(DAI, USDT);
-    }
-
     function executeIncreasingSwapsStableSwap(OrderSide side) internal {
         bytes32 pair = bytes32(bytes20(CRYPTO_POOL));
 
@@ -317,34 +245,6 @@ contract CurveAdapterTest is Test, ISwapAdapterTypes {
         }
     }
 
-    function executeIncreasingSwapsStableSwapMeta(address coin0, address coin1)
-        internal
-    {
-        bytes32 pair = bytes32(bytes20(STABLE_META_POOL));
-
-        uint256[] memory amounts = new uint256[](TEST_ITERATIONS);
-        for (uint256 i = 0; i < TEST_ITERATIONS; i++) {
-            amounts[i] = 1000 * i * 10 ** 10;
-        }
-
-        Trade[] memory trades = new Trade[](TEST_ITERATIONS);
-        uint256 beforeSwap;
-        for (uint256 i = 0; i < TEST_ITERATIONS; i++) {
-            beforeSwap = vm.snapshot();
-
-            deal(coin0, address(this), amounts[i]);
-            IERC20(coin0).approve(address(adapter), amounts[i]);
-
-            trades[i] =
-                adapter.swap(pair, coin0, coin1, OrderSide.Sell, amounts[i]);
-            vm.revertTo(beforeSwap);
-        }
-
-        for (uint256 i = 1; i < TEST_ITERATIONS - 1; i++) {
-            assertLe(trades[i].calculatedAmount, trades[i + 1].calculatedAmount);
-        }
-    }
-
     function testGetCapabilitiesCurveSwap(bytes32 pair, address t0, address t1)
         public
     {
@@ -365,12 +265,6 @@ contract CurveAdapterTest is Test, ISwapAdapterTypes {
         address[] memory tokens = adapter.getTokens(pair);
 
         assertGe(tokens.length, 2);
-    }
-
-    function testGetPoolIdsCurveSwap() public {
-        bytes32[] memory poolIds = adapter.getPoolIds(0, 2);
-
-        assertEq(poolIds.length, 2);
     }
 
     function testGetLimitsCurveStableSwap() public {
