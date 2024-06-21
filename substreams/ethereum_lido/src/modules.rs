@@ -64,9 +64,7 @@ pub fn store_components(map: BlockTransactionProtocolComponents, store: StoreAdd
 /// Since the `PoolBalanceChanged` and `Swap` events administer only deltas, we need to leverage a
 /// map and a  store to be able to tally up final balances for tokens in a pool.
 #[substreams::handlers::map]
-pub fn map_relative_balances(
-    block: eth::v2::Block,
-) -> Result<BlockBalanceDeltas, anyhow::Error> {
+pub fn map_relative_balances(block: eth::v2::Block) -> Result<BlockBalanceDeltas, anyhow::Error> {
     let balance_deltas = block
         .transactions()
         .flat_map(|tx| {
@@ -74,61 +72,55 @@ pub fn map_relative_balances(
             if tx.to == WSTETH_ADDRESS {
                 tx.calls.iter().for_each(|call| {
                     // Wrap function
-                    match (
-                        abi::wsteth_contract::functions::Wrap::match_and_decode(call),
-                        abi::wsteth_contract::functions::Wrap::output(&call.return_data),
-                    ) {
-                        (Some(wrap_call), Ok(output_amount)) => {
-                            let amount_in = wrap_call
-                                .u_st_eth_amount
-                                .to_signed_bytes_be();
-                            let amount_out = output_amount.neg().to_signed_bytes_be();
-                            deltas.extend_from_slice(&[
-                                BalanceDelta {
-                                    ord: call.begin_ordinal,
-                                    tx: Some(tx.into()),
-                                    token: LOCKED_ASSET_ADDRESS.to_vec(),
-                                    delta: amount_in,
-                                    component_id: WSTETH_ADDRESS.to_vec(),
-                                },
-                                BalanceDelta {
-                                    ord: call.begin_ordinal,
-                                    tx: Some(tx.into()),
-                                    token: WSTETH_ADDRESS.to_vec(),
-                                    delta: amount_out,
-                                    component_id: WSTETH_ADDRESS.to_vec(),
-                                },
-                            ])
-                        }
-                        _ => {}
-                    }
-                    match (
+                    if let (Some(unwrap_call), Ok(output_amount)) = (
                         abi::wsteth_contract::functions::Unwrap::match_and_decode(call),
                         abi::wsteth_contract::functions::Unwrap::output(&call.return_data),
                     ) {
-                        (Some(unwrap_call), Ok(output_amount)) => {
-                            let amount_in = unwrap_call
-                                .u_wst_eth_amount
-                                .to_signed_bytes_be();
-                            let amount_out = output_amount.neg().to_signed_bytes_be();
-                            deltas.extend_from_slice(&[
-                                BalanceDelta {
-                                    ord: call.begin_ordinal,
-                                    tx: Some(tx.into()),
-                                    token: LOCKED_ASSET_ADDRESS.to_vec(),
-                                    delta: amount_out,
-                                    component_id: WSTETH_ADDRESS.to_vec(),
-                                },
-                                BalanceDelta {
-                                    ord: call.begin_ordinal,
-                                    tx: Some(tx.into()),
-                                    token: WSTETH_ADDRESS.to_vec(),
-                                    delta: amount_in,
-                                    component_id: WSTETH_ADDRESS.to_vec(),
-                                },
-                            ])
-                        }
-                        _ => {}
+                        let amount_in = unwrap_call
+                            .u_wst_eth_amount
+                            .to_signed_bytes_be();
+                        let amount_out = output_amount.neg().to_signed_bytes_be();
+                        deltas.extend_from_slice(&[
+                            BalanceDelta {
+                                ord: call.begin_ordinal,
+                                tx: Some(tx.into()),
+                                token: LOCKED_ASSET_ADDRESS.to_vec(),
+                                delta: amount_out,
+                                component_id: WSTETH_ADDRESS.to_vec(),
+                            },
+                            BalanceDelta {
+                                ord: call.begin_ordinal,
+                                tx: Some(tx.into()),
+                                token: WSTETH_ADDRESS.to_vec(),
+                                delta: amount_in,
+                                component_id: WSTETH_ADDRESS.to_vec(),
+                            },
+                        ])
+                    }
+                    if let (Some(unwrap_call), Ok(output_amount)) = (
+                        abi::wsteth_contract::functions::Unwrap::match_and_decode(call),
+                        abi::wsteth_contract::functions::Unwrap::output(&call.return_data),
+                    ) {
+                        let amount_in = unwrap_call
+                            .u_wst_eth_amount
+                            .to_signed_bytes_be();
+                        let amount_out = output_amount.neg().to_signed_bytes_be();
+                        deltas.extend_from_slice(&[
+                            BalanceDelta {
+                                ord: call.begin_ordinal,
+                                tx: Some(tx.into()),
+                                token: LOCKED_ASSET_ADDRESS.to_vec(),
+                                delta: amount_out,
+                                component_id: WSTETH_ADDRESS.to_vec(),
+                            },
+                            BalanceDelta {
+                                ord: call.begin_ordinal,
+                                tx: Some(tx.into()),
+                                token: WSTETH_ADDRESS.to_vec(),
+                                delta: amount_in,
+                                component_id: WSTETH_ADDRESS.to_vec(),
+                            },
+                        ])
                     }
                 })
             }
