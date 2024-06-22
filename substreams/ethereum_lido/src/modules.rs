@@ -14,7 +14,6 @@ use tycho_substreams::{
 
 const WSTETH_ADDRESS: [u8; 20] = hex!("7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0"); //wstETH
 const LOCKED_ASSET_ADDRESS: [u8; 20] = hex!("e19fc582dd93FA876CF4061Eb5456F310144F57b"); //stETH
-const LIDO_DEPLOYER: [u8; 20] = hex!("4600D3b12c39AF925C2C07C487d31D17c1e32A35");
 
 #[substreams::handlers::map]
 pub fn map_components(block: eth::v2::Block) -> Result<BlockTransactionProtocolComponents> {
@@ -24,12 +23,10 @@ pub fn map_components(block: eth::v2::Block) -> Result<BlockTransactionProtocolC
             .transactions()
             .filter_map(|tx| {
                 let components = tx
-                    .logs_with_calls()
-                    .filter(|(_, call)| !call.call.state_reverted)
-                    .filter_map(|(log, _)| {
-                        if is_deployment_tx_from_deployer(tx, LIDO_DEPLOYER) &&
-                            log.address == WSTETH_ADDRESS
-                        {
+                    .calls()
+                    .filter(|call| !call.call.state_reverted)
+                    .filter_map(|_| {
+                        if is_deployment_tx(tx, &WSTETH_ADDRESS) {
                             Some(create_vault_component(&tx.into()))
                         } else {
                             None
@@ -213,12 +210,21 @@ pub fn map_protocol_changes(
     })
 }
 
-fn is_deployment_tx_from_deployer(
-    tx: &eth::v2::TransactionTrace,
-    deployer_address: [u8; 20],
-) -> bool {
-    let zero_address = hex!("0000000000000000000000000000000000000000");
-    tx.to.as_slice() == zero_address && tx.from.as_slice() == deployer_address
+fn is_deployment_tx(tx: &eth::v2::TransactionTrace, vault_address: &[u8]) -> bool {
+    let created_accounts = tx
+        .calls
+        .iter()
+        .flat_map(|call| {
+            call.account_creations
+                .iter()
+                .map(|ac| ac.account.to_owned())
+        })
+        .collect::<Vec<_>>();
+
+    if let Some(deployed_address) = created_accounts.first() {
+        return deployed_address.as_slice() == vault_address;
+    }
+    false
 }
 
 fn create_vault_component(tx: &Transaction) -> ProtocolComponent {
