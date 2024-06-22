@@ -11,6 +11,9 @@ protobuf:
   importPaths:
     - ../../proto
 
+# deployment block 11888477
+# fist tx block 11888477
+
 binaries:
   default:
     type: wasm/rust-v1
@@ -19,7 +22,7 @@ binaries:
 modules:
   - name: map_components
     kind: map
-    initialBlock: 15622066
+    initialBlock: 11888477
     inputs:
       - source: sf.ethereum.type.v2.Block
     output:
@@ -29,7 +32,7 @@ modules:
 
   - name: store_components
     kind: store
-    initialBlock: 15622066
+    initialBlock: 11888477
     updatePolicy: add
     valueType: int64
     inputs:
@@ -37,7 +40,7 @@ modules:
 
   - name: map_relative_balances
     kind: map
-    initialBlock: 15622066 # An arbitrary block that should change based on your requirements
+    initialBlock: 11888477 # An arbitrary block that should change based on your requirements
     inputs:
       - source: sf.ethereum.type.v2.Block
       - store: store_components
@@ -46,7 +49,7 @@ modules:
 
   - name: store_balances
     kind: store
-    initialBlock: 15622066
+    initialBlock: 11888477
     updatePolicy: add
     valueType: bigint
     inputs:
@@ -54,7 +57,7 @@ modules:
 
   - name: map_protocol_changes
     kind: map
-    initialBlock: 15622066
+    initialBlock: 11888477
     inputs:
       - source: sf.ethereum.type.v2.Block
       - map: map_components
