@@ -197,9 +197,9 @@ pub fn map_protocol_changes(
             .drain()
             .sorted_unstable_by_key(|(index, _)| *index)
             .filter_map(|(_, change)| {
-                if change.contract_changes.is_empty() &&
-                    change.component_changes.is_empty() &&
-                    change.balance_changes.is_empty()
+                if change.contract_changes.is_empty()
+                    && change.component_changes.is_empty()
+                    && change.balance_changes.is_empty()
                 {
                     None
                 } else {
@@ -230,5 +230,5 @@ fn is_deployment_tx(tx: &eth::v2::TransactionTrace, vault_address: &[u8]) -> boo
 fn create_vault_component(tx: &Transaction) -> ProtocolComponent {
     ProtocolComponent::at_contract(WSTETH_ADDRESS.as_slice(), tx)
         .with_tokens(&[LOCKED_ASSET_ADDRESS])
-        .as_swap_type("sfraxeth_vault", ImplementationType::Vm)
+        .as_swap_type("lido_wsteth", ImplementationType::Vm)
 }
