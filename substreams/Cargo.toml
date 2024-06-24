@@ -1,7 +1,4 @@
 [workspace]
-<<<<<<< HEAD
-members = ["ethereum-balancer", "ethereum-curve", "crates/tycho-substreams", "ethereum-rocketpool"]
-=======
 members = [
     "ethereum-balancer-v2",
     "ethereum-curve",
@@ -17,7 +14,6 @@ members = [
     "ethereum-template-singleton",
     "ethereum-uniswap-v4",
 ]
->>>>>>> propeller/main
 resolver = "2"
 
 [profile.release]
