@@ -136,6 +136,7 @@ pub fn map_protocol_changes(
     })
 }
 
+#[substreams::handlers::map]
 pub fn map_relative_balances(
     block: eth::v2::Block,
     store: StoreGetInt64,
