@@ -13,8 +13,7 @@ use tycho_substreams::{
 };
 
 const RETH_ADDRESS: [u8; 20] = hex!("DD3f50F8A6CafbE9b31a427582963f465E745AF8"); //RPL rocketPool Token
-const LOCKED_ASSET_ADDRESS: [u8; 20] = hex!("e19fc582dd93FA876CF4061Eb5456F310144F57b"); //eth
-const vault_address: [u8; 20] = hex!("3bDC69C4E5e13E52A65f5583c23EFB9636b469d6"); //eth
+const VAULT_ADDRESS: [u8; 20] = hex!("3bDC69C4E5e13E52A65f5583c23EFB9636b469d6"); //vault
 
 #[substreams::handlers::map]
 pub fn map_components(block: eth::v2::Block) -> Result<BlockTransactionProtocolComponents> {
@@ -27,7 +26,7 @@ pub fn map_components(block: eth::v2::Block) -> Result<BlockTransactionProtocolC
                     .calls()
                     .filter(|call| !call.call.state_reverted)
                     .filter_map(|_| {
-                        if is_deployment_tx(tx, &vault_address) {
+                        if is_deployment_tx(tx, &VAULT_ADDRESS) {
                             Some(create_vault_component(&tx.into()))
                         } else {
                             None
@@ -143,15 +142,19 @@ pub fn map_relative_balances(
 ) -> Result<BlockBalanceDeltas, anyhow::Error> {
     let balance_deltas = block
         .logs()
-        .filter(|log| find_deployed_underlying_address(log.address()).is_some())
         .flat_map(|vault_log| {
             let mut deltas = Vec::new();
             let address_bytes_be = vault_log.address();
             let address_hex = format!("0x{}", hex::encode(address_bytes_be));
 
-            if store.get_last(format!("pool:{}", address_hex)).is_some() {
+            if store
+                .get_last(format!("pool:{}", address_hex))
+                .is_some()
+            {
                 if let Some(ev) =
-                    abi::rocketvault_contract::events::EtherDeposited::match_and_decode(vault_log.log)
+                    abi::rocketvault_contract::events::EtherDeposited::match_and_decode(
+                        vault_log.log,
+                    )
                 {
                     deltas.push(BalanceDelta {
                         ord: vault_log.ordinal(),
@@ -161,7 +164,9 @@ pub fn map_relative_balances(
                         component_id: address_hex.as_bytes().to_vec(),
                     });
                 } else if let Some(ev) =
-                    abi::rocketvault_contract::events::EtherWithdrawn::match_and_decode(vault_log.log)
+                    abi::rocketvault_contract::events::EtherWithdrawn::match_and_decode(
+                        vault_log.log,
+                    )
                 {
                     deltas.push(BalanceDelta {
                         ord: vault_log.ordinal(),
@@ -171,7 +176,9 @@ pub fn map_relative_balances(
                         component_id: address_hex.as_bytes().to_vec(),
                     });
                 } else if let Some(ev) =
-                    abi::rocketvault_contract::events::TokenDeposited::match_and_decode(vault_log.log)
+                    abi::rocketvault_contract::events::TokenDeposited::match_and_decode(
+                        vault_log.log,
+                    )
                 {
                     deltas.push(BalanceDelta {
                         ord: vault_log.ordinal(),
@@ -181,7 +188,9 @@ pub fn map_relative_balances(
                         component_id: address_hex.as_bytes().to_vec(),
                     });
                 } else if let Some(ev) =
-                    abi::rocketvault_contract::events::TokenWithdrawn::match_and_decode(vault_log.log)
+                    abi::rocketvault_contract::events::TokenWithdrawn::match_and_decode(
+                        vault_log.log,
+                    )
                 {
                     deltas.push(BalanceDelta {
                         ord: vault_log.ordinal(),
@@ -200,7 +209,7 @@ pub fn map_relative_balances(
                         delta: ev.amount.neg().to_signed_bytes_be(),
                         component_id: address_hex.as_bytes().to_vec(),
                     });
-                } 
+                }
             }
             deltas
         })
@@ -215,7 +224,6 @@ pub fn map_relative_balances(
 pub fn store_balances(deltas: BlockBalanceDeltas, store: StoreAddBigInt) {
     tycho_substreams::balances::store_balance_changes(deltas, store);
 }
-
 
 fn is_deployment_tx(tx: &eth::v2::TransactionTrace, vault_address: &[u8]) -> bool {
     let created_accounts = tx
@@ -235,7 +243,7 @@ fn is_deployment_tx(tx: &eth::v2::TransactionTrace, vault_address: &[u8]) -> boo
 }
 
 fn create_vault_component(tx: &Transaction) -> ProtocolComponent {
-    ProtocolComponent::at_contract(WSTETH_ADDRESS.as_slice(), tx)
-        .with_tokens(&[LOCKED_ASSET_ADDRESS, RETH_ADDRESS])
+    ProtocolComponent::at_contract(RETH_ADDRESS.as_slice(), tx)
+        .with_tokens(&[RETH_ADDRESS])
         .as_swap_type("rocketvault", ImplementationType::Vm)
 }
