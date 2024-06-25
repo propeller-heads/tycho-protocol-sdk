@@ -17,7 +17,6 @@ fn main() -> Result<(), anyhow::Error> {
         Abigen::from_bytes("Contract", sanitized_abi_file.as_bytes())?
             .generate()?
             .write_to_file(file_output_names[i])?;
-
     }
 
     Ok(())
