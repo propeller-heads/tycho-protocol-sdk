@@ -18,10 +18,6 @@ substreams.workspace = true
 substreams-ethereum.workspace = true
 substreams-database-change = "1"
 substreams-entity-change = "1"
-hex.workspace = true
-tycho-substreams.workspace = true
-itertools = "0.12.0"
-anyhow = "1.0.75"
 
 # Required so that ethabi > ethereum-types build correctly under wasm32-unknown-unknown
 [target.wasm32-unknown-unknown.dependencies]

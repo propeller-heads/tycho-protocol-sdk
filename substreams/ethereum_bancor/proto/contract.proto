@@ -1,0 +1,169 @@
+syntax = "proto3";
+
+import "google/protobuf/timestamp.proto";
+
+package contract.v1;
+
+message Events {
+    repeated vault_AdminChanged vault_admin_changeds = 1;
+    repeated vault_BeaconUpgraded vault_beacon_upgradeds = 2;
+    repeated vault_FundsBurned vault_funds_burneds = 3;
+    repeated vault_FundsWithdrawn vault_funds_withdrawns = 4;
+    repeated vault_Paused vault_pauseds = 5;
+    repeated vault_RoleAdminChanged vault_role_admin_changeds = 6;
+    repeated vault_RoleGranted vault_role_granteds = 7;
+    repeated vault_RoleRevoked vault_role_revokeds = 8;
+    repeated vault_Unpaused vault_unpauseds = 9;
+    repeated vault_Upgraded vault_upgradeds = 10;
+    repeated erc20_Approval erc20_approvals = 11;
+    repeated erc20_Destruction erc20_destructions = 12;
+    repeated erc20_Issuance erc20_issuances = 13;
+    repeated erc20_NewSmartToken erc20_new_smart_tokens = 14;
+    repeated erc20_OwnerUpdate erc20_owner_updates = 15;
+    repeated erc20_Transfer erc20_transfers = 16;
+}
+
+message vault_AdminChanged {
+    string evt_tx_hash = 1;
+    uint32 evt_index = 2;
+    google.protobuf.Timestamp evt_block_time = 3;
+    uint64 evt_block_number = 4;
+    bytes previous_admin = 5;
+    bytes new_admin = 6;
+}
+
+message vault_BeaconUpgraded {
+    string evt_tx_hash = 1;
+    uint32 evt_index = 2;
+    google.protobuf.Timestamp evt_block_time = 3;
+    uint64 evt_block_number = 4;
+    bytes beacon = 5;
+}
+
+message vault_FundsBurned {
+    string evt_tx_hash = 1;
+    uint32 evt_index = 2;
+    google.protobuf.Timestamp evt_block_time = 3;
+    uint64 evt_block_number = 4;
+    bytes token = 5;
+    bytes caller = 6;
+    string amount = 7;
+}
+
+message vault_FundsWithdrawn {
+    string evt_tx_hash = 1;
+    uint32 evt_index = 2;
+    google.protobuf.Timestamp evt_block_time = 3;
+    uint64 evt_block_number = 4;
+    bytes token = 5;
+    bytes caller = 6;
+    bytes target = 7;
+    string amount = 8;
+}
+
+message vault_Paused {
+    string evt_tx_hash = 1;
+    uint32 evt_index = 2;
+    google.protobuf.Timestamp evt_block_time = 3;
+    uint64 evt_block_number = 4;
+    bytes account = 5;
+}
+
+message vault_RoleAdminChanged {
+    string evt_tx_hash = 1;
+    uint32 evt_index = 2;
+    google.protobuf.Timestamp evt_block_time = 3;
+    uint64 evt_block_number = 4;
+    bytes role = 5;
+    bytes previous_admin_role = 6;
+    bytes new_admin_role = 7;
+}
+
+message vault_RoleGranted {
+    string evt_tx_hash = 1;
+    uint32 evt_index = 2;
+    google.protobuf.Timestamp evt_block_time = 3;
+    uint64 evt_block_number = 4;
+    bytes role = 5;
+    bytes account = 6;
+    bytes sender = 7;
+}
+
+message vault_RoleRevoked {
+    string evt_tx_hash = 1;
+    uint32 evt_index = 2;
+    google.protobuf.Timestamp evt_block_time = 3;
+    uint64 evt_block_number = 4;
+    bytes role = 5;
+    bytes account = 6;
+    bytes sender = 7;
+}
+
+message vault_Unpaused {
+    string evt_tx_hash = 1;
+    uint32 evt_index = 2;
+    google.protobuf.Timestamp evt_block_time = 3;
+    uint64 evt_block_number = 4;
+    bytes account = 5;
+}
+
+message vault_Upgraded {
+    string evt_tx_hash = 1;
+    uint32 evt_index = 2;
+    google.protobuf.Timestamp evt_block_time = 3;
+    uint64 evt_block_number = 4;
+    bytes implementation = 5;
+}
+
+message erc20_Approval {
+    string evt_tx_hash = 1;
+    uint32 evt_index = 2;
+    google.protobuf.Timestamp evt_block_time = 3;
+    uint64 evt_block_number = 4;
+    bytes u_owner = 5;
+    bytes u_spender = 6;
+    string u_value = 7;
+}
+
+message erc20_Destruction {
+    string evt_tx_hash = 1;
+    uint32 evt_index = 2;
+    google.protobuf.Timestamp evt_block_time = 3;
+    uint64 evt_block_number = 4;
+    string u_amount = 5;
+}
+
+message erc20_Issuance {
+    string evt_tx_hash = 1;
+    uint32 evt_index = 2;
+    google.protobuf.Timestamp evt_block_time = 3;
+    uint64 evt_block_number = 4;
+    string u_amount = 5;
+}
+
+message erc20_NewSmartToken {
+    string evt_tx_hash = 1;
+    uint32 evt_index = 2;
+    google.protobuf.Timestamp evt_block_time = 3;
+    uint64 evt_block_number = 4;
+    bytes u_token = 5;
+}
+
+message erc20_OwnerUpdate {
+    string evt_tx_hash = 1;
+    uint32 evt_index = 2;
+    google.protobuf.Timestamp evt_block_time = 3;
+    uint64 evt_block_number = 4;
+    bytes u_prev_owner = 5;
+    bytes u_new_owner = 6;
+}
+
+message erc20_Transfer {
+    string evt_tx_hash = 1;
+    uint32 evt_index = 2;
+    google.protobuf.Timestamp evt_block_time = 3;
+    uint64 evt_block_number = 4;
+    bytes u_from = 5;
+    bytes u_to = 6;
+    string u_value = 7;
+}
