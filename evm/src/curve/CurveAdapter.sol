@@ -478,7 +478,7 @@ contract CurveAdapter is ISwapAdapter {
 
 /// @dev Wrapped ported version of Curve Plain Pool to Solidity
 /// For params informations see:
-/// https://docs.curve.fi/stableswap-exchange/stableswap/pools/plain_pools/
+/// https://docs.curve.fi/cryptoswap-exchange/cryptoswap/pools/crypto-pool/
 interface ICurveCryptoSwapPool {
     function get_dy(uint256 i, uint256 j, uint256 dx)
         external
@@ -534,6 +534,7 @@ interface ICurveStableSwapPoolEth {
     ) external payable;
 }
 
+/// @dev TODO future implementation, not used at the moment since StableSwap Meta Pools are not supported yet
 interface ICurveStableSwapMetaPool is ICurveStableSwapPool {
     function get_dy_underlying(int128 i, int128 j, uint256 dx)
         external
@@ -543,67 +544,4 @@ interface ICurveStableSwapMetaPool is ICurveStableSwapPool {
     function exchange_underlying(int128 i, int128 j, uint256 dx, uint256 min_dy)
         external
         returns (uint256);
-}
-
-/// @dev Wrapped ported version of CurveRegistry to Solidity
-/// For params informations see: https://docs.curve.fi/registry/MetaRegistryAPI/
-interface ICurveRegistry {
-    function is_meta(address _pool) external view returns (bool);
-
-    function get_pool_asset_type(address _pool)
-        external
-        view
-        returns (uint256);
-
-    function find_pool_for_coins(address _from, address _to, uint256 i)
-        external
-        view
-        returns (address);
-
-    function pool_count() external view returns (uint256);
-
-    function pool_list(uint256 arg0) external view returns (address);
-
-    function get_fees(address _pool)
-        external
-        view
-        returns (
-            uint256 poolFee,
-            uint256 adminFee,
-            uint256 midFee,
-            uint256 outFee,
-            uint256,
-            uint256,
-            uint256,
-            uint256,
-            uint256,
-            uint256
-        );
-
-    function get_coins(address _pool)
-        external
-        view
-        returns (address[8] memory);
-
-    function get_underlying_coins(address _pool)
-        external
-        view
-        returns (address[8] memory);
-
-    function get_n_coins(address _pool) external view returns (uint256);
-
-    function get_coin_indices(address _pool, address _from, address _to)
-        external
-        view
-        returns (int128, int128, bool);
-
-    function get_balances(address _pool)
-        external
-        view
-        returns (uint256[8] memory);
-
-    function get_underlying_balances(address _pool)
-        external
-        view
-        returns (uint256[8] memory);
 }
