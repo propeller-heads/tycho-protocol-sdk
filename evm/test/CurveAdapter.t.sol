@@ -47,7 +47,9 @@ contract CurveAdapterTest is Test, ISwapAdapterTypes {
 
     receive() external payable {}
 
-    function testPriceFuzzCurveStableSwap(uint256 amount0, uint256 amount1) public {
+    function testPriceFuzzCurveStableSwap(uint256 amount0, uint256 amount1)
+        public
+    {
         bytes32 pair = bytes32(bytes20(STABLE_POOL));
         uint256[] memory limits = adapter.getLimits(pair, USDC, USDT);
         vm.assume(amount0 < limits[0]);
@@ -65,7 +67,9 @@ contract CurveAdapterTest is Test, ISwapAdapterTypes {
         }
     }
 
-    function testPriceFuzzCurveCryptoSwap(uint256 amount0, uint256 amount1) public {
+    function testPriceFuzzCurveCryptoSwap(uint256 amount0, uint256 amount1)
+        public
+    {
         bytes32 pair = bytes32(bytes20(CRYPTO_POOL));
         uint256[] memory limits = adapter.getLimits(pair, USDT, WETH);
         vm.assume(amount0 < limits[0]);
@@ -286,7 +290,7 @@ contract CurveAdapterTest is Test, ISwapAdapterTypes {
     {
         Capability[] memory res = adapter.getCapabilities(pair, t0, t1);
 
-        assertEq(res.length, 1);
+        assertEq(res.length, 2);
     }
 
     function testGetTokensCurveStableSwap() public {

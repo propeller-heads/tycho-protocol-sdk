@@ -43,12 +43,12 @@ contract CurveAdapter is ISwapAdapter {
     receive() external payable {}
 
     /// @inheritdoc ISwapAdapter
-    function price(bytes32 poolId, address sellToken, address buyToken, uint256[] memory specifiedAmounts)
-        external
-        view
-        override
-        returns (Fraction[] memory prices)
-    {
+    function price(
+        bytes32 poolId,
+        address sellToken,
+        address buyToken,
+        uint256[] memory specifiedAmounts
+    ) external view override returns (Fraction[] memory prices) {
         SellParamsCache memory sellParams;
         sellParams.poolAddress = address(bytes20(poolId));
         sellParams.sellToken = sellToken;
@@ -88,10 +88,7 @@ contract CurveAdapter is ISwapAdapter {
         }
 
         (sellParams.sellTokenIndex, sellParams.buyTokenIndex) = getCoinsIndices(
-            sellParams.sellToken,
-            sellParams.buyToken,
-            coins,
-            isEthPool
+            sellParams.sellToken, sellParams.buyToken, coins, isEthPool
         );
 
         prices = new Fraction[](specifiedAmounts.length);
@@ -156,10 +153,7 @@ contract CurveAdapter is ISwapAdapter {
 
             (sellParams.sellTokenIndex, sellParams.buyTokenIndex) =
             getCoinsIndices(
-                sellParams.sellToken,
-                sellParams.buyToken,
-                coins,
-                isEthPool
+                sellParams.sellToken, sellParams.buyToken, coins, isEthPool
             );
         }
 
@@ -221,9 +215,8 @@ contract CurveAdapter is ISwapAdapter {
             }
         }
 
-        (int128 sellTokenIndex, int128 buyTokenIndex) = getCoinsIndices(
-            sellToken_, buyToken_, coins, isEthPool
-        );
+        (int128 sellTokenIndex, int128 buyTokenIndex) =
+            getCoinsIndices(sellToken_, buyToken_, coins, isEthPool);
 
         limits = new uint256[](2);
         uint256 sellTokenIndexUint = uint256(uint128(sellTokenIndex));
@@ -239,8 +232,9 @@ contract CurveAdapter is ISwapAdapter {
         override
         returns (Capability[] memory capabilities)
     {
-        capabilities = new Capability[](1);
+        capabilities = new Capability[](2);
         capabilities[0] = Capability.SellOrder;
+        capabilities[1] = Capability.PriceFunction;
     }
 
     /// @inheritdoc ISwapAdapter
@@ -534,7 +528,8 @@ interface ICurveStableSwapPoolEth {
     ) external payable;
 }
 
-/// @dev TODO future implementation, not used at the moment since StableSwap Meta Pools are not supported yet
+/// @dev TODO future implementation, not used at the moment since StableSwap
+/// Meta Pools are not supported yet
 interface ICurveStableSwapMetaPool is ICurveStableSwapPool {
     function get_dy_underlying(int128 i, int128 j, uint256 dx)
         external

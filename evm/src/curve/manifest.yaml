@@ -9,6 +9,7 @@ constants:
   # minimum capabilities we can expect, individual pools may extend these
   capabilities:
     - SellSide
+    - PriceFunction
 
 # The file containing the adapter contract
 contract: CurveAdapter.sol
@@ -19,7 +20,7 @@ instances:
       name: mainnet
       id: 1
     arguments:
-      - "0xF98B45FA17DE75FB1aD0e7aFD971b0ca00e379fC"
+      - none
 
 # Specify some automatic test cases in case getPoolIds and
 # getTokens are not implemented.
