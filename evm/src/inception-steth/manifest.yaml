@@ -1,0 +1,19 @@
+author:
+  name: neanvo
+  email: neanvo@protonmail.com
+
+constants:
+  protocol_gas: 260000
+  capabilities:
+    - SellSide
+    - PriceFunction
+
+contract: InceptionStEthSwapAdapter.sol
+
+instances:
+  - chain:
+      name: mainnet
+      id: 1
+    arguments:
+      - "0x814cc6b8fd2555845541fb843f37418b05977d8d"
+
