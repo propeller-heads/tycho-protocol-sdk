@@ -143,9 +143,9 @@ pub fn map_relative_balances(
 
                         // Tokens mint
                         for i in 0..ev.tokens.len() {
-                            if (!ev
+                            if !ev
                                 .forfeit_tokens
-                                .contains(&ev.tokens[i]))
+                                .contains(&ev.tokens[i])
                             {
                                 deltas.push(BalanceDelta {
                                     ord: vault_log.ordinal(),
