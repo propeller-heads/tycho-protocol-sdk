@@ -29,13 +29,37 @@ pub fn map_components(
             .transactions()
             .filter_map(|tx| {
                 let components = tx
-                    .calls()
-                    .filter(|call| !call.call.state_reverted)
-                    .filter_map(|_| {
-                        if is_deployment_tx(tx, &eur_transmuter) {
-                            Some(create_vault_component(&tx.into(), &eur_transmuter))
-                        } else if is_deployment_tx(tx, &usd_transmuter) {
-                            Some(create_vault_component(&tx.into(), &usd_transmuter))
+                    .logs_with_calls()
+                    .filter(|(_, call)| !call.call.state_reverted)
+                    .filter_map(|(log, _)| {
+                        if let Some(eur_collateral) =
+                            maybe_get_collateral_address(log, &eur_transmuter)
+                        {
+                            if let Some(ag_token) = find_ag_token(&eur_transmuter) {
+                                Some(create_vault_component(
+                                    &tx.into(),
+                                    &eur_transmuter,
+                                    &ag_token,
+                                    &eur_collateral,
+                                ))
+                            }
+                            else {
+                                None
+                            }
+                        } else if let Some(usd_collateral) =
+                            maybe_get_collateral_address(log, &usd_transmuter)
+                        {
+                            if let Some(ag_token) = find_ag_token(&usd_transmuter) {
+                                Some(create_vault_component(
+                                    &tx.into(),
+                                    &usd_transmuter,
+                                    &ag_token,
+                                    &usd_collateral,
+                                ))
+                            }
+                            else {
+                                None
+                            }
                         } else {
                             None
                         }
@@ -103,7 +127,6 @@ pub fn map_relative_balances(
             } else if let Some(ev) =
                 abi::pool_contract::events::Redeemed::match_and_decode(vault_log.log)
             {
-                // burn DAI, mint sDAI
                 if store
                     .get_last(format!("pool:{}", address_hex))
                     .is_some()
@@ -120,13 +143,18 @@ pub fn map_relative_balances(
 
                         // Tokens mint
                         for i in 0..ev.tokens.len() {
-                            deltas.push(BalanceDelta {
-                                ord: vault_log.ordinal(),
-                                tx: Some(vault_log.receipt.transaction.into()),
-                                token: ev.tokens[i].to_vec(),
-                                delta: ev.amounts[i].to_signed_bytes_be(),
-                                component_id: address_hex.as_bytes().to_vec(),
-                            });
+                            if (!ev
+                                .forfeit_tokens
+                                .contains(&ev.tokens[i]))
+                            {
+                                deltas.push(BalanceDelta {
+                                    ord: vault_log.ordinal(),
+                                    tx: Some(vault_log.receipt.transaction.into()),
+                                    token: ev.tokens[i].to_vec(),
+                                    delta: ev.amounts[i].to_signed_bytes_be(),
+                                    component_id: address_hex.as_bytes().to_vec(),
+                                });
+                            }
                         }
                     }
                 }
@@ -211,9 +239,9 @@ pub fn map_protocol_changes(
             .drain()
             .sorted_unstable_by_key(|(index, _)| *index)
             .filter_map(|(_, change)| {
-                if change.contract_changes.is_empty() &&
-                    change.component_changes.is_empty() &&
-                    change.balance_changes.is_empty()
+                if change.contract_changes.is_empty()
+                    && change.component_changes.is_empty()
+                    && change.balance_changes.is_empty()
                 {
                     None
                 } else {
@@ -224,25 +252,23 @@ pub fn map_protocol_changes(
     })
 }
 
-fn is_deployment_tx(tx: &eth::v2::TransactionTrace, vault_address: &[u8]) -> bool {
-    let created_accounts = tx
-        .calls
-        .iter()
-        .flat_map(|call| {
-            call.account_creations
-                .iter()
-                .map(|ac| ac.account.to_owned())
-        })
-        .collect::<Vec<_>>();
-
-    if let Some(deployed_address) = created_accounts.first() {
-        return deployed_address.as_slice() == vault_address;
+fn maybe_get_collateral_address(tx, vault_address: &[u8]) -> Option<[u8; 20]> {
+    if let Some(add_collateral_call) =
+        abi::pool_contract::events::CollateralAdded::match_and_decode(tx)
+    {
+        return Some(add_collateral_call.collateral.to_vec());
     }
-    false
+    None
 }
 
-fn create_vault_component(tx: &Transaction, component_id: &[u8]) -> ProtocolComponent {
+fn create_vault_component(
+    tx: &Transaction,
+    component_id: &[u8],
+    ag_token: &[u8],
+    collateral: &[u8],
+) -> ProtocolComponent {
     ProtocolComponent::at_contract(component_id, tx)
+        .with_tokens(&[ag_token, collateral])
         .as_swap_type("ANGLE_TRANSMUTER", ImplementationType::Vm)
 }
 

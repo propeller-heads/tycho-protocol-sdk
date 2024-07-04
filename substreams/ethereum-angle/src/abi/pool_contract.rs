@@ -7245,6 +7245,89 @@
     pub mod events {
         use super::INTERNAL_ERR;
         #[derive(Debug, Clone, PartialEq)]
+        pub struct CollateralAdded {
+            pub collateral: Vec<u8>,
+        }
+        impl CollateralAdded {
+            const TOPIC_ID: [u8; 32] = [
+                125u8,
+                176u8,
+                94u8,
+                99u8,
+                214u8,
+                53u8,
+                166u8,
+                140u8,
+                98u8,
+                253u8,
+                127u8,
+                216u8,
+                243u8,
+                16u8,
+                122u8,
+                232u8,
+                171u8,
+                88u8,
+                74u8,
+                56u8,
+                62u8,
+                16u8,
+                45u8,
+                27u8,
+                216u8,
+                164u8,
+                15u8,
+                76u8,
+                151u8,
+                126u8,
+                70u8,
+                95u8,
+            ];
+            pub fn match_log(log: &substreams_ethereum::pb::eth::v2::Log) -> bool {
+                if log.topics.len() != 2usize {
+                    return false;
+                }
+                if log.data.len() != 0usize {
+                    return false;
+                }
+                return log.topics.get(0).expect("bounds already checked").as_ref()
+                    == Self::TOPIC_ID;
+            }
+            pub fn decode(
+                log: &substreams_ethereum::pb::eth::v2::Log,
+            ) -> Result<Self, String> {
+                Ok(Self {
+                    collateral: ethabi::decode(
+                            &[ethabi::ParamType::Address],
+                            log.topics[1usize].as_ref(),
+                        )
+                        .map_err(|e| {
+                            format!(
+                                "unable to decode param 'collateral' from topic of type 'address': {:?}",
+                                e
+                            )
+                        })?
+                        .pop()
+                        .expect(INTERNAL_ERR)
+                        .into_address()
+                        .expect(INTERNAL_ERR)
+                        .as_bytes()
+                        .to_vec(),
+                })
+            }
+        }
+        impl substreams_ethereum::Event for CollateralAdded {
+            const NAME: &'static str = "CollateralAdded";
+            fn match_log(log: &substreams_ethereum::pb::eth::v2::Log) -> bool {
+                Self::match_log(log)
+            }
+            fn decode(
+                log: &substreams_ethereum::pb::eth::v2::Log,
+            ) -> Result<Self, String> {
+                Self::decode(log)
+            }
+        }
+        #[derive(Debug, Clone, PartialEq)]
         pub struct Redeemed {
             pub amount: substreams::scalar::BigInt,
             pub tokens: Vec<Vec<u8>>,
