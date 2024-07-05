@@ -30,14 +30,13 @@ pub fn map_components(
             .filter_map(|tx| {
                 let components = tx
                     .logs_with_calls()
-                    .filter(|(log, call)| { 
-                        // refs: 
-                        // - https://etherscan.io/tx/0xc12328a517e216ee37f974281e019e0041ad755c4868e3b7a8366948ebc55388#eventlog
-                        // - https://arbiscan.io/tx/0x821ac64db1ddcdf75c18206a5c4523aabb71b92c80a473a2cddb4ae57b6a4eb1#eventlog
-                        !call.call.state_reverted
-                            && (log.address == usd_transmuter || log.address == eur_transmuter)
+                    .filter(|(log, call)| {
+                        !call.call.state_reverted && (log.address == usd_transmuter || log.address == eur_transmuter)
                     })
                     .filter_map(|(log, _)| {
+                        // event contains collateral added by the governance, examples:
+                        // - https://etherscan.io/tx/0xc12328a517e216ee37f974281e019e0041ad755c4868e3b7a8366948ebc55388#eventlog
+                        // - https://arbiscan.io/tx/0x821ac64db1ddcdf75c18206a5c4523aabb71b92c80a473a2cddb4ae57b6a4eb1#eventlog
                         let transmuter_address_be = log.address.to_owned();
                         if let Some(ev) =
                             abi::setters_governors_contract::events::CollateralAdded::match_and_decode(log)
@@ -95,10 +94,7 @@ pub fn map_relative_balances(
 
             if let Some(ev) = abi::swapper_contract::events::Swap::match_and_decode(vault_log.log) {
                 let component_id = component_id_from_tokens(&ag_token, &ev.token_in);
-                if store
-                    .get_last(component_id.to_owned())
-                    .is_some()
-                {
+                if store.get_last(&component_id).is_some() {
                     deltas.extend_from_slice(&[
                         BalanceDelta {
                             ord: vault_log.ordinal(),
@@ -127,10 +123,7 @@ pub fn map_relative_balances(
                         .contains(&ev.tokens[i])
                     {
                         let component_id = component_id_from_tokens(&ag_token, &ev.tokens[i]);
-                        if store
-                            .get_last(component_id.to_owned())
-                            .is_some()
-                        {
+                        if store.get_last(&component_id).is_some() {
                             deltas.extend([
                                 BalanceDelta {
                                     ord: vault_log.ordinal(),
@@ -246,9 +239,9 @@ pub fn map_protocol_changes(
             .drain()
             .sorted_unstable_by_key(|(index, _)| *index)
             .filter_map(|(_, change)| {
-                if change.contract_changes.is_empty()
-                    && change.component_changes.is_empty()
-                    && change.balance_changes.is_empty()
+                if change.contract_changes.is_empty() &&
+                    change.component_changes.is_empty() &&
+                    change.balance_changes.is_empty()
                 {
                     None
                 } else {
