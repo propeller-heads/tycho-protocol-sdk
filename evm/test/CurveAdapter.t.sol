@@ -29,13 +29,43 @@ contract CurveAdapterTest is Test, ISwapAdapterTypes {
     address constant STABLE_META_POOL =
         0x5a6A4D54456819380173272A5E8E9B9904BdF41B;
     address constant ETH_POOL = 0xBfAb6FA95E0091ed66058ad493189D2cB29385E6;
+    address[] ADDITIONAL_POOLS_FOR_PRICE;
 
     uint256 constant TEST_ITERATIONS = 100;
 
     function setUp() public {
-        uint256 forkBlock = 19719570;
+        uint256 forkBlock = 20234346;
         vm.createSelectFork(vm.rpcUrl("mainnet"), forkBlock);
         adapter = new CurveAdapter();
+
+        // Additional pools that include custom Int128 pools
+        ADDITIONAL_POOLS_FOR_PRICE.push(
+            0xEcd5e75AFb02eFa118AF914515D6521aaBd189F1
+        );
+        ADDITIONAL_POOLS_FOR_PRICE.push(
+            0xEd279fDD11cA84bEef15AF5D39BB4d4bEE23F0cA
+        );
+        ADDITIONAL_POOLS_FOR_PRICE.push(
+            0x43b4FdFD4Ff969587185cDB6f0BD875c5Fc83f8c
+        );
+        ADDITIONAL_POOLS_FOR_PRICE.push(
+            0x87650D7bbfC3A9F10587d7778206671719d9910D
+        );
+        ADDITIONAL_POOLS_FOR_PRICE.push(
+            0x9EfE1A1Cbd6Ca51Ee8319AFc4573d253C3B732af
+        );
+        ADDITIONAL_POOLS_FOR_PRICE.push(
+            0x4807862AA8b2bF68830e4C8dc86D0e9A998e085a
+        );
+        ADDITIONAL_POOLS_FOR_PRICE.push(
+            0xd632f22692FaC7611d2AA1C0D552930D43CAEd3B
+        );
+        ADDITIONAL_POOLS_FOR_PRICE.push(
+            0xA5407eAE9Ba41422680e2e00537571bcC53efBfD
+        );
+        ADDITIONAL_POOLS_FOR_PRICE.push(
+            0x5a6A4D54456819380173272A5E8E9B9904BdF41B
+        );
 
         vm.label(address(adapter), "CurveAdapter");
         vm.label(USDT, "USDT");
@@ -46,6 +76,37 @@ contract CurveAdapterTest is Test, ISwapAdapterTypes {
     }
 
     receive() external payable {}
+
+    function testPricesForAdditionalPools() public {
+        uint256 len = ADDITIONAL_POOLS_FOR_PRICE.length;
+        for (uint256 i = 0; i < len; i++) {
+            bytes32 pair = bytes32(bytes20(ADDITIONAL_POOLS_FOR_PRICE[i]));
+            address[] memory tokens = adapter.getTokens(pair);
+            uint256[] memory amounts = new uint256[](1);
+
+            amounts[0] = 10000;
+
+            // Test Price
+            Fraction[] memory prices =
+                adapter.price(pair, tokens[0], tokens[1], amounts);
+
+            // Test Limits
+            uint256[] memory limits =
+                adapter.getLimits(pair, tokens[0], tokens[1]);
+
+            assertGt(prices[0].numerator, 0);
+            assertGt(prices[0].denominator, 0);
+            assertGt(limits[0], 0);
+            assertGt(limits[1], 0);
+        }
+    }
+
+    function testScemo() public {
+        address[] memory tokens = adapter.getTokens(
+            bytes32(bytes20(0xA5407eAE9Ba41422680e2e00537571bcC53efBfD))
+        );
+        console.log(tokens[0], tokens[1]);
+    }
 
     function testPriceFuzzCurveStableSwap(uint256 amount0, uint256 amount1)
         public

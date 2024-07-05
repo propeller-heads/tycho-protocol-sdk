@@ -221,8 +221,17 @@ contract CurveAdapter is ISwapAdapter {
         limits = new uint256[](2);
         uint256 sellTokenIndexUint = uint256(uint128(sellTokenIndex));
         uint256 buyTokenIndexUint = uint256(uint128(buyTokenIndex));
-        limits[0] = pool.balances(sellTokenIndexUint) / RESERVE_LIMIT_FACTOR;
-        limits[1] = pool.balances(buyTokenIndexUint) / RESERVE_LIMIT_FACTOR;
+        try pool.balances(sellTokenIndexUint) returns (uint256 bal) {
+            limits[0] = bal / RESERVE_LIMIT_FACTOR;
+            limits[1] = pool.balances(buyTokenIndexUint) / RESERVE_LIMIT_FACTOR;
+        } catch {
+            limits[0] = ICurveCustomInt128Pool(poolAddress).balances(
+                sellTokenIndex
+            ) / RESERVE_LIMIT_FACTOR;
+            limits[1] = ICurveCustomInt128Pool(poolAddress).balances(
+                buyTokenIndex
+            ) / RESERVE_LIMIT_FACTOR;
+        }
     }
 
     /// @inheritdoc ISwapAdapter
@@ -290,9 +299,14 @@ contract CurveAdapter is ISwapAdapter {
         uint256 sellTokenIndexUint = uint256(uint128(sellParams.sellTokenIndex));
         uint256 buyTokenIndexUint = uint256(uint128(sellParams.buyTokenIndex));
         if (isInt128Pool(sellParams.poolAddress)) {
-            amountIn = ICurveStableSwapPool(sellParams.poolAddress).balances(
+            try ICurveStableSwapPool(sellParams.poolAddress).balances(
                 sellTokenIndexUint
-            ) / PRECISION;
+            ) returns (uint256 bal) {
+                amountIn = bal / PRECISION;
+            } catch {
+                amountIn = ICurveCustomInt128Pool(sellParams.poolAddress)
+                    .balances(sellParams.sellTokenIndex);
+            }
 
             return Fraction(
                 ICurveStableSwapPool(sellParams.poolAddress).get_dy(
@@ -403,13 +417,28 @@ contract CurveAdapter is ISwapAdapter {
         }
     }
 
-    /// @dev Check whether a pool is a StableSwap pool or CryptoSwap pool
+    /// @dev Check whether a pool supports int128 inputs or uint256(excluded
+    /// custom)
     /// @param poolAddress address of the pool
     function isInt128Pool(address poolAddress) internal view returns (bool) {
-        ICurveStableSwapPool pool = ICurveStableSwapPool(poolAddress);
-        uint256 reserve0 = pool.balances(0);
-        try ICurveCryptoSwapPool(poolAddress).get_dy(0, 1, reserve0 / PRECISION)
-        returns (uint256) {
+        try ICurveCryptoSwapPool(poolAddress).get_dy(0, 1, 1000) returns (
+            uint256
+        ) {
+            return false;
+        } catch {
+            return true;
+        }
+    }
+
+    /// @dev Check whether a pool is a custom int128 pool(balances, coins, ...
+    /// accept int128 as input)
+    /// @param poolAddress address of the pool
+    function isCustomInt128Pool(address poolAddress)
+        internal
+        view
+        returns (bool)
+    {
+        try ICurveStableSwapPool(poolAddress).balances(0) returns (uint256) {
             return false;
         } catch {
             return true;
@@ -423,20 +452,37 @@ contract CurveAdapter is ISwapAdapter {
         view
         returns (PoolCoins memory output)
     {
-        ICurveStableSwapPool pool = ICurveStableSwapPool(poolAddress);
         uint256 len;
 
         /// @dev as of registry, max addresses that can be included in a pool is
         /// always 8, therefore we limit the loop to it.
-        for (len; len < 8; len++) {
-            try pool.coins(len) returns (address coin) {
-                output.addresses[len] = coin;
-            } catch {
-                break;
+        if (!isCustomInt128Pool(poolAddress)) {
+            // Pool with coins(uint256)
+            for (len; len < 8; len++) {
+                try ICurveStableSwapPool(poolAddress).coins(len) returns (
+                    address coin
+                ) {
+                    output.addresses[len] = coin;
+                    output.coinsLength++;
+                } catch {
+                    // Pool has no coins, or the last coin has been found
+                    break;
+                }
+            }
+        } else {
+            for (len; len < 8; len++) {
+                // Pool supports coins(int128)
+                try ICurveCustomInt128Pool(poolAddress).coins(
+                    int128(uint128(len))
+                ) returns (address coin) {
+                    output.addresses[len] = coin;
+                    output.coinsLength++;
+                } catch {
+                    // Pool has no coins, or the last coin has been found
+                    break;
+                }
             }
         }
-
-        output.coinsLength = len + 1;
     }
 
     /// @notice Get indices of coins to swap
@@ -539,4 +585,9 @@ interface ICurveStableSwapMetaPool is ICurveStableSwapPool {
     function exchange_underlying(int128 i, int128 j, uint256 dx, uint256 min_dy)
         external
         returns (uint256);
+}
+
+interface ICurveCustomInt128Pool {
+    function coins(int128 arg0) external view returns (address);
+    function balances(int128 arg0) external view returns (uint256);
 }
