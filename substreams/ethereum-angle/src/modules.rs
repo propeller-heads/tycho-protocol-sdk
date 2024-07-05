@@ -30,7 +30,10 @@ pub fn map_components(
             .filter_map(|tx| {
                 let components = tx
                     .logs_with_calls()
-                    .filter(|(log, call)| {
+                    .filter(|(log, call)| { 
+                        // refs: 
+                        // - https://etherscan.io/tx/0xc12328a517e216ee37f974281e019e0041ad755c4868e3b7a8366948ebc55388#eventlog
+                        // - https://arbiscan.io/tx/0x821ac64db1ddcdf75c18206a5c4523aabb71b92c80a473a2cddb4ae57b6a4eb1#eventlog
                         !call.call.state_reverted
                             && (log.address == usd_transmuter || log.address == eur_transmuter)
                     })
