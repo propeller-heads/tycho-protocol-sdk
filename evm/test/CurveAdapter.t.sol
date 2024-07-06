@@ -101,13 +101,6 @@ contract CurveAdapterTest is Test, ISwapAdapterTypes {
         }
     }
 
-    function testScemo() public {
-        address[] memory tokens = adapter.getTokens(
-            bytes32(bytes20(0xA5407eAE9Ba41422680e2e00537571bcC53efBfD))
-        );
-        console.log(tokens[0], tokens[1]);
-    }
-
     function testPriceFuzzCurveStableSwap(uint256 amount0, uint256 amount1)
         public
     {
