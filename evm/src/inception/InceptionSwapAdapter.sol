@@ -8,14 +8,19 @@ import {ISwapAdapter} from "src/interfaces/ISwapAdapter.sol";
 
 uint256 constant TOKEN_DECIMALS = 10 ** 18;
 
-/// @title InceptionStEthSwapAdapter
-contract InceptionStEthSwapAdapter is ISwapAdapter {
+/// @title InceptionSwapAdapter
+/// @notice This is a Inception adapter implementation compatible with all vaults.
+contract InceptionSwapAdapter is ISwapAdapter {
     using SafeERC20 for IERC20;
 
     IInceptionVault immutable vault;
+    uint256 internal minLimit;
+    uint256 internal maxLimit;
 
-    constructor(IInceptionVault _vault) {
+    constructor(IInceptionVault _vault, uint256 _minLimit, uint256 _maxLimit) {
         vault = IInceptionVault(_vault);
+        minLimit = _minLimit;
+        maxLimit = _maxLimit;
     }
 
     /// @inheritdoc ISwapAdapter
@@ -59,7 +64,6 @@ contract InceptionStEthSwapAdapter is ISwapAdapter {
         internal
         returns (uint256)
     {
-
         IERC20(sellToken).approve(address(vault), amount);
         uint256 shares = vault.deposit(amount, address(this));
         if (shares == 0) {
@@ -72,13 +76,13 @@ contract InceptionStEthSwapAdapter is ISwapAdapter {
     /// @inheritdoc ISwapAdapter
     function getLimits(bytes32, address, address)
         external
-        pure
+        view
         override
         returns (uint256[] memory limits)
     {
         limits = new uint256[](2);
-        limits[0] = 100;
-        limits[1] = 1e23;
+        limits[0] = minLimit;
+        limits[1] = maxLimit;
     }
 
     /// @inheritdoc ISwapAdapter
@@ -112,68 +116,7 @@ contract InceptionStEthSwapAdapter is ISwapAdapter {
 }
 
 interface IInceptionVault {
-
-    event Deposit(
-        address indexed sender,
-        address indexed receiver,
-        uint256 amount,
-        uint256 iShares
-    );
-
-    event Withdraw(
-        address indexed sender,
-        address indexed receiver,
-        address indexed owner,
-        uint256 amount,
-        uint256 iShares
-    );
-
-    event Redeem(
-        address indexed sender,
-        address indexed receiver,
-        uint256 amount
-    );
-
-    event RedeemedRequests(uint256[] withdrawals);
-
-    event WithdrawalQueued(
-        address depositor,
-        uint96 nonce,
-        address withdrawer,
-        address delegatedAddress,
-        bytes32 withdrawalRoot
-    );
-
-    event OperatorChanged(address prevValue, address newValue);
-
-    event DepositFeeChanged(uint256 prevValue, uint256 newValue);
-
-    event MinAmountChanged(uint256 prevValue, uint256 newValue);
-
-    event ELOperatorAdded(address indexed newELOperator);
-
-    event RestakerDeployed(address indexed restaker);
-
-    event ImplementationUpgraded(address prevValue, address newValue);
-
-    event NameChanged(string prevValue, string newValue);
-
-    event ReferralCode(bytes32 indexed code);
-
-    function inceptionToken() external view returns (IInceptionToken);
-
     function ratio() external view returns (uint256);
-
     function deposit(uint256 amount, address receiver) external returns (uint256);
 }
 
-interface IInceptionToken {
-    event VaultChanged(address prevValue, address newValue);
-
-    event Paused(address account);
-    event Unpaused(address account);
-
-    function mint(address account, uint256 amount) external;
-
-    function burn(address account, uint256 amount) external;
-}

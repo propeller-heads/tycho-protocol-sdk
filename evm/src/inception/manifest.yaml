@@ -8,7 +8,9 @@ constants:
     - SellSide
     - PriceFunction
 
-contract: InceptionStEthSwapAdapter.sol
+contracts: 
+  - InceptionStEthSwapAdapter.sol
+  - InceptionREthSwapAdapter.sol
 
 instances:
   - chain:
@@ -16,4 +18,12 @@ instances:
       id: 1
     arguments:
       - "0x814cc6b8fd2555845541fb843f37418b05977d8d"
-
+      - 100
+      - 1e23
+  - chain:
+      name: mainnet
+      id: 1
+    arguments:
+      - "0x1Aa53BC4Beb82aDf7f5EDEE9e3bBF3434aD59F12"
+      - 100
+      - 1e23
