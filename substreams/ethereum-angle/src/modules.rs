@@ -30,36 +30,26 @@ pub fn map_components(
             .filter_map(|tx| {
                 let components = tx
                     .logs_with_calls()
-                    .filter(|(_, call)| !call.call.state_reverted)
+                    .filter(|(log, call)| {
+                        !call.call.state_reverted && (log.address == usd_transmuter || log.address == eur_transmuter)
+                    })
                     .filter_map(|(log, _)| {
-                        if let Some(eur_collateral) =
-                            maybe_get_collateral_address(log, &eur_transmuter)
+                        // event contains collateral added by the governance, examples:
+                        // - https://etherscan.io/tx/0xc12328a517e216ee37f974281e019e0041ad755c4868e3b7a8366948ebc55388#eventlog
+                        // - https://arbiscan.io/tx/0x821ac64db1ddcdf75c18206a5c4523aabb71b92c80a473a2cddb4ae57b6a4eb1#eventlog
+                        let transmuter_address_be = log.address.to_owned();
+                        if let Some(ev) =
+                            abi::setters_governors_contract::events::CollateralAdded::match_and_decode(log)
                         {
-                            if let Some(ag_token) = find_ag_token(&eur_transmuter) {
-                                Some(create_vault_component(
-                                    &tx.into(),
-                                    &eur_transmuter,
-                                    &ag_token,
-                                    &eur_collateral,
-                                ))
-                            }
-                            else {
-                                None
-                            }
-                        } else if let Some(usd_collateral) =
-                            maybe_get_collateral_address(log, &usd_transmuter)
-                        {
-                            if let Some(ag_token) = find_ag_token(&usd_transmuter) {
-                                Some(create_vault_component(
-                                    &tx.into(),
-                                    &usd_transmuter,
-                                    &ag_token,
-                                    &usd_collateral,
-                                ))
-                            }
-                            else {
-                                None
-                            }
+                            let collateral_address = ev.collateral;
+                            let is_usd_transmuter = transmuter_address_be == usd_transmuter;
+                            let ag_token = find_ag_token(&transmuter_address_be).unwrap();
+                            Some(create_vault_component(
+                                &tx.into(),
+                                &ag_token,
+                                &collateral_address,
+                                is_usd_transmuter,
+                            ))
                         } else {
                             None
                         }
@@ -100,64 +90,74 @@ pub fn map_relative_balances(
             let mut deltas = Vec::new();
 
             let address_bytes_be = vault_log.address();
-            let address_hex = format!("0x{}", hex::encode(address_bytes_be));
+            let ag_token = find_ag_token(address_bytes_be).unwrap();
 
-            if let Some(ev) = abi::pool_contract::events::Swap::match_and_decode(vault_log.log) {
-                if store
-                    .get_last(format!("pool:{}", address_hex))
-                    .is_some()
-                {
+            if let Some(ev) = abi::swapper_contract::events::Swap::match_and_decode(vault_log.log) {
+                let component_id = component_id_from_tokens(&ag_token, &ev.token_in);
+                if store.get_last(&component_id).is_some() {
                     deltas.extend_from_slice(&[
                         BalanceDelta {
                             ord: vault_log.ordinal(),
                             tx: Some(vault_log.receipt.transaction.into()),
                             token: ev.token_in,
                             delta: ev.amount_in.to_signed_bytes_be(),
-                            component_id: address_hex.as_bytes().to_vec(),
+                            component_id: component_id.as_bytes().to_vec(),
                         },
                         BalanceDelta {
                             ord: vault_log.ordinal(),
                             tx: Some(vault_log.receipt.transaction.into()),
                             token: ev.token_out.to_vec(),
                             delta: ev.amount_out.neg().to_signed_bytes_be(),
-                            component_id: address_hex.as_bytes().to_vec(),
+                            component_id: component_id.as_bytes().to_vec(),
                         },
                     ]);
                 }
             } else if let Some(ev) =
-                abi::pool_contract::events::Redeemed::match_and_decode(vault_log.log)
+                abi::redeemer_contract::events::Redeemed::match_and_decode(vault_log.log)
             {
-                if store
-                    .get_last(format!("pool:{}", address_hex))
-                    .is_some()
-                {
-                    if let Some(ag_token) = find_ag_token(address_bytes_be) {
-                        // AgToken burn
-                        deltas.push(BalanceDelta {
-                            ord: vault_log.ordinal(),
-                            tx: Some(vault_log.receipt.transaction.into()),
-                            token: ag_token.to_vec(),
-                            delta: ev.amount.neg().to_signed_bytes_be(),
-                            component_id: address_hex.as_bytes().to_vec(),
-                        });
-
-                        // Tokens mint
-                        for i in 0..ev.tokens.len() {
-                            if (!ev
-                                .forfeit_tokens
-                                .contains(&ev.tokens[i]))
-                            {
-                                deltas.push(BalanceDelta {
+                // burn DAI, mint sDAI
+                // Tokens mint
+                for i in 0..ev.tokens.len() {
+                    if !ev
+                        .forfeit_tokens
+                        .contains(&ev.tokens[i])
+                    {
+                        let component_id = component_id_from_tokens(&ag_token, &ev.tokens[i]);
+                        if store.get_last(&component_id).is_some() {
+                            deltas.extend([
+                                BalanceDelta {
+                                    ord: vault_log.ordinal(),
+                                    tx: Some(vault_log.receipt.transaction.into()),
+                                    token: ag_token.to_vec(),
+                                    delta: ev.amount.neg().to_signed_bytes_be(),
+                                    component_id: component_id.as_bytes().to_vec(),
+                                },
+                                BalanceDelta {
                                     ord: vault_log.ordinal(),
                                     tx: Some(vault_log.receipt.transaction.into()),
                                     token: ev.tokens[i].to_vec(),
                                     delta: ev.amounts[i].to_signed_bytes_be(),
-                                    component_id: address_hex.as_bytes().to_vec(),
-                                });
-                            }
+                                    component_id: component_id.as_bytes().to_vec(),
+                                },
+                            ]);
                         }
                     }
                 }
+            } else if let Some(ev) =
+                abi::setters_governors_contract::events::ReservesAdjusted::match_and_decode(
+                    vault_log.log,
+                )
+            {
+                let ag_token = find_ag_token(address_bytes_be).unwrap();
+                let component_id = component_id_from_tokens(&ag_token, &ev.collateral);
+                let delta = if ev.increase { ev.amount } else { ev.amount.neg() };
+                deltas.push(BalanceDelta {
+                    ord: vault_log.ordinal(),
+                    tx: Some(vault_log.receipt.transaction.into()),
+                    token: ev.collateral,
+                    delta: delta.to_signed_bytes_be(),
+                    component_id: component_id.as_bytes().to_vec(),
+                });
             }
 
             deltas
@@ -239,9 +239,9 @@ pub fn map_protocol_changes(
             .drain()
             .sorted_unstable_by_key(|(index, _)| *index)
             .filter_map(|(_, change)| {
-                if change.contract_changes.is_empty()
-                    && change.component_changes.is_empty()
-                    && change.balance_changes.is_empty()
+                if change.contract_changes.is_empty() &&
+                    change.component_changes.is_empty() &&
+                    change.balance_changes.is_empty()
                 {
                     None
                 } else {
@@ -252,24 +252,18 @@ pub fn map_protocol_changes(
     })
 }
 
-fn maybe_get_collateral_address(tx, vault_address: &[u8]) -> Option<[u8; 20]> {
-    if let Some(add_collateral_call) =
-        abi::pool_contract::events::CollateralAdded::match_and_decode(tx)
-    {
-        return Some(add_collateral_call.collateral.to_vec());
-    }
-    None
-}
-
 fn create_vault_component(
     tx: &Transaction,
-    component_id: &[u8],
-    ag_token: &[u8],
-    collateral: &[u8],
+    collateral_address: &[u8],
+    ag_token_address: &[u8],
+    usd_transmuter: bool,
 ) -> ProtocolComponent {
-    ProtocolComponent::at_contract(component_id, tx)
-        .with_tokens(&[ag_token, collateral])
+    let transmuter_attribute = if usd_transmuter { "USD" } else { "EUR" };
+    let id = component_id_from_tokens(ag_token_address, collateral_address);
+    ProtocolComponent::new(&id, tx)
         .as_swap_type("ANGLE_TRANSMUTER", ImplementationType::Vm)
+        .with_tokens(&[collateral_address, ag_token_address])
+        .with_attributes(&[("Transmuter Type", transmuter_attribute)])
 }
 
 fn find_usd_transmuter(eur_transmuter: &[u8]) -> Option<[u8; 20]> {
@@ -298,4 +292,8 @@ fn find_ag_token(transmuter: &[u8]) -> Option<[u8; 20]> {
     }
 
     None
+}
+
+fn component_id_from_tokens(ag_token: &[u8], collateral: &[u8]) -> String {
+    format!("{}:{}", hex::encode(ag_token), hex::encode(collateral))
 }

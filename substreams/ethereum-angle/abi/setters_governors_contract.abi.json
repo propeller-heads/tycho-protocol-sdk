@@ -1,0 +1,329 @@
+[
+  { "inputs": [], "name": "AlreadyAdded", "type": "error" },
+  { "inputs": [], "name": "InvalidChainlinkRate", "type": "error" },
+  { "inputs": [], "name": "InvalidParams", "type": "error" },
+  { "inputs": [], "name": "InvalidRate", "type": "error" },
+  { "inputs": [], "name": "ManagerHasAssets", "type": "error" },
+  { "inputs": [], "name": "NotCollateral", "type": "error" },
+  { "inputs": [], "name": "NotGovernor", "type": "error" },
+  { "inputs": [], "name": "NotTrusted", "type": "error" },
+  { "inputs": [], "name": "OracleUpdateFailed", "type": "error" },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "collateral",
+        "type": "address"
+      }
+    ],
+    "name": "CollateralAdded",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "collateral",
+        "type": "address"
+      },
+      {
+        "components": [
+          {
+            "internalType": "contract IERC20[]",
+            "name": "subCollaterals",
+            "type": "address[]"
+          },
+          { "internalType": "bytes", "name": "config", "type": "bytes" }
+        ],
+        "indexed": false,
+        "internalType": "struct ManagerStorage",
+        "name": "managerData",
+        "type": "tuple"
+      }
+    ],
+    "name": "CollateralManagerSet",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "collateral",
+        "type": "address"
+      }
+    ],
+    "name": "CollateralRevoked",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "collateral",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "bytes",
+        "name": "whitelistData",
+        "type": "bytes"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint8",
+        "name": "whitelistStatus",
+        "type": "uint8"
+      }
+    ],
+    "name": "CollateralWhitelistStatusUpdated",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "collateral",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "bytes",
+        "name": "oracleConfig",
+        "type": "bytes"
+      }
+    ],
+    "name": "OracleSet",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "previousOwner",
+        "type": "address"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "newOwner",
+        "type": "address"
+      }
+    ],
+    "name": "OwnershipTransferred",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "token",
+        "type": "address"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "to",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      }
+    ],
+    "name": "Recovered",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "collateral",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "bool",
+        "name": "increase",
+        "type": "bool"
+      }
+    ],
+    "name": "ReservesAdjusted",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "sender",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "bool",
+        "name": "isTrusted",
+        "type": "bool"
+      },
+      {
+        "indexed": false,
+        "internalType": "enum TrustedType",
+        "name": "trustedType",
+        "type": "uint8"
+      }
+    ],
+    "name": "TrustedToggled",
+    "type": "event"
+  },
+  {
+    "inputs": [
+      { "internalType": "address", "name": "collateral", "type": "address" }
+    ],
+    "name": "addCollateral",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      { "internalType": "address", "name": "collateral", "type": "address" },
+      { "internalType": "uint128", "name": "amount", "type": "uint128" },
+      { "internalType": "bool", "name": "increase", "type": "bool" }
+    ],
+    "name": "adjustStablecoins",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      { "internalType": "contract IERC20", "name": "token", "type": "address" },
+      { "internalType": "address", "name": "spender", "type": "address" },
+      { "internalType": "uint256", "name": "amount", "type": "uint256" }
+    ],
+    "name": "changeAllowance",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      { "internalType": "address", "name": "collateral", "type": "address" },
+      { "internalType": "contract IERC20", "name": "token", "type": "address" },
+      { "internalType": "address", "name": "to", "type": "address" },
+      { "internalType": "uint256", "name": "amount", "type": "uint256" }
+    ],
+    "name": "recoverERC20",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      { "internalType": "address", "name": "collateral", "type": "address" }
+    ],
+    "name": "revokeCollateral",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "_newAccessControlManager",
+        "type": "address"
+      }
+    ],
+    "name": "setAccessControlManager",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      { "internalType": "address", "name": "collateral", "type": "address" },
+      {
+        "components": [
+          {
+            "internalType": "contract IERC20[]",
+            "name": "subCollaterals",
+            "type": "address[]"
+          },
+          { "internalType": "bytes", "name": "config", "type": "bytes" }
+        ],
+        "internalType": "struct ManagerStorage",
+        "name": "managerData",
+        "type": "tuple"
+      }
+    ],
+    "name": "setCollateralManager",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      { "internalType": "address", "name": "collateral", "type": "address" },
+      { "internalType": "bytes", "name": "oracleConfig", "type": "bytes" }
+    ],
+    "name": "setOracle",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      { "internalType": "address", "name": "collateral", "type": "address" },
+      { "internalType": "uint8", "name": "whitelistStatus", "type": "uint8" },
+      { "internalType": "bytes", "name": "whitelistData", "type": "bytes" }
+    ],
+    "name": "setWhitelistStatus",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      { "internalType": "address", "name": "sender", "type": "address" },
+      { "internalType": "enum TrustedType", "name": "t", "type": "uint8" }
+    ],
+    "name": "toggleTrusted",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      { "internalType": "address", "name": "collateral", "type": "address" }
+    ],
+    "name": "updateOracle",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  }
+]

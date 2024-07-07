@@ -19,7 +19,7 @@ binaries:
 modules:
   - name: map_components
     kind: map
-    initialBlock: 18012837
+    initialBlock: 17869756
     inputs:
       - params: string
       - source: sf.ethereum.type.v2.Block
@@ -28,7 +28,7 @@ modules:
 
   - name: store_components
     kind: store
-    initialBlock: 18012837
+    initialBlock: 17869756
     updatePolicy: set
     valueType: string
     inputs:
@@ -36,7 +36,7 @@ modules:
 
   - name: map_relative_balances
     kind: map
-    initialBlock: 18012837 # An arbitrary block that should change based on your requirements
+    initialBlock: 17869756 # An arbitrary block that should change based on your requirements
     inputs:
       - source: sf.ethereum.type.v2.Block
       - store: store_components
@@ -45,7 +45,7 @@ modules:
 
   - name: store_balances
     kind: store
-    initialBlock: 18012837
+    initialBlock: 17869756
     updatePolicy: set
     valueType: bigint
     inputs:
@@ -53,7 +53,7 @@ modules:
 
   - name: map_protocol_changes
     kind: map
-    initialBlock: 18012837
+    initialBlock: 17869756
     inputs:
       - source: sf.ethereum.type.v2.Block
       - map: map_components
