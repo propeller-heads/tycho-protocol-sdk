@@ -19,13 +19,18 @@ contract CamelotV3Adapter is ISwapAdapter {
         factory = IAlgebraFactory(quoter.factory());
     }
 
+    /// @inheritdoc ISwapAdapter
     function price(
-        bytes32 _poolId,
-        address _sellToken,
-        address _buyToken,
-        uint256[] memory _specifiedAmounts
-    ) external view override returns (Fraction[] memory _prices) {
-        revert NotImplemented("TemplateSwapAdapter.price");
+        bytes32,
+        address sellToken,
+        address buyToken,
+        uint256[] memory specifiedAmounts
+    ) external view override returns (Fraction[] memory prices) {
+        prices = new Fraction[](_specifiedAmounts.length);
+
+        for (uint256 i = 0; i < specifiedAmounts.length; i++) {
+            prices[i] = getPriceAt(sellToken, buyToken, specifiedAmounts[i]);
+        }
     }
 
     function swap(
@@ -76,6 +81,18 @@ contract CamelotV3Adapter is ISwapAdapter {
         returns (bytes32[] memory)
     {
         revert NotImplemented("CamelotV3Adapter.getPoolIds");
+    }
+
+    /// @notice Get swap price
+    /// @param sellToken The token to sell
+    /// @param buyToken The token to buy
+    /// @param specifiedAmount The amount to Swap
+    function getPriceAt(address sellToken, address buyToken, uint256 specifiedAmount) internal returns (Fraction memory) {
+        uint256 amountOut = quoter.quoteExactInputSingle(sellToken, buyToken, specifiedAmount, 0);
+        return Fraction(
+            amountOut,
+            specifiedAmount
+        );
     }
 }
 
