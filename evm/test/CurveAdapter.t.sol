@@ -39,33 +39,24 @@ contract CurveAdapterTest is Test, ISwapAdapterTypes {
         adapter = new CurveAdapter();
 
         // Additional pools that include custom Int128 pools
-        ADDITIONAL_POOLS_FOR_PRICE.push(
-            0xEcd5e75AFb02eFa118AF914515D6521aaBd189F1
-        );
-        ADDITIONAL_POOLS_FOR_PRICE.push(
-            0xEd279fDD11cA84bEef15AF5D39BB4d4bEE23F0cA
-        );
-        ADDITIONAL_POOLS_FOR_PRICE.push(
-            0x43b4FdFD4Ff969587185cDB6f0BD875c5Fc83f8c
-        );
-        ADDITIONAL_POOLS_FOR_PRICE.push(
-            0x87650D7bbfC3A9F10587d7778206671719d9910D
-        );
-        ADDITIONAL_POOLS_FOR_PRICE.push(
-            0x9EfE1A1Cbd6Ca51Ee8319AFc4573d253C3B732af
-        );
-        ADDITIONAL_POOLS_FOR_PRICE.push(
-            0x4807862AA8b2bF68830e4C8dc86D0e9A998e085a
-        );
-        ADDITIONAL_POOLS_FOR_PRICE.push(
-            0xd632f22692FaC7611d2AA1C0D552930D43CAEd3B
-        );
-        ADDITIONAL_POOLS_FOR_PRICE.push(
-            0xA5407eAE9Ba41422680e2e00537571bcC53efBfD
-        );
-        ADDITIONAL_POOLS_FOR_PRICE.push(
-            0x5a6A4D54456819380173272A5E8E9B9904BdF41B
-        );
+        ADDITIONAL_POOLS_FOR_PRICE = [
+            0xEcd5e75AFb02eFa118AF914515D6521aaBd189F1,
+            0xEd279fDD11cA84bEef15AF5D39BB4d4bEE23F0cA,
+            0x43b4FdFD4Ff969587185cDB6f0BD875c5Fc83f8c,
+            0x87650D7bbfC3A9F10587d7778206671719d9910D,
+            0x9EfE1A1Cbd6Ca51Ee8319AFc4573d253C3B732af,
+            0x4807862AA8b2bF68830e4C8dc86D0e9A998e085a,
+            0xd632f22692FaC7611d2AA1C0D552930D43CAEd3B,
+            0xA5407eAE9Ba41422680e2e00537571bcC53efBfD,
+            0x5a6A4D54456819380173272A5E8E9B9904BdF41B,
+            0x3211C6cBeF1429da3D0d58494938299C92Ad5860,
+            0x50f3752289e1456BfA505afd37B241bca23e685d,
+            0x4eBdF703948ddCEA3B11f675B4D1Fba9d2414A14,
+            0xDB6925eA42897ca786a045B252D95aA7370f44b4,
+            0xf861483fa7E511fbc37487D91B6FAa803aF5d37c,
+            0x0E9B5B092caD6F1c5E6bc7f89Ffe1abb5c95F1C2,
+            0x1e098B32944292969fB58c85bDC85545DA397117
+        ];
 
         vm.label(address(adapter), "CurveAdapter");
         vm.label(USDT, "USDT");
@@ -84,7 +75,14 @@ contract CurveAdapterTest is Test, ISwapAdapterTypes {
             address[] memory tokens = adapter.getTokens(pair);
             uint256[] memory amounts = new uint256[](1);
 
-            amounts[0] = 10000;
+            try ICurveStableSwapPool(ADDITIONAL_POOLS_FOR_PRICE[i]).balances(0)
+            returns (uint256 bal) {
+                amounts[0] = bal / 10;
+            } catch {
+                amounts[0] = ICurveCustomInt128Pool(
+                    ADDITIONAL_POOLS_FOR_PRICE[i]
+                ).balances(int128(0)) / 10;
+            }
 
             // Test Price
             Fraction[] memory prices =

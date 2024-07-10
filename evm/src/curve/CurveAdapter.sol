@@ -7,6 +7,7 @@ import {
     IERC20,
     SafeERC20
 } from "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
+import {ERC20} from "openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
 import "src/libraries/FractionMath.sol";
 
 /// @dev custom RESERVE_LIMIT_FACTOR for limits for this adapter(underestimate)
@@ -25,6 +26,7 @@ contract CurveAdapter is ISwapAdapter {
         int128 sellTokenIndex; // index of the token being sold
         int128 buyTokenIndex; // index of the token being bought
         uint256 specifiedAmount; // amount to trade
+        bool isInt128Pool; // pool is int128
     }
 
     struct PoolCoins {
@@ -56,6 +58,8 @@ contract CurveAdapter is ISwapAdapter {
 
         bool isEthPool; // pool is native ETH pool
         PoolCoins memory coins = getCoins(sellParams.poolAddress);
+        sellParams.isInt128Pool =
+            isInt128Pool(sellParams.poolAddress, coins.addresses[0]);
 
         /// @dev Support for Native ETH pools, ETH pools cannot be Meta
         /// therefore we can directly access coins without using underlying
@@ -120,6 +124,8 @@ contract CurveAdapter is ISwapAdapter {
 
             bool isEthPool; // pool is native ETH pool
             PoolCoins memory coins = getCoins(sellParams.poolAddress);
+            sellParams.isInt128Pool =
+                isInt128Pool(sellParams.poolAddress, coins.addresses[0]);
 
             /// @dev Support for Native ETH pools, ETH pools cannot be Meta
             /// therefore we can directly access coins without using underlying
@@ -298,7 +304,7 @@ contract CurveAdapter is ISwapAdapter {
         uint256 amountIn;
         uint256 sellTokenIndexUint = uint256(uint128(sellParams.sellTokenIndex));
         uint256 buyTokenIndexUint = uint256(uint128(sellParams.buyTokenIndex));
-        if (isInt128Pool(sellParams.poolAddress)) {
+        if (sellParams.isInt128Pool) {
             try ICurveStableSwapPool(sellParams.poolAddress).balances(
                 sellTokenIndexUint
             ) returns (uint256 bal) {
@@ -348,7 +354,7 @@ contract CurveAdapter is ISwapAdapter {
             ? address(this).balance
             : buyToken.balanceOf(address(this));
 
-        if (isInt128Pool(sellParams.poolAddress)) {
+        if (sellParams.isInt128Pool) {
             if (sellParams.sellToken == ETH_ADDRESS) {
                 // ETH Pool
                 ICurveStableSwapPoolEth(sellParams.poolAddress).exchange{
@@ -420,10 +426,22 @@ contract CurveAdapter is ISwapAdapter {
     /// @dev Check whether a pool supports int128 inputs or uint256(excluded
     /// custom)
     /// @param poolAddress address of the pool
-    function isInt128Pool(address poolAddress) internal view returns (bool) {
-        try ICurveCryptoSwapPool(poolAddress).get_dy(0, 1, 1000) returns (
-            uint256
-        ) {
+    /// @param coin0 address of the first coin in the pool
+    function isInt128Pool(address poolAddress, address coin0)
+        internal
+        view
+        returns (bool)
+    {
+        uint256 coinDecimals =
+            coin0 == ETH_ADDRESS ? 18 : ERC20(coin0).decimals();
+        uint256 sampleAmount = (10 ** coinDecimals) / 10; // Other coins
+            // (default), we use 0.1 as sample amount
+        if (coinDecimals <= 6) {
+            // Stablecoin, we use 10 as sample amount
+            sampleAmount = (10 ** coinDecimals) * 10;
+        }
+        try ICurveCryptoSwapPool(poolAddress).get_dy(0, 1, sampleAmount)
+        returns (uint256) {
             return false;
         } catch {
             return true;
