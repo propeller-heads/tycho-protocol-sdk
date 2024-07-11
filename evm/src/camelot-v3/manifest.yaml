@@ -19,10 +19,10 @@ contract: CamelotV3Adapter.sol
 # Deployment instances used to generate chain specific bytecode.
 instances:
   - chain:
-      name: mainnet
-      id: 1
+      name: arbitrum
+      id: 42161
     arguments:
-      - "0xBA12222222228d8Ba445958a75a0704d566BF2C8"
+      - "0x1a3c9B1d2F0529D97f2afC5136Cc23e58f1FD35B"
 
 # Specify some automatic test cases in case getPoolIds and
 # getTokens are not implemented.
@@ -33,5 +33,5 @@ tests:
       buy_token: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"
       block: 17000000
       chain:
-        name: mainnet
-        id: 1
+        name: arbitrum
+        id: 42161
