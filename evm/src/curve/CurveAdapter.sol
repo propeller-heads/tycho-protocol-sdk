@@ -432,15 +432,10 @@ contract CurveAdapter is ISwapAdapter {
         view
         returns (bool)
     {
-        uint256 coinDecimals =
-            coin0 == ETH_ADDRESS ? 18 : ERC20(coin0).decimals();
-        uint256 sampleAmount = (10 ** coinDecimals) / 10; // Other coins
-            // (default), we use 0.1 as sample amount
-        if (coinDecimals <= 6) {
-            // Stablecoin, we use 10 as sample amount
-            sampleAmount = (10 ** coinDecimals) * 10;
-        }
-        try ICurveCryptoSwapPool(poolAddress).get_dy(0, 1, sampleAmount)
+        uint256 sampleAmount = coin0 == ETH_ADDRESS
+            ? poolAddress.balance
+            : IERC20(coin0).balanceOf(poolAddress);
+        try ICurveCryptoSwapPool(poolAddress).get_dy(0, 1, sampleAmount / 10)
         returns (uint256) {
             return false;
         } catch {
