@@ -94,12 +94,17 @@ contract CamelotV3Adapter is ISwapAdapter {
         limits[1] = IERC20(buyToken).balanceOf(poolAddress);
     }
 
-    function getCapabilities(
-        bytes32 poolId,
-        address sellToken,
-        address buyToken
-    ) external override pure returns (Capability[] memory capabilities) {
-        revert NotImplemented("TemplateSwapAdapter.getCapabilities");
+    /// @inheritdoc ISwapAdapter
+    function getCapabilities(bytes32, address, address)
+        external
+        pure
+        override
+        returns (Capability[] memory capabilities)
+    {
+        capabilities = new Capability[](3);
+        capabilities[0] = Capability.SellOrder;
+        capabilities[1] = Capability.BuyOrder;
+        capabilities[2] = Capability.PriceFunction;
     }
 
     /// @inheritdoc ISwapAdapter
