@@ -18,7 +18,7 @@ protobuf:
 binaries:
   default:
     type: wasm/rust-v1
-    file: ./target/wasm32-unknown-unknown/release/substreams.wasm
+    file: ../target/wasm32-unknown-unknown/release/ethereum_rocketpool.wasm
 
 modules:
   - name: map_components

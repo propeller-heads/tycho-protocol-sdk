@@ -12,8 +12,9 @@ use tycho_substreams::{
     balances::aggregate_balances_changes, contract::extract_contract_changes, prelude::*,
 };
 
-const RETH_ADDRESS: [u8; 20] = hex!("DD3f50F8A6CafbE9b31a427582963f465E745AF8"); //RPL rocketPool Token
+const RETH_ADDRESS: [u8; 20] = hex!("D33526068D116cE69F19A9ee46F0bd304F21A51f"); //RPL rocketPool Token
 const VAULT_ADDRESS: [u8; 20] = hex!("3bDC69C4E5e13E52A65f5583c23EFB9636b469d6"); //vault
+const ETHER_TOKEN_ADDRESS: [u8; 20] = hex!("0000000000000000000000000000000000000000"); //ETH
 
 #[substreams::handlers::map]
 pub fn map_components(block: eth::v2::Block) -> Result<BlockTransactionProtocolComponents> {
@@ -143,6 +144,7 @@ pub fn map_relative_balances(
 ) -> Result<BlockBalanceDeltas, anyhow::Error> {
     let balance_deltas = block
         .logs()
+        .filter(|log| log.address() == VAULT_ADDRESS)
         .flat_map(|vault_log| {
             let mut deltas = Vec::new();
             let address_bytes_be = vault_log.address();
@@ -160,7 +162,7 @@ pub fn map_relative_balances(
                     deltas.push(BalanceDelta {
                         ord: vault_log.ordinal(),
                         tx: Some(vault_log.receipt.transaction.into()),
-                        token: address_bytes_be.to_vec(), // ETH address
+                        token: ETHER_TOKEN_ADDRESS.to_vec(), // ETH address
                         delta: ev.amount.to_signed_bytes_be(),
                         component_id: address_hex.as_bytes().to_vec(),
                     });
@@ -172,7 +174,7 @@ pub fn map_relative_balances(
                     deltas.push(BalanceDelta {
                         ord: vault_log.ordinal(),
                         tx: Some(vault_log.receipt.transaction.into()),
-                        token: address_bytes_be.to_vec(), // ETH address
+                        token: ETHER_TOKEN_ADDRESS.to_vec(), // ETH address
                         delta: ev.amount.neg().to_signed_bytes_be(),
                         component_id: address_hex.as_bytes().to_vec(),
                     });
@@ -245,6 +247,6 @@ fn is_deployment_tx(tx: &eth::v2::TransactionTrace, vault_address: &[u8]) -> boo
 
 fn create_vault_component(tx: &Transaction) -> ProtocolComponent {
     ProtocolComponent::at_contract(RETH_ADDRESS.as_slice(), tx)
-        .with_tokens(&[RETH_ADDRESS])
+        .with_tokens(&[RETH_ADDRESS, ETHER_TOKEN_ADDRESS])
         .as_swap_type("rocketvault", ImplementationType::Vm)
 }
