@@ -5,8 +5,8 @@ use std::fs;
 use substreams_ethereum::Abigen;
 
 fn main() -> Result<(), anyhow::Error> {
-    let file_names = ["abi/router.abi.json", "abi/xgrail.abi.json"];
-    let file_output_names = ["src/abi/router.rs", "src/abi/xgrail.rs"];
+    let file_names = ["abi/router.abi.json", "abi/xgrail.abi.json", "abi/factory.abi.json"];
+    let file_output_names = ["src/abi/router.rs", "src/abi/xgrail.rs", "src/abi/factory.rs"];
 
     let mut i = 0;
     for f in file_names {

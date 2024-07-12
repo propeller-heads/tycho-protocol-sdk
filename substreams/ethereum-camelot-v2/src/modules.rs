@@ -7,12 +7,13 @@ use substreams::{
     pb::substreams::StoreDeltas,
     store::{StoreAdd, StoreAddBigInt, StoreAddInt64, StoreGet, StoreGetInt64, StoreNew},
 };
-use substreams_ethereum::{pb::eth, Event};
+use substreams_ethereum::pb::eth;
 use tycho_substreams::{
     balances::aggregate_balances_changes, contract::extract_contract_changes, prelude::*,
 };
 
-const VAULT_ADDRESS: &[u8] = &hex!("BA12222222228d8Ba445958a75a0704d566BF2C8");
+pub const XGRAIL_ADDRESS: [u8; 20] = hex!("8D9bA570D6cb60C7e3e0F31346Efe05AB882Aa54");
+pub const GRAIL_ADDRESS: [u8; 20] = hex!("D3d2E2692501A5c9Ca623199D38826e513033a17");
 
 #[substreams::handlers::map]
 pub fn map_components(block: eth::v2::Block) -> Result<BlockTransactionProtocolComponents> {
@@ -30,7 +31,7 @@ pub fn map_components(block: eth::v2::Block) -> Result<BlockTransactionProtocolC
                             call.call.address.as_slice(),
                             log,
                             call.call,
-                            &(tx.into()),
+                            &tx,
                         )
                     })
                     .collect::<Vec<_>>();
