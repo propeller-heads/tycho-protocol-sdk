@@ -228,7 +228,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "ethereum-curve"
+name = "ethereum-camelot-v2"
 version = "0.1.0"
 dependencies = [
  "anyhow",
@@ -237,12 +237,11 @@ dependencies = [
  "getrandom",
  "hex",
  "hex-literal 0.4.1",
- "itertools 0.13.0",
+ "itertools 0.12.1",
  "num-bigint",
  "prost 0.11.9",
  "prost-types 0.12.3",
- "serde",
- "serde_qs",
+ "regex",
  "substreams",
  "substreams-ethereum",
  "tycho-substreams",
@@ -454,15 +453,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "itertools"
-version = "0.13.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "413ee7dfc52ee1a4949ceeb7dbc8a33f2d6c088194d9f922fb8318faf1f01186"
-dependencies = [
- "either",
-]
-
-[[package]]
 name = "itoa"
 version = "1.0.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -582,12 +572,6 @@ dependencies = [
  "quote",
  "syn 1.0.109",
 ]
-
-[[package]]
-name = "percent-encoding"
-version = "2.3.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e3148f5046208a5d56bcfc03053e3ca6334e51da8dfb19b6cdc8b306fae3283e"
 
 [[package]]
 name = "petgraph"
@@ -884,17 +868,6 @@ dependencies = [
  "itoa",
  "ryu",
  "serde",
-]
-
-[[package]]
-name = "serde_qs"
-version = "0.13.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cd34f36fe4c5ba9654417139a9b3a20d2e1de6012ee678ad14d240c22c78d8d6"
-dependencies = [
- "percent-encoding",
- "serde",
- "thiserror",
 ]
 
 [[package]]
