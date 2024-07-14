@@ -2,7 +2,7 @@ use super::modules::{GRAIL_ADDRESS, XGRAIL_ADDRESS};
 use crate::abi;
 use substreams::scalar::BigInt;
 use substreams_ethereum::{
-    pb::eth::v2::{Call, Log, TransactionTrace},
+    pb::eth::v2::{Log, TransactionTrace},
     Event,
 };
 use tycho_substreams::{models::Transaction, prelude::*};
@@ -30,12 +30,7 @@ impl SerializableVecBigInt for Vec<BigInt> {
     }
 }
 
-pub fn address_map(
-    pool_factory_address: &[u8],
-    log: &Log,
-    call: &Call,
-    tx_trace: &TransactionTrace,
-) -> Option<ProtocolComponent> {
+pub fn address_map(log: &Log, tx_trace: &TransactionTrace) -> Option<ProtocolComponent> {
     let tx: Transaction = tx_trace.into();
     if let Some(ev) = abi::factory::events::PairCreated::match_and_decode(log) {
         let pool_address = ev.pair;
