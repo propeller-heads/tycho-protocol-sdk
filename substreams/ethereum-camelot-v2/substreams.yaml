@@ -14,7 +14,7 @@ protobuf:
 binaries:
   default:
     type: wasm/rust-v1
-    file: ../target/wasm32-unknown-unknown/release/substreams_camelot_v2.wasm
+    file: ../target/wasm32-unknown-unknown/release/ethereum_camelot_v2.wasm
 
 modules:
   - name: map_components

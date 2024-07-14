@@ -1,7 +1,7 @@
 [workspace]
 members = [
     "ethereum-balancer",
-    # "ethereum-curve",
+    "ethereum-curve",
     "ethereum-camelot-v2",
     "crates/tycho-substreams",
 ]
