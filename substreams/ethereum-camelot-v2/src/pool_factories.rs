@@ -1,34 +1,10 @@
 use super::modules::{GRAIL_ADDRESS, XGRAIL_ADDRESS};
 use crate::abi;
-use substreams::scalar::BigInt;
 use substreams_ethereum::{
     pb::eth::v2::{Log, TransactionTrace},
     Event,
 };
 use tycho_substreams::{models::Transaction, prelude::*};
-
-/// This trait defines some helpers for serializing and deserializing `Vec<BigInt` which is needed
-///  to be able to encode the `normalized_weights` and `weights` `Attribute`s. This should also be
-///  handled by any downstream application.
-trait SerializableVecBigInt {
-    fn serialize_bytes(&self) -> Vec<u8>;
-    #[allow(dead_code)]
-    fn deserialize_bytes(bytes: &[u8]) -> Vec<BigInt>;
-}
-
-impl SerializableVecBigInt for Vec<BigInt> {
-    fn serialize_bytes(&self) -> Vec<u8> {
-        self.iter()
-            .flat_map(|big_int| big_int.to_signed_bytes_be())
-            .collect()
-    }
-    fn deserialize_bytes(bytes: &[u8]) -> Vec<BigInt> {
-        bytes
-            .chunks_exact(32)
-            .map(BigInt::from_signed_bytes_be)
-            .collect::<Vec<BigInt>>()
-    }
-}
 
 pub fn address_map(log: &Log, tx_trace: &TransactionTrace) -> Option<ProtocolComponent> {
     let tx: Transaction = tx_trace.into();

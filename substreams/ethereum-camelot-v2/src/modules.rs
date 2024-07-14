@@ -27,7 +27,7 @@ pub fn map_components(block: eth::v2::Block) -> Result<BlockTransactionProtocolC
             .filter_map(|tx| {
                 let components = tx
                     .logs_with_calls()
-                    .filter_map(|(log, _)| pool_factories::address_map(log, &tx))
+                    .filter_map(|(log, _)| pool_factories::address_map(log, tx))
                     .collect::<Vec<_>>();
 
                 if !components.is_empty() {
@@ -138,7 +138,7 @@ pub fn map_relative_balances(
                     ]);
                 }
             } else if let Some(ev) = abi::pair::events::Mint::match_and_decode(log) {
-                let component_id = address_to_hex_string(&log.address());
+                let component_id = address_to_hex_string(log.address());
 
                 if let Some((token_0, token_1)) = maybe_get_pool_tokens(&store, &component_id) {
                     let amount_0 = ev.amount0;
@@ -161,7 +161,7 @@ pub fn map_relative_balances(
                     ]);
                 }
             } else if let Some(ev) = abi::pair::events::Burn::match_and_decode(log) {
-                let component_id = address_to_hex_string(&log.address());
+                let component_id = address_to_hex_string(log.address());
 
                 if let Some((token_0, token_1)) = maybe_get_pool_tokens(&store, &component_id) {
                     let amount_0 = ev.amount0;
@@ -184,7 +184,7 @@ pub fn map_relative_balances(
                     ]);
                 }
             } else if let Some(ev) = abi::pair::events::Swap::match_and_decode(log) {
-                let component_id = address_to_hex_string(&log.address());
+                let component_id = address_to_hex_string(log.address());
 
                 if let Some((token_0, token_1)) = maybe_get_pool_tokens(&store, &component_id) {
                     let amount_0_in = ev.amount0_in;
