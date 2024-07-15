@@ -88,7 +88,7 @@ contract CamelotV3Adapter is ISwapAdapter {
                 sell(pool, sellToken, buyToken, specifiedAmount);
         } else {
             trade.calculatedAmount =
-                buy(pool, sellToken, buyToken, specifiedAmount);
+                buy(pool, sellToken, specifiedAmount);
         }
 
         trade.gasUsed = gasBefore - gasleft();
@@ -103,6 +103,7 @@ contract CamelotV3Adapter is ISwapAdapter {
     /// @inheritdoc ISwapAdapter
     function getLimits(bytes32 poolId, address sellToken, address buyToken)
         external
+        view
         override
         returns (uint256[] memory limits)
     {
@@ -199,18 +200,15 @@ contract CamelotV3Adapter is ISwapAdapter {
 
     /// @notice Execute a buy order on a given pool
     /// @param pool pool to swap in
-    /// @param sellToken token to sell
-    /// @param buyToken token to buy
+    /// @param sellToken token to sell (buy token is automatically the other token inside the pool)
     /// @param specifiedAmount amount of buyToken to buy
     /// @return (uint256) sellToken amount spent
     function buy(
         IAlgebraPool pool,
         address sellToken,
-        address buyToken,
         uint256 specifiedAmount
     ) internal returns (uint256) {
         bool sellTokenIsToken0 = pool.token0() == sellToken;
-        IERC20 sellTokenContract = IERC20(sellToken);
         uint160 limitSqrtP =
             sellTokenIsToken0 ? MIN_SQRT_RATIO + 1 : MAX_SQRT_RATIO - 1;
 
