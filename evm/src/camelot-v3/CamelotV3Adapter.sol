@@ -12,12 +12,16 @@ contract CamelotV3Adapter is ISwapAdapter {
     using SafeERC20 for IERC20;
 
     uint160 constant MIN_SQRT_RATIO = 4295128739;
-    uint160 constant MAX_SQRT_RATIO = 1461446703485210103287273052203988822378723970342;
+    uint160 constant MAX_SQRT_RATIO =
+        1461446703485210103287273052203988822378723970342;
+
+    /// @dev custom factor for limits
+    uint256 constant RESERVER_LIMIT_FACTOR = 10;
 
     IQuoter immutable quoter;
     IAlgebraFactory immutable factory;
 
-    constructor (address _quoter) {
+    constructor(address _quoter) {
         quoter = IQuoter(_quoter);
         factory = IAlgebraFactory(quoter.factory());
     }
@@ -33,7 +37,7 @@ contract CamelotV3Adapter is ISwapAdapter {
     ///     uint8 deltaPosition // quantity to transfer is deltaQty0(0) or
     /// deltaQty1(1)
     /// }
-    function swapCallback(
+    function algebraSwapCallback(
         int256 deltaQty0,
         int256 deltaQty1,
         bytes calldata data
@@ -78,20 +82,36 @@ contract CamelotV3Adapter is ISwapAdapter {
         }
 
         IAlgebraPool pool = IAlgebraPool(address(bytes20(poolId)));
+        uint256 gasBefore = gasleft();
+        if (side == OrderSide.Sell) {
+            trade.calculatedAmount =
+                sell(pool, sellToken, buyToken, specifiedAmount);
+        } else {
+            trade.calculatedAmount =
+                buy(pool, sellToken, buyToken, specifiedAmount);
+        }
+
+        trade.gasUsed = gasBefore - gasleft();
+        if (side == OrderSide.Sell) {
+            trade.price = getPriceAt(sellToken, buyToken, specifiedAmount);
+        } else {
+            trade.price =
+                getPriceAt(sellToken, buyToken, trade.calculatedAmount);
+        }
     }
 
     /// @inheritdoc ISwapAdapter
     function getLimits(bytes32 poolId, address sellToken, address buyToken)
         external
-        view
         override
         returns (uint256[] memory limits)
     {
         address poolAddress = address(bytes20(poolId));
-        IAlgebraPool pool = IAlgebraPool(poolAddress);
         limits = new uint256[](2);
-        limits[0] = IERC20(sellToken).balanceOf(poolAddress);
-        limits[1] = IERC20(buyToken).balanceOf(poolAddress);
+        limits[0] =
+            IERC20(sellToken).balanceOf(poolAddress) / RESERVER_LIMIT_FACTOR;
+        limits[1] =
+            IERC20(buyToken).balanceOf(poolAddress) / RESERVER_LIMIT_FACTOR;
     }
 
     /// @inheritdoc ISwapAdapter
@@ -133,12 +153,15 @@ contract CamelotV3Adapter is ISwapAdapter {
     /// @param sellToken The token to sell
     /// @param buyToken The token to buy
     /// @param specifiedAmount The amount to Swap
-    function getPriceAt(address sellToken, address buyToken, uint256 specifiedAmount) internal returns (Fraction memory) {
-        (uint256 amountOut,) = quoter.quoteExactInputSingle(sellToken, buyToken, specifiedAmount, 0);
-        return Fraction(
-            amountOut,
-            specifiedAmount
+    function getPriceAt(
+        address sellToken,
+        address buyToken,
+        uint256 specifiedAmount
+    ) internal returns (Fraction memory) {
+        (uint256 amountOut,) = quoter.quoteExactInputSingle(
+            sellToken, buyToken, specifiedAmount, 0
         );
+        return Fraction(amountOut, specifiedAmount);
     }
 
     /// @notice Execute a sell order on a given pool
@@ -147,7 +170,12 @@ contract CamelotV3Adapter is ISwapAdapter {
     /// @param buyToken token to buy
     /// @param specifiedAmount amount of sellToken to sell
     /// @return (uint256) buyToken amount received
-    function sell(IAlgebraPool pool, address sellToken, address buyToken, uint256 specifiedAmount) internal returns (uint256) {
+    function sell(
+        IAlgebraPool pool,
+        address sellToken,
+        address buyToken,
+        uint256 specifiedAmount
+    ) internal returns (uint256) {
         bool sellTokenIsToken0 = pool.token0() == sellToken;
         IERC20 buyTokenContract = IERC20(buyToken);
 
@@ -181,25 +209,24 @@ contract CamelotV3Adapter is ISwapAdapter {
         address buyToken,
         uint256 specifiedAmount
     ) internal returns (uint256) {
-        bool buyTokenIsToken0 = pool.token0() == buyToken;
+        bool sellTokenIsToken0 = pool.token0() == sellToken;
         IERC20 sellTokenContract = IERC20(sellToken);
+        uint160 limitSqrtP =
+            sellTokenIsToken0 ? MIN_SQRT_RATIO + 1 : MAX_SQRT_RATIO - 1;
 
         // callback data for swapCallback called by pool
         bytes memory data = abi.encode(
-            msg.sender, address(pool), sellToken, buyTokenIsToken0 ? 1 : 0
+            msg.sender, address(pool), sellToken, !sellTokenIsToken0 ? 1 : 0
         );
 
-        uint160 limitSqrtP =
-            buyTokenIsToken0 ? MIN_SQRT_RATIO + 1 : MAX_SQRT_RATIO - 1;
-        uint256 balBefore = sellTokenContract.balanceOf(address(this));
-        pool.swap(
+        (int256 amount0, int256 amount1) = pool.swap(
             msg.sender,
-            buyTokenIsToken0,
+            sellTokenIsToken0,
             -int256(specifiedAmount),
             limitSqrtP,
             data
         );
-        return balBefore - sellTokenContract.balanceOf(address(this));
+        return sellTokenIsToken0 ? uint256(amount0) : uint256(amount1);
     }
 }
 
@@ -230,14 +257,16 @@ interface IQuoter {
 }
 
 interface IAlgebraFactory {
+    function poolDeployer() external view returns (address);
 
-  function poolDeployer() external view returns (address);
+    function farmingAddress() external view returns (address);
 
-  function farmingAddress() external view returns (address);
+    function vaultAddress() external view returns (address);
 
-  function vaultAddress() external view returns (address);
-
-  function poolByPair(address tokenA, address tokenB) external view returns (address pool);
+    function poolByPair(address tokenA, address tokenB)
+        external
+        view
+        returns (address pool);
 }
 
 interface IAlgebraPool {
@@ -245,5 +274,11 @@ interface IAlgebraPool {
 
     function token1() external view returns (address);
 
-    function swap(address recipient, bool zero2one, int256 amountRequired, uint160 limitSqrtPrice, bytes calldata data) external returns (int256 amount0, int256 amount1);
+    function swap(
+        address recipient,
+        bool zero2one,
+        int256 amountRequired,
+        uint160 limitSqrtPrice,
+        bytes calldata data
+    ) external returns (int256 amount0, int256 amount1);
 }

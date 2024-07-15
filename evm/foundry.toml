@@ -5,6 +5,7 @@ libs = ["lib"]
 
 [rpc_endpoints]
 mainnet = "${ETH_RPC_URL}"
+arb_mainnet = "${ARB_RPC_URL}"
 
 
 [fmt]
