@@ -55,7 +55,7 @@ contract TestAdapter is Test, ISwapAdapterTypes {
         uint256[] memory amounts =
             calculateAmounts(adapter.getLimits(poolId, tokenIn, tokenOut)[0]);
         Fraction[] memory prices =
-            adapter.price(poolId, tokenIn, tokenIn, amounts);
+            adapter.price(poolId, tokenIn, tokenOut, amounts);
         assertGt(
             getPrice(prices[0]),
             getPrice(prices[1]),
