@@ -178,12 +178,11 @@ contract CurveAdapter is ISwapAdapter {
     }
 
     /// @inheritdoc ISwapAdapter
-    function getLimits(bytes32 poolId, address sellToken, address buyToken)
-        external
-        view
-        override
-        returns (uint256[] memory limits)
-    {
+    function getLimits(
+        bytes32 poolId,
+        address sellToken,
+        address buyToken
+    ) external view override returns (uint256[] memory limits) {
         address poolAddress = address(bytes20(poolId));
         ICurveStableSwapPool pool = ICurveStableSwapPool(poolAddress);
         address sellToken_ = sellToken;
@@ -241,12 +240,11 @@ contract CurveAdapter is ISwapAdapter {
     }
 
     /// @inheritdoc ISwapAdapter
-    function getCapabilities(bytes32, address, address)
-        external
-        pure
-        override
-        returns (Capability[] memory capabilities)
-    {
+    function getCapabilities(
+        bytes32,
+        address,
+        address
+    ) external pure override returns (Capability[] memory capabilities) {
         capabilities = new Capability[](2);
         capabilities[0] = Capability.SellOrder;
         capabilities[1] = Capability.PriceFunction;
@@ -283,12 +281,10 @@ contract CurveAdapter is ISwapAdapter {
         }
     }
 
-    function getPoolIds(uint256, uint256)
-        external
-        pure
-        override
-        returns (bytes32[] memory)
-    {
+    function getPoolIds(
+        uint256,
+        uint256
+    ) external pure override returns (bytes32[] memory) {
         revert NotImplemented("CurveAdapter.getPoolIds");
     }
 
@@ -427,11 +423,10 @@ contract CurveAdapter is ISwapAdapter {
     /// custom)
     /// @param poolAddress address of the pool
     /// @param coin0 address of the first coin in the pool
-    function isInt128Pool(address poolAddress, address coin0)
-        internal
-        view
-        returns (bool)
-    {
+    function isInt128Pool(
+        address poolAddress,
+        address coin0
+    ) internal view returns (bool) {
         uint256 sampleAmount = coin0 == ETH_ADDRESS
             ? poolAddress.balance
             : IERC20(coin0).balanceOf(poolAddress);
@@ -533,14 +528,18 @@ contract CurveAdapter is ISwapAdapter {
 /// For params informations see:
 /// https://docs.curve.fi/cryptoswap-exchange/cryptoswap/pools/crypto-pool/
 interface ICurveCryptoSwapPool {
-    function get_dy(uint256 i, uint256 j, uint256 dx)
-        external
-        view
-        returns (uint256);
+    function get_dy(
+        uint256 i,
+        uint256 j,
+        uint256 dx
+    ) external view returns (uint256);
 
-    function exchange(uint256 i, uint256 j, uint256 dx, uint256 min_dy)
-        external
-        payable;
+    function exchange(
+        uint256 i,
+        uint256 j,
+        uint256 dx,
+        uint256 min_dy
+    ) external payable;
 
     function balances(uint256 arg0) external view returns (uint256);
 
@@ -562,13 +561,18 @@ interface ICurveCryptoSwapPoolEth is ICurveCryptoSwapPool {
 /// For params informations see:
 /// https://docs.curve.fi/stableswap-exchange/stableswap/pools/plain_pools/
 interface ICurveStableSwapPool {
-    function get_dy(int128 i, int128 j, uint256 dx)
-        external
-        view
-        returns (uint256);
+    function get_dy(
+        int128 i,
+        int128 j,
+        uint256 dx
+    ) external view returns (uint256);
 
-    function exchange(int128 i, int128 j, uint256 dx, uint256 min_dy)
-        external;
+    function exchange(
+        int128 i,
+        int128 j,
+        uint256 dx,
+        uint256 min_dy
+    ) external;
 
     function balances(uint256 arg0) external view returns (uint256);
 
@@ -590,14 +594,18 @@ interface ICurveStableSwapPoolEth {
 /// @dev TODO future implementation, not used at the moment since StableSwap
 /// Meta Pools are not supported yet
 interface ICurveStableSwapMetaPool is ICurveStableSwapPool {
-    function get_dy_underlying(int128 i, int128 j, uint256 dx)
-        external
-        view
-        returns (uint256);
+    function get_dy_underlying(
+        int128 i,
+        int128 j,
+        uint256 dx
+    ) external view returns (uint256);
 
-    function exchange_underlying(int128 i, int128 j, uint256 dx, uint256 min_dy)
-        external
-        returns (uint256);
+    function exchange_underlying(
+        int128 i,
+        int128 j,
+        uint256 dx,
+        uint256 min_dy
+    ) external returns (uint256);
 }
 
 interface ICurveCustomInt128Pool {

@@ -17,10 +17,16 @@ library FractionMath {
         uint256 crossProduct2 = frac2.numerator * frac1.denominator;
 
         // fractions are equal
-        if (crossProduct1 == crossProduct2) return 0;
+        if (crossProduct1 == crossProduct2) {
+            return 0;
+        }
         // frac1 is greater than frac2
-        else if (crossProduct1 > crossProduct2) return 1;
+        else if (crossProduct1 > crossProduct2) {
+            return 1;
+        }
         // frac1 is less than frac2
-        else return -1;
+        else {
+            return -1;
+        }
     }
 }

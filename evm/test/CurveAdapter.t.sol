@@ -61,6 +61,7 @@ contract CurveAdapterTest is TestAdapter {
         vm.label(address(adapter), "CurveAdapter");
         vm.label(USDT, "USDT");
         vm.label(USDC, "USDC");
+        vm.label(DAI, "DAI");
         vm.label(STABLE_POOL, "STABLE_POOL");
         vm.label(WETH, "WETH");
         vm.label(CRYPTO_POOL, "CRYPTO_POOL");
@@ -99,9 +100,10 @@ contract CurveAdapterTest is TestAdapter {
         }
     }
 
-    function testPriceFuzzCurveStableSwap(uint256 amount0, uint256 amount1)
-        public
-    {
+    function testPriceFuzzCurveStableSwap(
+        uint256 amount0,
+        uint256 amount1
+    ) public {
         bytes32 pair = bytes32(bytes20(STABLE_POOL));
         uint256[] memory limits = adapter.getLimits(pair, USDC, USDT);
         vm.assume(amount0 < limits[0]);
@@ -119,9 +121,10 @@ contract CurveAdapterTest is TestAdapter {
         }
     }
 
-    function testPriceFuzzCurveCryptoSwap(uint256 amount0, uint256 amount1)
-        public
-    {
+    function testPriceFuzzCurveCryptoSwap(
+        uint256 amount0,
+        uint256 amount1
+    ) public {
         bytes32 pair = bytes32(bytes20(CRYPTO_POOL));
         uint256[] memory limits = adapter.getLimits(pair, USDT, WETH);
         vm.assume(amount0 < limits[0]);
@@ -337,9 +340,11 @@ contract CurveAdapterTest is TestAdapter {
         }
     }
 
-    function testGetCapabilitiesCurveSwap(bytes32 pair, address t0, address t1)
-        public
-    {
+    function testGetCapabilitiesCurveSwap(
+        bytes32 pair,
+        address t0,
+        address t1
+    ) public {
         Capability[] memory res = adapter.getCapabilities(pair, t0, t1);
 
         assertEq(res.length, 2);
