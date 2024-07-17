@@ -19,11 +19,13 @@ contract AdapterTest is Test, ISwapAdapterTypes {
     // sell amounts. Asserts that the prices behaves as expected.
     // @param adapter The swap adapter to test
     // @param poolIds The list of pool ids to test
-    function testPoolBehaviour(
-        ISwapAdapter adapter,
-        bytes32[] memory poolIds,
-        bool hasPriceImpact
-    ) public {
+    function testPoolBehaviour(ISwapAdapter adapter, bytes32[] memory poolIds)
+        public
+    {
+        bool hasPriceImpact = !hasCapability(
+            adapter.getCapabilities(poolIds[0], address(0), address(0)),
+            Capability.ConstantPrice
+        );
         for (uint256 i = 0; i < poolIds.length; i++) {
             address[] memory tokens = adapter.getTokens(poolIds[i]);
             IERC20(tokens[0]).approve(address(adapter), type(uint256).max);
@@ -134,8 +136,34 @@ contract AdapterTest is Test, ISwapAdapterTypes {
             }
         }
         uint256 amountAboveLimit = sellLimit * 105 / 100;
+
+        bool hasHardLimits = hasCapability(
+            adapter.getCapabilities(poolId, tokenIn, tokenOut),
+            Capability.HardLimits
+        );
+
+        if (hasHardLimits) {
+            testRevertAboveLimit(
+                adapter, poolId, tokenIn, tokenOut, amountAboveLimit
+            );
+        } else {
+            testOperationsAboveLimit(
+                adapter, poolId, tokenIn, tokenOut, amountAboveLimit
+            );
+        }
+    }
+
+    function testRevertAboveLimit(
+        ISwapAdapter adapter,
+        bytes32 poolId,
+        address tokenIn,
+        address tokenOut,
+        uint256 amountAboveLimit
+    ) internal {
+        console2.log("TEST: Testing revert behavior above the sell limit");
         uint256[] memory aboveLimitArray = new uint256[](1);
         aboveLimitArray[0] = amountAboveLimit;
+
         try adapter.price(poolId, tokenIn, tokenOut, aboveLimitArray) {
             revert("Pool shouldn't be fetch prices above the sell limit");
         } catch Error(string memory s) {
@@ -144,7 +172,7 @@ contract AdapterTest is Test, ISwapAdapterTypes {
             );
         }
         try adapter.swap(
-            poolId, tokenIn, tokenOut, OrderSide.Sell, amountAboveLimit
+            poolId, tokenIn, tokenOut, OrderSide.Sell, aboveLimitArray[0]
         ) {
             revert("Pool shouldn't be able to swap above the sell limit");
         } catch Error(string memory s) {
@@ -152,6 +180,23 @@ contract AdapterTest is Test, ISwapAdapterTypes {
                 "TEST: Expected error when swapping above limit: %s", s
             );
         }
+    }
+
+    function testOperationsAboveLimit(
+        ISwapAdapter adapter,
+        bytes32 poolId,
+        address tokenIn,
+        address tokenOut,
+        uint256 amountAboveLimit
+    ) internal {
+        console2.log("TEST: Testing operations above the sell limit");
+        uint256[] memory aboveLimitArray = new uint256[](1);
+        aboveLimitArray[0] = amountAboveLimit;
+
+        adapter.price(poolId, tokenIn, tokenOut, aboveLimitArray);
+        adapter.swap(
+            poolId, tokenIn, tokenOut, OrderSide.Sell, aboveLimitArray[0]
+        );
     }
 
     function calculateTestAmounts(uint256 limit)
@@ -173,5 +218,18 @@ contract AdapterTest is Test, ISwapAdapterTypes {
         returns (uint256)
     {
         return price.numerator * pricePrecision / price.denominator;
+    }
+
+    function hasCapability(
+        Capability[] memory capabilities,
+        Capability capability
+    ) internal pure returns (bool) {
+        for (uint256 i = 0; i < capabilities.length; i++) {
+            if (capabilities[i] == capability) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

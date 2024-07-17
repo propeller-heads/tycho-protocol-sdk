@@ -379,6 +379,6 @@ contract CurveAdapterTest is AdapterTest {
         poolIds[0] = bytes32(bytes20(STABLE_POOL));
         poolIds[1] = bytes32(bytes20(CRYPTO_POOL));
 
-        testPoolBehaviour(adapter, poolIds, true);
+        testPoolBehaviour(adapter, poolIds);
     }
 }

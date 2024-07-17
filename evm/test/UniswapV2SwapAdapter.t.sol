@@ -164,6 +164,6 @@ contract UniswapV2PairFunctionTest is AdapterTest {
     function testUsv2PoolBehaviour() public {
         bytes32[] memory poolIds = new bytes32[](1);
         poolIds[0] = bytes32(bytes20(USDC_WETH_PAIR));
-        testPoolBehaviour(adapter, poolIds, true);
+        testPoolBehaviour(adapter, poolIds);
     }
 }
