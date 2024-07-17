@@ -202,11 +202,9 @@ contract BalancerV2SwapAdapterTest is TestAdapter {
         assert(limits[1] > 0);
     }
 
-    function testGetCapabilitiesFuzz(
-        bytes32 pool,
-        address t0,
-        address t1
-    ) public {
+    function testGetCapabilitiesFuzz(bytes32 pool, address t0, address t1)
+        public
+    {
         Capability[] memory res = adapter.getCapabilities(pool, t0, t1);
 
         assertEq(res.length, 3);

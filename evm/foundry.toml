@@ -11,8 +11,6 @@ mainnet = "${ETH_RPC_URL}"
 [fmt]
 line_length = 80
 wrap_comments = true
-single_line_statement_blocks = "multi"
-multiline_func_header = "params_first"
 
 [etherscan]
 mainnet = { key = "${ETHERSCAN_MAINNET_KEY}" }
