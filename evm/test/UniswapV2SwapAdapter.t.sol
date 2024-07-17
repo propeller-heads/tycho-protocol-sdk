@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 pragma solidity ^0.8.13;
 
-import "./TestAdapter.sol";
+import "./AdapterTest.sol";
 import "openzeppelin-contracts/contracts/interfaces/IERC20.sol";
 import "src/uniswap-v2/UniswapV2SwapAdapter.sol";
 import "src/interfaces/ISwapAdapterTypes.sol";

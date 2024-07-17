@@ -5,7 +5,7 @@ import "openzeppelin-contracts/contracts/interfaces/IERC20.sol";
 import "src/curve/CurveAdapter.sol";
 import "src/interfaces/ISwapAdapterTypes.sol";
 import "src/libraries/FractionMath.sol";
-import "./TestAdapter.sol";
+import "./AdapterTest.sol";
 
 contract CurveAdapterTest is AdapterTest {
     using FractionMath for Fraction;
