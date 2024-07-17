@@ -435,6 +435,12 @@ contract CurveAdapter is ISwapAdapter {
         uint256 sampleAmount = coin0 == ETH_ADDRESS
             ? poolAddress.balance
             : IERC20(coin0).balanceOf(poolAddress);
+
+        /// @dev fix for custom pools using ETH balance when coin0 is WETH
+        if (coin0 == WETH_ADDRESS && sampleAmount == 0) {
+            sampleAmount = poolAddress.balance;
+        }
+
         try ICurveCryptoSwapPool(poolAddress).get_dy(0, 1, sampleAmount / 10)
         returns (uint256) {
             return false;
