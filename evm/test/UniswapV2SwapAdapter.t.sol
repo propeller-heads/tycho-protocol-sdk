@@ -7,7 +7,7 @@ import "src/uniswap-v2/UniswapV2SwapAdapter.sol";
 import "src/interfaces/ISwapAdapterTypes.sol";
 import "src/libraries/FractionMath.sol";
 
-contract UniswapV2PairFunctionTest is TestAdapter {
+contract UniswapV2PairFunctionTest is AdapterTest {
     using FractionMath for Fraction;
 
     UniswapV2SwapAdapter adapter;
@@ -164,6 +164,6 @@ contract UniswapV2PairFunctionTest is TestAdapter {
     function testUsv2PoolBehaviour() public {
         bytes32[] memory poolIds = new bytes32[](1);
         poolIds[0] = bytes32(bytes20(USDC_WETH_PAIR));
-        testPoolBehaviour(adapter, poolIds);
+        testPoolBehaviour(adapter, poolIds, true);
     }
 }

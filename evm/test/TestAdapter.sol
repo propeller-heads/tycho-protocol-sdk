@@ -7,10 +7,11 @@ import {ISwapAdapter} from "src/interfaces/ISwapAdapter.sol";
 import "src/interfaces/ISwapAdapterTypes.sol";
 import "src/libraries/FractionMath.sol";
 
-contract TestAdapter is Test, ISwapAdapterTypes {
+contract AdapterTest is Test, ISwapAdapterTypes {
     using FractionMath for Fraction;
 
     uint256 constant pricePrecision = 10e24;
+    string[] public stringPctgs = ["0%", "0.01%", "50%", "100%"];
 
     // @notice Test the behavior of a swap adapter for a list of pools
     // @dev Computes limits, prices, and swaps on the pools on both directions
@@ -20,24 +21,19 @@ contract TestAdapter is Test, ISwapAdapterTypes {
     // @param poolIds The list of pool ids to test
     function testPoolBehaviour(
         ISwapAdapter adapter,
-        bytes32[] memory poolIds
+        bytes32[] memory poolIds,
+        bool hasPriceImpact
     ) public {
         for (uint256 i = 0; i < poolIds.length; i++) {
             address[] memory tokens = adapter.getTokens(poolIds[i]);
             IERC20(tokens[0]).approve(address(adapter), type(uint256).max);
 
-            string[] memory pctgs = new string[](4);
-            pctgs[0] = "0%";
-            pctgs[1] = "0.01%";
-            pctgs[2] = "50%";
-            pctgs[3] = "100%";
-
-            console2.log(
-                "TEST: Testing prices at 0, 0.01%, 50% and 100% of the sell limit"
+            testPricesForPair(
+                adapter, poolIds[i], tokens[0], tokens[1], hasPriceImpact
             );
-
-            testPricesForPair(adapter, poolIds[i], tokens[0], tokens[1], pctgs);
-            testPricesForPair(adapter, poolIds[i], tokens[1], tokens[0], pctgs);
+            testPricesForPair(
+                adapter, poolIds[i], tokens[1], tokens[0], hasPriceImpact
+            );
         }
     }
 
@@ -50,19 +46,32 @@ contract TestAdapter is Test, ISwapAdapterTypes {
         bytes32 poolId,
         address tokenIn,
         address tokenOut,
-        string[] memory pctgs
+        bool hasPriceImpact
     ) internal {
-        uint256[] memory amounts =
-            calculateAmounts(adapter.getLimits(poolId, tokenIn, tokenOut)[0]);
+        uint256 sellLimit = adapter.getLimits(poolId, tokenIn, tokenOut)[0];
+        assertGt(sellLimit, 0, "Sell limit should be greater than 0");
+
+        console2.log(
+            "TEST: Testing prices for pair %s -> %s. Sell limit: %d",
+            tokenIn,
+            tokenOut,
+            sellLimit
+        );
+        uint256[] memory amounts = calculateTestAmounts(sellLimit);
         Fraction[] memory prices =
             adapter.price(poolId, tokenIn, tokenOut, amounts);
         assertGt(
-            getPrice(prices[0]),
-            getPrice(prices[1]),
+            fractionToInt(prices[0]),
+            fractionToInt(prices[prices.length - 1]),
             "Price at limit should be smaller than price at 0"
         );
+        console2.log(
+            "TEST: Price at 0: %d, price at sell limit: %d",
+            fractionToInt(prices[0]),
+            fractionToInt(prices[prices.length - 1])
+        );
 
-        console2.log("TEST: Testing behavior for price at 0.");
+        console2.log("TEST: Testing behavior for price at 0");
         assertGt(prices[0].numerator, 0, "Nominator shouldn't be 0");
         assertGt(prices[0].denominator, 0, "Denominator shouldn't be 0");
 
@@ -71,44 +80,81 @@ contract TestAdapter is Test, ISwapAdapterTypes {
 
         for (uint256 j = 1; j < amounts.length; j++) {
             console2.log(
-                "TEST: Testing behavior for price at %s limit: %d",
-                pctgs[j],
+                "TEST: Testing behavior for price at %s of limit: %d",
+                stringPctgs[j],
                 amounts[j]
             );
-            uint256 priceAtAmount = getPrice(prices[j]);
+            uint256 priceAtAmount = fractionToInt(prices[j]);
             assertGt(prices[j].numerator, 0, "Nominator shouldn't be 0");
             assertGt(prices[j].denominator, 0, "Denominator shouldn't be 0");
 
             console2.log("TEST: Swapping %d of %s", amounts[j], tokenIn);
             trade = adapter.swap(
-                poolId, tokenIn, tokenIn, OrderSide.Sell, amounts[j]
+                poolId, tokenIn, tokenOut, OrderSide.Sell, amounts[j]
             );
             uint256 executedPrice =
                 trade.calculatedAmount * pricePrecision / amounts[j];
-            uint256 priceAfterSwap = getPrice(trade.price);
+            uint256 priceAfterSwap = fractionToInt(trade.price);
             console2.log("TEST: Pool price:       %d", priceAtAmount);
             console2.log("TEST: Executed price:   %d", executedPrice);
             console2.log("TEST: Price after swap: %d", priceAfterSwap);
 
-            assertGt(
-                priceAtAmount,
-                executedPrice,
-                "Price should be greated than executed price."
+            if (hasPriceImpact) {
+                assertGt(
+                    priceAtAmount,
+                    executedPrice,
+                    "Price should be greated than executed price."
+                );
+                assertGt(
+                    executedPrice,
+                    priceAfterSwap,
+                    "Executed price should be greater than price after swap."
+                );
+                assertGt(
+                    priceAtAmount,
+                    priceAfterSwap,
+                    "Price should be greated than price after swap."
+                );
+            } else {
+                assertGe(
+                    priceAtAmount,
+                    executedPrice,
+                    "Price should be greated than executed price."
+                );
+                assertGe(
+                    executedPrice,
+                    priceAfterSwap,
+                    "Executed price should be greater than price after swap."
+                );
+                assertGe(
+                    priceAtAmount,
+                    priceAfterSwap,
+                    "Price should be greated than price after swap."
+                );
+            }
+        }
+        uint256 amountAboveLimit = sellLimit * 105 / 100;
+        uint256[] memory aboveLimitArray = new uint256[](1);
+        aboveLimitArray[0] = amountAboveLimit;
+        try adapter.price(poolId, tokenIn, tokenOut, aboveLimitArray) {
+            revert("Pool shouldn't be fetch prices above the sell limit");
+        } catch Error(string memory s) {
+            console2.log(
+                "TEST: Expected error when fetching price above limit: %s", s
             );
-            assertGt(
-                executedPrice,
-                priceAfterSwap,
-                "Executed price should be greater than price after swap."
-            );
-            assertGt(
-                priceAtAmount,
-                priceAfterSwap,
-                "Price should be greated than price after swap."
+        }
+        try adapter.swap(
+            poolId, tokenIn, tokenOut, OrderSide.Sell, amountAboveLimit
+        ) {
+            revert("Pool shouldn't be able to swap above the sell limit");
+        } catch Error(string memory s) {
+            console2.log(
+                "TEST: Expected error when swapping above limit: %s", s
             );
         }
     }
 
-    function calculateAmounts(uint256 limit)
+    function calculateTestAmounts(uint256 limit)
         internal
         pure
         returns (uint256[] memory)
@@ -121,7 +167,11 @@ contract TestAdapter is Test, ISwapAdapterTypes {
         return amounts;
     }
 
-    function getPrice(Fraction memory price) public pure returns (uint256) {
+    function fractionToInt(Fraction memory price)
+        public
+        pure
+        returns (uint256)
+    {
         return price.numerator * pricePrecision / price.denominator;
     }
 }

@@ -7,7 +7,7 @@ import "src/interfaces/ISwapAdapterTypes.sol";
 import "src/libraries/FractionMath.sol";
 import "./TestAdapter.sol";
 
-contract CurveAdapterTest is TestAdapter {
+contract CurveAdapterTest is AdapterTest {
     using FractionMath for Fraction;
 
     CurveAdapter adapter;
@@ -379,6 +379,6 @@ contract CurveAdapterTest is TestAdapter {
         poolIds[0] = bytes32(bytes20(STABLE_POOL));
         poolIds[1] = bytes32(bytes20(CRYPTO_POOL));
 
-        testPoolBehaviour(adapter, poolIds);
+        testPoolBehaviour(adapter, poolIds, true);
     }
 }

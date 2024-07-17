@@ -9,7 +9,7 @@ import {
 } from "src/balancer-v2/BalancerV2SwapAdapter.sol";
 import {FractionMath} from "src/libraries/FractionMath.sol";
 
-contract BalancerV2SwapAdapterTest is TestAdapter {
+contract BalancerV2SwapAdapterTest is AdapterTest {
     using FractionMath for Fraction;
 
     IVault constant balancerV2Vault =
@@ -232,6 +232,6 @@ contract BalancerV2SwapAdapterTest is TestAdapter {
     function testBalancerV2PoolBehaviour() public {
         bytes32[] memory poolIds = new bytes32[](1);
         poolIds[0] = B_80BAL_20WETH_POOL_ID;
-        testPoolBehaviour(adapter, poolIds);
+        testPoolBehaviour(adapter, poolIds, true);
     }
 }
