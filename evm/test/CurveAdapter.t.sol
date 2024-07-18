@@ -1,13 +1,10 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 pragma solidity ^0.8.13;
 
-import "forge-std/Test.sol";
-import "openzeppelin-contracts/contracts/interfaces/IERC20.sol";
+import "./AdapterTest.sol";
 import "src/curve/CurveAdapter.sol";
-import "src/interfaces/ISwapAdapterTypes.sol";
-import "src/libraries/FractionMath.sol";
 
-contract CurveAdapterTest is Test, ISwapAdapterTypes {
+contract CurveAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
     using FractionMath for Fraction;
 
     CurveAdapter adapter;
@@ -381,5 +378,13 @@ contract CurveAdapterTest is Test, ISwapAdapterTypes {
         uint256[] memory limits = adapter.getLimits(pair, WETH, USDT);
 
         assertEq(limits.length, 2);
+    }
+
+    function testCurvePoolBehaviour() public {
+        bytes32[] memory poolIds = new bytes32[](ADDITIONAL_POOLS_FOR_PRICE.length);
+        for(uint256 i = 0; i < ADDITIONAL_POOLS_FOR_PRICE.length; i++) {
+            poolIds[i] = bytes32(bytes20(ADDITIONAL_POOLS_FOR_PRICE[i]));
+        }
+        testPoolBehaviour(adapter, poolIds);
     }
 }
