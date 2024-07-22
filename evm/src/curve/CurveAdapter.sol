@@ -325,7 +325,7 @@ contract CurveAdapter is ISwapAdapter {
                 amountIn = useGenericAmount
                     ? (ICurveCustomInt128Pool(sellParams.poolAddress).balances(
                         sellParams.sellTokenIndex
-                    ) / 10)
+                    ) / PRECISION)
                     : sellParams.specifiedAmount;
             }
 

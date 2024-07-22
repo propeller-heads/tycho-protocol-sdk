@@ -111,8 +111,8 @@ contract CurveAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
     {
         bytes32 pair = bytes32(bytes20(STABLE_POOL));
         uint256[] memory limits = adapter.getLimits(pair, USDC, USDT);
-        vm.assume(amount0 < limits[0]);
-        vm.assume(amount1 < limits[0]);
+        vm.assume(amount0 < limits[0] && amount0 > 0);
+        vm.assume(amount1 < limits[0] && amount1 > 0);
 
         uint256[] memory amounts = new uint256[](2);
         amounts[0] = amount0;
@@ -131,8 +131,8 @@ contract CurveAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
     {
         bytes32 pair = bytes32(bytes20(CRYPTO_POOL));
         uint256[] memory limits = adapter.getLimits(pair, USDT, WETH);
-        vm.assume(amount0 < limits[0]);
-        vm.assume(amount1 < limits[0]);
+        vm.assume(amount0 < limits[0] && amount0 > 0);
+        vm.assume(amount1 < limits[0] && amount1 > 0);
 
         uint256[] memory amounts = new uint256[](2);
         amounts[0] = amount0;
