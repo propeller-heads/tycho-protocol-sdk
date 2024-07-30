@@ -19,6 +19,7 @@ contract CurveAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
     address constant THREE_CRV_TOKEN =
         0x6c3F90f043a72FA612cbac8115EE7e52BDe6E490;
     address constant DAI = 0x6B175474E89094C44Da98b954EedeAC495271d0F;
+    address constant stETH = 0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84;
 
     // pools
     address constant STABLE_POOL = 0xbEbc44782C7dB0a1A60Cb6fe97d0b483032FF1C7;
@@ -26,9 +27,12 @@ contract CurveAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
     address constant STABLE_META_POOL =
         0x5a6A4D54456819380173272A5E8E9B9904BdF41B;
     address constant ETH_POOL = 0xBfAb6FA95E0091ed66058ad493189D2cB29385E6;
+    address constant STETH_POOL = 0xDC24316b9AE028F1497c275EB9192a3Ea0f67022;
     address[] ADDITIONAL_POOLS_FOR_PRICE;
 
     uint256 constant TEST_ITERATIONS = 100;
+    IwstETH constant wstETH =
+        IwstETH(0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0);
 
     function setUp() public {
         uint256 forkBlock = 20234346;
@@ -146,6 +150,63 @@ contract CurveAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
         }
     }
 
+    function testSwapFuzzCurveStEthPool(
+        uint256 specifiedAmount,
+        bool invertedSides
+    ) public {
+        (address sellToken, address buyToken) =
+            !invertedSides ? (ETH, stETH) : (stETH, ETH);
+        (uint256 sellTokenBalBefore, uint256 buyTokenBalBefore) = (0, 0);
+
+        bytes32 pair = bytes32(bytes20(STETH_POOL));
+        uint256[] memory limits = adapter.getLimits(pair, sellToken, buyToken);
+
+        vm.assume(specifiedAmount < limits[0] && specifiedAmount > 10 ** 5);
+
+        if (sellToken == ETH) {
+            deal(address(adapter), specifiedAmount);
+            sellTokenBalBefore = address(adapter).balance;
+            buyTokenBalBefore = IERC20(buyToken).balanceOf(address(this));
+        } else {
+            dealStEthTokens(specifiedAmount);
+            IERC20(sellToken).approve(address(adapter), specifiedAmount);
+            sellTokenBalBefore = IERC20(sellToken).balanceOf(address(this));
+            buyTokenBalBefore = address(this).balance;
+        }
+
+        Trade memory trade = adapter.swap(
+            pair, sellToken, buyToken, OrderSide.Sell, specifiedAmount
+        );
+
+        if (sellToken == ETH) {
+            assertEq(
+                specifiedAmount,
+                sellTokenBalBefore - address(adapter).balance
+            );
+            assertGe(
+                trade.calculatedAmount + 3,
+                IERC20(buyToken).balanceOf(address(this)) - buyTokenBalBefore
+            );
+            assertLe(
+                trade.calculatedAmount - 3,
+                IERC20(buyToken).balanceOf(address(this)) - buyTokenBalBefore
+            );
+        } else {
+            assertGe(
+                specifiedAmount + 3,
+                sellTokenBalBefore - IERC20(sellToken).balanceOf(address(this))
+            );
+            assertLe(
+                specifiedAmount - 3,
+                sellTokenBalBefore - IERC20(sellToken).balanceOf(address(this))
+            );
+            assertEq(
+                trade.calculatedAmount,
+                address(this).balance - buyTokenBalBefore
+            );
+        }
+    }
+
     function testSwapFuzzCurveStableSwap(uint256 specifiedAmount) public {
         OrderSide side = OrderSide.Sell;
 
@@ -163,25 +224,14 @@ contract CurveAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
         Trade memory trade =
             adapter.swap(pair, USDC, USDT, side, specifiedAmount);
 
-        if (side == OrderSide.Buy) {
-            assertEq(
-                specifiedAmount,
-                IERC20(USDT).balanceOf(address(this)) - USDT_balance
-            );
-            assertEq(
-                trade.calculatedAmount,
-                usdc_balance - IERC20(USDC).balanceOf(address(this))
-            );
-        } else {
-            assertEq(
-                specifiedAmount,
-                usdc_balance - IERC20(USDC).balanceOf(address(this))
-            );
-            assertEq(
-                trade.calculatedAmount,
-                IERC20(USDT).balanceOf(address(this)) - USDT_balance
-            );
-        }
+        assertEq(
+            specifiedAmount,
+            usdc_balance - IERC20(USDC).balanceOf(address(this))
+        );
+        assertEq(
+            trade.calculatedAmount,
+            IERC20(USDT).balanceOf(address(this)) - USDT_balance
+        );
     }
 
     function testSwapFuzzCurveCryptoSwap(uint256 specifiedAmount) public {
@@ -381,10 +431,26 @@ contract CurveAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
     }
 
     function testCurvePoolBehaviour() public {
-        bytes32[] memory poolIds = new bytes32[](ADDITIONAL_POOLS_FOR_PRICE.length);
-        for(uint256 i = 0; i < ADDITIONAL_POOLS_FOR_PRICE.length; i++) {
+        bytes32[] memory poolIds =
+            new bytes32[](ADDITIONAL_POOLS_FOR_PRICE.length);
+        for (uint256 i = 0; i < ADDITIONAL_POOLS_FOR_PRICE.length; i++) {
             poolIds[i] = bytes32(bytes20(ADDITIONAL_POOLS_FOR_PRICE[i]));
         }
         testPoolBehaviour(adapter, poolIds);
     }
+
+    /// @dev custom function to 'deal' stETH tokens as normal deal won't work
+    function dealStEthTokens(uint256 amount) internal {
+        uint256 wstETHAmount = wstETH.getStETHByWstETH(amount);
+        deal(address(wstETH), address(this), wstETHAmount);
+        wstETH.unwrap(wstETHAmount);
+    }
+}
+
+interface IwstETH is IERC20 {
+    function unwrap(uint256 _wstETHAmount) external returns (uint256);
+    function getStETHByWstETH(uint256 _wstETHAmount)
+        external
+        view
+        returns (uint256);
 }
