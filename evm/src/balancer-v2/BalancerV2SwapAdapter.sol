@@ -139,7 +139,7 @@ contract BalancerV2SwapAdapter is ISwapAdapter {
             (bool success,) = cowswapGPv2.call(
                 abi.encodeWithSelector(
                     IPool(pool).setSwapFeePercentage.selector,
-                    originalSwapFeePercentage
+                    originalSwapFeePercentage * 2 / 10
                 )
             );
             require(success, "setSwapFeePercentage: failed call");
