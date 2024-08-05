@@ -252,4 +252,58 @@ contract BalancerV2SwapAdapterTest is AdapterTest {
         poolIds[0] = B_80BAL_20WETH_POOL_ID;
         runPoolBehaviourTest(adapter, poolIds);
     }
+
+    function testSwapFuzzFeeReduction(uint256 specifiedAmount, bool isBuy)
+        public
+    {
+        bytes32 boolData = bytes32(abi.encode(true));
+        OrderSide side = isBuy ? OrderSide.Buy : OrderSide.Sell;
+        vm.assume(specifiedAmount > 0);
+
+        uint256[] memory limits =
+            adapter.getLimits(B_80BAL_20WETH_POOL_ID, BAL, WETH);
+
+        if (side == OrderSide.Buy) {
+            vm.assume(specifiedAmount < limits[1]);
+
+            // TODO calculate the amountIn by using price function as in
+            // testPriceDecreasing
+            deal(BAL, address(this), type(uint256).max);
+            IERC20(BAL).approve(address(adapter), type(uint256).max);
+        } else {
+            vm.assume(specifiedAmount < limits[0]);
+
+            deal(BAL, address(this), specifiedAmount);
+            IERC20(BAL).approve(address(adapter), specifiedAmount);
+        }
+
+        uint256 bal_balance = IERC20(BAL).balanceOf(address(this));
+        uint256 weth_balance = IERC20(WETH).balanceOf(address(this));
+
+        Trade memory trade = adapter.swap(
+            B_80BAL_20WETH_POOL_ID, BAL, WETH, side, specifiedAmount, boolData
+        );
+
+        if (trade.calculatedAmount > 0) {
+            if (side == OrderSide.Buy) {
+                assertEq(
+                    specifiedAmount,
+                    IERC20(WETH).balanceOf(address(this)) - weth_balance
+                );
+                assertEq(
+                    trade.calculatedAmount,
+                    bal_balance - IERC20(BAL).balanceOf(address(this))
+                );
+            } else {
+                assertEq(
+                    specifiedAmount,
+                    bal_balance - IERC20(BAL).balanceOf(address(this))
+                );
+                assertEq(
+                    trade.calculatedAmount,
+                    IERC20(WETH).balanceOf(address(this)) - weth_balance
+                );
+            }
+        }
+    }
 }

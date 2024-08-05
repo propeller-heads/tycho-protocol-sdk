@@ -17,6 +17,8 @@ contract BalancerV2SwapAdapter is ISwapAdapter {
 
     IVault immutable vault;
 
+    address constant cowswapGPv2 = 0x9008D19f58AAbD9eD0D60971565AA8510560ab41;
+
     constructor(address payable vault_) {
         vault = IVault(vault_);
     }
@@ -113,34 +115,35 @@ contract BalancerV2SwapAdapter is ISwapAdapter {
         }
     }
 
-    function swap(
+    /// @dev Execute a swap on Balancer V2 and support reducing the swap fee by
+    /// 80%.
+    function _executeSwap(
         bytes32 poolId,
+        IVault.SwapKind kind,
         address sellToken,
         address buyToken,
-        OrderSide side,
         uint256 specifiedAmount,
+        uint256 limit,
+        Trade memory trade,
         bytes32 data
-    ) external override returns (Trade memory trade) {
-        uint256 sellAmount;
-        IVault.SwapKind kind;
+    ) internal {
         bool reduceFee = abi.decode(abi.encodePacked(data), (bool));
-        uint256 limit; // TODO set this slippage limit properly
-        if (side == OrderSide.Sell) {
-            kind = IVault.SwapKind.GIVEN_IN;
-            sellAmount = specifiedAmount;
-            limit = 0;
-        } else {
-            kind = IVault.SwapKind.GIVEN_OUT;
-            sellAmount =
-                getSellAmount(poolId, sellToken, buyToken, specifiedAmount);
-            limit = type(uint256).max;
+        uint256 originalSwapFeePercentage;
+        address pool;
+        if (reduceFee) {
+            (pool,) = vault.getPool(poolId);
+            originalSwapFeePercentage = IPool(pool).getSwapFeePercentage();
+            // Apply 80% discount on the swap fee.
+            // TODO: Call swapFeePercentage from the cowswap GPV2contract
+            // (authorized by the vault)
+            (bool success,) = cowswapGPv2.call(
+                abi.encodeWithSelector(
+                    IPool(pool).setSwapFeePercentage.selector,
+                    originalSwapFeePercentage
+                )
+            );
+            require(success, "setSwapFeePercentage: failed call");
         }
-
-        IERC20(sellToken).safeTransferFrom(
-            msg.sender, address(this), sellAmount
-        );
-        IERC20(sellToken).safeIncreaseAllowance(address(vault), sellAmount);
-
         uint256 gasBefore = gasleft();
         trade.calculatedAmount = vault.swap(
             IVault.SingleSwap({
@@ -161,7 +164,58 @@ contract BalancerV2SwapAdapter is ISwapAdapter {
             block.timestamp + SWAP_DEADLINE_SEC
         );
         trade.gasUsed = gasBefore - gasleft();
+        if (reduceFee) {
+            // Revert swap fee reduction
+            // TODO: Call swapFeePercentage from the cowswap GPV2contract
+            // (authorized by the vault)
+            (bool success,) = cowswapGPv2.call(
+                abi.encodeWithSelector(
+                    IPool(pool).setSwapFeePercentage.selector,
+                    originalSwapFeePercentage
+                )
+            );
+            require(success, "setSwapFeePercentage: failed call");
+        }
         trade.price = priceSingle(poolId, sellToken, buyToken, specifiedAmount);
+    }
+
+    function swap(
+        bytes32 poolId,
+        address sellToken,
+        address buyToken,
+        OrderSide side,
+        uint256 specifiedAmount,
+        bytes32 data
+    ) external override returns (Trade memory trade) {
+        uint256 sellAmount;
+        IVault.SwapKind kind;
+        uint256 limit; // TODO set this slippage limit properly
+        if (side == OrderSide.Sell) {
+            kind = IVault.SwapKind.GIVEN_IN;
+            sellAmount = specifiedAmount;
+            limit = 0;
+        } else {
+            kind = IVault.SwapKind.GIVEN_OUT;
+            sellAmount =
+                getSellAmount(poolId, sellToken, buyToken, specifiedAmount);
+            limit = type(uint256).max;
+        }
+
+        IERC20(sellToken).safeTransferFrom(
+            msg.sender, address(this), sellAmount
+        );
+        IERC20(sellToken).safeIncreaseAllowance(address(vault), sellAmount);
+
+        _executeSwap(
+            poolId,
+            kind,
+            sellToken,
+            buyToken,
+            specifiedAmount,
+            limit,
+            trade,
+            data
+        );
     }
 
     function getLimits(bytes32 poolId, address sellToken, address buyToken)
@@ -538,4 +592,8 @@ interface IPool {
     function getActualSupply() external view returns (uint256);
 
     function getVirtualSupply() external view returns (uint256);
+
+    function getSwapFeePercentage() external view returns (uint256);
+
+    function setSwapFeePercentage(uint256 swapFeePercentage) external;
 }
