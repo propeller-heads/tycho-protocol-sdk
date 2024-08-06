@@ -17,8 +17,6 @@ contract BalancerV2SwapAdapter is ISwapAdapter {
 
     IVault immutable vault;
 
-    address constant cowswapGPv2 = 0x9008D19f58AAbD9eD0D60971565AA8510560ab41;
-
     constructor(address payable vault_) {
         vault = IVault(vault_);
     }
@@ -115,34 +113,22 @@ contract BalancerV2SwapAdapter is ISwapAdapter {
         }
     }
 
-    /// @dev Execute a swap on Balancer V2 and support reducing the swap fee by
-    /// 80%.
     function _executeSwap(
         bytes32 poolId,
-        IVault.SwapKind kind,
+        OrderSide side,
         address sellToken,
         address buyToken,
         uint256 specifiedAmount,
-        uint256 limit,
-        Trade memory trade,
-        bytes32 data
+        Trade memory trade
     ) internal {
-        bool reduceFee = abi.decode(abi.encodePacked(data), (bool));
-        uint256 originalSwapFeePercentage;
-        address pool;
-        if (reduceFee) {
-            (pool,) = vault.getPool(poolId);
-            originalSwapFeePercentage = IPool(pool).getSwapFeePercentage();
-            // Apply 80% discount on the swap fee.
-            // TODO: Call swapFeePercentage from the cowswap GPV2contract
-            // (authorized by the vault)
-            (bool success,) = cowswapGPv2.call(
-                abi.encodeWithSelector(
-                    IPool(pool).setSwapFeePercentage.selector,
-                    originalSwapFeePercentage * 2 / 10
-                )
-            );
-            require(success, "setSwapFeePercentage: failed call");
+        IVault.SwapKind kind;
+        uint256 limit; // TODO set this slippage limit properly
+        if (side == OrderSide.Sell) {
+            kind = IVault.SwapKind.GIVEN_IN;
+            limit = 0;
+        } else {
+            kind = IVault.SwapKind.GIVEN_OUT;
+            limit = type(uint256).max;
         }
         uint256 gasBefore = gasleft();
         trade.calculatedAmount = vault.swap(
@@ -164,18 +150,6 @@ contract BalancerV2SwapAdapter is ISwapAdapter {
             block.timestamp + SWAP_DEADLINE_SEC
         );
         trade.gasUsed = gasBefore - gasleft();
-        if (reduceFee) {
-            // Revert swap fee reduction
-            // TODO: Call swapFeePercentage from the cowswap GPV2contract
-            // (authorized by the vault)
-            (bool success,) = cowswapGPv2.call(
-                abi.encodeWithSelector(
-                    IPool(pool).setSwapFeePercentage.selector,
-                    originalSwapFeePercentage
-                )
-            );
-            require(success, "setSwapFeePercentage: failed call");
-        }
         trade.price = priceSingle(poolId, sellToken, buyToken, specifiedAmount);
     }
 
@@ -188,34 +162,39 @@ contract BalancerV2SwapAdapter is ISwapAdapter {
         bytes32 data
     ) external override returns (Trade memory trade) {
         uint256 sellAmount;
-        IVault.SwapKind kind;
-        uint256 limit; // TODO set this slippage limit properly
-        if (side == OrderSide.Sell) {
-            kind = IVault.SwapKind.GIVEN_IN;
-            sellAmount = specifiedAmount;
-            limit = 0;
-        } else {
-            kind = IVault.SwapKind.GIVEN_OUT;
-            sellAmount =
-                getSellAmount(poolId, sellToken, buyToken, specifiedAmount);
-            limit = type(uint256).max;
+
+        bool reduceFee = abi.decode(abi.encodePacked(data), (bool));
+        uint256 originalSwapFeePercentage;
+        address pool;
+        if (reduceFee) {
+            (pool,) = vault.getPool(poolId);
+            originalSwapFeePercentage = IPool(pool).getSwapFeePercentage();
+            // Apply 80% discount on the swap fee.
+            IPool(pool).setSwapFeePercentage(originalSwapFeePercentage * 2 / 10);
         }
+
+        sellAmount = side == OrderSide.Sell
+            ? specifiedAmount
+            : getSellAmount(poolId, sellToken, buyToken, specifiedAmount);
 
         IERC20(sellToken).safeTransferFrom(
             msg.sender, address(this), sellAmount
         );
+
+        // Since adapter contract address is the same as cowswap GPv2, we need
+        // to first reset the allowance to 0 before increasing it to the desired
+        // amount. Otherwise we risk overflowing the allowance.
+        uint256 oldAllowance =
+            IERC20(sellToken).allowance(address(this), address(vault));
+        IERC20(sellToken).safeDecreaseAllowance(address(vault), oldAllowance);
         IERC20(sellToken).safeIncreaseAllowance(address(vault), sellAmount);
 
-        _executeSwap(
-            poolId,
-            kind,
-            sellToken,
-            buyToken,
-            specifiedAmount,
-            limit,
-            trade,
-            data
-        );
+        _executeSwap(poolId, side, sellToken, buyToken, specifiedAmount, trade);
+
+        if (reduceFee) {
+            // Revert swap fee reduction
+            IPool(pool).setSwapFeePercentage(originalSwapFeePercentage);
+        }
     }
 
     function getLimits(bytes32 poolId, address sellToken, address buyToken)
