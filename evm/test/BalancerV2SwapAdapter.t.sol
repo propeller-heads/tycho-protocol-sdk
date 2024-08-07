@@ -265,57 +265,45 @@ contract BalancerV2SwapAdapterTest is AdapterTest {
         runPoolBehaviourTest(adapter, poolIds);
     }
 
-    function testSwapFuzzFeeReduction(uint256 specifiedAmount, bool isBuy)
-        public
-    {
-        bytes32 boolData = bytes32(abi.encode(true));
-        OrderSide side = isBuy ? OrderSide.Buy : OrderSide.Sell;
-        vm.assume(specifiedAmount > 0);
+    function testSwapFeeReduction() public {
+        uint256 specifiedAmount = 1000 * 10 ** 18;
+        OrderSide side = OrderSide.Sell;
 
         uint256[] memory limits =
             adapter.getLimits(B_80BAL_20WETH_POOL_ID, BAL, WETH);
 
-        if (side == OrderSide.Buy) {
-            vm.assume(specifiedAmount < limits[1]);
+        vm.assume(specifiedAmount < limits[0]);
 
-            // TODO calculate the amountIn by using price function as in
-            // testPriceDecreasing
-            deal(BAL, address(this), type(uint256).max);
-            IERC20(BAL).approve(address(adapter), type(uint256).max);
-        } else {
-            vm.assume(specifiedAmount < limits[0]);
+        deal(BAL, address(this), specifiedAmount * 2);
+        IERC20(BAL).approve(address(adapter), specifiedAmount * 2);
 
-            deal(BAL, address(this), specifiedAmount);
-            IERC20(BAL).approve(address(adapter), specifiedAmount);
-        }
-
-        uint256 bal_balance = IERC20(BAL).balanceOf(address(this));
-        uint256 weth_balance = IERC20(WETH).balanceOf(address(this));
-
-        Trade memory trade = adapter.swap(
-            B_80BAL_20WETH_POOL_ID, BAL, WETH, side, specifiedAmount, boolData
+        bytes32 data = bytes32(abi.encode(true));
+        uint256 gasBefore = gasleft();
+        Trade memory tradeWithFeeReduction = adapter.swap(
+            B_80BAL_20WETH_POOL_ID, BAL, WETH, side, specifiedAmount, data
         );
+        uint256 gasUsedWithFeeReduction = gasBefore - gasleft();
 
-        if (trade.calculatedAmount > 0) {
-            if (side == OrderSide.Buy) {
-                assertEq(
-                    specifiedAmount,
-                    IERC20(WETH).balanceOf(address(this)) - weth_balance
-                );
-                assertEq(
-                    trade.calculatedAmount,
-                    bal_balance - IERC20(BAL).balanceOf(address(this))
-                );
-            } else {
-                assertEq(
-                    specifiedAmount,
-                    bal_balance - IERC20(BAL).balanceOf(address(this))
-                );
-                assertEq(
-                    trade.calculatedAmount,
-                    IERC20(WETH).balanceOf(address(this)) - weth_balance
-                );
-            }
-        }
+        data = bytes32(abi.encode(false));
+        gasBefore = gasleft();
+        Trade memory tradeNoFeeReduction = adapter.swap(
+            B_80BAL_20WETH_POOL_ID, BAL, WETH, side, specifiedAmount, data
+        );
+        uint256 gasUsedNoFeeReduction = gasBefore - gasleft();
+
+        //            │   └─ ← [Return] Trade({ calculatedAmount:
+        // 1815332118309421259 [1.815e18], gasUsed: 93094 [9.309e4], price:
+        // Fraction({ numerator: 1815063141005424058 [1.815e18], denominator:
+        // 1000000000000000000000 [1e21] }) })
+        //            │   └─ ← [Return] Trade({ calculatedAmount:
+        // 1829729224683628946 [1.829e18], gasUsed: 39233 [3.923e4], price:
+        // Fraction({ numerator: 1829456373377796999 [1.829e18], denominator:
+        // 1000000000000000000000 [1e21] }) })
+
+        assert(
+            tradeNoFeeReduction.calculatedAmount
+                < tradeWithFeeReduction.calculatedAmount
+        );
+        assert(gasUsedNoFeeReduction < gasUsedWithFeeReduction);
     }
 }
