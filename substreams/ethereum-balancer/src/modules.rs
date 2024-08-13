@@ -13,6 +13,8 @@ use tycho_substreams::{
 };
 
 pub const VAULT_ADDRESS: &[u8] = &hex!("BA12222222228d8Ba445958a75a0704d566BF2C8");
+pub const AUTHENTICATOR_ADDRESS: &[u8] = &hex!("a331d84ec860bf466b4cdccfb4ac09a1b43f3ae6");
+pub const AUTHORIZER_ADAPTER: &[u8] = &hex!("6048A8c631Fb7e77EcA533Cf9C29784e482391e7");
 
 #[substreams::handlers::map]
 pub fn map_components(block: eth::v2::Block) -> Result<BlockTransactionProtocolComponents> {
@@ -208,7 +210,9 @@ pub fn map_protocol_changes(
             components_store
                 .get_last(format!("pool:0x{0}", hex::encode(addr)))
                 .is_some() ||
-                addr.eq(VAULT_ADDRESS)
+                addr.eq(VAULT_ADDRESS) ||
+                addr.eq(AUTHORIZER_ADAPTER) ||
+                addr.eq(AUTHENTICATOR_ADDRESS)
         },
         &mut transaction_changes,
     );

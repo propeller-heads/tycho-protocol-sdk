@@ -7,6 +7,8 @@ adapter_build_args: "0xBA12222222228d8Ba445958a75a0704d566BF2C8"
 skip_balance_check: true
 initialized_accounts:
   - "0xba12222222228d8ba445958a75a0704d566bf2c8"
+  - "0x6048a8c631fb7e77eca533cf9c29784e482391e7"
+  - "0xa331d84ec860bf466b4cdccfb4ac09a1b43f3ae6"
 # Uncomment entries below to include composable stable pool dependencies
 # wstETH dependencies
 #  - "0x72D07D7DcA67b8A406aD1Ec34ce969c90bFEE768"

@@ -1,4 +1,7 @@
-use crate::{abi, modules::VAULT_ADDRESS};
+use crate::{
+    abi,
+    modules::{AUTHENTICATOR_ADDRESS, AUTHORIZER_ADAPTER, VAULT_ADDRESS},
+};
 use substreams::hex;
 use substreams_ethereum::{
     pb::eth::v2::{Call, Log, TransactionTrace},
@@ -62,7 +65,12 @@ pub fn address_map(
 
             Some(
                 ProtocolComponent::at_contract(&pool_created.pool, &(tx.into()))
-                    .with_contracts(&[pool_created.pool, VAULT_ADDRESS.to_vec()])
+                    .with_contracts(&[
+                        pool_created.pool,
+                        VAULT_ADDRESS.to_vec(),
+                        AUTHORIZER_ADAPTER.to_vec(),
+                        AUTHENTICATOR_ADDRESS.to_vec(),
+                    ])
                     .with_tokens(&create_call.tokens)
                     .with_attributes(&[
                         ("pool_type", "WeightedPoolFactory".as_bytes()),
@@ -99,7 +107,12 @@ pub fn address_map(
 
             Some(
                 ProtocolComponent::at_contract(&pool_created.pool, &(tx.into()))
-                    .with_contracts(&[pool_created.pool.clone(), VAULT_ADDRESS.to_vec()])
+                    .with_contracts(&[
+                        pool_created.pool.clone(),
+                        VAULT_ADDRESS.to_vec(),
+                        AUTHORIZER_ADAPTER.to_vec(),
+                        AUTHENTICATOR_ADDRESS.to_vec(),
+                    ])
                     .with_tokens(&tokens_registered.tokens)
                     .with_attributes(&[
                         ("pool_type", "ComposableStablePoolFactory".as_bytes()),
@@ -133,7 +146,12 @@ pub fn address_map(
 
             Some(
                 ProtocolComponent::at_contract(&pool_created.pool, &(tx.into()))
-                    .with_contracts(&[pool_created.pool.clone(), VAULT_ADDRESS.to_vec()])
+                    .with_contracts(&[
+                        pool_created.pool.clone(),
+                        VAULT_ADDRESS.to_vec(),
+                        AUTHORIZER_ADAPTER.to_vec(),
+                        AUTHENTICATOR_ADDRESS.to_vec(),
+                    ])
                     .with_tokens(&tokens_registered.tokens)
                     .with_attributes(&[
                         ("pool_type", "ERC4626LinearPoolFactory".as_bytes()),
@@ -171,7 +189,12 @@ pub fn address_map(
 
             Some(
                 ProtocolComponent::at_contract(&pool_created.pool, &(tx.into()))
-                    .with_contracts(&[pool_created.pool.clone(), VAULT_ADDRESS.to_vec()])
+                    .with_contracts(&[
+                        pool_created.pool.clone(),
+                        VAULT_ADDRESS.to_vec(),
+                        AUTHORIZER_ADAPTER.to_vec(),
+                        AUTHENTICATOR_ADDRESS.to_vec(),
+                    ])
                     .with_tokens(&tokens_registered.tokens)
                     .with_attributes(&[
                         ("pool_type", "EulerLinearPoolFactory".as_bytes()),
@@ -257,7 +280,12 @@ pub fn address_map(
 
             Some(
                 ProtocolComponent::at_contract(&pool_created.pool, &(tx.into()))
-                    .with_contracts(&[pool_created.pool.clone(), VAULT_ADDRESS.to_vec()])
+                    .with_contracts(&[
+                        pool_created.pool.clone(),
+                        VAULT_ADDRESS.to_vec(),
+                        AUTHORIZER_ADAPTER.to_vec(),
+                        AUTHENTICATOR_ADDRESS.to_vec(),
+                    ])
                     .with_tokens(&tokens_registered.tokens)
                     .with_attributes(&[
                         ("pool_type", "SiloLinearPoolFactory".as_bytes()),
@@ -295,7 +323,12 @@ pub fn address_map(
 
             Some(
                 ProtocolComponent::at_contract(&pool_created.pool, &(tx.into()))
-                    .with_contracts(&[pool_created.pool.clone(), VAULT_ADDRESS.to_vec()])
+                    .with_contracts(&[
+                        pool_created.pool.clone(),
+                        VAULT_ADDRESS.to_vec(),
+                        AUTHORIZER_ADAPTER.to_vec(),
+                        AUTHENTICATOR_ADDRESS.to_vec(),
+                    ])
                     .with_tokens(&tokens_registered.tokens)
                     .with_attributes(&[
                         ("pool_type", "YearnLinearPoolFactory".as_bytes()),
@@ -334,7 +367,12 @@ pub fn address_map(
 
             Some(
                 ProtocolComponent::at_contract(&pool_created.pool, &(tx.into()))
-                    .with_contracts(&[pool_created.pool, VAULT_ADDRESS.to_vec()])
+                    .with_contracts(&[
+                        pool_created.pool,
+                        VAULT_ADDRESS.to_vec(),
+                        AUTHORIZER_ADAPTER.to_vec(),
+                        AUTHENTICATOR_ADDRESS.to_vec(),
+                    ])
                     .with_tokens(&create_call.tokens)
                     .with_attributes(&[
                         ("pool_type", "WeightedPool2TokensFactory".as_bytes()),
