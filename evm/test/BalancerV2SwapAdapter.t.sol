@@ -291,15 +291,6 @@ contract BalancerV2SwapAdapterTest is AdapterTest {
         );
         uint256 gasUsedNoFeeReduction = gasBefore - gasleft();
 
-        //            │   └─ ← [Return] Trade({ calculatedAmount:
-        // 1815332118309421259 [1.815e18], gasUsed: 93094 [9.309e4], price:
-        // Fraction({ numerator: 1815063141005424058 [1.815e18], denominator:
-        // 1000000000000000000000 [1e21] }) })
-        //            │   └─ ← [Return] Trade({ calculatedAmount:
-        // 1829729224683628946 [1.829e18], gasUsed: 39233 [3.923e4], price:
-        // Fraction({ numerator: 1829456373377796999 [1.829e18], denominator:
-        // 1000000000000000000000 [1e21] }) })
-
         assert(
             tradeNoFeeReduction.calculatedAmount
                 < tradeWithFeeReduction.calculatedAmount
