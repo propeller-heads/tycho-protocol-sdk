@@ -16,12 +16,14 @@ contract BalancerV2SwapAdapterTest is AdapterTest {
     IVault constant balancerV2Vault =
         IVault(payable(0xBA12222222228d8Ba445958a75a0704d566BF2C8));
     BalancerV2SwapAdapter adapter;
+    BalancerV2SwapAdapter mockAdapter;
 
     address constant WETH = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
     address constant BAL = 0xba100000625a3754423978a60c9317c58a424e3D;
     address constant B_80BAL_20WETH = 0x5c6Ee304399DBdB9C8Ef030aB642B10820DB8F56;
     bytes32 constant B_80BAL_20WETH_POOL_ID =
         0x5c6ee304399dbdb9c8ef030ab642b10820db8f56000200000000000000000014;
+    address cowswapGPv2 = 0x9008D19f58AAbD9eD0D60971565AA8510560ab41;
 
     uint256 constant TEST_ITERATIONS = 100;
 
@@ -29,7 +31,17 @@ contract BalancerV2SwapAdapterTest is AdapterTest {
         uint256 forkBlock = 18710000;
         vm.createSelectFork(vm.rpcUrl("mainnet"), forkBlock);
 
-        adapter = new BalancerV2SwapAdapter(payable(address(balancerV2Vault)));
+        // Assign the bytecode of the mockAdapter to the GPv2 address.
+        // That way the adapter is deployed at the GPv2 address and is
+        // authorized to modify the swap fee.
+        mockAdapter =
+            new BalancerV2SwapAdapter(payable(address(balancerV2Vault)));
+        vm.etch(cowswapGPv2, address(mockAdapter).code);
+        adapter = BalancerV2SwapAdapter(cowswapGPv2);
+        require(
+            keccak256(address(mockAdapter).code)
+                == keccak256(address(adapter).code)
+        );
 
         vm.label(address(balancerV2Vault), "IVault");
         vm.label(address(adapter), "BalancerV2SwapAdapter");
@@ -251,5 +263,38 @@ contract BalancerV2SwapAdapterTest is AdapterTest {
         bytes32[] memory poolIds = new bytes32[](1);
         poolIds[0] = B_80BAL_20WETH_POOL_ID;
         runPoolBehaviourTest(adapter, poolIds);
+    }
+
+    function testSwapFeeReduction() public {
+        uint256 specifiedAmount = 1000 * 10 ** 18;
+        OrderSide side = OrderSide.Sell;
+
+        uint256[] memory limits =
+            adapter.getLimits(B_80BAL_20WETH_POOL_ID, BAL, WETH);
+
+        vm.assume(specifiedAmount < limits[0]);
+
+        deal(BAL, address(this), specifiedAmount * 2);
+        IERC20(BAL).approve(address(adapter), specifiedAmount * 2);
+
+        bytes32 data = bytes32(abi.encode(true));
+        uint256 gasBefore = gasleft();
+        Trade memory tradeWithFeeReduction = adapter.swap(
+            B_80BAL_20WETH_POOL_ID, BAL, WETH, side, specifiedAmount, data
+        );
+        uint256 gasUsedWithFeeReduction = gasBefore - gasleft();
+
+        data = bytes32(abi.encode(false));
+        gasBefore = gasleft();
+        Trade memory tradeNoFeeReduction = adapter.swap(
+            B_80BAL_20WETH_POOL_ID, BAL, WETH, side, specifiedAmount, data
+        );
+        uint256 gasUsedNoFeeReduction = gasBefore - gasleft();
+
+        assert(
+            tradeNoFeeReduction.calculatedAmount
+                < tradeWithFeeReduction.calculatedAmount
+        );
+        assert(gasUsedNoFeeReduction < gasUsedWithFeeReduction);
     }
 }
