@@ -180,8 +180,7 @@ contract CurveAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
 
         if (sellToken == ETH) {
             assertEq(
-                specifiedAmount,
-                sellTokenBalBefore - address(adapter).balance
+                specifiedAmount, sellTokenBalBefore - address(adapter).balance
             );
             assertGe(
                 trade.calculatedAmount + 3,
