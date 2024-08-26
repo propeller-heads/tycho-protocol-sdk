@@ -1,13 +1,14 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 pragma solidity ^0.8.13;
 
+import "./AdapterTest.sol";
 import "forge-std/Test.sol";
 import "openzeppelin-contracts/contracts/interfaces/IERC20.sol";
 import "src/interfaces/ISwapAdapterTypes.sol";
 import "src/libraries/FractionMath.sol";
 import "src/etherfi/EtherfiAdapter.sol";
 
-contract EtherfiAdapterTest is Test, ISwapAdapterTypes {
+contract EtherfiAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
     using FractionMath for Fraction;
 
     EtherfiAdapter adapter;
@@ -406,5 +407,11 @@ contract EtherfiAdapterTest is Test, ISwapAdapterTypes {
             adapter.getLimits(pair, address(eEth), address(weEth));
 
         assertEq(limits.length, 2);
+    }
+
+    function testPoolBehaviourEtherfi() public {
+        bytes32[] memory poolIds = new bytes32[](1);
+        poolIds[0] = bytes32(0);
+        runPoolBehaviourTest(adapter, poolIds);
     }
 }
