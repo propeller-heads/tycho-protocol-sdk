@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 pragma solidity ^0.8.13;
 
+import "./AdapterTest.sol";
 import "forge-std/Test.sol";
 import "openzeppelin-contracts/contracts/interfaces/IERC20.sol";
 import "src/angle/AngleAdapter.sol";
@@ -8,7 +9,7 @@ import "src/interfaces/ISwapAdapterTypes.sol";
 import "src/libraries/FractionMath.sol";
 import "forge-std/console.sol";
 
-contract AngleAdapterTest is Test, ISwapAdapterTypes {
+contract AngleAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
     using FractionMath for Fraction;
 
     AngleAdapter adapter;
@@ -196,5 +197,11 @@ contract AngleAdapterTest is Test, ISwapAdapterTypes {
             adapter.getLimits(pair, address(agEUR), address(EURC));
 
         assertEq(limits.length, 2);
+    }
+
+    function testPoolBehaviourAngle() public {
+        bytes32[] memory poolIds = new bytes32[](1);
+        poolIds[0] = bytes32(0);
+        runPoolBehaviourTest(adapter, poolIds);
     }
 }
