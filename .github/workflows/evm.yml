@@ -1,0 +1,48 @@
+name: test & check evm
+
+on:
+  pull_request:
+    paths:
+      - "evm/**"
+
+env:
+  FOUNDRY_PROFILE: ci
+
+jobs:
+  check:
+    strategy:
+      fail-fast: true
+
+    name: Foundry project
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: evm
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          submodules: recursive
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: nightly
+
+      - name: Run Forge build
+        run: |
+          forge --version
+          forge build --sizes
+        id: build
+
+      - name: Run Forge format check
+        run:  |
+          forge --version
+          forge fmt --check
+        id: format
+
+      - name: Run Forge tests
+        run: |
+          forge test -vvv
+        id: test
+        env:
+          ETH_RPC_URL: ${{ secrets.ETH_RPC_URL }}

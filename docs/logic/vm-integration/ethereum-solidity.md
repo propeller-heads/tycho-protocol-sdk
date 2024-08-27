@@ -6,10 +6,10 @@ description: Provide protocol logic using the ethereum virtual machine
 
 ## Swap/exchange protocol
 
-To integrate an EVM exchange protocol the [ISwapAdapter.sol ](https://github.com/propeller-heads/propeller-protocol-lib/blob/main/evm/interfaces/ISwapAdapter.sol)should be implemented. Additionally a manifest file is required that summarises some metadata about the protocol.
+To integrate an EVM exchange protocol the [ISwapAdapter.sol ](https://github.com/propeller-heads/propeller-protocol-lib/blob/main/evm/interfaces/ISwapAdapter.sol)should be implemented. Additionally, a manifest file is required that summarises some metadata about the protocol.
 
 {% hint style="info" %}
-Although the interface is specified for Solidity, you are not limited to writing the adapater contract in Solidity. We can use any compiled evm bytecode. So if you prefer e.g. Vyper, you are welcome to implement the interface using Vyper. Unfortunately we do not provide all the tooling for Vyper contracts yet, but you can certainly submit compiled Vyper byte code.
+Although the interface is specified for Solidity, you are not limited to writing the adapter contract in Solidity. We can use any compiled evm bytecode. So if you prefer e.g. Vyper, you are welcome to implement the interface using Vyper. Unfortunately we do not provide all the tooling for Vyper contracts yet, but you can certainly submit compiled Vyper byte code.
 {% endhint %}
 
 The manifest file contains information about the author, as well as additional static information about the protocol and how to test the current implementation. The file below lists all valid keys.
@@ -43,7 +43,7 @@ contract:
 instances:
   - chain:
       name: mainnet
-      id: 0
+      id: 1
     # Arguments passed to the constructor when building the contract
     arguments:
       - "0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f"
@@ -57,8 +57,8 @@ tests:
       buy_token: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"
       block: 17000000
       chain:
-        id: 0
         name: mainnet
+        id: 1
 ```
 
 #### Price (optional)
@@ -147,8 +147,3 @@ function getPoolIds(uint256 offset, uint256 limit)
     external
     returns (bytes32[] memory ids);
 ```
-
-
-
-
-
