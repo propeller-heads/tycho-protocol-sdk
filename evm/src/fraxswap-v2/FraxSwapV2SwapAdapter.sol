@@ -2,9 +2,11 @@
 pragma experimental ABIEncoderV2;
 pragma solidity ^0.8.13;
 
-import {IERC20, ISwapAdapter} from "src/interfaces/ISwapAdapter.sol";
-import {SafeERC20} from
-    "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
+import {ISwapAdapter} from "src/interfaces/ISwapAdapter.sol";
+import {
+    SafeERC20,
+    IERC20
+} from "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 
 // FraxSwapV2 handles arbirary amounts, but we limit the amount to 10x just in
 // case
@@ -25,8 +27,8 @@ contract FraxSwapV2SwapAdapter is ISwapAdapter {
     /// @inheritdoc ISwapAdapter
     function price(
         bytes32 _poolId,
-        IERC20 _sellToken,
-        IERC20,
+        address _sellToken,
+        address,
         uint256[] memory _specifiedAmounts
     ) external view override returns (Fraction[] memory _prices) {
         _prices = new Fraction[](_specifiedAmounts.length);
@@ -35,7 +37,7 @@ contract FraxSwapV2SwapAdapter is ISwapAdapter {
         uint112 r0;
         uint112 r1;
         uint256 unitLessFee = pair.fee();
-        if (address(_sellToken) == pair.token0()) {
+        if (_sellToken == pair.token0()) {
             // sell
             (r0, r1,) = pair.getReserves();
         } else {
@@ -51,8 +53,8 @@ contract FraxSwapV2SwapAdapter is ISwapAdapter {
     /// @inheritdoc ISwapAdapter
     function swap(
         bytes32 poolId,
-        IERC20 sellToken,
-        IERC20,
+        address sellToken,
+        address,
         OrderSide side,
         uint256 specifiedAmount
     ) external returns (Trade memory trade) {
@@ -65,7 +67,7 @@ contract FraxSwapV2SwapAdapter is ISwapAdapter {
         uint112 r0;
         uint112 r1;
         uint256 unitLessFee = pair.fee();
-        bool zero2one = address(sellToken) == pair.token0();
+        bool zero2one = sellToken == pair.token0();
         if (zero2one) {
             (r0, r1,) = pair.getReserves();
         } else {
@@ -91,7 +93,7 @@ contract FraxSwapV2SwapAdapter is ISwapAdapter {
     }
 
     /// @inheritdoc ISwapAdapter
-    function getLimits(bytes32 poolId, IERC20 sellToken, IERC20)
+    function getLimits(bytes32 poolId, address sellToken, address)
         external
         view
         override
@@ -101,7 +103,7 @@ contract FraxSwapV2SwapAdapter is ISwapAdapter {
             IUniswapV2PairPartialV5(address(bytes20(poolId)));
         limits = new uint256[](2);
         (uint256 r0, uint256 r1,) = pair.getReserves();
-        if (address(sellToken) == pair.token0()) {
+        if (sellToken == pair.token0()) {
             limits[0] = r0 / RESERVE_LIMIT_FACTOR;
             limits[1] = r1 / RESERVE_LIMIT_FACTOR;
         } else {
@@ -111,7 +113,7 @@ contract FraxSwapV2SwapAdapter is ISwapAdapter {
     }
 
     /// @inheritdoc ISwapAdapter
-    function getCapabilities(bytes32, IERC20, IERC20)
+    function getCapabilities(bytes32, address, address)
         external
         pure
         override
@@ -128,13 +130,13 @@ contract FraxSwapV2SwapAdapter is ISwapAdapter {
         external
         view
         override
-        returns (IERC20[] memory tokens)
+        returns (address[] memory tokens)
     {
-        tokens = new IERC20[](2);
+        tokens = new address[](2);
         IUniswapV2PairPartialV5 pair =
             IUniswapV2PairPartialV5(address(bytes20(poolId)));
-        tokens[0] = IERC20(pair.token0());
-        tokens[1] = IERC20(pair.token1());
+        tokens[0] = pair.token0();
+        tokens[1] = pair.token1();
     }
 
     /// @inheritdoc ISwapAdapter
@@ -165,7 +167,7 @@ contract FraxSwapV2SwapAdapter is ISwapAdapter {
     /// @return calculatedAmount The amount of tokens received.
     function sell(
         IUniswapV2PairPartialV5 pair,
-        IERC20 sellToken,
+        address sellToken,
         bool zero2one,
         uint112 reserveIn,
         uint112 reserveOut,
@@ -175,7 +177,7 @@ contract FraxSwapV2SwapAdapter is ISwapAdapter {
         uint256 amountOut =
             getAmountOut(amount, reserveIn, reserveOut, unitLessFee);
 
-        sellToken.safeTransferFrom(msg.sender, address(pair), amount);
+        IERC20(sellToken).safeTransferFrom(msg.sender, address(pair), amount);
         if (zero2one) {
             pair.swap(0, amountOut, msg.sender, "");
         } else {
@@ -195,7 +197,7 @@ contract FraxSwapV2SwapAdapter is ISwapAdapter {
     /// @return calculatedAmount The amount of tokens sold.
     function buy(
         IUniswapV2PairPartialV5 pair,
-        IERC20 sellToken,
+        address sellToken,
         bool zero2one,
         uint112 reserveIn,
         uint112 reserveOut,
@@ -205,7 +207,7 @@ contract FraxSwapV2SwapAdapter is ISwapAdapter {
         uint256 amountIn =
             getAmountIn(amountOut, reserveIn, reserveOut, unitLessFee);
 
-        sellToken.safeTransferFrom(msg.sender, address(pair), amountIn);
+        IERC20(sellToken).safeTransferFrom(msg.sender, address(pair), amountIn);
         if (zero2one) {
             pair.swap(0, amountOut, msg.sender, "");
         } else {
@@ -230,14 +232,12 @@ contract FraxSwapV2SwapAdapter is ISwapAdapter {
             revert Unavailable("At least one reserve is zero!");
         }
 
-        uint256 amountInWithFee = amountIn * unitLessFee;
-        uint256 numerator = amountInWithFee * reserveOut;
-        uint256 denominator = (reserveIn * 10000) + amountInWithFee;
-        uint256 amountOut = numerator / denominator;
+        uint256 amountOut =
+            getAmountOut(amountIn, reserveIn, reserveOut, unitLessFee);
         uint256 newReserveOut = reserveOut - amountOut;
         uint256 newReserveIn = reserveIn + amountIn;
 
-        return Fraction(newReserveOut * 10000, newReserveIn * unitLessFee);
+        return Fraction(newReserveOut * unitLessFee, newReserveIn * 10000);
     }
 
     /// @notice Given an input amount of an asset and pair reserves, returns the

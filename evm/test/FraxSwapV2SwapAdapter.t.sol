@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 pragma solidity ^0.8.13;
 
+import "./AdapterTest.sol";
 import "forge-std/Test.sol";
 import "openzeppelin-contracts/contracts/interfaces/IERC20.sol";
 import "src/interfaces/ISwapAdapterTypes.sol";
@@ -13,12 +14,12 @@ import "src/fraxswap-v2/FraxSwapV2SwapAdapter.sol";
 // t0 - FRAX Token Address: 0x853d955aCEf822Db058eb8505911ED77F175b99e
 // t1 - WETH Token Address: 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2
 
-contract FraxSwapV2SwapAdapterTest is Test, ISwapAdapterTypes {
+contract FraxSwapV2SwapAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
     using FractionMath for Fraction;
 
     FraxSwapV2SwapAdapter adapter;
-    IERC20 constant FRAX = IERC20(0x853d955aCEf822Db058eb8505911ED77F175b99e);
-    IERC20 constant WETH = IERC20(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
+    address constant FRAX = 0x853d955aCEf822Db058eb8505911ED77F175b99e;
+    address constant WETH = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
     address constant FRAX_WETH_PAIR = 0x31351Bf3fba544863FBff44DDC27bA880916A199;
     address constant factoryAddress = 0x43eC799eAdd63848443E2347C49f5f52e8Fe0F6f;
 
@@ -79,18 +80,18 @@ contract FraxSwapV2SwapAdapterTest is Test, ISwapAdapterTypes {
             vm.assume(specifiedAmount < limits[1]);
 
             deal(address(FRAX), address(this), type(uint256).max);
-            FRAX.approve(address(adapter), type(uint256).max);
+            IERC20(FRAX).approve(address(adapter), type(uint256).max);
         } else {
             vm.assume(specifiedAmount < limits[0]);
             ///@dev Need to find the minimum specified amount acceptable
             vm.assume(specifiedAmount > 0.000001 ether);
 
             deal(address(FRAX), address(this), specifiedAmount);
-            FRAX.approve(address(adapter), specifiedAmount);
+            IERC20(FRAX).approve(address(adapter), specifiedAmount);
         }
 
-        uint256 frax_balance_before = FRAX.balanceOf(address(this));
-        uint256 weth_balance_before = WETH.balanceOf(address(this));
+        uint256 frax_balance_before = IERC20(FRAX).balanceOf(address(this));
+        uint256 weth_balance_before = IERC20(WETH).balanceOf(address(this));
 
         Trade memory trade =
             adapter.swap(pair, FRAX, WETH, side, specifiedAmount);
@@ -99,20 +100,20 @@ contract FraxSwapV2SwapAdapterTest is Test, ISwapAdapterTypes {
             if (side == OrderSide.Buy) {
                 assertEq(
                     specifiedAmount,
-                    WETH.balanceOf(address(this)) - weth_balance_before
+                    IERC20(WETH).balanceOf(address(this)) - weth_balance_before
                 );
                 assertEq(
                     trade.calculatedAmount,
-                    frax_balance_before - FRAX.balanceOf(address(this))
+                    frax_balance_before - IERC20(FRAX).balanceOf(address(this))
                 );
             } else {
                 assertEq(
                     specifiedAmount,
-                    frax_balance_before - FRAX.balanceOf(address(this))
+                    frax_balance_before - IERC20(FRAX).balanceOf(address(this))
                 );
                 assertEq(
                     trade.calculatedAmount,
-                    WETH.balanceOf(address(this)) - weth_balance_before
+                    IERC20(WETH).balanceOf(address(this)) - weth_balance_before
                 );
             }
         }
@@ -137,10 +138,10 @@ contract FraxSwapV2SwapAdapterTest is Test, ISwapAdapterTypes {
 
             if (side == OrderSide.Buy) {
                 deal(address(FRAX), address(this), type(uint256).max);
-                FRAX.approve(address(adapter), type(uint256).max);
+                IERC20(FRAX).approve(address(adapter), type(uint256).max);
             } else {
                 deal(address(FRAX), address(this), amounts[i]);
-                FRAX.approve(address(adapter), amounts[i]);
+                IERC20(FRAX).approve(address(adapter), amounts[i]);
             }
 
             trades[i] = adapter.swap(pair, FRAX, WETH, side, amounts[i]);
@@ -161,8 +162,7 @@ contract FraxSwapV2SwapAdapterTest is Test, ISwapAdapterTypes {
     function testGetCapabilitiesFrax(bytes32 pair, address t0, address t1)
         public
     {
-        Capability[] memory res =
-            adapter.getCapabilities(pair, IERC20(t0), IERC20(t1));
+        Capability[] memory res = adapter.getCapabilities(pair, t0, t1);
 
         assertEq(res.length, 3);
     }
@@ -172,5 +172,11 @@ contract FraxSwapV2SwapAdapterTest is Test, ISwapAdapterTypes {
         uint256[] memory limits = adapter.getLimits(pair, FRAX, WETH);
 
         assertEq(limits.length, 2);
+    }
+
+    function testPoolBehaviourFraxSwapV2() public {
+        bytes32[] memory poolIds = new bytes32[](1);
+        poolIds[0] = bytes32(bytes20(FRAX_WETH_PAIR));
+        runPoolBehaviourTest(adapter, poolIds);
     }
 }
