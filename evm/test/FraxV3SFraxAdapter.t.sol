@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 pragma solidity ^0.8.13;
 
+import "./AdapterTest.sol";
 import "forge-std/Test.sol";
 import "forge-std/console.sol";
 import "src/interfaces/ISwapAdapterTypes.sol";
@@ -14,7 +15,7 @@ import "src/frax-v3/FraxV3SFraxAdapter.sol";
 /// included here are just an example.
 /// Feel free to use UniswapV2SwapAdapterTest and BalancerV2SwapAdapterTest as a
 /// reference.
-contract FraxV3SFraxAdapterTest is Test, ISwapAdapterTypes {
+contract FraxV3SFraxAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
     using FractionMath for Fraction;
 
     FraxV3SFraxAdapter adapter;
@@ -41,7 +42,7 @@ contract FraxV3SFraxAdapterTest is Test, ISwapAdapterTypes {
         public
     {
         uint256[] memory limits =
-            adapter.getLimits(bytes32(0), FRAX, IERC20(SFRAX_ADDRESS));
+            adapter.getLimits(bytes32(0), FRAX_ADDRESS, SFRAX_ADDRESS);
         vm.assume(amount0 < limits[0]);
         vm.assume(amount0 > 1);
         vm.assume(amount1 < limits[1]);
@@ -52,51 +53,11 @@ contract FraxV3SFraxAdapterTest is Test, ISwapAdapterTypes {
         amounts[1] = amount1;
 
         Fraction[] memory prices =
-            adapter.price(bytes32(0), FRAX, IERC20(SFRAX_ADDRESS), amounts);
+            adapter.price(bytes32(0), FRAX_ADDRESS, SFRAX_ADDRESS, amounts);
 
         for (uint256 i = 0; i < prices.length; i++) {
             assertGt(prices[i].numerator, 0);
             assertGt(prices[i].denominator, 0);
-        }
-    }
-
-    /// @dev The price is kept among swaps if no FRAX rewards are distributed in
-    /// the contract during time
-    function testPriceKeepingSellFrax() public {
-        bytes32 pair = bytes32(0);
-        uint256[] memory amounts = new uint256[](TEST_ITERATIONS);
-
-        for (uint256 i = 0; i < TEST_ITERATIONS; i++) {
-            amounts[i] = 1000 * (i + 1) * 10 ** 18;
-        }
-
-        Fraction[] memory prices =
-            adapter.price(pair, FRAX, IERC20(SFRAX_ADDRESS), amounts);
-
-        for (uint256 i = 0; i < TEST_ITERATIONS - 1; i++) {
-            assertEq(prices[i].compareFractions(prices[i + 1]), 0);
-            assertGt(prices[i].denominator, 0);
-            assertGt(prices[i + 1].denominator, 0);
-        }
-    }
-
-    /// @dev The price is kept among swaps if no FRAX rewards are distributed in
-    /// the contract during time
-    function testPriceKeepingSellSFrax() public {
-        bytes32 pair = bytes32(0);
-        uint256[] memory amounts = new uint256[](TEST_ITERATIONS);
-
-        for (uint256 i = 0; i < TEST_ITERATIONS; i++) {
-            amounts[i] = 1000 * (i + 1) * 10 ** 18;
-        }
-
-        Fraction[] memory prices =
-            adapter.price(pair, IERC20(SFRAX_ADDRESS), FRAX, amounts);
-
-        for (uint256 i = 0; i < TEST_ITERATIONS - 1; i++) {
-            assertEq(prices[i].compareFractions(prices[i + 1]), 0);
-            assertGt(prices[i].denominator, 0);
-            assertGt(prices[i + 1].denominator, 0);
         }
     }
 
@@ -107,7 +68,7 @@ contract FraxV3SFraxAdapterTest is Test, ISwapAdapterTypes {
 
         bytes32 pair = bytes32(0);
         uint256[] memory limits =
-            adapter.getLimits(pair, FRAX, IERC20(SFRAX_ADDRESS));
+            adapter.getLimits(pair, FRAX_ADDRESS, SFRAX_ADDRESS);
 
         if (side == OrderSide.Buy) {
             vm.assume(specifiedAmount < limits[1]);
@@ -125,7 +86,7 @@ contract FraxV3SFraxAdapterTest is Test, ISwapAdapterTypes {
         uint256 sfrax_balance = IERC20(SFRAX_ADDRESS).balanceOf(address(this));
 
         Trade memory trade = adapter.swap(
-            pair, FRAX, IERC20(SFRAX_ADDRESS), side, specifiedAmount
+            pair, FRAX_ADDRESS, SFRAX_ADDRESS, side, specifiedAmount
         );
 
         if (trade.calculatedAmount > 0) {
@@ -160,7 +121,7 @@ contract FraxV3SFraxAdapterTest is Test, ISwapAdapterTypes {
 
         bytes32 pair = bytes32(0);
         uint256[] memory limits =
-            adapter.getLimits(pair, IERC20(SFRAX_ADDRESS), FRAX);
+            adapter.getLimits(pair, SFRAX_ADDRESS, FRAX_ADDRESS);
 
         if (side == OrderSide.Buy) {
             vm.assume(specifiedAmount < limits[1]);
@@ -178,7 +139,7 @@ contract FraxV3SFraxAdapterTest is Test, ISwapAdapterTypes {
         uint256 frax_balance = FRAX.balanceOf(address(this));
 
         Trade memory trade = adapter.swap(
-            pair, IERC20(SFRAX_ADDRESS), FRAX, side, specifiedAmount
+            pair, SFRAX_ADDRESS, FRAX_ADDRESS, side, specifiedAmount
         );
 
         if (trade.calculatedAmount > 0) {
@@ -235,13 +196,13 @@ contract FraxV3SFraxAdapterTest is Test, ISwapAdapterTypes {
                 deal(FRAX_ADDRESS, address(this), type(uint256).max);
                 FRAX.approve(address(adapter), type(uint256).max);
                 trades[i] = adapter.swap(
-                    pair, FRAX, IERC20(SFRAX_ADDRESS), side, amounts[i]
+                    pair, FRAX_ADDRESS, SFRAX_ADDRESS, side, amounts[i]
                 );
             } else {
                 deal(SFRAX_ADDRESS, address(this), amounts[i]);
                 IERC20(SFRAX_ADDRESS).approve(address(adapter), amounts[i]);
                 trades[i] = adapter.swap(
-                    pair, IERC20(SFRAX_ADDRESS), FRAX, side, amounts[i]
+                    pair, SFRAX_ADDRESS, FRAX_ADDRESS, side, amounts[i]
                 );
             }
 
@@ -256,21 +217,28 @@ contract FraxV3SFraxAdapterTest is Test, ISwapAdapterTypes {
 
     function testGetLimitsFraxV3() public {
         uint256[] memory limits =
-            adapter.getLimits(bytes32(0), FRAX, IERC20(SFRAX_ADDRESS));
+            adapter.getLimits(bytes32(0), FRAX_ADDRESS, SFRAX_ADDRESS);
         assertEq(limits.length, 2);
     }
 
     function testGetTokensFraxV3() public {
-        IERC20[] memory tokens = adapter.getTokens(bytes32(0));
+        address[] memory tokens = adapter.getTokens(bytes32(0));
 
-        assertEq(address(tokens[0]), FRAX_ADDRESS);
-        assertEq(address(tokens[1]), SFRAX_ADDRESS);
+        assertEq(tokens[0], FRAX_ADDRESS);
+        assertEq(tokens[1], SFRAX_ADDRESS);
     }
 
     function testGetCapabilitiesFraxV3SFrax() public {
         Capability[] memory res =
-            adapter.getCapabilities(bytes32(0), FRAX, IERC20(SFRAX_ADDRESS));
+            adapter.getCapabilities(bytes32(0), FRAX_ADDRESS, SFRAX_ADDRESS);
 
-        assertEq(res.length, 3);
+        assertEq(res.length, 4);
     }
+
+    function testPoolBehaviourFraxV3Sfrax() public {
+        bytes32[] memory poolIds = new bytes32[](1);
+        poolIds[0] = bytes32(0);
+        runPoolBehaviourTest(adapter, poolIds);
+    }
+
 }

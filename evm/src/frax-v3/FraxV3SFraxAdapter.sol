@@ -2,10 +2,11 @@
 pragma experimental ABIEncoderV2;
 pragma solidity ^0.8.13;
 
-import {IERC20, ISwapAdapter} from "src/interfaces/ISwapAdapter.sol";
-import {ERC20} from "openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
+import {ISwapAdapter} from "src/interfaces/ISwapAdapter.sol";
+import {IERC20, ERC20} from "openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
 import {SafeERC20} from
     "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
+import "forge-std/Test.sol";
 
 library FixedPointMathLib {
     uint256 internal constant MAX_UINT256 = 2 ** 256 - 1;
@@ -60,21 +61,21 @@ contract FraxV3SFraxAdapter is ISwapAdapter {
     /// @inheritdoc ISwapAdapter
     function price(
         bytes32,
-        IERC20 sellToken,
-        IERC20 buyToken,
+        address sellToken,
+        address buyToken,
         uint256[] memory _specifiedAmounts
     )
         external
         view
         override
-        onlySupportedTokens(address(sellToken), address(buyToken))
+        onlySupportedTokens(sellToken, buyToken)
         returns (Fraction[] memory _prices)
     {
         _prices = new Fraction[](_specifiedAmounts.length);
 
         for (uint256 i = 0; i < _specifiedAmounts.length; i++) {
             _prices[i] = getPriceAt(
-                address(sellToken) == address(frax), _specifiedAmounts[i]
+                sellToken == address(frax), _specifiedAmounts[i]
             );
         }
     }
@@ -82,19 +83,19 @@ contract FraxV3SFraxAdapter is ISwapAdapter {
     /// @inheritdoc ISwapAdapter
     function swap(
         bytes32,
-        IERC20 sellToken,
-        IERC20 buyToken,
+        address sellToken,
+        address buyToken,
         OrderSide side,
         uint256 specifiedAmount
     )
         external
         override
-        onlySupportedTokens(address(sellToken), address(buyToken))
+        onlySupportedTokens(sellToken, buyToken)
         returns (Trade memory trade)
     {
         if (
             specifiedAmount == 0
-                || (address(sellToken) == address(frax) && specifiedAmount < 2)
+                || (sellToken == address(frax) && specifiedAmount < 2)
         ) {
             return trade;
         }
@@ -109,7 +110,7 @@ contract FraxV3SFraxAdapter is ISwapAdapter {
         }
         trade.gasUsed = gasBefore - gasleft();
 
-        uint256 numerator = address(sellToken) == address(frax)
+        uint256 numerator = sellToken == address(frax)
             ? sFrax.previewDeposit(PRECISE_UNIT)
             : sFrax.previewRedeem(PRECISE_UNIT);
 
@@ -118,7 +119,7 @@ contract FraxV3SFraxAdapter is ISwapAdapter {
 
     /// @inheritdoc ISwapAdapter
     /// @dev there is no hard capped limit
-    function getLimits(bytes32, IERC20 sellToken, IERC20 buyToken)
+    function getLimits(bytes32, address sellToken, address buyToken)
         external
         view
         override
@@ -127,7 +128,7 @@ contract FraxV3SFraxAdapter is ISwapAdapter {
     {
         limits = new uint256[](2);
 
-        if (address(sellToken) == address(frax)) {
+        if (sellToken == address(frax)) {
             // Frax --> sFrax
             limits[0] = frax.totalSupply() - frax.balanceOf(address(sFrax));
             limits[1] = sFrax.previewDeposit(limits[0]);
@@ -138,13 +139,13 @@ contract FraxV3SFraxAdapter is ISwapAdapter {
     }
 
     /// @inheritdoc ISwapAdapter
-    function getCapabilities(bytes32, IERC20, IERC20)
+    function getCapabilities(bytes32, address, address)
         external
         pure
         override
         returns (Capability[] memory capabilities)
     {
-        capabilities = new Capability[](3);
+        capabilities = new Capability[](4);
         capabilities[0] = Capability.SellOrder;
         capabilities[1] = Capability.BuyOrder;
         capabilities[2] = Capability.PriceFunction;
@@ -155,12 +156,12 @@ contract FraxV3SFraxAdapter is ISwapAdapter {
         external
         view
         override
-        returns (IERC20[] memory tokens)
+        returns (address[] memory tokens)
     {
-        tokens = new IERC20[](2);
+        tokens = new address[](2);
 
-        tokens[0] = frax;
-        tokens[1] = IERC20(address(sFrax));
+        tokens[0] = address(frax);
+        tokens[1] = address(sFrax);
     }
 
     /// @inheritdoc ISwapAdapter
@@ -180,15 +181,15 @@ contract FraxV3SFraxAdapter is ISwapAdapter {
     /// @param sellToken The token being sold.
     /// @param amount The amount to be traded.
     /// @return calculatedAmount The amount of tokens received.
-    function sell(IERC20 sellToken, uint256 amount)
+    function sell(address sellToken, uint256 amount)
         internal
         returns (uint256 calculatedAmount)
     {
-        sellToken.safeTransferFrom(msg.sender, address(this), amount);
-        if (address(sellToken) == address(sFrax)) {
+        IERC20(sellToken).safeTransferFrom(msg.sender, address(this), amount);
+        if (sellToken == address(sFrax)) {
             return sFrax.redeem(amount, msg.sender, address(this));
         } else {
-            sellToken.safeIncreaseAllowance(address(sFrax), amount);
+            IERC20(sellToken).safeIncreaseAllowance(address(sFrax), amount);
             return sFrax.deposit(amount, msg.sender);
         }
     }
@@ -197,18 +198,18 @@ contract FraxV3SFraxAdapter is ISwapAdapter {
     /// @param sellToken The token being sold.
     /// @param amount The amount of buyToken to receive.
     /// @return calculatedAmount The amount of tokens received.
-    function buy(IERC20 sellToken, uint256 amount)
+    function buy(address sellToken, uint256 amount)
         internal
         returns (uint256 calculatedAmount)
     {
-        if (address(sellToken) == address(sFrax)) {
+        if (sellToken == address(sFrax)) {
             uint256 amountIn = sFrax.previewWithdraw(amount);
-            sellToken.safeTransferFrom(msg.sender, address(this), amountIn);
+            IERC20(sellToken).safeTransferFrom(msg.sender, address(this), amountIn);
             return sFrax.withdraw(amount, msg.sender, address(this));
         } else {
             uint256 amountIn = sFrax.previewMint(amount);
-            sellToken.safeTransferFrom(msg.sender, address(this), amountIn);
-            sellToken.safeIncreaseAllowance(address(sFrax), amountIn);
+            IERC20(sellToken).safeTransferFrom(msg.sender, address(this), amountIn);
+            IERC20(sellToken).safeIncreaseAllowance(address(sFrax), amountIn);
             return sFrax.mint(amount, msg.sender);
         }
     }
@@ -228,32 +229,9 @@ contract FraxV3SFraxAdapter is ISwapAdapter {
                 revert("Amount In must be greater than 1");
             }
 
-            uint256 totStoredAssets = sFrax.storedTotalAssets();
-            uint256 totMintedShares = sFrax.totalSupply();
-            uint256 rewards = sFrax.previewDistributeRewards();
-            uint256 newMintedShares = sFrax.previewDeposit(amountIn);
-
-            totStoredAssets += amountIn + rewards;
-            totMintedShares += newMintedShares;
-
-            uint256 numerator =
-                PRECISE_UNIT.mulDivDown(totMintedShares, totStoredAssets);
-
-            return Fraction(numerator, PRECISE_UNIT);
+            return Fraction(sFrax.previewDeposit(amountIn), amountIn);
         } else {
-            uint256 totStoredAssets = sFrax.storedTotalAssets();
-            uint256 totMintedShares = sFrax.totalSupply();
-            uint256 rewards = sFrax.previewDistributeRewards();
-            uint256 fraxAmountRedeemed = sFrax.previewRedeem(amountIn);
-
-            totStoredAssets = totStoredAssets + rewards - fraxAmountRedeemed;
-            totMintedShares -= amountIn;
-
-            uint256 numerator = totMintedShares == 0
-                ? PRECISE_UNIT
-                : PRECISE_UNIT.mulDivDown(totStoredAssets, totMintedShares);
-
-            return Fraction(numerator, PRECISE_UNIT);
+            return Fraction(sFrax.previewRedeem(amountIn), amountIn);
         }
     }
 }
