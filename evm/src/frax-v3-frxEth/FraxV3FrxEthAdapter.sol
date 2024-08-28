@@ -304,19 +304,12 @@ interface ISfrxEth {
     /// address of frxEth is passed as an argument
     function balanceOf(address) external view returns (uint256);
 
-    /// @dev to be clarified if the accepted asset is ETH or frxETH
     function previewDeposit(uint256 assets) external view returns (uint256);
 
-    /// @dev It should accept sfrxETH, to be clarified if it returns ETH or
-    /// frxET
     function previewMint(uint256 shares) external view returns (uint256);
 
-    /// @dev It should accept sfrxETH, to be clarified if it returns ETH or
-    /// frxET
     function previewRedeem(uint256 shares) external view returns (uint256);
 
-    /// @dev It should accept sfrxETH, to be clarified if it returns ETH or
-    /// frxET
     function previewWithdraw(uint256 assets) external view returns (uint256);
 
     /// @dev returns the totalSupply of frxETH
