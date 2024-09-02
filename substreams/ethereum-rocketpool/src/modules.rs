@@ -5,11 +5,13 @@ use std::collections::HashMap;
 use substreams::{
     hex,
     pb::substreams::StoreDeltas,
-    store::{StoreAdd, StoreAddBigInt, StoreAddInt64, StoreGet, StoreGetInt64, StoreNew},
+    store::{
+        StoreAdd, StoreAddBigInt, StoreAddInt64, StoreGet, StoreGetInt64, StoreGetString, StoreNew,
+    },
 };
 use substreams_ethereum::{pb::eth, Event};
 use tycho_substreams::{
-    balances::aggregate_balances_changes, contract::extract_contract_changes, prelude::*,
+    balances::aggregate_balances_changes, contract::extract_contract_changes_builder, prelude::*,
 };
 
 const RETH_ADDRESS: [u8; 20] = hex!("D33526068D116cE69F19A9ee46F0bd304F21A51f"); //RPL rocketPool Token
@@ -57,84 +59,6 @@ pub fn store_components(map: BlockTransactionProtocolComponents, store: StoreAdd
             .collect::<Vec<_>>(),
         1,
     );
-}
-
-/// This is the main map that handles most of the indexing of this substream.
-/// Every contract change is grouped by transaction index via the `transaction_contract_changes`
-///  map. Each block of code will extend the `TransactionContractChanges` struct with the
-///  cooresponding changes (balance, component, contract), inserting a new one if it doesn't exist.
-///  At the very end, the map can easily be sorted by index to ensure the final
-/// `BlockContractChanges`  is ordered by transactions properly.
-#[substreams::handlers::map]
-pub fn map_protocol_changes(
-    block: eth::v2::Block,
-    grouped_components: BlockTransactionProtocolComponents,
-    deltas: BlockBalanceDeltas,
-    components_store: StoreGetInt64,
-    balance_store: StoreDeltas, // Note, this map module is using the `deltas` mode for the store.
-) -> Result<BlockContractChanges> {
-    // We merge contract changes by transaction (identified by transaction index) making it easy to
-    //  sort them at the very end.
-    let mut transaction_contract_changes: HashMap<_, TransactionContractChanges> = HashMap::new();
-
-    // `ProtocolComponents` are gathered from `map_pools_created` which just need a bit of work to
-    //   convert into `TransactionContractChanges`
-    grouped_components
-        .tx_components
-        .iter()
-        .for_each(|tx_component| {
-            let tx = tx_component.tx.as_ref().unwrap();
-            transaction_contract_changes
-                .entry(tx.index)
-                .or_insert_with(|| TransactionContractChanges::new(tx))
-                .component_changes
-                .extend_from_slice(&tx_component.components);
-        });
-
-    // Balance changes are gathered by the `StoreDelta` based on `PoolBalanceChanged` creating
-    //  `BlockBalanceDeltas`. We essentially just process the changes that occurred to the `store`
-    // this  block. Then, these balance changes are merged onto the existing map of tx contract
-    // changes,  inserting a new one if it doesn't exist.
-    aggregate_balances_changes(balance_store, deltas)
-        .into_iter()
-        .for_each(|(_, (tx, balances))| {
-            transaction_contract_changes
-                .entry(tx.index)
-                .or_insert_with(|| TransactionContractChanges::new(&tx))
-                .balance_changes
-                .extend(balances.into_values());
-        });
-
-    // Extract and insert any storage changes that happened for any of the components.
-    extract_contract_changes(
-        &block,
-        |addr| {
-            components_store
-                .get_last(format!("pool:0x{0}", hex::encode(addr)))
-                .is_some()
-        },
-        &mut transaction_contract_changes,
-    );
-
-    // Process all `transaction_contract_changes` for final output in the `BlockContractChanges`,
-    //  sorted by transaction index (the key).
-    Ok(BlockContractChanges {
-        block: Some((&block).into()),
-        changes: transaction_contract_changes
-            .drain()
-            .sorted_unstable_by_key(|(index, _)| *index)
-            .filter_map(|(_, change)| {
-                if change.contract_changes.is_empty() &&
-                    change.component_changes.is_empty() &&
-                    change.balance_changes.is_empty()
-                {
-                    None
-                } else {
-                    Some(change)
-                }
-            })
-            .collect::<Vec<_>>(),
-    })
 }
 
 #[substreams::handlers::map]
@@ -221,6 +145,123 @@ pub fn map_relative_balances(
     Ok(BlockBalanceDeltas { balance_deltas })
 }
 
+/// This is the main map that handles most of the indexing of this substream.
+/// Every contract change is grouped by transaction index via the `transaction_changes`
+///  map. Each block of code will extend the `TransactionChanges` struct with the
+///  cooresponding changes (balance, component, contract), inserting a new one if it doesn't exist.
+///  At the very end, the map can easily be sorted by index to ensure the final
+/// `BlockChanges`  is ordered by transactions properly.
+#[substreams::handlers::map]
+pub fn map_protocol_changes(
+    block: eth::v2::Block,
+    grouped_components: BlockTransactionProtocolComponents,
+    deltas: BlockBalanceDeltas,
+    components_store: StoreGetString,
+    balance_store: StoreDeltas, // Note, this map module is using the `deltas` mode for the store.
+) -> Result<BlockChanges> {
+    // We merge contract changes by transaction (identified by transaction index) making it easy to
+    //  sort them at the very end.
+    let mut transaction_changes: HashMap<_, TransactionChangesBuilder> = HashMap::new();
+
+    // `ProtocolComponents` are gathered from `map_pools_created` which just need a bit of work to
+    //   convert into `TransactionChanges`
+    let default_attributes = vec![
+        Attribute {
+            name: "balance_owner".to_string(),
+            value: VAULT_ADDRESS.to_vec(),
+            change: ChangeType::Creation.into(),
+        },
+        Attribute {
+            name: "update_marker".to_string(),
+            value: vec![1u8],
+            change: ChangeType::Creation.into(),
+        },
+    ];
+    grouped_components
+        .tx_components
+        .iter()
+        .for_each(|tx_component| {
+            // initialise builder if not yet present for this tx
+            let tx = tx_component.tx.as_ref().unwrap();
+            let builder = transaction_changes
+                .entry(tx.index)
+                .or_insert_with(|| TransactionChangesBuilder::new(tx));
+
+            // iterate over individual components created within this tx
+            tx_component
+                .components
+                .iter()
+                .for_each(|component| {
+                    builder.add_protocol_component(component);
+                    let entity_change = EntityChanges {
+                        component_id: component.id.clone(),
+                        attributes: default_attributes.clone(),
+                    };
+                    builder.add_entity_change(&entity_change)
+                });
+        });
+
+    // Balance changes are gathered by the `StoreDelta` based on `PoolBalanceChanged` creating
+    //  `BlockBalanceDeltas`. We essentially just process the changes that occurred to the `store`
+    // this  block. Then, these balance changes are merged onto the existing map of tx contract
+    // changes,  inserting a new one if it doesn't exist.
+    aggregate_balances_changes(balance_store, deltas)
+        .into_iter()
+        .for_each(|(_, (tx, balances))| {
+            let builder = transaction_changes
+                .entry(tx.index)
+                .or_insert_with(|| TransactionChangesBuilder::new(&tx));
+            balances
+                .values()
+                .for_each(|bc| builder.add_balance_change(bc));
+        });
+
+    // Extract and insert any storage changes that happened for any of the components.
+    extract_contract_changes_builder(
+        &block,
+        |addr| {
+            components_store
+                .get_last(format!("pool:0x{0}", hex::encode(addr)))
+                .is_some()
+                || addr.eq(&VAULT_ADDRESS)
+        },
+        &mut transaction_changes,
+    );
+
+    transaction_changes
+        .iter_mut()
+        .for_each(|(_, change)| {
+            // this indirection is necessary due to borrowing rules.
+            let addresses = change
+                .changed_contracts()
+                .map(|e| e.to_vec())
+                .collect::<Vec<_>>();
+            addresses
+                .into_iter()
+                .for_each(|address| {
+                    if address != VAULT_ADDRESS {
+                        // We reconstruct the component_id from the address here
+                        let id = components_store
+                            .get_last(format!("pool:0x{}", hex::encode(address)))
+                            .unwrap(); // Shouldn't happen because we filter by known components in
+                                       // `extract_contract_changes_builder`
+                        change.mark_component_as_updated(&id);
+                    }
+                })
+        });
+
+    // Process all `transaction_changes` for final output in the `BlockChanges`,
+    //  sorted by transaction index (the key).
+    Ok(BlockChanges {
+        block: Some((&block).into()),
+        changes: transaction_changes
+            .drain()
+            .sorted_unstable_by_key(|(index, _)| *index)
+            .filter_map(|(_, builder)| builder.build())
+            .collect::<Vec<_>>(),
+    })
+}
+
 /// It's significant to include both the `pool_id` and the `token_id` for each balance delta as the
 ///  store key to ensure that there's a unique balance being tallied for each.
 #[substreams::handlers::store]
@@ -246,7 +287,7 @@ fn is_deployment_tx(tx: &eth::v2::TransactionTrace, vault_address: &[u8]) -> boo
 }
 
 fn create_vault_component(tx: &Transaction) -> ProtocolComponent {
-    ProtocolComponent::at_contract(RETH_ADDRESS.as_slice(), tx)
+    ProtocolComponent::at_contract(VAULT_ADDRESS.as_slice(), tx)
         .with_tokens(&[RETH_ADDRESS, ETHER_TOKEN_ADDRESS])
         .as_swap_type("rocketvault", ImplementationType::Vm)
 }
