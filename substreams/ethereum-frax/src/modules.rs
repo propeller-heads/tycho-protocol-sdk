@@ -1,4 +1,4 @@
-use crate::{abi, pool_factories};
+use crate::{abi, pool_factories, utils};
 use anyhow::Result;
 use itertools::Itertools;
 use std::collections::HashMap;
@@ -10,7 +10,7 @@ use substreams::{
 };
 use substreams_ethereum::{pb::eth, Event};
 use tycho_substreams::{
-    balances::aggregate_balances_changes, contract::extract_contract_changes, prelude::*,
+    balances::aggregate_balances_changes, contract::extract_contract_changes_builder, prelude::*,
 };
 
 #[substreams::handlers::map]
@@ -185,35 +185,62 @@ pub fn store_balances(deltas: BlockBalanceDeltas, store: StoreAddBigInt) {
 }
 
 /// This is the main map that handles most of the indexing of this substream.
-/// Every contract change is grouped by transaction index via the `transaction_contract_changes`
-///  map. Each block of code will extend the `TransactionContractChanges` struct with the
-///  corresponding changes (balance, component, contract), inserting a new one if it doesn't exist.
+/// Every contract change is grouped by transaction index via the `transaction_changes`
+///  map. Each block of code will extend the `TransactionChanges` struct with the
+///  cooresponding changes (balance, component, contract), inserting a new one if it doesn't exist.
 ///  At the very end, the map can easily be sorted by index to ensure the final
-/// `BlockContractChanges`  is ordered by transactions properly.
+/// `BlockChanges`  is ordered by transactions properly.
 #[substreams::handlers::map]
 pub fn map_protocol_changes(
     block: eth::v2::Block,
     grouped_components: BlockTransactionProtocolComponents,
     deltas: BlockBalanceDeltas,
-    components_store: StoreGetInt64,
+    components_store: StoreGetString,
     balance_store: StoreDeltas, // Note, this map module is using the `deltas` mode for the store.
-) -> Result<BlockContractChanges> {
+) -> Result<BlockChanges> {
     // We merge contract changes by transaction (identified by transaction index) making it easy to
     //  sort them at the very end.
-    let mut transaction_contract_changes: HashMap<_, TransactionContractChanges> = HashMap::new();
+    let mut transaction_changes: HashMap<_, TransactionChangesBuilder> = HashMap::new();
 
     // `ProtocolComponents` are gathered from `map_pools_created` which just need a bit of work to
-    //   convert into `TransactionContractChanges`
+    //   convert into `TransactionChanges`
+    let default_attributes = |component_address: &Vec<u8>| {
+        vec![
+            Attribute {
+                name: "balance_owner".to_string(),
+                value: component_address.to_vec(),
+                change: ChangeType::Creation.into(),
+            },
+            Attribute {
+                name: "update_marker".to_string(),
+                value: vec![1u8],
+                change: ChangeType::Creation.into(),
+            },
+        ]
+    };
     grouped_components
         .tx_components
         .iter()
         .for_each(|tx_component| {
+            // initialise builder if not yet present for this tx
             let tx = tx_component.tx.as_ref().unwrap();
-            transaction_contract_changes
+            let builder = transaction_changes
                 .entry(tx.index)
-                .or_insert_with(|| TransactionContractChanges::new(tx))
-                .component_changes
-                .extend_from_slice(&tx_component.components);
+                .or_insert_with(|| TransactionChangesBuilder::new(tx));
+
+            // iterate over individual components created within this tx
+            tx_component
+                .components
+                .iter()
+                .for_each(|component| {
+                    builder.add_protocol_component(component);
+                    let component_address = hex::decode(&component.id[5..]).unwrap(); // skip the "pool:0x" prefix
+                    let entity_change = EntityChanges {
+                        component_id: component.id.clone(),
+                        attributes: default_attributes(&component_address),
+                    };
+                    builder.add_entity_change(&entity_change)
+                });
         });
 
     // Balance changes are gathered by the `StoreDelta` based on `PoolBalanceChanged` creating
@@ -223,62 +250,53 @@ pub fn map_protocol_changes(
     aggregate_balances_changes(balance_store, deltas)
         .into_iter()
         .for_each(|(_, (tx, balances))| {
-            transaction_contract_changes
+            let builder = transaction_changes
                 .entry(tx.index)
-                .or_insert_with(|| TransactionContractChanges::new(&tx))
-                .balance_changes
-                .extend(balances.into_values());
+                .or_insert_with(|| TransactionChangesBuilder::new(&tx));
+            balances
+                .values()
+                .for_each(|bc| builder.add_balance_change(bc));
         });
 
     // Extract and insert any storage changes that happened for any of the components.
-    extract_contract_changes(
+    extract_contract_changes_builder(
         &block,
         |addr| {
             components_store
                 .get_last(format!("pool:0x{0}", hex::encode(addr)))
                 .is_some()
         },
-        &mut transaction_contract_changes,
+        &mut transaction_changes,
     );
 
-    // Process all `transaction_contract_changes` for final output in the `BlockContractChanges`,
+    transaction_changes
+        .iter_mut()
+        .for_each(|(_, change)| {
+            // this indirection is necessary due to borrowing rules.
+            let addresses = change
+                .changed_contracts()
+                .map(|e| e.to_vec())
+                .collect::<Vec<_>>();
+            addresses
+                .into_iter()
+                .for_each(|address| {
+                    // We reconstruct the component_id from the address here
+                    let id = components_store
+                        .get_last(format!("pool:0x{}", hex::encode(address)))
+                        .unwrap(); // Shouldn't happen because we filter by known components in
+                                   // `extract_contract_changes_builder`
+                    change.mark_component_as_updated(&id);
+                })
+        });
+
+    // Process all `transaction_changes` for final output in the `BlockChanges`,
     //  sorted by transaction index (the key).
-    Ok(BlockContractChanges {
+    Ok(BlockChanges {
         block: Some((&block).into()),
-        changes: transaction_contract_changes
+        changes: transaction_changes
             .drain()
             .sorted_unstable_by_key(|(index, _)| *index)
-            .filter_map(|(_, change)| {
-                if change.contract_changes.is_empty() &&
-                    change.component_changes.is_empty() &&
-                    change.balance_changes.is_empty()
-                {
-                    None
-                } else {
-                    Some(change)
-                }
-            })
+            .filter_map(|(_, builder)| builder.build())
             .collect::<Vec<_>>(),
     })
-}
-
-fn maybe_get_pool_tokens(
-    store: &StoreGetProto<ProtocolComponent>,
-    component_id: &str,
-) -> Option<(Vec<u8>, Vec<u8>)> {
-    store
-        .get_last(format!("pool:{}", component_id))
-        .map(|component| (component.tokens[0].to_vec(), component.tokens[1].to_vec()))
-}
-
-fn address_to_hex(address: &[u8]) -> String {
-    format!("0x{}", hex::encode(address))
-}
-
-fn string_to_bytes(string: &str) -> Vec<u8> {
-    string.as_bytes().to_vec()
-}
-
-fn store_component(store: &StoreSetProto<ProtocolComponent>, component: &ProtocolComponent) {
-    store.set(1, format!("pool:{}", component.id), component);
 }
