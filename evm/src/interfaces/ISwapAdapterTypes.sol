@@ -30,7 +30,13 @@ interface ISwapAdapterTypes {
         TokenBalanceIndependent,
         // Indicates that prices are returned scaled, else it is assumed prices
         // still require scaling by token decimals. (required)
-        ScaledPrices
+        ScaledPrices,
+        // Indicates that if we try to go over the sell limits, the pool will
+        // revert (optional)
+        HardLimits,
+        // Indicates whether the pool's price function can be called with
+        // amountIn=0 to return the current price (optional)
+        MarginalPrice
     }
 
     /// @dev Representation used for rational numbers such as prices.

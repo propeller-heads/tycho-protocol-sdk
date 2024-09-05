@@ -12,4 +12,5 @@ ignore = [
     "crates/tycho-substreams/src/pb",
     "ethereum-balancer/src/abi",
     "ethereum-frax/src/abi",
+    "ethereum-curve/src/abi",
 ]
