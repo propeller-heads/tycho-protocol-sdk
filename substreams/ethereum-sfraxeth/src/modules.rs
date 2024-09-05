@@ -234,7 +234,7 @@ pub fn map_protocol_changes(
     deltas: BlockBalanceDeltas,
     components_store: StoreGetString,
     balance_store: StoreDeltas, // Note, this map module is using the `deltas` mode for the store.
-) -> Result<BlockChanges> {
+) -> Result<BlockChanges, anyhow::Error> {
     // We merge contract changes by transaction (identified by transaction index) making it easy to
     //  sort them at the very end.
     let mut transaction_changes: HashMap<_, TransactionChangesBuilder> = HashMap::new();
@@ -271,9 +271,10 @@ pub fn map_protocol_changes(
                 .iter()
                 .for_each(|component| {
                     builder.add_protocol_component(component);
+                    let vault_address = hex::decode(&component.id[5..]).unwrap(); // decoding only the hex part of the component_id
                     let entity_change = EntityChanges {
                         component_id: component.id.clone(),
-                        attributes: default_attributes(hex::decode(component.id).unwrap()),
+                        attributes: default_attributes(vault_address),
                     };
                     builder.add_entity_change(&entity_change)
                 });
@@ -356,7 +357,7 @@ fn is_deployment_tx(tx: &eth::v2::TransactionTrace, vault_address: &[u8]) -> boo
 
 fn create_vault_component(
     tx: &Transaction,
-    vault_component_id: &[u8],
+    vault_address: &[u8],
     locked_asset: &[u8],
 ) -> ProtocolComponent {
     ProtocolComponent::at_contract(vault_component_id, tx)
