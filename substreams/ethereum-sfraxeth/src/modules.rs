@@ -360,8 +360,8 @@ fn create_vault_component(
     vault_address: &[u8],
     locked_asset: &[u8],
 ) -> ProtocolComponent {
-    ProtocolComponent::at_contract(vault_component_id, tx)
-        .with_tokens(&[locked_asset, vault_component_id])
+    ProtocolComponent::at_contract(vault_address, tx)
+        .with_tokens(&[locked_asset, vault_address])
         .as_swap_type("sfraxeth_vault", ImplementationType::Vm)
 }
 

@@ -1,0 +1,29 @@
+# Name of the substreams config file in your substreams module. Usually "./substreams.yaml"
+substreams_yaml_path: ./substreams.yaml
+# Name of the adapter contract, usually: ProtocolSwapAdapter"
+adapter_contract: "SwapAdapter"
+# Constructor signature of the Adapter contract"
+adapter_build_signature: "constructor(address)"
+# A comma separated list of args to be passed to the contructor of the Adapter contract"
+adapter_build_args: "0x0000000000000000000000000000000000000000"
+# Whether or not the testing script should skip checking balances of the protocol components.
+# If set to `true` please always add a reason why it's skipped.
+skip_balance_check: false
+
+# A list of protocol types names created by your Substreams module.
+protocol_type_names:
+  - "sfraxeth_vault"
+
+# need to test just if the vault is created properly
+tests:
+  - name: sfraxeth_vault_created
+    # Indexed block range
+    start_block: 15686046
+    stop_block: 15686047
+    expected_components:
+      - id: "0x302013E7936a39c358d07A3Df55dc94EC417E3a1" # sfrax ETH vault
+        tokens:
+          - "0x5e8422345238f34275888049021821e8e08caa1f" # frax ETH (ERC20)
+          - "0xac3E018457B222d93114458476f3E3416Abbe38F" # sfrax ETH (ERC20)
+        creation_tx: "0x20793bbf260912aae189d5d261ff003c9b9166da8191d8f9d63ff1c7722f3ac6"
+        skip_simulation: false
