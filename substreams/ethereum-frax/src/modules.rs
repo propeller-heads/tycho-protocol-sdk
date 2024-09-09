@@ -1,12 +1,13 @@
-use crate::{abi, pool_factories, utils};
+use crate::{
+    abi, pool_factories,
+    utils::{address_to_hex, maybe_get_pool_tokens, save_component, string_to_bytes},
+};
 use anyhow::Result;
 use itertools::Itertools;
 use std::collections::HashMap;
 use substreams::{
     pb::substreams::StoreDeltas,
-    store::{
-        StoreAddBigInt, StoreGet, StoreGetInt64, StoreGetProto, StoreNew, StoreSet, StoreSetProto,
-    },
+    store::{StoreAddBigInt, StoreGet, StoreGetProto, StoreGetString, StoreNew, StoreSetProto},
 };
 use substreams_ethereum::{pb::eth, Event};
 use tycho_substreams::{
@@ -61,7 +62,7 @@ pub fn store_components(
             tx_components
                 .components
                 .iter()
-                .for_each(|component| store_component(&store, component));
+                .for_each(|component| save_component(&store, component));
         })
 }
 

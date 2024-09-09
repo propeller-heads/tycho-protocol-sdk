@@ -1,4 +1,4 @@
-use substreams::store::{StoreGetProto, StoreSetProto};
+use substreams::store::{StoreGet, StoreGetProto, StoreSet, StoreSetProto};
 use tycho_substreams::models::ProtocolComponent;
 
 pub fn maybe_get_pool_tokens(
@@ -18,6 +18,6 @@ pub fn string_to_bytes(string: &str) -> Vec<u8> {
     string.as_bytes().to_vec()
 }
 
-pub fn store_component(store: &StoreSetProto<ProtocolComponent>, component: &ProtocolComponent) {
+pub fn save_component(store: &StoreSetProto<ProtocolComponent>, component: &ProtocolComponent) {
     store.set(1, format!("pool:{}", component.id), component);
 }
