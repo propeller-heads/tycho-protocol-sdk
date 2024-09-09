@@ -271,10 +271,9 @@ pub fn map_protocol_changes(
                 .iter()
                 .for_each(|component| {
                     builder.add_protocol_component(component);
-                    let vault_address = hex::decode(&component.id[5..]).unwrap(); // decoding only the hex part of the component_id
                     let entity_change = EntityChanges {
                         component_id: component.id.clone(),
-                        attributes: default_attributes(vault_address),
+                        attributes: default_attributes(component.id.as_bytes().to_vec()),
                     };
                     builder.add_entity_change(&entity_change)
                 });

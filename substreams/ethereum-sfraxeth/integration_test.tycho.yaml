@@ -1,11 +1,12 @@
+
 # Name of the substreams config file in your substreams module. Usually "./substreams.yaml"
 substreams_yaml_path: ./substreams.yaml
 # Name of the adapter contract, usually: ProtocolSwapAdapter"
-adapter_contract: "SwapAdapter"
+adapter_contract: "FraxV3Adapter"
 # Constructor signature of the Adapter contract"
 adapter_build_signature: "constructor(address)"
 # A comma separated list of args to be passed to the contructor of the Adapter contract"
-adapter_build_args: "0x0000000000000000000000000000000000000000"
+adapter_build_args: "0x0xA663B02CF0a4b149d2aD41910CB81e23e1c41c32"
 # Whether or not the testing script should skip checking balances of the protocol components.
 # If set to `true` please always add a reason why it's skipped.
 skip_balance_check: false
