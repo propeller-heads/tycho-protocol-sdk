@@ -239,6 +239,8 @@ pub fn map_protocol_changes(
     //  sort them at the very end.
     let mut transaction_changes: HashMap<_, TransactionChangesBuilder> = HashMap::new();
 
+    // `ProtocolComponents` are gathered from `map_pools_created` which just need a bit of work to
+    //   convert into `TransactionChanges`
     grouped_components
         .tx_components
         .iter()
@@ -283,26 +285,6 @@ pub fn map_protocol_changes(
         },
         &mut transaction_changes,
     );
-
-    transaction_changes
-        .iter_mut()
-        .for_each(|(_, change)| {
-            // this indirection is necessary due to borrowing rules.
-            let addresses = change
-                .changed_contracts()
-                .map(|e| e.to_vec())
-                .collect::<Vec<_>>();
-            addresses
-                .into_iter()
-                .for_each(|address| {
-                    // We reconstruct the component_id from the address here
-                    let id = components_store
-                        .get_last(format!("pool:0x{}", hex::encode(address)))
-                        .unwrap(); // Shouldn't happen because we filter by known components in
-                                   // `extract_contract_changes_builder`
-                    change.mark_component_as_updated(&id);
-                })
-        });
 
     // Process all `transaction_changes` for final output in the `BlockChanges`,
     //  sorted by transaction index (the key).
