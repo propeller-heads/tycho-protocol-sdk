@@ -36,7 +36,14 @@ pub fn map_components(
                         // address doesn't exist before contract deployment, hence the first tx with
                         // a log.address = vault_address is the deployment tx
                         if is_deployment_tx(tx, &vault_address) {
-                            Some(create_vault_component(&tx.into(), &vault_address, &locked_asset))
+                            Some(
+                                ProtocolComponent::at_contract(&vault_address, &tx.into())
+                                    .with_tokens(&[
+                                        locked_asset.as_slice(),
+                                        vault_address.as_slice(),
+                                    ])
+                                    .as_swap_type("sfraxeth_vault", ImplementationType::Vm),
+                            )
                         } else {
                             None
                         }
@@ -324,16 +331,6 @@ fn is_deployment_tx(tx: &eth::v2::TransactionTrace, vault_address: &[u8]) -> boo
         return deployed_address.as_slice() == vault_address;
     }
     false
-}
-
-fn create_vault_component(
-    tx: &Transaction,
-    vault_address: &[u8],
-    locked_asset: &[u8],
-) -> ProtocolComponent {
-    ProtocolComponent::at_contract(vault_address, tx)
-        .with_tokens(&[locked_asset, vault_address])
-        .as_swap_type("sfraxeth_vault", ImplementationType::Vm)
 }
 
 // ref: https://docs.frax.finance/smart-contracts/frxeth-and-sfrxeth-contract-addresses
