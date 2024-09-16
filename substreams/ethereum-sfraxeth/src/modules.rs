@@ -69,9 +69,17 @@ pub fn store_components(map: BlockTransactionProtocolComponents, store: StoreAdd
 
 // updates the reward rate to be accounted for at each block for the totalAsset locked in the vault
 #[substreams::handlers::map]
-pub fn map_reward_cycles(block: eth::v2::Block) -> Result<BlockRewardCycles, anyhow::Error> {
+pub fn map_reward_cycles(
+    block: eth::v2::Block,
+    components_store: StoreGetString,
+) -> Result<BlockRewardCycles, anyhow::Error> {
     let reward_cycles = block
         .logs()
+        .filter(|log| {
+            components_store
+                .get_last(format!("pool:0x{}", hex::encode(log.address())))
+                .is_some()
+        })
         .filter_map(|vault_log| {
             if let Some(ev) =
                 abi::sfraxeth_contract::events::NewRewardsCycle::match_and_decode(vault_log.log)
