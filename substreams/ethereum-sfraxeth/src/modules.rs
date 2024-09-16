@@ -317,20 +317,37 @@ pub fn map_protocol_changes(
 }
 
 fn is_deployment_tx(tx: &eth::v2::TransactionTrace, vault_address: &[u8]) -> bool {
-    let created_accounts = tx
-        .calls
-        .iter()
-        .flat_map(|call| {
-            call.account_creations
-                .iter()
-                .map(|ac| ac.account.to_owned())
-        })
-        .collect::<Vec<_>>();
-
-    if let Some(deployed_address) = created_accounts.first() {
-        return deployed_address.as_slice() == vault_address;
+    match vault_address {
+        hex!("95aB45875cFFdba1E5f451B950bC2E42c0053f39") => {
+            // Arbitrum
+            &tx.hash == &hex!("ad86e67a2d511576f802dca2f65b6dfbec1d050c63f55878f80272a5fcafcadf")
+        }
+        hex!("3Cd55356433C89E50DC51aB07EE0fa0A95623D53") => {
+            // BSC
+            &tx.hash == &hex!("c043ba8c30eeed718514b7d1d1d4654521eca2f7aa5e5a7ae1e2c212ca869997")
+        }
+        hex!("ac3E018457B222d93114458476f3E3416Abbe38F") => {
+            // Ethereum
+            &tx.hash == &hex!("d78dbe6cba652eb844de5aa473636c202fb6366c1bfc5ff8d5a26c1a24b37b07")
+        }
+        hex!("b90CCD563918fF900928dc529aA01046795ccb4A") => {
+            // Fantom
+            &tx.hash == &hex!("749c9ffb6022d5e6a8f3470499bfc2e9cf3bf122f75e2a5925930407d2a9e02c")
+        }
+        hex!("ecf91116348aF1cfFe335e9807f0051332BE128D") => {
+            // Moonbeam
+            &tx.hash == &hex!("3545822fb0695bec2d3e9860b22073cc79845a0bb3cfccf401241dc7fe0eb86b")
+        }
+        hex!("484c2D6e3cDd945a8B2DF735e079178C1036578c") => {
+            // Optimism
+            &tx.hash == &hex!("e2e4c7173ae6ac0d78cacb1d48004c2aea7e1ce4ae0110a128d40bdcdc4d51b0")
+        }
+        hex!("6d1FdBB266fCc09A16a22016369210A15bb95761") => {
+            // Polygon
+            &tx.hash == &hex!("ada03ce824bac4a811d0b1bb60f9f26dbdd921bcd5034b1b4b973026a04ad9ea")
+        }
+        _ => false,
     }
-    false
 }
 
 // ref: https://docs.frax.finance/smart-contracts/frxeth-and-sfrxeth-contract-addresses
