@@ -1,68 +1,6 @@
 syntax = "proto3";
 
-import "google/protobuf/timestamp.proto";
-
 package contract.v1;
-
-message Events {
-    repeated sfraxeth_Approval sfraxeth_approvals = 1;
-    repeated sfraxeth_Deposit sfraxeth_deposits = 2;
-    repeated sfraxeth_NewRewardsCycle sfraxeth_new_rewards_cycles = 3;
-    repeated sfraxeth_Transfer sfraxeth_transfers = 4;
-    repeated sfraxeth_Withdraw sfraxeth_withdraws = 5;
-}
-
-message sfraxeth_Approval {
-    string evt_tx_hash = 1;
-    uint32 evt_index = 2;
-    google.protobuf.Timestamp evt_block_time = 3;
-    uint64 evt_block_number = 4;
-    bytes owner = 5;
-    bytes spender = 6;
-    string amount = 7;
-}
-
-message sfraxeth_Deposit {
-    string evt_tx_hash = 1;
-    uint32 evt_index = 2;
-    google.protobuf.Timestamp evt_block_time = 3;
-    uint64 evt_block_number = 4;
-    bytes caller = 5;
-    bytes owner = 6;
-    string assets = 7;
-    string shares = 8;
-}
-
-message sfraxeth_NewRewardsCycle {
-    string evt_tx_hash = 1;
-    uint32 evt_index = 2;
-    google.protobuf.Timestamp evt_block_time = 3;
-    uint64 evt_block_number = 4;
-    uint64 cycle_end = 5;
-    string reward_amount = 6;
-}
-
-message sfraxeth_Transfer {
-    string evt_tx_hash = 1;
-    uint32 evt_index = 2;
-    google.protobuf.Timestamp evt_block_time = 3;
-    uint64 evt_block_number = 4;
-    bytes from = 5;
-    bytes to = 6;
-    string amount = 7;
-}
-
-message sfraxeth_Withdraw {
-    string evt_tx_hash = 1;
-    uint32 evt_index = 2;
-    google.protobuf.Timestamp evt_block_time = 3;
-    uint64 evt_block_number = 4;
-    bytes caller = 5;
-    bytes receiver = 6;
-    bytes owner = 7;
-    string assets = 8;
-    string shares = 9;
-}
 
 message RewardCycle {
     uint64 ord = 1;
