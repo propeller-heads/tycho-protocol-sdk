@@ -8,8 +8,8 @@ use substreams::{
     hex,
     pb::substreams::StoreDeltas,
     store::{
-        StoreAdd, StoreAddBigInt, StoreAddInt64, StoreGet, StoreGetInt64, StoreGetRaw,
-        StoreGetString, StoreNew, StoreSet, StoreSetRaw,
+        StoreAdd, StoreAddBigInt, StoreAddInt64, StoreGet, StoreGetInt64, StoreGetString, StoreNew,
+        StoreSet, StoreSetRaw,
     },
 };
 use substreams_ethereum::{pb::eth, Event};
@@ -116,7 +116,7 @@ pub fn store_reward_cycles(block_reward_cycles: BlockRewardCycles, store: StoreS
 pub fn map_relative_balances(
     block: eth::v2::Block,
     store: StoreGetInt64,
-    reward_store: StoreGetRaw,
+    reward_store: StoreDeltas,
 ) -> Result<BlockBalanceDeltas, anyhow::Error> {
     let balance_deltas = block
         .logs()
@@ -199,8 +199,11 @@ pub fn map_relative_balances(
                     // updated in this block. We want to use the first value of
                     // the record at the beginning of the block (before the store_reward_cycles
                     // writes to that key) ref: https://github.com/FraxFinance/frax-solidity/blob/85039d4dff2fb24d8a1ba6efc1ebf7e464df9dcf/src/hardhat/contracts/FraxETH/sfrxETH.sol.old#L984
-                    if let Some(last_reward_amount) =
-                        reward_store.get_first(format!("reward_cycle:{}", address_hex))
+                    if let Some(last_reward_amount) = reward_store
+                        .deltas
+                        .iter()
+                        .find(|el| el.key == format!("reward_cycle:{}", address_hex))
+                        .map(|el| el.old_value.clone())
                     {
                         deltas.push(BalanceDelta {
                             ord: vault_log.ordinal(),

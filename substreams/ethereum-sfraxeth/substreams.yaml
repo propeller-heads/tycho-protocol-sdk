@@ -43,8 +43,9 @@ modules:
     initialBlock: 15686046
     inputs:
       - source: sf.ethereum.type.v2.Block
+      - store: store_components
     output:
-      type: proto:contract.vBlockRewardCycles
+      .v2.Blocktract.vBlockRewardCycles
 
   - name: store_reward_cycles
     kind: store
