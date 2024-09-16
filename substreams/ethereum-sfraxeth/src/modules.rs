@@ -242,18 +242,11 @@ pub fn map_protocol_changes(
     // `ProtocolComponents` are gathered from `map_pools_created` which just need a bit of work to
     //   convert into `TransactionChanges`
     let default_attributes = |vault_address: Vec<u8>| {
-        vec![
-            Attribute {
-                name: "balance_owner".to_string(),
-                value: vault_address,
-                change: ChangeType::Creation.into(),
-            },
-            Attribute {
-                name: "update_marker".to_string(),
-                value: vec![1u8],
-                change: ChangeType::Creation.into(),
-            },
-        ]
+        vec![Attribute {
+            name: "update_marker".to_string(),
+            value: vec![1u8],
+            change: ChangeType::Creation.into(),
+        }]
     };
     grouped_components
         .tx_components
