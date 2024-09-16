@@ -239,15 +239,6 @@ pub fn map_protocol_changes(
     //  sort them at the very end.
     let mut transaction_changes: HashMap<_, TransactionChangesBuilder> = HashMap::new();
 
-    // `ProtocolComponents` are gathered from `map_pools_created` which just need a bit of work to
-    //   convert into `TransactionChanges`
-    let default_attributes = |vault_address: Vec<u8>| {
-        vec![Attribute {
-            name: "update_marker".to_string(),
-            value: vec![1u8],
-            change: ChangeType::Creation.into(),
-        }]
-    };
     grouped_components
         .tx_components
         .iter()
@@ -264,11 +255,6 @@ pub fn map_protocol_changes(
                 .iter()
                 .for_each(|component| {
                     builder.add_protocol_component(component);
-                    let entity_change = EntityChanges {
-                        component_id: component.id.clone(),
-                        attributes: default_attributes(component.id.as_bytes().to_vec()),
-                    };
-                    builder.add_entity_change(&entity_change)
                 });
         });
 
