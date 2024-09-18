@@ -1,0 +1,1 @@
+substreams gui -e mainnet.eth.streamingfast.io:443 substreams.yaml map_protocol_changes --start-block 18976170 --stop-block +50 -p map_protocol_changes=`python params.py` -p map_relative_balances=`python params.py`
