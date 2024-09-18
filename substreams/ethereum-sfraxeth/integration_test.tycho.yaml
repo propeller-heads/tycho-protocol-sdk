@@ -2,11 +2,11 @@
 # Name of the substreams config file in your substreams module. Usually "./substreams.yaml"
 substreams_yaml_path: ./substreams.yaml
 # Name of the adapter contract, usually: ProtocolSwapAdapter"
-adapter_contract: "FraxV3Adapter"
+adapter_contract: "FraxV3FrxEthAdapter"
 # Constructor signature of the Adapter contract"
-adapter_build_signature: "constructor(address)"
+adapter_build_signature: "constructor(address, address)"
 # A comma separated list of args to be passed to the contructor of the Adapter contract"
-adapter_build_args: "0x0xA663B02CF0a4b149d2aD41910CB81e23e1c41c32"
+adapter_build_args: "0xA663B02CF0a4b149d2aD41910CB81e23e1c41c32,0x452420df4AC1e3db5429b5FD629f3047482C543C"
 # Whether or not the testing script should skip checking balances of the protocol components.
 # If set to `true` please always add a reason why it's skipped.
 skip_balance_check: false
@@ -16,15 +16,16 @@ protocol_type_names:
   - "sfraxeth_vault"
 
 # need to test just if the vault is created properly
+# ref https://etherscan.io/txs?a=0xac3E018457B222d93114458476f3E3416Abbe38F&p=390
 tests:
   - name: sfraxeth_vault_created
     # Indexed block range
     start_block: 15686046
-    stop_block: 15686047
+    stop_block: 15740785
     expected_components:
-      - id: "0x302013E7936a39c358d07A3Df55dc94EC417E3a1" # sfrax ETH vault
+      - id: "0xac3E018457B222d93114458476f3E3416Abbe38F" # sfrax ETH vault
         tokens:
           - "0x5e8422345238f34275888049021821e8e08caa1f" # frax ETH (ERC20)
           - "0xac3E018457B222d93114458476f3E3416Abbe38F" # sfrax ETH (ERC20)
-        creation_tx: "0x20793bbf260912aae189d5d261ff003c9b9166da8191d8f9d63ff1c7722f3ac6"
+        creation_tx: "0xd78dbe6cba652eb844de5aa473636c202fb6366c1bfc5ff8d5a26c1a24b37b07"
         skip_simulation: false

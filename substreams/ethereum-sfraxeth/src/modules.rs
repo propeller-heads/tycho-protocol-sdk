@@ -7,6 +7,7 @@ use std::collections::HashMap;
 use substreams::{
     hex,
     pb::substreams::StoreDeltas,
+    scalar::BigInt,
     store::{
         StoreAdd, StoreAddBigInt, StoreAddInt64, StoreGet, StoreGetInt64, StoreGetString, StoreNew,
         StoreSet, StoreSetRaw,
@@ -82,15 +83,20 @@ pub fn map_reward_cycles(
 ) -> Result<BlockRewardCycles, anyhow::Error> {
     let reward_cycles = block
         .logs()
-        .filter(|log| {
+        .filter(|vault_log| {
             components_store
-                .get_last(format!("pool:0x{}", hex::encode(log.address())))
+                .get_last(format!("pool:0x{}", hex::encode(vault_log.address())))
                 .is_some()
         })
         .filter_map(|vault_log| {
             if let Some(ev) =
                 abi::sfraxeth_contract::events::NewRewardsCycle::match_and_decode(vault_log.log)
             {
+                substreams::log::info!(
+                    "New rewards cycle: end={}, next rewards={}",
+                    ev.cycle_end,
+                    ev.reward_amount,
+                );
                 Some(RewardCycle {
                     ord: vault_log.ordinal(),
                     next_reward_amount: ev.reward_amount.to_signed_bytes_be(),
@@ -141,6 +147,11 @@ pub fn map_relative_balances(
                     .get_last(format!("pool:{}", address_hex))
                     .is_some()
                 {
+                    substreams::log::info!(
+                        "Withdraw: -fraxEth {} -sfraxEth {}",
+                        ev.assets,
+                        ev.shares
+                    );
                     deltas.extend_from_slice(&[
                         BalanceDelta {
                             ord: vault_log.ordinal(),
@@ -169,6 +180,11 @@ pub fn map_relative_balances(
                     .get_last(format!("pool:{}", address_hex))
                     .is_some()
                 {
+                    substreams::log::info!(
+                        "Deposit: +fraxEth {} +sfraxEth {}",
+                        ev.assets,
+                        ev.shares
+                    );
                     deltas.extend_from_slice(&[
                         BalanceDelta {
                             ord: vault_log.ordinal(),
@@ -212,6 +228,11 @@ pub fn map_relative_balances(
                         .find(|el| el.key == format!("reward_cycle:{}", address_hex))
                         .map(|el| el.old_value.clone())
                     {
+                        substreams::log::info!(
+                            "Reward cycle balance change: address {}, sfraxEth amount {}",
+                            address_hex,
+                            BigInt::from_signed_bytes_be(&last_reward_amount)
+                        );
                         deltas.push(BalanceDelta {
                             ord: vault_log.ordinal(),
                             tx: Some(vault_log.receipt.transaction.into()),
