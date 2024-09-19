@@ -1,6 +1,6 @@
 # VM Integration
 
-This page describes the interface required to implement protocol logic component.
+This page describes the interface required to implement the protocol behavioural/logical component.
 
 To create a VM integration, it is required to provide a manifest file as well as an implementation of the corresponding adapter interface.
 
