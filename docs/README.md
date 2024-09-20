@@ -4,7 +4,7 @@ Protocol lib is a library used by Propellerheads.xyz solvers to integrate decent
 
 ## Integration Process
 
-To integrate with PropellerHeads solvers, two components need to be provided:
+To integrate with PropellerHeads solvers, 3 components need to be provided:
 
 * **Protocol logic:** Provides simulations of the protocols logic.
 * **Indexing**: Provides access to the protocol state used by the simulation. This component is optional if your protocol is stateless.
@@ -19,7 +19,9 @@ PropellerHeads currently exposes two integration modes to specify the protocols'
 * **VM Integration:** This integration type requires implementing an adapter interface in any language that compiles to the respective vm byte code. This SDK provides the interface only in Solidity. [**Read more here.**](logic/vm-integration/)
 * **Native Rust Integration:** Coming soon, this integration type requires implementing a Rust trait that describes the protocol logic.
 
+{% hint style="info" %}
 While VM integration is certainly the quickest and probably most accessible one for protocol developers, native implementations are much faster and allow us to consider the protocol for more time-sensitive use cases - e.g. quoting.
+{% endhint %}
 
 ### Indexing
 
@@ -33,6 +35,6 @@ For indexing purposes, it is required that you provide a [substreams](https://su
 
 For execution purposes, the implementation of the `SwapExecutor` and `SwapStructEncoder` interfaces is required. Without these components, trades cannot be executed on-chain, making them critical parts of the integration.
 
-**SwapExecutor**: The SwapExecutor is responsible for performing swaps by interacting with the underlying liquidity pools, handling token approvals, managing input/output amounts, and ensuring gas-efficient and secure execution. Each protocol must implement its own `SwapExecutor` (Solidity contract), tailored to its specific logic and requirements.
+**SwapExecutor**: This component is responsible for performing swaps by interacting with the underlying liquidity pools, handling token approvals, managing input/output amounts, and ensuring gas-efficient and secure execution. Each protocol must implement its own `SwapExecutor` (Solidity contract), tailored to its specific logic and requirements.
 
-**SwapStructEncoder**: The `SwapStructEncoder` encodes the necessary data structures required for the `SwapExecutor` to perform swaps. It ensures that the swap details, including input/output tokens, pool addresses, and other protocol-specific parameters, are correctly formatted and encoded before being passed to the `SwapExecutor`. Each protocol must implement its own `SwapStructEncoder` Python class and ensure compatibility with its `SwapExecutor`.
+**SwapStructEncoder**: This component encodes the necessary data structures required for the `SwapExecutor` to perform swaps. It ensures that the swap details, including input/output tokens, pool addresses, and other protocol-specific parameters, are correctly formatted and encoded before being passed to the `SwapExecutor`. Each protocol must implement its own `SwapStructEncoder` Python class and ensure compatibility with its `SwapExecutor`.

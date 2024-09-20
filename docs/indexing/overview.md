@@ -1,14 +1,18 @@
+---
+description: Understanding how the indexing layer works.
+---
+
 # Overview
 
-This page gives an overview over the data model required to ingest protocol state into the PropellerHeads solver.&#x20;
+This page gives an overview over the data model required to ingest protocol state into the PropellerHeads solver. Our indexing sink which organises, forwards and stores all protocol specific data is called Tycho Indexer.
 
-To integrate a protocol PropellerHeads rely on either native or vm logic. Most integration will likely choose to use the VM, as this is usually less effort, the guide will focus mostly on providing state for vm integrations.&#x20;
+Most integrations will likely choose to use the VM, as this is usually less effort, the guide will focus mostly on providing state for vm integrations.
 
-Native integration should operate following exactly the same pattern, just that they should emit changed attributes instead of changes contract storage slots.&#x20;
+Native integration should operate following exactly the same pattern, just that they should emit changed attributes instead of changed contract storage slots.
 
 ### Understanding the Data Model
 
-PropellerHeads ingest all data versioned by block and transaction. This helps maintain a low latency feed and deal correctly with chains that can experience reverts.
+Tycho Indexer ingest all data versioned by block and transaction. This helps maintain a low latency feed and deal correctly with chains that can experience reverts.
 
 This means each state change that is communicated must be communicated with its respective transaction that caused the change.
 
@@ -16,7 +20,7 @@ Next, for each emitted transactions that carries state changes, the correspondin
 
 So basically when processing a block we need to emit the block itself, all transactions that introduced protocol state changes and last but not least the state changes themselves, associated to their corresponding transaction.
 
-**The data model that encodes changes, transaction and blocks in messages, can be found** [**here**](https://github.com/propeller-heads/propeller-protocol-lib/tree/main/proto/tycho/evm/v1)**.**&#x20;
+**The data model that encodes changes, transaction and blocks in messages, can be found** [**here**](https://github.com/propeller-heads/propeller-protocol-lib/tree/main/proto/tycho/evm/v1)**.**
 
 #### Models
 
@@ -40,14 +44,14 @@ Many of the types above are variable length bytes. This allows for flexibility a
 
 #### Special attribute names
 
-Certain attribute names are reserved exclusively for specific purposes in our simulation process. Please use them only for their intended functions. See the [list of reserved attributes](./reserved-attributes.md)
+Certain attribute names are reserved exclusively for specific purposes in our simulation process. Please use them only for their intended functions. See the [list of reserved attributes](reserved-attributes.md)
 
 ### Changes of interest
 
 PropellerHeads integrations should at least communicate the following changes:
 
-- Any changes to the protocol state, for VM integrations that usually means contract storage changes of all contracts whose state may be accessed during a swap operation.
-- Any newly added protocol component such as a pool, pair, market, etc. Basically anything that signifies that a new operation can be executed now using the protocol.
-- ERC20 Balances, whenever the balances of one contracts involved with the protocol change, this change should be communicated in terms of absolute balances.
+* Any changes to the protocol state, for VM integrations that usually means contract storage changes of all contracts whose state may be accessed during a swap operation.
+* Any newly added protocol component such as a pool, pair, market, etc. Basically anything that signifies that a new operation can be executed now using the protocol.
+* ERC20 Balances, whenever the balances of one contracts involved with the protocol change, this change should be communicated in terms of absolute balances.
 
 Please see the getting started page to see how to actually implement an integration.

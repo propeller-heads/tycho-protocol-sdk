@@ -1,3 +1,7 @@
+---
+description: Practical guide to write an indexing component.
+---
+
 # Getting Started
 
 ## How to Integrate
@@ -6,9 +10,9 @@ Before starting, it is important to have a good understanding of the protocol we
 
 It is essential to understand:
 
-- Which contracts are involved in the protocol and what functions do they serve. How do they affect the behaviour of the component being integrated?
-- What conditions (e.g. oracle update) or what kind of method calls can lead to a relevant state change on the protocol, which ultimately changes the protocols behaviour if observed externally.
-- Are there components added or removed, and how are they added. Most protocols use either a factory contract, which can be used to deploy new components, or they use a method call that provisiona a new component within the overall system.
+* Which contracts are involved in the protocol and what functions do they serve. How do they affect the behaviour of the component being integrated?
+* What conditions (e.g. oracle update) or what kind of method calls can lead to a relevant state change on the protocol, which ultimately changes the protocols behaviour if observed externally.
+* Are there components added or removed, and how are they added. Most protocols use either a factory contract, which can be used to deploy new components, or they use a method call that provisiona a new component within the overall system.
 
 Once the workings of the protocol are clear the implementation can start.
 
@@ -42,16 +46,16 @@ The following examples and code snippets have been taken from the ethereum-balan
 
 Usually an integration consists of the following modules:
 
-- `map_components(block)`
-  - This map module extracts any newly created components by inspecting the block model (e.g factory contract logs). The recommended output model for this module is `BlockTransactionProtocolComponents.`
-- `store_components(components, components_store)`
-  - This store module takes the detected components and stores any necessary information about the component for downstream modules. For vm integrations the address is most likely enough.
-- `map_relative_balances(block, components_store)`:
-  - This map module is necessary for protocols that do not emit absolute balances changes (of ERC20 tokens and/or the native token). Since no absolute balances values are available the block model most likely will only provide deltas. Our sdk provides helpers to convert these into absolute balances as required by our data model. The responsibility of the module is to extract these relative changes and communicate them. The recommended output models for this module is `BlockBalanceDeltas`
-- `store_balances(balance_deltas, balance_store)`:
-  - This module stores the relative balances deltas in an additive store, which essentially converts them into absolute balances.
-- `map_protocol_changes(balance_deltas, balance_store, components_store, ...)`:
-  - The module that pulls everything together and build the final output model: `BlockChanges`.
+* `map_components(block)`
+  * This map module extracts any newly created components by inspecting the block model (e.g factory contract logs). The recommended output model for this module is `BlockTransactionProtocolComponents.`
+* `store_components(components, components_store)`
+  * This store module takes the detected components and stores any necessary information about the component for downstream modules. For vm integrations the address is most likely enough.
+* `map_relative_balances(block, components_store)`:
+  * This map module is necessary for protocols that do not emit absolute balances changes (of ERC20 tokens and/or the native token). Since no absolute balances values are available the block model most likely will only provide deltas. Our sdk provides helpers to convert these into absolute balances as required by our data model. The responsibility of the module is to extract these relative changes and communicate them. The recommended output models for this module is `BlockBalanceDeltas`
+* `store_balances(balance_deltas, balance_store)`:
+  * This module stores the relative balances deltas in an additive store, which essentially converts them into absolute balances.
+* `map_protocol_changes(balance_deltas, balance_store, components_store, ...)`:
+  * The module that pulls everything together and build the final output model: `BlockChanges`.
 
 The DAG formed by this structure can be seen below:
 
@@ -80,7 +84,7 @@ Usually the first step consists of detecting the creation of new components and 
 
 Later we'll have to emit balance and state changes based on the set of currently tracked components.
 
-{% hint style="info" %}
+{% hint style="danger" %}
 Emitting state changes of components that have not been previously announced is considered an error.
 {% endhint %}
 
@@ -109,7 +113,7 @@ Once emitted, the protocol components should be stored in a Store since we will 
 
 ### Tracking Absolute Balances
 
-Tracking balances can be tricky since often balance information is only available in relative values.&#x20;
+Tracking balances can be tricky since often balance information is only available in relative values.
 
 This means the relative values have to be aggregated by component and token to arrive at an absolute value. Additionally, throughout this aggregation we need to track the balance changes per transaction within a block.
 
@@ -137,7 +141,7 @@ Our Substreams SDK provides the `tycho_substream::balances::extract_balance_delt
 
 To aggregate `BlockBalanceDeltas` messages into absolute values efficiently while maintaining transaction level granularity, we can leverage the additive `StoreAddBigInt` type with a store module.
 
-The `tycho_substream::balances::store_balance_changes` helper function is available for this purpose, streamlining the implementation significantly.&#x20;
+The `tycho_substream::balances::store_balance_changes` helper function is available for this purpose, streamlining the implementation significantly.
 
 Thus, the typical use case can be addressed with the provided snippet:
 
