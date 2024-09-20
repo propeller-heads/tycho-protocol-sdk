@@ -8,6 +8,7 @@ To integrate with PropellerHeads solvers, two components need to be provided:
 
 * **Protocol logic:** Provides simulations of the protocols logic.
 * **Indexing**: Provides access to the protocol state used by the simulation. This component is optional if your protocol is stateless.
+* **Execution**: Given a solution, this component will encode and execute it on-chain.
 
 To propose an integration, create a pull request in this repository with the above components implemented.
 
