@@ -33,10 +33,14 @@ pub fn map_components(
                 let components = tx
                     .calls()
                     .filter(|call| !call.call.state_reverted)
-                    .filter_map(|_| {
+                    .filter_map(|call| {
                         // address doesn't exist before contract deployment, hence the first tx with
                         // a log.address = vault_address is the deployment tx
                         if is_deployment_tx(tx, &vault_address) {
+                            substreams::log::info!(
+                                "🚨 account creations: {:?}",
+                                call.call.
+                            );
                             Some(
                                 ProtocolComponent::at_contract(&vault_address, &tx.into())
                                     .with_tokens(&[
@@ -64,6 +68,21 @@ pub fn map_components(
 /// Simply stores the `ProtocolComponent`s with the pool id as the key
 #[substreams::handlers::store]
 pub fn store_components(map: BlockTransactionProtocolComponents, store: StoreAddInt64) {
+    map.tx_components
+        .iter()
+        .for_each(|tx_components| {
+            tx_components.tx.as_ref().map(|tx| {
+                substreams::log::info!("🚨 tx hash {:?}", hex::encode(tx.hash.clone()));
+            });
+            tx_components
+                .components
+                .iter()
+                .for_each(|component| {
+                    substreams::log::info!("🚨 component id {:?}", component.id);
+                    substreams::log::info!("🚨 change type {:?}", component.change);
+                    substreams::log::info!("🚨 ------------------ ");
+                });
+        });
     store.add_many(
         0,
         &map.tx_components
@@ -180,11 +199,6 @@ pub fn map_relative_balances(
                     .get_last(format!("pool:{}", address_hex))
                     .is_some()
                 {
-                    substreams::log::info!(
-                        "Deposit: +fraxEth {} +sfraxEth {}",
-                        ev.assets,
-                        ev.shares
-                    );
                     deltas.extend_from_slice(&[
                         BalanceDelta {
                             ord: vault_log.ordinal(),
@@ -202,7 +216,8 @@ pub fn map_relative_balances(
                             delta: ev.shares.to_signed_bytes_be(),
                             component_id: address_hex.as_bytes().to_vec(),
                         },
-                    ])
+                    ]);
+                    substreams::log::info!("Deposit: {:?}", deltas);
                 }
             } else if abi::sfraxeth_contract::events::NewRewardsCycle::match_and_decode(vault_log)
                 .is_some()
@@ -309,9 +324,9 @@ pub fn map_protocol_changes(
             let builder = transaction_changes
                 .entry(tx.index)
                 .or_insert_with(|| TransactionChangesBuilder::new(&tx));
-            balances
-                .values()
-                .for_each(|bc| builder.add_balance_change(bc));
+            balances.values().for_each(|bc| {
+                builder.add_balance_change(bc);
+            });
         });
 
     // Extract and insert any storage changes that happened for any of the components.
@@ -327,14 +342,21 @@ pub fn map_protocol_changes(
 
     // Process all `transaction_changes` for final output in the `BlockChanges`,
     //  sorted by transaction index (the key).
-    Ok(BlockChanges {
+
+    let block_changes = BlockChanges {
         block: Some((&block).into()),
         changes: transaction_changes
             .drain()
             .sorted_unstable_by_key(|(index, _)| *index)
             .filter_map(|(_, builder)| builder.build())
             .collect::<Vec<_>>(),
-    })
+    };
+
+    for change in &block_changes.changes {
+        substreams::log::info!("🚨 Balance changes {:?}", change.balance_changes);
+        substreams::log::info!("🚨 Component changes {:?}", change.component_changes);
+    }
+    Ok(block_changes)
 }
 
 fn is_deployment_tx(tx: &eth::v2::TransactionTrace, vault_address: &[u8]) -> bool {
