@@ -72,7 +72,7 @@ tests:
 Calculates pool prices for specified amounts.
 
 ```solidity
-solidityCopyfunction price(
+function price(
     bytes32 poolId,
     IERC20 sellToken,
     IERC20 buyToken,
@@ -91,7 +91,7 @@ solidityCopyfunction price(
 Simulates token swapping on a given pool.
 
 ```solidity
-solidityCopyfunction swap(
+function swap(
     bytes32 poolId,
     IERC20 sellToken,
     IERC20 buyToken,
@@ -110,7 +110,7 @@ solidityCopyfunction swap(
 Retrieves token trading limits.
 
 ```solidity
-solidityCopyfunction getLimits(bytes32 poolId, OrderSide side)
+function getLimits(bytes32 poolId, OrderSide side)
     external
     returns (uint256[] memory);
 ```
@@ -125,7 +125,7 @@ solidityCopyfunction getLimits(bytes32 poolId, OrderSide side)
 Retrieves pool capabilities.
 
 ```solidity
-solidityCopyfunction getCapabilities(bytes32 poolId, IERC20 sellToken, IERC20 buyToken)
+function getCapabilities(bytes32 poolId, IERC20 sellToken, IERC20 buyToken)
     external
     returns (Capability[] memory);
 ```
@@ -135,7 +135,7 @@ solidityCopyfunction getCapabilities(bytes32 poolId, IERC20 sellToken, IERC20 bu
 Retrieves tokens for a given pool.
 
 ```solidity
-solidityCopyfunction getTokens(bytes32 poolId)
+function getTokens(bytes32 poolId)
     external
     returns (IERC20[] memory tokens);
 ```
@@ -147,7 +147,7 @@ solidityCopyfunction getTokens(bytes32 poolId)
 Retrieves a range of pool IDs.
 
 ```solidity
-solidityCopyfunction getPoolIds(uint256 offset, uint256 limit)
+function getPoolIds(uint256 offset, uint256 limit)
     external
     returns (bytes32[] memory ids);
 ```
