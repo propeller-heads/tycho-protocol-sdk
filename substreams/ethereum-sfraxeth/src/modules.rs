@@ -33,14 +33,10 @@ pub fn map_components(
                 let components = tx
                     .calls()
                     .filter(|call| !call.call.state_reverted)
-                    .filter_map(|call| {
+                    .filter_map(|_| {
                         // address doesn't exist before contract deployment, hence the first tx with
                         // a log.address = vault_address is the deployment tx
                         if is_deployment_tx(tx, &vault_address) {
-                            substreams::log::info!(
-                                "🚨 account creations: {:?}",
-                                call.call.
-                            );
                             Some(
                                 ProtocolComponent::at_contract(&vault_address, &tx.into())
                                     .with_tokens(&[
@@ -68,21 +64,6 @@ pub fn map_components(
 /// Simply stores the `ProtocolComponent`s with the pool id as the key
 #[substreams::handlers::store]
 pub fn store_components(map: BlockTransactionProtocolComponents, store: StoreAddInt64) {
-    map.tx_components
-        .iter()
-        .for_each(|tx_components| {
-            tx_components.tx.as_ref().map(|tx| {
-                substreams::log::info!("🚨 tx hash {:?}", hex::encode(tx.hash.clone()));
-            });
-            tx_components
-                .components
-                .iter()
-                .for_each(|component| {
-                    substreams::log::info!("🚨 component id {:?}", component.id);
-                    substreams::log::info!("🚨 change type {:?}", component.change);
-                    substreams::log::info!("🚨 ------------------ ");
-                });
-        });
     store.add_many(
         0,
         &map.tx_components
