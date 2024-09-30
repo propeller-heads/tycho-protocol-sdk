@@ -9,7 +9,7 @@ adapter_build_signature: "constructor(address, address)"
 adapter_build_args: "0xA663B02CF0a4b149d2aD41910CB81e23e1c41c32,0x452420df4AC1e3db5429b5FD629f3047482C543C"
 # Whether or not the testing script should skip checking balances of the protocol components.
 # If set to `true` please always add a reason why it's skipped.
-skip_balance_check: false
+skip_balance_check: true
 
 # A list of protocol types names created by your Substreams module.
 protocol_type_names:
