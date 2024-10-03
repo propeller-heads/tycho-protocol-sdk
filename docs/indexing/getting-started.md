@@ -1,129 +1,65 @@
----
-description: Practical guide to write an indexing component.
----
+# Indexing Integration Guide
 
-# Getting Started
+## Understanding the Protocol
 
-## How to Integrate
+Before beginning integration, thoroughly understand the protocol:
 
-Before starting, it is important to have a good understanding of the protocol we are aiming to integrate.
-
-It is essential to understand:
-
-* Which contracts are involved in the protocol and what functions do they serve. How do they affect the behaviour of the component being integrated?
-* What conditions (e.g. oracle update) or what kind of method calls can lead to a relevant state change on the protocol, which ultimately changes the protocols behaviour if observed externally.
-* Are there components added or removed, and how are they added. Most protocols use either a factory contract, which can be used to deploy new components, or they use a method call that provisiona a new component within the overall system.
-
-Once the workings of the protocol are clear the implementation can start.
+1. Identify involved contracts and their functions. How do they affect the behavior of the component being integrated?
+2. Determine conditions (e.g., oracle updates) or method calls that lead to relevant state changes, which ultimately change the protocol's behavior if observed externally.
+3. Understand how components are added or removed (e.g., factory contracts, provisioning methods within the overall system).
 
 ## Setup
 
-PropellerHeads indexing integrations are provided as [substreams](https://substreams.streamingfast.io/) skpg files. If you do not know substreams yet, make sure to go check them out and set up their [cli](https://substreams.streamingfast.io/documentation/consume/installing-the-cli) before continuing.
+1. Install the [substreams CLI](https://substreams.streamingfast.io/documentation/consume/installing-the-cli).
+2. Copy the `ethereum-template` to a new package named `[CHAIN]-[PROTOCOL_SYSTEM]`.
+3. Adjust `cargo.toml` and `substreams.yaml` accordingly.
+4. Generate protobuf code:
+   ```bash
+   substreams protogen substreams.yaml --exclude-paths="sf/substreams,google"
+   ```
+5. Register the new package in `substreams/Cargo.toml` as a workspace member.
 
-Please start a new package for your integration, by copying the `ethereum-template` to a new name. The convention is: `[CHAIN]-[PROTOCOL_SYSTEM]` please make sure to also adjust: `cargo.toml` as well as `substreams.yaml` accordingly.
+The template already contains the `tycho-substreams` package as a dependency, providing necessary output types and helper functions.
 
-It should be possible now to generate the necessary protobuf code:
+## Integration Structure
 
-```bash
-substreams protogen substreams.yaml --exclude-paths="sf/substreams,google"
-```
+Typical integration modules:
 
-Next please register the new package with the workspace by registering it as a workspace member. This is simply done by adding the package's name to the members list under `substreams/Cargo.toml`.
-
-You are ready to start coding. The template you just copied already contains the `tycho-substreams` package as a dependency. This package contains all the necessary output types that tycho expects, as well as some interim helper types and functions for common tasks.
-
-Before continuing though, it is important to understand the concept of map modules and store modules. You can read about those [here](https://substreams.streamingfast.io/documentation/develop/manifest-modules/types).
-
-## Overview
-
-In the following section, we outline the typical procedure for structuring an integration for the Virtual Machine (VM) implementation type:
-
-Commonly, protocols employ factory contracts to deploy a contract for each swap component (also known as a pool or pair). We will explain how to efficiently index this system of contracts. It's important to note, however, that the techniques described below are broadly applicable, even if a protocol deviates from this specific pattern it should be possible to index it and emit the required messages.
+1. `map_components(block)`: Extracts newly created components from the block model.
+2. `store_components(components, components_store)`: Stores necessary component information for downstream modules.
+3. `map_relative_balances(block, components_store)`: Extracts relative balance changes for protocols without absolute balance emissions.
+4. `store_balances(balance_deltas, balance_store)`: Converts relative balance deltas into absolute balances using an additive store.
+5. `map_protocol_changes(balance_deltas, balance_store, components_store, ...)`: Combines all information to build the final `BlockChanges` output model.
 
 {% hint style="info" %}
-The following examples and code snippets have been taken from the ethereum-balancer substream. The complete code is available [here](https://github.com/propeller-heads/propeller-protocol-lib/tree/main/substreams/ethereum-balancer).
+Examples are from the ethereum-balancer substream. Full code available [here](https://github.com/propeller-heads/propeller-protocol-lib/tree/main/substreams/ethereum-balancer).
 {% endhint %}
 
-Usually an integration consists of the following modules:
+## Tracking Components
 
-* `map_components(block)`
-  * This map module extracts any newly created components by inspecting the block model (e.g factory contract logs). The recommended output model for this module is `BlockTransactionProtocolComponents.`
-* `store_components(components, components_store)`
-  * This store module takes the detected components and stores any necessary information about the component for downstream modules. For vm integrations the address is most likely enough.
-* `map_relative_balances(block, components_store)`:
-  * This map module is necessary for protocols that do not emit absolute balances changes (of ERC20 tokens and/or the native token). Since no absolute balances values are available the block model most likely will only provide deltas. Our sdk provides helpers to convert these into absolute balances as required by our data model. The responsibility of the module is to extract these relative changes and communicate them. The recommended output models for this module is `BlockBalanceDeltas`
-* `store_balances(balance_deltas, balance_store)`:
-  * This module stores the relative balances deltas in an additive store, which essentially converts them into absolute balances.
-* `map_protocol_changes(balance_deltas, balance_store, components_store, ...)`:
-  * The module that pulls everything together and build the final output model: `BlockChanges`.
+1. Implement a `factory.rs` module to detect newly deployed components.
+2. Use `BlockTransactionProtocolComponents` as the output model:
+   ```protobuf
+   message TransactionProtocolComponents {
+     Transaction tx = 1;
+     repeated ProtocolComponent components = 2;
+   }
 
-The DAG formed by this structure can be seen below:
-
-```mermaid
-graph TD;
-  map_components[map: map_components];
-  sf.ethereum.type.v2.Block[source: sf.ethereum.type.v2.Block] --> map_components;
-  store_components[store: store_components];
-  map_components --> store_components;
-  map_relative_balances[map: map_relative_balances];
-  sf.ethereum.type.v2.Block[source: sf.ethereum.type.v2.Block] --> map_relative_balances;
-  store_components --> map_relative_balances;
-  store_balances[store: store_balances];
-  map_relative_balances --> store_balances;
-  map_changes[map: map_changes];
-  sf.ethereum.type.v2.Block[source: sf.ethereum.type.v2.Block] --> map_changes;
-  map_components --> map_changes;
-  map_relative_balances --> map_changes;
-  store_components --> map_changes;
-  store_balances -- deltas --> map_changes;
-```
-
-### Tracking Components
-
-Usually the first step consists of detecting the creation of new components and storing their contract addresses in a store so they can be properly tracked further downstream.
-
-Later we'll have to emit balance and state changes based on the set of currently tracked components.
+   message BlockTransactionProtocolComponents {
+     repeated TransactionProtocolComponents tx_components = 1;
+   }
+   ```
+3. Store component addresses for downstream use.
 
 {% hint style="danger" %}
-Emitting state changes of components that have not been previously announced is considered an error.
+Never emit state changes for unannounced components.
 {% endhint %}
 
-Usually you want to start by implementing a map module that emits any newly created components. These newly created components are detected by inspecting the `sf.ethereum.type.v2.Block` model.
+## Tracking Absolute Balances
 
-The output message should then contain as much information about the component available at that time, as well as the transaction that created the protocol component.
+### 1. Index relative balance changes
 
-The recommended action here is to implement a `factory.rs` module that will help with detecting newly deployed components. Then use that module within a map handler to detect any newly emitted protocol components. The recommended output model for this first handler is `BlockTransactionProtocolComponents`:
-
-```protobuf
-// A message containing protocol components that were created by a single tx.
-message TransactionProtocolComponents {
-  Transaction tx = 1;
-  repeated ProtocolComponent components = 2;
-}
-
-// All protocol components that were created within a block with their corresponding tx.
-message BlockTransactionProtocolComponents {
-  repeated TransactionProtocolComponents tx_components = 1;
-}
-```
-
-Note that a single transaction may emit multiple newly created components. In this case it is expected that the `TransactionProtocolComponents.components` contains multiple `ProtocolComponents`.
-
-Once emitted, the protocol components should be stored in a Store since we will later have to use this store to decide whether a contract is interesting to us or not.
-
-### Tracking Absolute Balances
-
-Tracking balances can be tricky since often balance information is only available in relative values.
-
-This means the relative values have to be aggregated by component and token to arrive at an absolute value. Additionally, throughout this aggregation we need to track the balance changes per transaction within a block.
-
-Since this is challenging the following approach is recommended:
-
-#### 1. Index relative balance changes
-
-To accurately process a block and report the respective balance changes, implement a handler that utilises the `BlockBalanceDeltas` struct. It is crucial to ensure that each `BalanceDelta` within a component token pair is assigned a strictly increasing ordinal. This specificity is key to maintaining the integrity of aggregated values at the transaction level. Incorrect ordinal sequencing could lead to inaccurate balance reporting.
-
-Below is an example of an interface for a handler. This handler interfaces with a store that employs an integer as an indicator to denote whether a specific address (identified by the keys) is a component.
+Implement a handler using `BlockBalanceDeltas`:
 
 ```rust
 #[substreams::handlers::map]
@@ -135,15 +71,11 @@ pub fn map_relative_balances(
 }
 ```
 
-Our Substreams SDK provides the `tycho_substream::balances::extract_balance_deltas_from_tx` function that extracts all relevant `BalanceDelta` from ERC20 `Transfer` events for a given transaction (see Curve implementation).
+Use `tycho_substream::balances::extract_balance_deltas_from_tx` for ERC20 `Transfer` events. Ensure each `BalanceDelta` within a component token pair has a strictly increasing ordinal to maintain transaction-level integrity.
 
-#### 2. Aggregate balances with an additive store
+### 2. Aggregate balances with an additive store
 
-To aggregate `BlockBalanceDeltas` messages into absolute values efficiently while maintaining transaction level granularity, we can leverage the additive `StoreAddBigInt` type with a store module.
-
-The `tycho_substream::balances::store_balance_changes` helper function is available for this purpose, streamlining the implementation significantly.
-
-Thus, the typical use case can be addressed with the provided snippet:
+Use `StoreAddBigInt` and `tycho_substream::balances::store_balance_changes`:
 
 ```rust
 #[substreams::handlers::store]
@@ -152,13 +84,11 @@ pub fn store_balances(deltas: BlockBalanceDeltas, store: StoreAddBigInt) {
 }
 ```
 
-#### 3. Combine absolute values with component and address
+This efficiently aggregates `BlockBalanceDeltas` messages into absolute values while maintaining transaction-level granularity.
 
-Last but not least, we have to associate the absolute balances with their respective transaction, component and token.
+### 3. Combine absolute values with component and address
 
-To simplify the final step of aggregating balance changes, utilise the `tycho_substream::balances::aggregate_balances_changes` helper function. Detailed instructions are available in the function's docstring. Essentially, it outputs aggregated `BalanceChange` structs per transaction. These aggregates can then be seamlessly integrated into `map_protocol_changes` for retrieving absolute balance changes associated with each transaction.
-
-Below is a snip on how it is usually used:
+Use `tycho_substream::balances::aggregate_balances_changes`:
 
 ```rust
 #[substreams::handlers::map]
@@ -183,13 +113,14 @@ pub fn map_protocol_changes(
 }
 ```
 
-### Tracking State Changes
+This function outputs aggregated `BalanceChange` structs per transaction, which can be integrated into `map_protocol_changes` for retrieving absolute balance changes associated with each transaction.
 
-In vm implementations, it's crucial to accurately identify and extract all relevant contract changes. Typically, there's a one-to-one mapping between contracts and components which allows us to follow the convention of utilising the hex-encoded address as the component's ID.
+## Tracking State Changes
 
-To facilitate the extraction of pertinent changes from the expanded block model, we recommend using the `tycho_substreams::contract::extract_contract_changes` helper function. This function significantly simplifies the process.
+For VM implementations:
 
-Below, we illustrate how to leverage a component store to define a predicate. This predicate serves to pinpoint the contract addresses that are of particular interest:
+1. Use the hex-encoded address as the component's ID (typical one-to-one mapping between contracts and components).
+2. Use `tycho_substreams::contract::extract_contract_changes` to extract relevant changes from the expanded block model:
 
 ```rust
 use tycho_substreams::contract::extract_contract_changes;
@@ -206,3 +137,7 @@ extract_contract_changes(
     &mut transaction_contract_changes,
 );
 ```
+
+This example uses a component store to define a predicate that identifies contract addresses of interest.
+
+This guide provides a detailed approach to indexing integration, focusing on key steps, best practices, and important technical details for accurate implementation.
