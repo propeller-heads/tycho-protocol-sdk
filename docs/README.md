@@ -1,23 +1,24 @@
-# Propeller Protocol Lib
+# Protocol Lib
 
-Protocol lib is a library used by Propellerheads.xyz solvers to integrate decentralized protocols. Currently, only swap/exchange protocols are supported.
+Protocol lib enables solvers, searchers, and orderflow partners to tap into liquidity from decentralized protocols, currently focusing on swap protocols.
 
 ## Integration Process
 
-To integrate with PropellerHeads solvers, 3 components need to be provided:
+To integrate, provide these three components:
 
-* **Protocol logic:** Provides simulations of the protocols logic.
-* **Indexing**: Provides access to the protocol state used by the simulation. This component is optional if your protocol is stateless.
-* **Execution**: Given a solution, this component will encode and execute it on-chain.
+1. **Protocol Logic:** Simulates protocol behavior, accurately modeling swaps and exchanges.
+2. **Indexing:** Provides access to protocol state, tracking pools, pairs, and balances. Optional for stateless protocols.
+3. **Execution:** Encodes and executes solutions on-chain.
 
-To propose an integration, create a pull request in this repository with the above components implemented.
+To propose an integration, implement these components and create a pull request in this repository.
 
 ### Protocol Logic
 
-PropellerHeads currently exposes two integration modes to specify the protocols' underlying logic:
+Implement your protocol's logic using one of two modes:
 
-* **VM Integration:** This integration type requires implementing an adapter interface in any language that compiles to the respective vm byte code. This SDK provides the interface only in Solidity. [**Read more here.**](logic/vm-integration/)
-* **Native Rust Integration:** Coming soon, this integration type requires implementing a Rust trait that describes the protocol logic.
+1. **VM Integration:** Implement an adapter interface in any language that compiles to the respective VM bytecode. This SDK provides the interface in Solidity only. [Read more here.](logic/vm-integration/)
+
+2. **Native Rust Integration:** (Coming soon) Implement a Rust trait describing the protocol logic.
 
 {% hint style="info" %}
 While VM integration is certainly the quickest and probably most accessible one for protocol developers, native implementations are much faster and allow us to consider the protocol for more time-sensitive use cases - e.g. quoting.
@@ -25,16 +26,21 @@ While VM integration is certainly the quickest and probably most accessible one 
 
 ### Indexing
 
-For indexing purposes, it is required that you provide a [substreams](https://substreams.streamingfast.io/) package that emits a specified set of messages. If your protocol already has a [substreams package](https://github.com/messari/substreams) for indexing implemented, you can adjust it to emit the required messages.
+Provide a [substreams](https://substreams.streamingfast.io/) package that emits a specified set of messages. If your protocol has an existing [substreams package](https://github.com/messari/substreams), adjust it to emit the required messages.
 
-**VM Integration** Currently the only supported integration is for EVM protocols in order to complement the Solidity protocol logic. [**Read more here.**](https://github.com/propeller-heads/propeller-venue-lib/blob/main/docs/indexing/vm-integration/README.md)&#x20;
-
-**Native Integration** Coming soon, this integration will complement the upcoming native Rust protocol logic.
+- **VM Integration:** Currently supports EVM protocols to complement Solidity protocol logic. [Read more here.](https://github.com/propeller-heads/propeller-venue-lib/blob/main/docs/indexing/vm-integration/README.md)
+- **Native Integration:** (Coming soon) Will complement the upcoming native Rust protocol logic.
 
 ### Execution
 
-For execution purposes, the implementation of the `SwapExecutor` and `SwapStructEncoder` interfaces is required. Without these components, trades cannot be executed on-chain, making them critical parts of the integration.
+Implement the `SwapExecutor` and `SwapStructEncoder` interfaces to enable on-chain trade execution.
 
-**SwapExecutor**: This component is responsible for performing swaps by interacting with the underlying liquidity pools, handling token approvals, managing input/output amounts, and ensuring gas-efficient and secure execution. Each protocol must implement its own `SwapExecutor` (Solidity contract), tailored to its specific logic and requirements.
+**SwapExecutor**
 
-**SwapStructEncoder**: This component encodes the necessary data structures required for the `SwapExecutor` to perform swaps. It ensures that the swap details, including input/output tokens, pool addresses, and other protocol-specific parameters, are correctly formatted and encoded before being passed to the `SwapExecutor`. Each protocol must implement its own `SwapStructEncoder` Python class and ensure compatibility with its `SwapExecutor`.
+A Solidity contract that performs swaps by interacting with liquidity pools, handling token approvals, managing input/output amounts, and ensuring efficient, secure execution.
+
+**SwapStructEncoder**
+
+A Python class that encodes data structures for the `SwapExecutor`. It formats swap details, including input/output tokens, pool addresses, and protocol-specific parameters.
+
+Each protocol must implement its own `SwapExecutor` and `SwapStructEncoder`, tailored to its specific logic and requirements.
