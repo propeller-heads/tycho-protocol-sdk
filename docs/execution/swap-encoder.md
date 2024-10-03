@@ -1,4 +1,4 @@
-# Swap Encoder Guide
+# Swap Encoder
 
 ## Overview
 
