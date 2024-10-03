@@ -1,3 +1,7 @@
+---
+description: Implementing a SwapEncoder for a Protocol
+---
+
 # Swap Encoder
 
 ## Overview
