@@ -64,9 +64,12 @@ pub struct ProtocolType {
     #[prost(enumeration="ImplementationType", tag="4")]
     pub implementation_type: i32,
 }
+
 /// A struct describing a part of the protocol.
+///
 /// Note: For example this can be a UniswapV2 pair, that tracks the two ERC20 tokens used by the pair, 
-/// the component would represent a single contract. In case of VM integration, such component would 
+/// the component would represent a single contract.
+/// In case of VM integration, such component would represent a single contract.
 /// not need any attributes, because all the relevant info would be tracked via storage slots and balance changes.
 /// It can also be a wrapping contract, like WETH, that has a constant price, but it allows swapping tokens. 
 /// This is why the name ProtocolComponent is used instead of "Pool" or "Pair".
@@ -99,6 +102,7 @@ pub struct ProtocolComponent {
     pub tx: ::core::option::Option<Transaction>,
 }
 /// A struct for following the changes of Total Value Locked (TVL) of a protocol component.
+///
 /// Note that if a ProtocolComponent contains multiple contracts, the TVL is tracked for the component as a whole.
 /// E.g. for UniswapV2 pair WETH/USDC, this tracks the USDC and WETH balance of the pair contract.
 #[allow(clippy::derive_partial_eq_without_eq)]
