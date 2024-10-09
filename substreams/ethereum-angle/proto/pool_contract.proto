@@ -1,0 +1,33 @@
+syntax = "proto3";
+
+import "google/protobuf/timestamp.proto";
+
+package contract.v1;
+
+message Events {
+    repeated Swap swaps = 1;
+    repeated Redeem redeems = 2;
+    repeated CollateralAdded collateralsAdded = 3;
+}
+
+message Swap {
+  string amount = 1;
+  repeated string tokens = 2;
+  repeated string amounts = 3;
+  repeated string forfeitTokens = 4;
+  string from = 5;
+  string to = 6;
+}
+
+message CollateralAdded {
+  string collateral = 1;
+}
+
+message Redeem {
+  string tokenIn = 1;
+  string tokenOut = 2;
+  string amountIn = 3;
+  string amountOut = 4;
+  string from = 5;
+  string to = 6;
+}

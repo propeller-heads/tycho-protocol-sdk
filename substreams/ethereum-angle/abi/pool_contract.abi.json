@@ -1,0 +1,127 @@
+[
+  {
+    "inputs": [
+      {
+        "components": [
+          {
+            "internalType": "address",
+            "name": "facetAddress",
+            "type": "address"
+          },
+          {
+            "internalType": "enum FacetCutAction",
+            "name": "action",
+            "type": "uint8"
+          },
+          {
+            "internalType": "bytes4[]",
+            "name": "functionSelectors",
+            "type": "bytes4[]"
+          }
+        ],
+        "internalType": "struct FacetCut[]",
+        "name": "_diamondCut",
+        "type": "tuple[]"
+      },
+      { "internalType": "address", "name": "_init", "type": "address" },
+      { "internalType": "bytes", "name": "_calldata", "type": "bytes" }
+    ],
+    "stateMutability": "payable",
+    "type": "constructor"
+  },
+  {
+    "inputs": [
+      { "internalType": "bytes4", "name": "_selector", "type": "bytes4" }
+    ],
+    "name": "CannotAddFunctionToDiamondThatAlreadyExists",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      { "internalType": "bytes4[]", "name": "_selectors", "type": "bytes4[]" }
+    ],
+    "name": "CannotAddSelectorsToZeroAddress",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      { "internalType": "bytes4", "name": "_selector", "type": "bytes4" }
+    ],
+    "name": "CannotRemoveFunctionThatDoesNotExist",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      { "internalType": "bytes4", "name": "_selector", "type": "bytes4" }
+    ],
+    "name": "CannotRemoveImmutableFunction",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      { "internalType": "bytes4", "name": "_selector", "type": "bytes4" }
+    ],
+    "name": "CannotReplaceFunctionThatDoesNotExists",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      { "internalType": "bytes4", "name": "_selector", "type": "bytes4" }
+    ],
+    "name": "CannotReplaceFunctionWithTheSameFunctionFromTheSameFacet",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      { "internalType": "bytes4[]", "name": "_selectors", "type": "bytes4[]" }
+    ],
+    "name": "CannotReplaceFunctionsFromFacetWithZeroAddress",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      { "internalType": "bytes4", "name": "_selector", "type": "bytes4" }
+    ],
+    "name": "CannotReplaceImmutableFunction",
+    "type": "error"
+  },
+  { "inputs": [], "name": "ContractHasNoCode", "type": "error" },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes4",
+        "name": "_functionSelector",
+        "type": "bytes4"
+      }
+    ],
+    "name": "FunctionNotFound",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "_initializationContractAddress",
+        "type": "address"
+      },
+      { "internalType": "bytes", "name": "_calldata", "type": "bytes" }
+    ],
+    "name": "InitializationFunctionReverted",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      { "internalType": "address", "name": "_facetAddress", "type": "address" }
+    ],
+    "name": "NoSelectorsProvidedForFacetForCut",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      { "internalType": "address", "name": "_facetAddress", "type": "address" }
+    ],
+    "name": "RemoveFacetAddressMustBeZeroAddress",
+    "type": "error"
+  },
+  { "stateMutability": "payable", "type": "fallback" }
+]
