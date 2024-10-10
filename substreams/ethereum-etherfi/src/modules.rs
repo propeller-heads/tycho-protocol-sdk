@@ -1,13 +1,15 @@
-use crate::{abi, consts};
+use crate::{
+    abi,
+    consts::{self, ADDRESS_ZERO, LIQUIDITY_POOL_CREATION_HASH, WEETH_CREATION_HASH},
+};
 use anyhow::Result;
 use consts::{EETH_ADDRESS, ETH_ADDRESS, LIQUIDITY_POOL_ADDRESS, WEETH_ADDRESS};
 use itertools::Itertools;
 use std::collections::HashMap;
 use substreams::{
-    hex,
     pb::substreams::StoreDeltas,
     store::{
-        StoreAddBigInt, StoreGet, StoreGetString, StoreGetProto, StoreNew, StoreSet, StoreSetProto,
+        StoreAddBigInt, StoreGet, StoreGetProto, StoreGetString, StoreNew, StoreSet, StoreSetProto,
     },
 };
 use substreams_ethereum::{pb::eth, Event};
@@ -17,30 +19,27 @@ use tycho_substreams::{
 
 #[substreams::handlers::map]
 pub fn map_components(
-    params: String,
+    _params: String,
     block: eth::v2::Block,
 ) -> Result<BlockTransactionProtocolComponents, anyhow::Error> {
     Ok(BlockTransactionProtocolComponents {
         tx_components: block
             .transactions()
             .filter_map(|tx| {
-                let components = tx
-                    .logs_with_calls()
-                    .filter(|(_, call)| !call.call.state_reverted)
-                    .filter_map(|(log, _)| {
-                        if let Some(_ev) =
-                            abi::pool_contract::events::Initialized::match_and_decode(log)
-                        {
-                            Some(
-                                ProtocolComponent::at_contract(&LIQUIDITY_POOL_ADDRESS, &tx.into())
-                                    .with_tokens(&[EETH_ADDRESS, WEETH_ADDRESS, ETH_ADDRESS])
-                                    .as_swap_type("etherfi_pool", ImplementationType::Vm),
-                            )
-                        } else {
-                            None
-                        }
-                    })
-                    .collect::<Vec<_>>();
+                let mut components: Vec<ProtocolComponent> = vec![];
+                if tx.hash == LIQUIDITY_POOL_CREATION_HASH {
+                    components.push(
+                        ProtocolComponent::at_contract(&LIQUIDITY_POOL_ADDRESS, &tx.into())
+                            .with_tokens(&[EETH_ADDRESS, ETH_ADDRESS])
+                            .as_swap_type("etherfi_liquidity_pool", ImplementationType::Vm),
+                    )
+                } else if tx.hash == WEETH_CREATION_HASH {
+                    components.push(
+                        ProtocolComponent::at_contract(&WEETH_ADDRESS, &tx.into())
+                            .with_tokens(&[EETH_ADDRESS, WEETH_ADDRESS])
+                            .as_swap_type("etherfi_weeth_pool", ImplementationType::Vm),
+                    )
+                }
 
                 if !components.is_empty() {
                     Some(TransactionProtocolComponents { tx: Some(tx.into()), components })
@@ -80,45 +79,163 @@ pub fn map_relative_balances(
         .logs()
         .flat_map(|log| {
             let mut deltas = Vec::new();
-            let address_bytes_be = log.address();
-            let address_hex = format!("0x{}", hex::encode(address_bytes_be));
+            let liquidity_pool_hex = format!("0x{}", hex::encode(LIQUIDITY_POOL_ADDRESS));
+            let weeth_hex = format!("0x{}", hex::encode(WEETH_ADDRESS));
 
+            // Liquidty Pool Deposit:
+            // Contract balance just becomes += ETH, eeth balance is handled by eeth TransferShares event
             if let Some(ev) = abi::pool_contract::events::Deposit::match_and_decode(log.log) {
-
                 if store
-                    .get_last(format!("pool:{}", address_hex))
+                    .get_last(format!("pool:{}", liquidity_pool_hex))
                     .is_some()
                 {
-                    // Shares are minted, therefore not held by the contract; Contract balance just becomes += ETH
-                    substreams::log::info!("Deposit: -ETH {}", ev.amount);
+                    substreams::log::info!("Liquidity Pool Deposit: +ETH {}", ev.amount);
 
                     deltas.push(BalanceDelta {
                         ord: log.ordinal(),
                         tx: Some(log.receipt.transaction.into()),
                         token: ETH_ADDRESS.to_vec(),
                         delta: ev.amount.to_signed_bytes_be(),
-                        component_id: address_bytes_be.to_vec(),
+                        component_id: LIQUIDITY_POOL_ADDRESS.to_vec(),
                     });
                 }
-            } else if let Some(ev) = abi::pool_contract::events::Withdraw::match_and_decode(log.log)
+            }
+            // Liquidty Pool Withdraw:
+            // Contract balance just becomes -= ETH, eeth balance is handled by eeth TransferShares event
+            else if let Some(ev) = abi::pool_contract::events::Withdraw::match_and_decode(log.log)
             {
-                let address_bytes_be = log.address();
-                let address_hex = format!("0x{}", hex::encode(address_bytes_be));
-
                 if store
-                    .get_last(format!("pool:{}", address_hex))
+                    .get_last(format!("pool:{}", liquidity_pool_hex))
                     .is_some()
                 {
-                    // Shares are minted, therefore not held by the contract; Contract balance just becomes -= ETH
-                    substreams::log::info!("Withdraw: +ETH {}", ev.amount);
+                    // Shares are burnt, therefore not held by the contract; Contract balance just becomes -= ETH
+                    substreams::log::info!("Liquidity Pool Withdraw: -ETH {}", ev.amount);
 
                     deltas.push(BalanceDelta {
                         ord: log.ordinal(),
                         tx: Some(log.receipt.transaction.into()),
                         token: ETH_ADDRESS.to_vec(),
                         delta: ev.amount.neg().to_signed_bytes_be(),
-                        component_id: address_bytes_be.to_vec(),
+                        component_id: LIQUIDITY_POOL_ADDRESS.to_vec(),
                     });
+                }
+            }
+            // EETH transfer shares:
+            // Contract balance just becomes +/-= eETH, burn: Receiver is address(0), mint: Sender is address(0)
+            else if let Some(ev) =
+                abi::eeth_contract::events::TransferShares::match_and_decode(log.log)
+            {
+                // Actions to liquidity pool
+                if store
+                    .get_last(format!("pool:{}", liquidity_pool_hex))
+                    .is_some()
+                {
+                    // Mint Shares: Contract Balance += eETH
+                    if ev.from == ADDRESS_ZERO {
+                        substreams::log::info!(
+                            "Liquidity Pool Deposit eeTH: +eETH {}",
+                            ev.shares_value
+                        );
+
+                        deltas.push(BalanceDelta {
+                            ord: log.ordinal(),
+                            tx: Some(log.receipt.transaction.into()),
+                            token: EETH_ADDRESS.to_vec(),
+                            delta: ev.shares_value.to_signed_bytes_be(),
+                            component_id: LIQUIDITY_POOL_ADDRESS.to_vec(),
+                        });
+                    }
+                    // Burn Shares: Contract Balance -= eETH
+                    else if ev.to == ADDRESS_ZERO {
+                        substreams::log::info!(
+                            "Liquidity Pool Withdraw eeTH: -eETH {}",
+                            ev.shares_value
+                        );
+
+                        deltas.push(BalanceDelta {
+                            ord: log.ordinal(),
+                            tx: Some(log.receipt.transaction.into()),
+                            token: EETH_ADDRESS.to_vec(),
+                            delta: ev
+                                .shares_value
+                                .neg()
+                                .to_signed_bytes_be(),
+                            component_id: LIQUIDITY_POOL_ADDRESS.to_vec(),
+                        });
+                    }
+                }
+
+                // Actions to weeth
+                if store
+                    .get_last(format!("pool:{}", weeth_hex))
+                    .is_some()
+                {
+                    // Deposit eETH(wrap) into weETH contract: weETH Balane += eETH
+                    if ev.to == WEETH_ADDRESS {
+                        substreams::log::info!(
+                            "Deposit eeTH into weETH: +eETH {}",
+                            ev.shares_value
+                        );
+
+                        deltas.push(BalanceDelta {
+                            ord: log.ordinal(),
+                            tx: Some(log.receipt.transaction.into()),
+                            token: EETH_ADDRESS.to_vec(),
+                            delta: ev.shares_value.to_signed_bytes_be(),
+                            component_id: WEETH_ADDRESS.to_vec(),
+                        });
+                    }
+                    // Withdraw eEth(unwrap) from weETH contract: weETH Balane -= eETH
+                    else if ev.from == WEETH_ADDRESS {
+                        substreams::log::info!(
+                            "Withdraw eeTH from weETH: -eETH {}",
+                            ev.shares_value
+                        );
+
+                        deltas.push(BalanceDelta {
+                            ord: log.ordinal(),
+                            tx: Some(log.receipt.transaction.into()),
+                            token: EETH_ADDRESS.to_vec(),
+                            delta: ev
+                                .shares_value
+                                .neg()
+                                .to_signed_bytes_be(),
+                            component_id: WEETH_ADDRESS.to_vec(),
+                        });
+                    }
+                }
+            }
+            // weETH transfer:
+            // Mint: Contract Balance becomes += eETH, += weETH, Burn: Contract Balance becomes -= eETH, -= weETH
+            else if let Some(ev) = abi::erc20::events::Transfer::match_and_decode(log.log) {
+                if store
+                    .get_last(format!("pool:{}", weeth_hex))
+                    .is_some()
+                {
+                    // Mint Shares: Contract Balance += weETH
+                    if ev.from == ADDRESS_ZERO {
+                        substreams::log::info!("Mint weeTH: +weETH {}", ev.value);
+
+                        deltas.push(BalanceDelta {
+                            ord: log.ordinal(),
+                            tx: Some(log.receipt.transaction.into()),
+                            token: WEETH_ADDRESS.to_vec(),
+                            delta: ev.value.to_signed_bytes_be(),
+                            component_id: WEETH_ADDRESS.to_vec(),
+                        });
+                    }
+                    // Burn Shares: Contract Balance -= weETH
+                    else if ev.to == ADDRESS_ZERO {
+                        substreams::log::info!("Burn weeTH: -eETH {}", ev.value);
+
+                        deltas.push(BalanceDelta {
+                            ord: log.ordinal(),
+                            tx: Some(log.receipt.transaction.into()),
+                            token: WEETH_ADDRESS.to_vec(),
+                            delta: ev.value.neg().to_signed_bytes_be(),
+                            component_id: WEETH_ADDRESS.to_vec(),
+                        });
+                    }
                 }
             }
 
@@ -218,22 +335,6 @@ pub fn map_protocol_changes(
         substreams::log::info!("🚨 Component changes {:?}", change.component_changes);
     }
     Ok(block_changes)
-}
-fn maybe_get_pool_tokens(
-    store: &StoreGetProto<ProtocolComponent>,
-    component_id: &str,
-) -> Option<(Vec<u8>, Vec<u8>)> {
-    store
-        .get_last(format!("pool:{}", component_id))
-        .map(|component| (component.tokens[0].to_vec(), component.tokens[1].to_vec()))
-}
-
-fn address_to_hex(address: &[u8]) -> String {
-    format!("0x{}", hex::encode(address))
-}
-
-fn string_to_bytes(string: &str) -> Vec<u8> {
-    string.as_bytes().to_vec()
 }
 
 fn store_component(store: &StoreSetProto<ProtocolComponent>, component: &ProtocolComponent) {
