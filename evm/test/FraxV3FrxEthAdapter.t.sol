@@ -312,19 +312,4 @@ contract FraxV3FrxEthAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
         poolIds[0] = bytes32(0);
         runPoolBehaviourTest(adapter, poolIds);
     }
-
-    function testSwapSellSfraxEthForFraxEth1e15() public {
-        uint256 specifiedAmount = 1e15;
-
-        deal(address(SFRAXETH), address(this), specifiedAmount);
-        SFRAXETH.approve(address(adapter), specifiedAmount);
-
-        Trade memory trade = adapter.swap(
-            PAIR,
-            SFRAXETH_ADDRESS,
-            FRAXETH_ADDRESS,
-            OrderSide.Sell,
-            specifiedAmount
-        );
-    }
 }

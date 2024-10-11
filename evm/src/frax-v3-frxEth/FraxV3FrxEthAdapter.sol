@@ -111,7 +111,9 @@ contract FraxV3FrxEthAdapter is ISwapAdapter {
         trade.gasUsed = 0;
 
         if (
-            specifiedAmount < MIN_SWAP_AMOUNT ||
+            (sellToken == address(sfrxEth) &&
+                buyToken == address(frxEth) &&
+                specifiedAmount < MIN_SWAP_AMOUNT) ||
             isSwapNotSupported(sellToken, buyToken)
         ) {
             return trade;
