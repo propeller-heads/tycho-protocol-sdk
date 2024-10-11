@@ -5,7 +5,6 @@ pragma solidity ^0.8.13;
 import {ISwapAdapter} from "src/interfaces/ISwapAdapter.sol";
 import {IERC20, ERC20} from "openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
 import {SafeERC20} from "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
-import "forge-std/console.sol";
 
 library FixedPointMathLib {
     uint256 internal constant MAX_UINT256 = 2 ** 256 - 1;
@@ -39,7 +38,6 @@ contract FraxV3FrxEthAdapter is ISwapAdapter {
     using FixedPointMathLib for uint256;
 
     uint256 constant PRECISE_UNIT = 1e18;
-    uint256 constant MIN_SWAP_AMOUNT = 1e16;
 
     IFrxEth immutable frxEth;
     IFrxEthMinter immutable frxEthMinter;
@@ -47,8 +45,8 @@ contract FraxV3FrxEthAdapter is ISwapAdapter {
 
     constructor(address _frxEthMinter, address _sfrxEth) {
         sfrxEth = ISfrxEth(_sfrxEth);
-        frxEth = IFrxEth(address(0x5E8422345238F34275888049021821E8E08CAa1f));
-        // require(frxEth.minters(_frxEthMinter), "Minter not enabled");
+        frxEth = IFrxEth(address(sfrxEth.asset()));
+        require(frxEth.minters(_frxEthMinter), "Minter not enabled");
 
         frxEthMinter = IFrxEthMinter(_frxEthMinter);
     }
@@ -106,14 +104,7 @@ contract FraxV3FrxEthAdapter is ISwapAdapter {
         OrderSide side,
         uint256 specifiedAmount
     ) external override returns (Trade memory trade) {
-        trade.price = Fraction(PRECISE_UNIT, PRECISE_UNIT);
-        trade.calculatedAmount = 0;
-        trade.gasUsed = 0;
-
-        if (
-            specifiedAmount < MIN_SWAP_AMOUNT ||
-            isSwapNotSupported(sellToken, buyToken)
-        ) {
+        if (specifiedAmount == 0 || isSwapNotSupported(sellToken, buyToken)) {
             return trade;
         }
 
@@ -132,11 +123,6 @@ contract FraxV3FrxEthAdapter is ISwapAdapter {
             ? sfrxEth.previewDeposit(PRECISE_UNIT)
             : sfrxEth.previewRedeem(PRECISE_UNIT);
 
-        if (numerator == 0) {
-            // Fallback to prevent zero-price fraction
-            numerator = PRECISE_UNIT;
-        }
-
         trade.price = Fraction(numerator, PRECISE_UNIT);
     }
 
@@ -151,40 +137,20 @@ contract FraxV3FrxEthAdapter is ISwapAdapter {
         address buyToken
     ) external view override returns (uint256[] memory limits) {
         limits = new uint256[](2);
-        uint256 totalSupply;
-        uint256 frxBalance;
+
+        if (isSwapNotSupported(sellToken, buyToken)) {
+            return limits;
+        }
 
         if (sellToken == address(0)) {
-            totalSupply = frxEth.totalSupply();
-            if (totalSupply == 0) {
-                // If total supply is zero, no limit can be set safely
-                limits[0] = 0;
-                limits[1] = 0;
-            } else {
-                limits[0] = 120000000 ether > totalSupply
-                    ? 120000000 ether - totalSupply
-                    : 0;
-                limits[1] = sfrxEth.previewDeposit(limits[0]);
-            }
-        } else if (sellToken == address(frxEth)) {
-            totalSupply = frxEth.totalSupply();
-            frxBalance = frxEth.balanceOf(buyToken);
-
-            if (totalSupply == 0 || frxBalance >= totalSupply) {
-                limits[0] = 0;
-                limits[1] = 0;
-            } else {
-                limits[0] = totalSupply - frxBalance;
-                limits[1] = sfrxEth.previewDeposit(limits[0]);
-            }
+            limits[0] = 120000000 ether - frxEth.totalSupply();
+            limits[1] = sfrxEth.previewDeposit(limits[0]);
         } else {
-            totalSupply = sfrxEth.totalSupply();
-
-            if (totalSupply == 0) {
-                limits[0] = 0;
-                limits[1] = 0;
+            if (sellToken == address(frxEth)) {
+                limits[0] = frxEth.totalSupply() - frxEth.balanceOf(buyToken);
+                limits[1] = sfrxEth.previewDeposit(limits[0]);
             } else {
-                limits[0] = (totalSupply * 90) / 100;
+                limits[0] = (sfrxEth.totalSupply() * 90) / 100;
                 limits[1] = sfrxEth.previewRedeem(limits[0]);
             }
         }
@@ -224,57 +190,6 @@ contract FraxV3FrxEthAdapter is ISwapAdapter {
         ids = new bytes32[](2);
         ids[0] = bytes20(address(sfrxEth));
         ids[1] = bytes20(address(frxEthMinter));
-    }
-
-    event DebugLog(string message, uint256 value);
-
-    function safeTransferFrom(
-        address from,
-        address to,
-        uint256 amount
-    ) internal {
-        uint256 allowance = frxEth.allowance(from, address(this));
-        uint256 balance = frxEth.balanceOf(from);
-
-        console.log("Allowance: ", allowance);
-        console.log("Balance: ", balance);
-        console.log("Amount to Transfer: ", amount);
-
-        emit DebugLog("Allowance", allowance);
-        emit DebugLog("Balance", balance);
-        emit DebugLog("Amount to Transfer", amount);
-
-        require(
-            allowance >= amount,
-            "SafeTransferFrom: insufficient allowance"
-        );
-
-        require(balance >= amount, "SafeTransferFrom: insufficient balance");
-
-        // Approve if needed
-        if (allowance != type(uint256).max) {
-            // Some ERC20 contracts require setting the allowance to zero first before updating
-            if (allowance != 0) {
-                bool success = IERC20(address(frxEth)).approve(
-                    address(this),
-                    0
-                );
-                require(success, "Approval reset failed");
-            }
-            bool success = IERC20(address(frxEth)).approve(
-                address(this),
-                amount
-            );
-            require(success, "Approval failed");
-        }
-
-        // Use the ERC20 `transferFrom` function
-        bool transferSuccess = IERC20(address(frxEth)).transferFrom(
-            from,
-            to,
-            amount
-        );
-        require(transferSuccess, "Transfer failed");
     }
 
     /// @notice Executes a sell order on the contract.
@@ -337,43 +252,35 @@ contract FraxV3FrxEthAdapter is ISwapAdapter {
         }
     }
 
+    /// @notice Calculates prices for a specified amount
+    /// @dev frxEth is 1:1 eth
+    /// @param sellToken the token to sell
+    /// @param amountIn The amount of the token being sold.
+    /// @return (fraction) price as a fraction corresponding to the provided
+    /// amount.
     function getPriceAt(
         address sellToken,
         uint256 amountIn
     ) internal view returns (Fraction memory) {
-        uint256 totStoredAssets;
-        uint256 totMintedShares;
-        uint256 numerator;
-
         if (sellToken == address(frxEth) || sellToken == address(0)) {
-            totStoredAssets = sfrxEth.totalAssets() + amountIn;
+            // calculate price sfrxEth/frxEth
+            uint256 totStoredAssets = sfrxEth.totalAssets() + amountIn;
             uint256 newMintedShares = sfrxEth.previewDeposit(amountIn);
-            totMintedShares = sfrxEth.totalSupply() + newMintedShares;
-
-            if (totStoredAssets == 0 || totMintedShares == 0) {
-                // Fallback to prevent division by zero
-                return Fraction(PRECISE_UNIT, PRECISE_UNIT);
-            }
-
-            numerator = PRECISE_UNIT.mulDivDown(
+            uint256 totMintedShares = sfrxEth.totalSupply() + newMintedShares;
+            uint256 numerator = PRECISE_UNIT.mulDivDown(
                 totMintedShares,
                 totStoredAssets
             );
             return Fraction(numerator, PRECISE_UNIT);
         } else {
+            // calculate price frxEth/sfrxEth
             uint256 fraxAmountRedeemed = sfrxEth.previewRedeem(amountIn);
-            totStoredAssets = sfrxEth.totalAssets() - fraxAmountRedeemed;
-            totMintedShares = sfrxEth.totalSupply() - amountIn;
-
-            if (totStoredAssets == 0 || totMintedShares == 0) {
-                // Fallback to prevent division by zero
-                return Fraction(PRECISE_UNIT, PRECISE_UNIT);
-            }
-
-            numerator = PRECISE_UNIT.mulDivDown(
-                totStoredAssets,
-                totMintedShares
-            );
+            uint256 totStoredAssets = sfrxEth.totalAssets() -
+                fraxAmountRedeemed;
+            uint256 totMintedShares = sfrxEth.totalSupply() - amountIn;
+            uint256 numerator = totMintedShares == 0
+                ? PRECISE_UNIT
+                : PRECISE_UNIT.mulDivDown(totStoredAssets, totMintedShares);
             return Fraction(numerator, PRECISE_UNIT);
         }
     }
@@ -381,16 +288,6 @@ contract FraxV3FrxEthAdapter is ISwapAdapter {
 
 interface IFrxEth {
     // function minters_array(uint256) external view returns (address[] memory);
-    function allowance(
-        address owner,
-        address spender
-    ) external returns (uint256);
-
-    function transferFrom(
-        address from,
-        address to,
-        uint256 amount
-    ) external returns (bool);
 
     function balanceOf(address) external view returns (uint256);
 
