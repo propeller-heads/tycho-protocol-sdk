@@ -5,7 +5,6 @@ pragma solidity ^0.8.13;
 import {ISwapAdapter} from "src/interfaces/ISwapAdapter.sol";
 import {IERC20, ERC20} from "openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
 import {SafeERC20} from "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
-import "forge-std/console.sol";
 
 library FixedPointMathLib {
     uint256 internal constant MAX_UINT256 = 2 ** 256 - 1;

@@ -94,9 +94,6 @@ contract FraxV3FrxEthAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
         );
 
         for (uint256 i = 0; i < TEST_ITERATIONS - 1; i++) {
-            // console.log("Iteration: ", i);
-            // console.log("AmountIn: ", amounts[i]);
-            // console.log("Denominator: ", prices[i].denominator);
             assertEq(prices[i].compareFractions(prices[i + 1]), 0);
             assertGt(prices[i].denominator, 0);
             assertGt(prices[i + 1].denominator, 0);
