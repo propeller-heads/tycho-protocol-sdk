@@ -33,8 +33,10 @@ contract FraxV3FrxEthAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
         uint256 forkBlock = 19341682;
         vm.createSelectFork(vm.rpcUrl("mainnet"), forkBlock);
 
-        adapter =
-            new FraxV3FrxEthAdapter(FRAXETHMINTER_ADDRESS, SFRAXETH_ADDRESS);
+        adapter = new FraxV3FrxEthAdapter(
+            FRAXETHMINTER_ADDRESS,
+            SFRAXETH_ADDRESS
+        );
         FRAXETH = IERC20(address(ISfrxEth(address(SFRAXETH)).asset()));
         FRAXETH_ADDRESS = address(FRAXETH);
     }
@@ -44,11 +46,15 @@ contract FraxV3FrxEthAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
 
     /// @dev set lower limit to greater than 1, because previewDeposit returns 0
     /// with an amountIn == 1
-    function testPriceFuzzFraxEthV3FraxEth(uint256 amount0, uint256 amount1)
-        public
-    {
-        uint256[] memory limits =
-            adapter.getLimits(PAIR, FRAXETH_ADDRESS, SFRAXETH_ADDRESS);
+    function testPriceFuzzFraxEthV3FraxEth(
+        uint256 amount0,
+        uint256 amount1
+    ) public {
+        uint256[] memory limits = adapter.getLimits(
+            PAIR,
+            FRAXETH_ADDRESS,
+            SFRAXETH_ADDRESS
+        );
         vm.assume(amount0 < limits[0]);
         vm.assume(amount0 > 1);
         vm.assume(amount1 < limits[1]);
@@ -58,8 +64,12 @@ contract FraxV3FrxEthAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
         amounts[0] = amount0;
         amounts[1] = amount1;
 
-        Fraction[] memory prices =
-            adapter.price(PAIR, FRAXETH_ADDRESS, SFRAXETH_ADDRESS, amounts);
+        Fraction[] memory prices = adapter.price(
+            PAIR,
+            FRAXETH_ADDRESS,
+            SFRAXETH_ADDRESS,
+            amounts
+        );
 
         for (uint256 i = 0; i < prices.length; i++) {
             assertGt(prices[i].numerator, 0);
@@ -76,13 +86,14 @@ contract FraxV3FrxEthAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
             amounts[i] = 1000 * (i + 1) * 10 ** 18;
         }
 
-        Fraction[] memory prices =
-            adapter.price(PAIR, FRAXETH_ADDRESS, SFRAXETH_ADDRESS, amounts);
+        Fraction[] memory prices = adapter.price(
+            PAIR,
+            FRAXETH_ADDRESS,
+            SFRAXETH_ADDRESS,
+            amounts
+        );
 
         for (uint256 i = 0; i < TEST_ITERATIONS - 1; i++) {
-            // console.log("Iteration: ", i);
-            // console.log("AmountIn: ", amounts[i]);
-            // console.log("Denominator: ", prices[i].denominator);
             assertEq(prices[i].compareFractions(prices[i + 1]), 0);
             assertGt(prices[i].denominator, 0);
             assertGt(prices[i + 1].denominator, 0);
@@ -96,8 +107,12 @@ contract FraxV3FrxEthAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
             amounts[i] = 1000 * (i + 1) * 10 ** 18;
         }
 
-        Fraction[] memory prices =
-            adapter.price(PAIR, SFRAXETH_ADDRESS, FRAXETH_ADDRESS, amounts);
+        Fraction[] memory prices = adapter.price(
+            PAIR,
+            SFRAXETH_ADDRESS,
+            FRAXETH_ADDRESS,
+            amounts
+        );
 
         for (uint256 i = 0; i < TEST_ITERATIONS - 1; i++) {
             assertEq(prices[i].compareFractions(prices[i + 1]), 0);
@@ -113,8 +128,12 @@ contract FraxV3FrxEthAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
             amounts[i] = 1000 * (i + 1) * 10 ** 18;
         }
 
-        Fraction[] memory prices =
-            adapter.price(PAIR, ETH_ADDRESS, SFRAXETH_ADDRESS, amounts);
+        Fraction[] memory prices = adapter.price(
+            PAIR,
+            ETH_ADDRESS,
+            SFRAXETH_ADDRESS,
+            amounts
+        );
 
         for (uint256 i = 0; i < TEST_ITERATIONS - 1; i++) {
             assertEq(prices[i].compareFractions(prices[i + 1]), 0);
@@ -134,8 +153,11 @@ contract FraxV3FrxEthAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
 
         OrderSide side = isBuy ? OrderSide.Buy : OrderSide.Sell;
 
-        uint256[] memory limits =
-            adapter.getLimits(PAIR, FRAXETH_ADDRESS, SFRAXETH_ADDRESS);
+        uint256[] memory limits = adapter.getLimits(
+            PAIR,
+            FRAXETH_ADDRESS,
+            SFRAXETH_ADDRESS
+        );
 
         if (side == OrderSide.Buy) {
             vm.assume(specifiedAmount < limits[1]);
@@ -153,7 +175,11 @@ contract FraxV3FrxEthAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
         uint256 sfrxEth_balance_before = SFRAXETH.balanceOf(address(this));
 
         Trade memory trade = adapter.swap(
-            PAIR, FRAXETH_ADDRESS, SFRAXETH_ADDRESS, side, specifiedAmount
+            PAIR,
+            FRAXETH_ADDRESS,
+            SFRAXETH_ADDRESS,
+            side,
+            specifiedAmount
         );
 
         uint256 frxEth_balance_after = FRAXETH.balanceOf(address(this));
@@ -190,8 +216,11 @@ contract FraxV3FrxEthAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
 
         OrderSide side = isBuy ? OrderSide.Buy : OrderSide.Sell;
 
-        uint256[] memory limits =
-            adapter.getLimits(PAIR, SFRAXETH_ADDRESS, FRAXETH_ADDRESS);
+        uint256[] memory limits = adapter.getLimits(
+            PAIR,
+            SFRAXETH_ADDRESS,
+            FRAXETH_ADDRESS
+        );
 
         if (side == OrderSide.Buy) {
             vm.assume(specifiedAmount < limits[1]);
@@ -209,7 +238,11 @@ contract FraxV3FrxEthAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
         uint256 sfrxEth_balance_before = SFRAXETH.balanceOf(address(this));
 
         Trade memory trade = adapter.swap(
-            PAIR, SFRAXETH_ADDRESS, FRAXETH_ADDRESS, side, specifiedAmount
+            PAIR,
+            SFRAXETH_ADDRESS,
+            FRAXETH_ADDRESS,
+            side,
+            specifiedAmount
         );
 
         uint256 frxEth_balance_after = FRAXETH.balanceOf(address(this));
@@ -247,8 +280,11 @@ contract FraxV3FrxEthAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
     }
 
     function testGetLimitsFraxEthV3() public {
-        uint256[] memory limits =
-            adapter.getLimits(bytes32(0), FRAXETH_ADDRESS, SFRAXETH_ADDRESS);
+        uint256[] memory limits = adapter.getLimits(
+            bytes32(0),
+            FRAXETH_ADDRESS,
+            SFRAXETH_ADDRESS
+        );
         assertEq(limits.length, 2);
 
         adapter.getLimits(bytes32(0), ETH_ADDRESS, SFRAXETH_ADDRESS);
@@ -259,8 +295,11 @@ contract FraxV3FrxEthAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
     }
 
     function testGetCapabilitiesFraxEthV3() public {
-        Capability[] memory res =
-            adapter.getCapabilities(bytes32(0), ETH_ADDRESS, FRAXETH_ADDRESS);
+        Capability[] memory res = adapter.getCapabilities(
+            bytes32(0),
+            ETH_ADDRESS,
+            FRAXETH_ADDRESS
+        );
 
         assertEq(res.length, 4);
     }

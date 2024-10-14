@@ -277,7 +277,7 @@ class TestRunner:
                     )
                 except Exception as e:
                     print(
-                        f"Error simulating get_amount_out for {pool_id}: {sell_token} -> {buy_token}. "
+                        f"Error simulating get_amount_out for {pool_id}: {sell_token} -> {buy_token} at block {block_number}."
                         f"Error: {e}"
                     )
                     if pool_id not in failed_simulations:

@@ -38,6 +38,8 @@ contract FraxV3FrxEthAdapter is ISwapAdapter {
     using FixedPointMathLib for uint256;
 
     uint256 constant PRECISE_UNIT = 1e18;
+    uint256 constant MIN_SWAP_AMOUNT = 1e16;
+    uint256 constant ETH_TOTAL_SUPPLY = 120000000 ether;
 
     IFrxEth immutable frxEth;
     IFrxEthMinter immutable frxEthMinter;
@@ -45,8 +47,7 @@ contract FraxV3FrxEthAdapter is ISwapAdapter {
 
     constructor(address _frxEthMinter, address _sfrxEth) {
         sfrxEth = ISfrxEth(_sfrxEth);
-        frxEth = IFrxEth(address(sfrxEth.asset()));
-        require(frxEth.minters(_frxEthMinter), "Minter not enabled");
+        frxEth = IFrxEth(address(0x5E8422345238F34275888049021821E8E08CAa1f));
 
         frxEthMinter = IFrxEthMinter(_frxEthMinter);
     }
@@ -104,7 +105,16 @@ contract FraxV3FrxEthAdapter is ISwapAdapter {
         OrderSide side,
         uint256 specifiedAmount
     ) external override returns (Trade memory trade) {
-        if (specifiedAmount == 0 || isSwapNotSupported(sellToken, buyToken)) {
+        trade.price = Fraction(PRECISE_UNIT, PRECISE_UNIT);
+        trade.calculatedAmount = 0;
+        trade.gasUsed = 0;
+
+        if (
+            (sellToken == address(sfrxEth) &&
+                buyToken == address(frxEth) &&
+                specifiedAmount < MIN_SWAP_AMOUNT) ||
+            isSwapNotSupported(sellToken, buyToken)
+        ) {
             return trade;
         }
 
@@ -112,18 +122,23 @@ contract FraxV3FrxEthAdapter is ISwapAdapter {
 
         if (side == OrderSide.Sell) {
             trade.calculatedAmount = sell(sellToken, specifiedAmount);
+            trade.calculatedAmount != 0
+                ? trade.price = Fraction(
+                    trade.calculatedAmount,
+                    specifiedAmount
+                )
+                : trade.price;
         } else {
             trade.calculatedAmount = buy(sellToken, specifiedAmount);
+            trade.calculatedAmount != 0
+                ? trade.price = Fraction(
+                    specifiedAmount,
+                    trade.calculatedAmount
+                )
+                : trade.price;
         }
 
         trade.gasUsed = gasBefore - gasleft();
-
-        uint256 numerator = sellToken == address(frxEth) ||
-            sellToken == address(0)
-            ? sfrxEth.previewDeposit(PRECISE_UNIT)
-            : sfrxEth.previewRedeem(PRECISE_UNIT);
-
-        trade.price = Fraction(numerator, PRECISE_UNIT);
     }
 
     /// @inheritdoc ISwapAdapter
@@ -137,23 +152,47 @@ contract FraxV3FrxEthAdapter is ISwapAdapter {
         address buyToken
     ) external view override returns (uint256[] memory limits) {
         limits = new uint256[](2);
+        limits[0] = 0;
+        limits[1] = 0;
+        uint256 totalSupply;
+        uint256 frxBalance;
 
         if (isSwapNotSupported(sellToken, buyToken)) {
             return limits;
         }
 
         if (sellToken == address(0)) {
-            limits[0] = 120000000 ether - frxEth.totalSupply();
-            limits[1] = sfrxEth.previewDeposit(limits[0]);
-        } else {
-            if (sellToken == address(frxEth)) {
-                limits[0] = frxEth.totalSupply() - frxEth.balanceOf(buyToken);
-                limits[1] = sfrxEth.previewDeposit(limits[0]);
+            totalSupply = frxEth.totalSupply();
+            if (totalSupply == 0) {
+                return limits;
             } else {
-                limits[0] = (sfrxEth.totalSupply() * 90) / 100;
+                limits[0] = ETH_TOTAL_SUPPLY > totalSupply
+                    ? ETH_TOTAL_SUPPLY - totalSupply
+                    : 0;
+                limits[1] = sfrxEth.previewDeposit(limits[0]);
+            }
+        } else if (sellToken == address(frxEth)) {
+            totalSupply = frxEth.totalSupply();
+            frxBalance = frxEth.balanceOf(buyToken);
+
+            if (totalSupply == 0 || frxBalance >= totalSupply) {
+                return limits;
+            } else {
+                limits[0] = totalSupply - frxBalance;
+                limits[1] = sfrxEth.previewDeposit(limits[0]);
+            }
+        } else {
+            totalSupply = sfrxEth.totalSupply();
+
+            if (totalSupply == 0) {
+                return limits;
+            } else {
+                limits[0] = (totalSupply * 90) / 100;
                 limits[1] = sfrxEth.previewRedeem(limits[0]);
             }
         }
+
+        return limits;
     }
 
     /// @inheritdoc ISwapAdapter
@@ -287,8 +326,6 @@ contract FraxV3FrxEthAdapter is ISwapAdapter {
 }
 
 interface IFrxEth {
-    // function minters_array(uint256) external view returns (address[] memory);
-
     function balanceOf(address) external view returns (uint256);
 
     function totalSupply() external view returns (uint256);
