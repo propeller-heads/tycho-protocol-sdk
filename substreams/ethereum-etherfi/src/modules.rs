@@ -19,7 +19,6 @@ use tycho_substreams::{
 
 #[substreams::handlers::map]
 pub fn map_components(
-    _params: String,
     block: eth::v2::Block,
 ) -> Result<BlockTransactionProtocolComponents, anyhow::Error> {
     Ok(BlockTransactionProtocolComponents {
@@ -75,12 +74,13 @@ pub fn map_relative_balances(
     block: eth::v2::Block,
     store: StoreGetProto<ProtocolComponent>,
 ) -> Result<BlockBalanceDeltas, anyhow::Error> {
+    let liquidity_pool_hex = format!("0x{}", hex::encode(LIQUIDITY_POOL_ADDRESS));
+    let weeth_hex = format!("0x{}", hex::encode(WEETH_ADDRESS));
     let balance_deltas = block
         .logs()
+        // .filter(|log| log.address()) // filter out logs that are not from the pool contract
         .flat_map(|log| {
             let mut deltas = Vec::new();
-            let liquidity_pool_hex = format!("0x{}", hex::encode(LIQUIDITY_POOL_ADDRESS));
-            let weeth_hex = format!("0x{}", hex::encode(WEETH_ADDRESS));
 
             // Liquidty Pool Deposit:
             // Contract balance just becomes += ETH, eeth balance is handled by eeth TransferShares event
