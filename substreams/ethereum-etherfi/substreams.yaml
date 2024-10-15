@@ -22,7 +22,6 @@ modules:
     kind: map
     initialBlock: 17664317
     inputs:
-      - params: string
       - source: sf.ethereum.type.v2.Block
     output:
       type: proto:tycho.evm.v1.BlockTransactionProtocolComponents
