@@ -7,7 +7,7 @@ import "forge-std/console.sol";
 import "src/interfaces/ISwapAdapterTypes.sol";
 import "src/libraries/FractionMath.sol";
 import "src/libraries/FractionMath.sol";
-import "src/frax-v3/FraxV3SFraxAdapter.sol";
+import "src/sfrax/FraxV3SFraxAdapter.sol";
 
 /// @title TemplateSwapAdapterTest
 /// @dev This is a template for a swap adapter test.
