@@ -6,7 +6,7 @@ import "forge-std/Test.sol";
 import "forge-std/console.sol";
 import "src/interfaces/ISwapAdapterTypes.sol";
 import "src/libraries/FractionMath.sol";
-import "src/frax-v3-frxEth/FraxV3FrxEthAdapter.sol";
+import "src/sfraxeth/FraxV3FrxEthAdapter.sol";
 
 contract FraxV3FrxEthAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
     using FractionMath for Fraction;
