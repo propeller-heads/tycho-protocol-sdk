@@ -3,6 +3,10 @@ members = [
     "ethereum-balancer",
     "ethereum-sfrax", 
     "crates/tycho-substreams",
+    "crates/substreams-helper",
+    "ethereum-ambient",
+    "ethereum-uniswap-v2",
+    "ethereum-uniswap-v3",
 ]
 resolver = "2"
 
@@ -13,6 +17,7 @@ substreams = "0.5"
 prost = "0.11"
 prost-types = "0.11"
 hex-literal = "0.4.1"
+anyhow = "1.0.75"
 hex = "0.4.3"
 ethabi = "18.0.0"
 tycho-substreams = { path  = "crates/tycho-substreams"}
@@ -21,3 +26,4 @@ tycho-substreams = { path  = "crates/tycho-substreams"}
 lto = true
 opt-level = 's'
 strip = "debuginfo"
+
