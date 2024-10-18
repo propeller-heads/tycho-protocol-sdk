@@ -38,7 +38,7 @@ contract FraxV3FrxEthAdapter is ISwapAdapter {
     using FixedPointMathLib for uint256;
 
     uint256 constant PRECISE_UNIT = 1e18;
-    uint256 constant MIN_SWAP_AMOUNT = 1e16;
+    // uint256 constant MIN_SWAP_AMOUNT = 1e16;
     uint256 constant ETH_TOTAL_SUPPLY = 120000000 ether;
 
     IFrxEth immutable frxEth;
@@ -110,9 +110,9 @@ contract FraxV3FrxEthAdapter is ISwapAdapter {
         trade.gasUsed = 0;
 
         if (
-            (sellToken == address(sfrxEth) &&
-                buyToken == address(frxEth) &&
-                specifiedAmount < MIN_SWAP_AMOUNT) ||
+            // (sellToken == address(sfrxEth) &&
+            //     buyToken == address(frxEth) &&
+            //     specifiedAmount < MIN_SWAP_AMOUNT) ||
             isSwapNotSupported(sellToken, buyToken)
         ) {
             return trade;
