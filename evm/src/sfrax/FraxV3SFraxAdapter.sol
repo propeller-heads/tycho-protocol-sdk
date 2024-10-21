@@ -2,27 +2,28 @@
 pragma experimental ABIEncoderV2;
 pragma solidity ^0.8.13;
 
-import {ISwapAdapter} from "src/interfaces/ISwapAdapter.sol";
-import {IERC20, ERC20} from "openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
-import {SafeERC20} from
-    "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
-import "forge-std/Test.sol";
+import {ISwapAdapter} from "../interfaces/ISwapAdapter.sol";
+import {IERC20, ERC20} from "../../lib/openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
+import {SafeERC20} from "../../lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
+import "../../lib/forge-std/src/Test.sol";
 
 library FixedPointMathLib {
     uint256 internal constant MAX_UINT256 = 2 ** 256 - 1;
 
-    function mulDivDown(uint256 x, uint256 y, uint256 denominator)
-        internal
-        pure
-        returns (uint256 z)
-    {
+    function mulDivDown(
+        uint256 x,
+        uint256 y,
+        uint256 denominator
+    ) internal pure returns (uint256 z) {
         /// @solidity memory-safe-assembly
         assembly {
             // Equivalent to require(denominator != 0 && (y == 0 || x <=
             // type(uint256).max / y))
             if iszero(
                 mul(denominator, iszero(mul(y, gt(x, div(MAX_UINT256, y)))))
-            ) { revert(0, 0) }
+            ) {
+                revert(0, 0)
+            }
 
             // Divide x * y by the denominator.
             z := div(mul(x, y), denominator)
@@ -49,9 +50,9 @@ contract FraxV3SFraxAdapter is ISwapAdapter {
     /// @dev Check if tokens in input are supported
     modifier onlySupportedTokens(address sellToken, address buyToken) {
         if (
-            sellToken != address(frax) && sellToken != address(sFrax)
-                || buyToken != address(frax) && buyToken != address(sFrax)
-                || buyToken == sellToken
+            (sellToken != address(frax) && sellToken != address(sFrax)) ||
+            (buyToken != address(frax) && buyToken != address(sFrax)) ||
+            buyToken == sellToken
         ) {
             revert Unavailable("This adapter only supports FRAX<->SFRAX swaps");
         }
@@ -75,7 +76,8 @@ contract FraxV3SFraxAdapter is ISwapAdapter {
 
         for (uint256 i = 0; i < _specifiedAmounts.length; i++) {
             _prices[i] = getPriceAt(
-                sellToken == address(frax), _specifiedAmounts[i]
+                sellToken == address(frax),
+                _specifiedAmounts[i]
             );
         }
     }
@@ -94,8 +96,8 @@ contract FraxV3SFraxAdapter is ISwapAdapter {
         returns (Trade memory trade)
     {
         if (
-            specifiedAmount == 0
-                || (sellToken == address(frax) && specifiedAmount < 2)
+            specifiedAmount == 0 ||
+            (sellToken == address(frax) && specifiedAmount < 2)
         ) {
             return trade;
         }
@@ -119,7 +121,11 @@ contract FraxV3SFraxAdapter is ISwapAdapter {
 
     /// @inheritdoc ISwapAdapter
     /// @dev there is no hard capped limit
-    function getLimits(bytes32, address sellToken, address buyToken)
+    function getLimits(
+        bytes32,
+        address sellToken,
+        address buyToken
+    )
         external
         view
         override
@@ -139,12 +145,11 @@ contract FraxV3SFraxAdapter is ISwapAdapter {
     }
 
     /// @inheritdoc ISwapAdapter
-    function getCapabilities(bytes32, address, address)
-        external
-        pure
-        override
-        returns (Capability[] memory capabilities)
-    {
+    function getCapabilities(
+        bytes32,
+        address,
+        address
+    ) external pure override returns (Capability[] memory capabilities) {
         capabilities = new Capability[](4);
         capabilities[0] = Capability.SellOrder;
         capabilities[1] = Capability.BuyOrder;
@@ -152,12 +157,9 @@ contract FraxV3SFraxAdapter is ISwapAdapter {
     }
 
     /// @inheritdoc ISwapAdapter
-    function getTokens(bytes32)
-        external
-        view
-        override
-        returns (address[] memory tokens)
-    {
+    function getTokens(
+        bytes32
+    ) external view override returns (address[] memory tokens) {
         tokens = new address[](2);
 
         tokens[0] = address(frax);
@@ -167,12 +169,10 @@ contract FraxV3SFraxAdapter is ISwapAdapter {
     /// @inheritdoc ISwapAdapter
     /// @dev Since FraxV3 is a single pool that supports FRAX and SFRAX, we
     /// return it directly
-    function getPoolIds(uint256, uint256)
-        external
-        view
-        override
-        returns (bytes32[] memory ids)
-    {
+    function getPoolIds(
+        uint256,
+        uint256
+    ) external view override returns (bytes32[] memory ids) {
         ids = new bytes32[](1);
         ids[0] = bytes32(bytes20(address(sFrax)));
     }
@@ -181,10 +181,10 @@ contract FraxV3SFraxAdapter is ISwapAdapter {
     /// @param sellToken The token being sold.
     /// @param amount The amount to be traded.
     /// @return calculatedAmount The amount of tokens received.
-    function sell(address sellToken, uint256 amount)
-        internal
-        returns (uint256 calculatedAmount)
-    {
+    function sell(
+        address sellToken,
+        uint256 amount
+    ) internal returns (uint256 calculatedAmount) {
         IERC20(sellToken).safeTransferFrom(msg.sender, address(this), amount);
         if (sellToken == address(sFrax)) {
             return sFrax.redeem(amount, msg.sender, address(this));
@@ -198,17 +198,25 @@ contract FraxV3SFraxAdapter is ISwapAdapter {
     /// @param sellToken The token being sold.
     /// @param amount The amount of buyToken to receive.
     /// @return calculatedAmount The amount of tokens received.
-    function buy(address sellToken, uint256 amount)
-        internal
-        returns (uint256 calculatedAmount)
-    {
+    function buy(
+        address sellToken,
+        uint256 amount
+    ) internal returns (uint256 calculatedAmount) {
         if (sellToken == address(sFrax)) {
             uint256 amountIn = sFrax.previewWithdraw(amount);
-            IERC20(sellToken).safeTransferFrom(msg.sender, address(this), amountIn);
+            IERC20(sellToken).safeTransferFrom(
+                msg.sender,
+                address(this),
+                amountIn
+            );
             return sFrax.withdraw(amount, msg.sender, address(this));
         } else {
             uint256 amountIn = sFrax.previewMint(amount);
-            IERC20(sellToken).safeTransferFrom(msg.sender, address(this), amountIn);
+            IERC20(sellToken).safeTransferFrom(
+                msg.sender,
+                address(this),
+                amountIn
+            );
             IERC20(sellToken).safeIncreaseAllowance(address(sFrax), amountIn);
             return sFrax.mint(amount, msg.sender);
         }
@@ -219,11 +227,10 @@ contract FraxV3SFraxAdapter is ISwapAdapter {
     /// @param amountIn The amount of the token being sold.
     /// @return (fraction) price as a fraction corresponding to the provided
     /// amount.
-    function getPriceAt(bool isSellFrax, uint256 amountIn)
-        internal
-        view
-        returns (Fraction memory)
-    {
+    function getPriceAt(
+        bool isSellFrax,
+        uint256 amountIn
+    ) internal view returns (Fraction memory) {
         if (isSellFrax == true) {
             if (amountIn < 2) {
                 revert("Amount In must be greater than 1");
@@ -258,21 +265,27 @@ interface ISFrax {
 
     function totalAssets() external view returns (uint256);
 
-    function deposit(uint256 assets, address receiver)
-        external
-        returns (uint256 shares);
+    function deposit(
+        uint256 assets,
+        address receiver
+    ) external returns (uint256 shares);
 
-    function mint(uint256 shares, address receiver)
-        external
-        returns (uint256 assets);
+    function mint(
+        uint256 shares,
+        address receiver
+    ) external returns (uint256 assets);
 
     function storedTotalAssets() external view returns (uint256);
 
-    function withdraw(uint256 assets, address receiver, address owner)
-        external
-        returns (uint256 shares);
+    function withdraw(
+        uint256 assets,
+        address receiver,
+        address owner
+    ) external returns (uint256 shares);
 
-    function redeem(uint256 shares, address receiver, address owner)
-        external
-        returns (uint256 assets);
+    function redeem(
+        uint256 shares,
+        address receiver,
+        address owner
+    ) external returns (uint256 assets);
 }
