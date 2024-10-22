@@ -7,7 +7,10 @@ use substreams::{
     pb::substreams::StoreDeltas,
     store::{StoreAdd, StoreAddBigInt, StoreAddInt64, StoreGet, StoreGetInt64, StoreNew},
 };
-use substreams_ethereum::{pb::eth, Event};
+use substreams_ethereum::{
+    pb::eth::{self},
+    Event,
+};
 use tycho_substreams::{
     balances::aggregate_balances_changes, contract::extract_contract_changes, prelude::*,
 };
@@ -56,7 +59,6 @@ pub fn map_relative_balances(
 ) -> Result<BlockBalanceDeltas, anyhow::Error> {
     let balance_deltas = block
         .logs()
-        .filter(|log| find_deployed_underlying_address(log.address()).is_some())
         .flat_map(|vault_log| {
             let mut deltas = Vec::new();
 
