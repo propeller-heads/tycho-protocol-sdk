@@ -38,8 +38,6 @@ contract FraxV3FrxEthAdapter is ISwapAdapter {
     using FixedPointMathLib for uint256;
 
     uint256 constant PRECISE_UNIT = 1e18;
-    // uint256 constant MIN_SWAP_AMOUNT = 1e16;
-    uint256 constant ETH_TOTAL_SUPPLY = 120000000 ether;
 
     IFrxEth immutable frxEth;
     IFrxEthMinter immutable frxEthMinter;
@@ -109,12 +107,7 @@ contract FraxV3FrxEthAdapter is ISwapAdapter {
         trade.calculatedAmount = 0;
         trade.gasUsed = 0;
 
-        if (
-            // (sellToken == address(sfrxEth) &&
-            //     buyToken == address(frxEth) &&
-            //     specifiedAmount < MIN_SWAP_AMOUNT) ||
-            isSwapNotSupported(sellToken, buyToken)
-        ) {
+        if (isSwapNotSupported(sellToken, buyToken)) {
             return trade;
         }
 
@@ -154,42 +147,24 @@ contract FraxV3FrxEthAdapter is ISwapAdapter {
         limits = new uint256[](2);
         limits[0] = 0;
         limits[1] = 0;
-        uint256 totalSupply;
-        uint256 frxBalance;
 
         if (isSwapNotSupported(sellToken, buyToken)) {
             return limits;
         }
 
         if (sellToken == address(0)) {
-            totalSupply = frxEth.totalSupply();
-            if (totalSupply == 0) {
-                return limits;
-            } else {
-                limits[0] = ETH_TOTAL_SUPPLY > totalSupply
-                    ? ETH_TOTAL_SUPPLY - totalSupply
-                    : 0;
-                limits[1] = sfrxEth.previewDeposit(limits[0]);
-            }
+            // Unlimited buy sFraxETH with ETH
+            limits[0] = type(uint256).max;
+            limits[1] = type(uint256).max;
         } else if (sellToken == address(frxEth)) {
-            totalSupply = frxEth.totalSupply();
-            frxBalance = frxEth.balanceOf(buyToken);
-
-            if (totalSupply == 0 || frxBalance >= totalSupply) {
-                return limits;
-            } else {
-                limits[0] = totalSupply - frxBalance;
-                limits[1] = sfrxEth.previewDeposit(limits[0]);
-            }
+            // Limited sell based on frxETH balance in the vault
+            uint256 frxBalance = frxEth.balanceOf(address(sfrxEth));
+            limits[0] = frxBalance;
+            limits[1] = type(uint256).max;
         } else {
-            totalSupply = sfrxEth.totalSupply();
-
-            if (totalSupply == 0) {
-                return limits;
-            } else {
-                limits[0] = (totalSupply * 90) / 100;
-                limits[1] = sfrxEth.previewRedeem(limits[0]);
-            }
+            uint256 totalSupply = sfrxEth.totalSupply();
+            limits[0] = totalSupply;
+            limits[1] = sfrxEth.previewRedeem(totalSupply);
         }
 
         return limits;
