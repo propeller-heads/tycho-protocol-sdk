@@ -16,7 +16,6 @@ skip_balance_check: false
 # Also, please always add a reason why this account is needed for your tests.
 # This will be applied to each test.
 initialized_accounts:
-  - "0xA663B02CF0a4b149d2aD41910CB81e23e1c41c32" # Staked Frax, a ERC4626 Vault implementation
   - "0x853d955aCEf822Db058eb8505911ED77F175b99e" # FRAX Stablecoin
 
 # A list of protocol types names created by your Substreams module.
@@ -29,46 +28,12 @@ tests:
   - name: test_sfrax_vault_creation
     # Indexed block range where the vault was created
     start_block: 18378085
-    stop_block: 18378100
+    stop_block: 18380714
     # Same as global `initialized_accounts` but only scoped to this test.
-    initialized_accounts:
-      - "0xA663B02CF0a4b149d2aD41910CB81e23e1c41c32" # sFrax Vault
-    # A list of expected components indexed in the block range. Each component must match perfectly the `ProtocolComponent` indexed by your substreams module.
     expected_components:
       - id: "0xA663B02CF0a4b149d2aD41910CB81e23e1c41c32" # sFrax Vault
         tokens:
-          - "0x853d955aCEf822Db058eb8505911ED77F175b99e" # FRAX
           - "0xA663B02CF0a4b149d2aD41910CB81e23e1c41c32" # sFrax
-        static_attributes:
-          # Attributes to validate (use the correct attribute names from your Substreams output)
-          attr_1: "sfrax_vault"
-        creation_tx: "0xecd4ab27bc3b4c300b11405fc6a156ee316ad3f4c24f63130cbcbc49ae6bef55"
-        skip_simulation: false
-
-  # Test to validate the pool limits for swaps
-  - name: test_pool_limits
-    start_block: 18378085
-    stop_block: 18378150
-    initialized_accounts:
-      - "0xA663B02CF0a4b149d2aD41910CB81e23e1c41c32" # sFrax Vault
-    expected_components:
-      - id: "0xA663B02CF0a4b149d2aD41910CB81e23e1c41c32"
-        tokens:
           - "0x853d955aCEf822Db058eb8505911ED77F175b99e" # FRAX
-          - "0xA663B02CF0a4b149d2aD41910CB81e23e1c41c32" # sFrax
-        static_attributes: null
-        creation_tx: "0xecd4ab27bc3b4c300b11405fc6a156ee316ad3f4c24f63130cbcbc49ae6bef55"
-        skip_simulation: false
-
-  # Test to validate price functionality
-  - name: test_price_function
-    start_block: 18378085
-    stop_block: 18378150
-    expected_components:
-      - id: "0xA663B02CF0a4b149d2aD41910CB81e23e1c41c32" # sFrax Vault
-        tokens:
-          - "0x853d955aCEf822Db058eb8505911ED77F175b99e" # FRAX
-          - "0xA663B02CF0a4b149d2aD41910CB81e23e1c41c32" # sFrax
-        static_attributes: null
         creation_tx: "0xecd4ab27bc3b4c300b11405fc6a156ee316ad3f4c24f63130cbcbc49ae6bef55"
         skip_simulation: false

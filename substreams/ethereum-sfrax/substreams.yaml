@@ -65,3 +65,6 @@ modules:
         mode: deltas
     output:
       type: proto:tycho.evm.v1.BlockChanges
+
+params:
+  map_components: "A663B02CF0a4b149d2aD41910CB81e23e1c41c32"

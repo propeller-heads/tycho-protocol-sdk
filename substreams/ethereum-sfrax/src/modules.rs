@@ -16,32 +16,23 @@ use tycho_substreams::{
 pub fn map_components(
     params: String,
     block: eth::v2::Block,
-) -> Result<BlockTransactionProtocolComponents> {
+) -> Result<BlockTransactionProtocolComponents, anyhow::Error> {
     let vault_address = hex::decode(params).unwrap();
     let locked_asset = find_deployed_underlying_address(&vault_address).unwrap();
-    Ok(BlockTransactionProtocolComponents {
-        tx_components: block
-            .transactions()
-            .filter_map(|tx| {
-                let components = tx
-                    .calls()
-                    .filter(|call| !call.call.state_reverted)
-                    .filter_map(|_| {
-                        if is_deployment_tx(tx, &vault_address) {
-                            Some(create_vault_component(&tx.into(), &vault_address, &locked_asset))
-                        } else {
-                            None
-                        }
-                    })
-                    .collect::<Vec<_>>();
 
-                if !components.is_empty() {
-                    Some(TransactionProtocolComponents { tx: Some(tx.into()), components })
-                } else {
-                    None
-                }
-            })
-            .collect::<Vec<_>>(),
+    let deployment_tx = block
+        .transactions()
+        .find(|tx| is_deployment_tx(tx, &vault_address));
+
+    Ok(BlockTransactionProtocolComponents {
+        tx_components: if let Some(tx) = deployment_tx {
+            vec![TransactionProtocolComponents {
+                tx: Some(tx.into()),
+                components: vec![create_vault_component(&tx.into(), &vault_address, &locked_asset)],
+            }]
+        } else {
+            Vec::new()
+        },
     })
 }
 
@@ -95,7 +86,13 @@ pub fn map_relative_balances(
                             delta: ev.shares.neg().to_signed_bytes_be(),
                             component_id: address_hex.as_bytes().to_vec(),
                         },
-                    ])
+                    ]);
+                    substreams::log::debug!(
+                        "Withdraw: vault: {}, frax:- {}, sfrax:- {}",
+                        address_hex,
+                        ev.assets,
+                        ev.shares
+                    );
                 }
             } else if let Some(ev) =
                 abi::stakedfrax_contract::events::Deposit::match_and_decode(vault_log.log)
@@ -124,7 +121,41 @@ pub fn map_relative_balances(
                             delta: ev.shares.to_signed_bytes_be(),
                             component_id: address_hex.as_bytes().to_vec(),
                         },
-                    ])
+                    ]);
+                    substreams::log::debug!(
+                        "Deposit: vault: {}, frax:+ {}, sfrax:+ {}",
+                        address_hex,
+                        ev.assets,
+                        ev.shares
+                    );
+                }
+            } else if let Some(ev) =
+                abi::stakedfrax_contract::events::DistributeRewards::match_and_decode(vault_log.log)
+            {
+                let address_bytes_be = vault_log.address();
+                let address_hex = format!("0x{}", hex::encode(address_bytes_be));
+
+                if store
+                    .get_last(format!("pool:{}", address_hex))
+                    .is_some()
+                {
+                    deltas.extend_from_slice(&[BalanceDelta {
+                        ord: vault_log.ordinal(),
+                        tx: Some(vault_log.receipt.transaction.into()),
+                        token: find_deployed_underlying_address(address_bytes_be)
+                            .unwrap()
+                            .to_vec(),
+                        delta: ev
+                            .rewards_to_distribute
+                            .to_signed_bytes_be(),
+                        component_id: address_hex.as_bytes().to_vec(),
+                    }]);
+                    // Log token and amount without encoding
+                    substreams::log::debug!(
+                        "DistributeRewards: vault: {}, frax:+ {}",
+                        address_hex,
+                        ev.rewards_to_distribute
+                    );
                 }
             }
             deltas
@@ -187,9 +218,9 @@ pub fn map_protocol_changes(
             .drain()
             .sorted_unstable_by_key(|(index, _)| *index)
             .filter_map(|(_, change)| {
-                if change.contract_changes.is_empty() &&
-                    change.component_changes.is_empty() &&
-                    change.balance_changes.is_empty()
+                if change.contract_changes.is_empty()
+                    && change.component_changes.is_empty()
+                    && change.balance_changes.is_empty()
                 {
                     None
                 } else {
@@ -222,6 +253,7 @@ fn create_vault_component(
     component_id: &[u8],
     locked_asset: &[u8],
 ) -> ProtocolComponent {
+    substreams::log::debug!("create_vault_component: {}", hex::encode(component_id));
     ProtocolComponent::at_contract(component_id, tx)
         .with_tokens(&[locked_asset, component_id])
         .as_swap_type("sfrax_vault", ImplementationType::Vm)
@@ -229,23 +261,8 @@ fn create_vault_component(
 
 fn find_deployed_underlying_address(vault_address: &[u8]) -> Option<[u8; 20]> {
     match vault_address {
-        hex!("e3b3FE7bcA19cA77Ad877A5Bebab186bEcfAD906") => {
-            Some(hex!("e3b3FE7bcA19cA77Ad877A5Bebab186bEcfAD906"))
-        }
-        hex!("a63f56985F9C7F3bc9fFc5685535649e0C1a55f3") => {
-            Some(hex!("a63f56985F9C7F3bc9fFc5685535649e0C1a55f3"))
-        }
         hex!("A663B02CF0a4b149d2aD41910CB81e23e1c41c32") => {
-            Some(hex!("A663B02CF0a4b149d2aD41910CB81e23e1c41c32"))
-        }
-        hex!("3405E88af759992937b84E58F2Fe691EF0EeA320") => {
-            Some(hex!("3405E88af759992937b84E58F2Fe691EF0EeA320"))
-        }
-        hex!("2Dd1B4D4548aCCeA497050619965f91f78b3b532") => {
-            Some(hex!("2Dd1B4D4548aCCeA497050619965f91f78b3b532"))
-        }
-        hex!("2C37fb628b35dfdFD515d41B0cAAe11B542773C3") => {
-            Some(hex!("2C37fb628b35dfdFD515d41B0cAAe11B542773C3"))
+            Some(hex!("853d955aCEf822Db058eb8505911ED77F175b99e"))
         }
         _ => None,
     }

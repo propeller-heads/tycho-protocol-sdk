@@ -38,11 +38,12 @@ contract FraxV3SFraxAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
 
     /// @dev set lower limit to greater than 1, because previewDeposit returns 0
     /// with an amountIn == 1
-    function testPriceFuzzFraxV3SFrax(uint256 amount0, uint256 amount1)
-        public
-    {
-        uint256[] memory limits =
-            adapter.getLimits(bytes32(0), FRAX_ADDRESS, SFRAX_ADDRESS);
+    function testPriceFuzzFraxV3SFrax(uint256 amount0, uint256 amount1) public {
+        uint256[] memory limits = adapter.getLimits(
+            bytes32(0),
+            FRAX_ADDRESS,
+            SFRAX_ADDRESS
+        );
         vm.assume(amount0 < limits[0]);
         vm.assume(amount0 > 1);
         vm.assume(amount1 < limits[1]);
@@ -52,8 +53,12 @@ contract FraxV3SFraxAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
         amounts[0] = amount0;
         amounts[1] = amount1;
 
-        Fraction[] memory prices =
-            adapter.price(bytes32(0), FRAX_ADDRESS, SFRAX_ADDRESS, amounts);
+        Fraction[] memory prices = adapter.price(
+            bytes32(0),
+            FRAX_ADDRESS,
+            SFRAX_ADDRESS,
+            amounts
+        );
 
         for (uint256 i = 0; i < prices.length; i++) {
             assertGt(prices[i].numerator, 0);
@@ -61,14 +66,18 @@ contract FraxV3SFraxAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
         }
     }
 
-    function testSwapFuzzFraxV3WithFrax(uint256 specifiedAmount, bool isBuy)
-        public
-    {
+    function testSwapFuzzFraxV3WithFrax(
+        uint256 specifiedAmount,
+        bool isBuy
+    ) public {
         OrderSide side = isBuy ? OrderSide.Buy : OrderSide.Sell;
 
         bytes32 pair = bytes32(0);
-        uint256[] memory limits =
-            adapter.getLimits(pair, FRAX_ADDRESS, SFRAX_ADDRESS);
+        uint256[] memory limits = adapter.getLimits(
+            pair,
+            FRAX_ADDRESS,
+            SFRAX_ADDRESS
+        );
 
         if (side == OrderSide.Buy) {
             vm.assume(specifiedAmount < limits[1]);
@@ -86,15 +95,19 @@ contract FraxV3SFraxAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
         uint256 sfrax_balance = IERC20(SFRAX_ADDRESS).balanceOf(address(this));
 
         Trade memory trade = adapter.swap(
-            pair, FRAX_ADDRESS, SFRAX_ADDRESS, side, specifiedAmount
+            pair,
+            FRAX_ADDRESS,
+            SFRAX_ADDRESS,
+            side,
+            specifiedAmount
         );
 
         if (trade.calculatedAmount > 0) {
             if (side == OrderSide.Buy) {
                 assertEq(
                     specifiedAmount,
-                    IERC20(SFRAX_ADDRESS).balanceOf(address(this))
-                        - sfrax_balance
+                    IERC20(SFRAX_ADDRESS).balanceOf(address(this)) -
+                        sfrax_balance
                 );
                 assertEq(
                     trade.calculatedAmount,
@@ -107,21 +120,25 @@ contract FraxV3SFraxAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
                 );
                 assertEq(
                     trade.calculatedAmount,
-                    IERC20(SFRAX_ADDRESS).balanceOf(address(this))
-                        - sfrax_balance
+                    IERC20(SFRAX_ADDRESS).balanceOf(address(this)) -
+                        sfrax_balance
                 );
             }
         }
     }
 
-    function testSwapFuzzFraxV3WithSFrax(uint256 specifiedAmount, bool isBuy)
-        public
-    {
+    function testSwapFuzzFraxV3WithSFrax(
+        uint256 specifiedAmount,
+        bool isBuy
+    ) public {
         OrderSide side = isBuy ? OrderSide.Buy : OrderSide.Sell;
 
         bytes32 pair = bytes32(0);
-        uint256[] memory limits =
-            adapter.getLimits(pair, SFRAX_ADDRESS, FRAX_ADDRESS);
+        uint256[] memory limits = adapter.getLimits(
+            pair,
+            SFRAX_ADDRESS,
+            FRAX_ADDRESS
+        );
 
         if (side == OrderSide.Buy) {
             vm.assume(specifiedAmount < limits[1]);
@@ -139,7 +156,11 @@ contract FraxV3SFraxAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
         uint256 frax_balance = FRAX.balanceOf(address(this));
 
         Trade memory trade = adapter.swap(
-            pair, SFRAX_ADDRESS, FRAX_ADDRESS, side, specifiedAmount
+            pair,
+            SFRAX_ADDRESS,
+            FRAX_ADDRESS,
+            side,
+            specifiedAmount
         );
 
         if (trade.calculatedAmount > 0) {
@@ -150,14 +171,14 @@ contract FraxV3SFraxAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
                 );
                 assertEq(
                     trade.calculatedAmount,
-                    sfrax_balance
-                        - IERC20(SFRAX_ADDRESS).balanceOf(address(this))
+                    sfrax_balance -
+                        IERC20(SFRAX_ADDRESS).balanceOf(address(this))
                 );
             } else {
                 assertEq(
                     specifiedAmount,
-                    sfrax_balance
-                        - IERC20(SFRAX_ADDRESS).balanceOf(address(this))
+                    sfrax_balance -
+                        IERC20(SFRAX_ADDRESS).balanceOf(address(this))
                 );
                 assertEq(
                     trade.calculatedAmount,
@@ -177,9 +198,10 @@ contract FraxV3SFraxAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
         executeIncreasingSwapsFraxV3(OrderSide.Buy, false);
     }
 
-    function executeIncreasingSwapsFraxV3(OrderSide side, bool isFrax)
-        internal
-    {
+    function executeIncreasingSwapsFraxV3(
+        OrderSide side,
+        bool isFrax
+    ) internal {
         bytes32 pair = bytes32(0);
 
         uint256[] memory amounts = new uint256[](TEST_ITERATIONS);
@@ -196,13 +218,21 @@ contract FraxV3SFraxAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
                 deal(FRAX_ADDRESS, address(this), type(uint256).max);
                 FRAX.approve(address(adapter), type(uint256).max);
                 trades[i] = adapter.swap(
-                    pair, FRAX_ADDRESS, SFRAX_ADDRESS, side, amounts[i]
+                    pair,
+                    FRAX_ADDRESS,
+                    SFRAX_ADDRESS,
+                    side,
+                    amounts[i]
                 );
             } else {
                 deal(SFRAX_ADDRESS, address(this), amounts[i]);
                 IERC20(SFRAX_ADDRESS).approve(address(adapter), amounts[i]);
                 trades[i] = adapter.swap(
-                    pair, SFRAX_ADDRESS, FRAX_ADDRESS, side, amounts[i]
+                    pair,
+                    SFRAX_ADDRESS,
+                    FRAX_ADDRESS,
+                    side,
+                    amounts[i]
                 );
             }
 
@@ -210,14 +240,20 @@ contract FraxV3SFraxAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
         }
 
         for (uint256 i = 1; i < TEST_ITERATIONS - 1; i++) {
-            assertLe(trades[i].calculatedAmount, trades[i + 1].calculatedAmount);
+            assertLe(
+                trades[i].calculatedAmount,
+                trades[i + 1].calculatedAmount
+            );
             assertLe(trades[i].gasUsed, trades[i + 1].gasUsed);
         }
     }
 
     function testGetLimitsFraxV3() public {
-        uint256[] memory limits =
-            adapter.getLimits(bytes32(0), FRAX_ADDRESS, SFRAX_ADDRESS);
+        uint256[] memory limits = adapter.getLimits(
+            bytes32(0),
+            FRAX_ADDRESS,
+            SFRAX_ADDRESS
+        );
         assertEq(limits.length, 2);
     }
 
@@ -229,8 +265,11 @@ contract FraxV3SFraxAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
     }
 
     function testGetCapabilitiesFraxV3SFrax() public {
-        Capability[] memory res =
-            adapter.getCapabilities(bytes32(0), FRAX_ADDRESS, SFRAX_ADDRESS);
+        Capability[] memory res = adapter.getCapabilities(
+            bytes32(0),
+            FRAX_ADDRESS,
+            SFRAX_ADDRESS
+        );
 
         assertEq(res.length, 4);
     }
@@ -240,5 +279,4 @@ contract FraxV3SFraxAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
         poolIds[0] = bytes32(0);
         runPoolBehaviourTest(adapter, poolIds);
     }
-
 }
