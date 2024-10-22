@@ -5,7 +5,6 @@ pragma solidity ^0.8.13;
 import {ISwapAdapter} from "../interfaces/ISwapAdapter.sol";
 import {IERC20, ERC20} from "../../lib/openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
 import {SafeERC20} from "../../lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
-import "../../lib/forge-std/src/Test.sol";
 
 library FixedPointMathLib {
     uint256 internal constant MAX_UINT256 = 2 ** 256 - 1;
@@ -73,8 +72,16 @@ contract FraxV3SFraxAdapter is ISwapAdapter {
         returns (Fraction[] memory _prices)
     {
         _prices = new Fraction[](_specifiedAmounts.length);
+        uint256[] memory _limits = getLimits(
+            bytes32(0),
+            sellToken,
+            buyToken
+        );
 
         for (uint256 i = 0; i < _specifiedAmounts.length; i++) {
+            // prevent price above sell limits as pool will revert for underflow/overflow on mint/redeem
+            _checkLimits(_limits, OrderSide.Sell, _specifiedAmounts[i]);
+
             _prices[i] = getPriceAt(
                 sellToken == address(frax),
                 _specifiedAmounts[i]
@@ -102,6 +109,14 @@ contract FraxV3SFraxAdapter is ISwapAdapter {
             return trade;
         }
 
+        // prevent swap above sell limits as pool will revert for underflow/overflow on mint/redeem
+        uint256[] memory _limits = getLimits(
+            bytes32(0),
+            sellToken,
+            buyToken
+        );
+        _checkLimits(_limits, side, specifiedAmount);
+
         uint256 gasBefore = gasleft();
         if (side == OrderSide.Sell) {
             // sell
@@ -126,7 +141,7 @@ contract FraxV3SFraxAdapter is ISwapAdapter {
         address sellToken,
         address buyToken
     )
-        external
+        public
         view
         override
         onlySupportedTokens(address(sellToken), address(buyToken))
@@ -139,8 +154,8 @@ contract FraxV3SFraxAdapter is ISwapAdapter {
             limits[0] = frax.totalSupply() - frax.balanceOf(address(sFrax));
             limits[1] = sFrax.previewDeposit(limits[0]);
         } else {
-            limits[0] = sFrax.totalSupply();
-            limits[1] = sFrax.previewRedeem(limits[0]);
+            limits[1] = sFrax.storedTotalAssets();
+            limits[0] = sFrax.previewWithdraw(limits[1]);
         }
     }
 
@@ -150,10 +165,12 @@ contract FraxV3SFraxAdapter is ISwapAdapter {
         address,
         address
     ) external pure override returns (Capability[] memory capabilities) {
-        capabilities = new Capability[](4);
+        capabilities = new Capability[](5);
         capabilities[0] = Capability.SellOrder;
         capabilities[1] = Capability.BuyOrder;
         capabilities[2] = Capability.PriceFunction;
+        capabilities[3] = Capability.ConstantPrice;
+        capabilities[4] = Capability.HardLimits;
     }
 
     /// @inheritdoc ISwapAdapter
@@ -241,6 +258,25 @@ contract FraxV3SFraxAdapter is ISwapAdapter {
             return Fraction(sFrax.previewRedeem(amountIn), amountIn);
         }
     }
+
+    /// @notice Checks if the specified amount is within the hard limits
+    /// @dev If not, reverts
+    /// @param limits The limits of the tokens being traded.
+    /// @param side The side of the trade.
+    /// @param specifiedAmount The amount to be traded.
+    function _checkLimits(
+        uint256[] memory limits,
+        OrderSide side,
+        uint256 specifiedAmount
+    ) internal pure {
+        if (side == OrderSide.Sell && specifiedAmount > limits[0]) {
+            require(specifiedAmount < limits[0], "Limit exceeded");
+        }
+        else if (side == OrderSide.Buy && specifiedAmount > limits[1]) {
+            require(specifiedAmount < limits[1], "Limit exceeded");
+        }
+    }
+
 }
 
 interface ISFrax {

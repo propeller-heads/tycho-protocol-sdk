@@ -271,7 +271,7 @@ contract FraxV3SFraxAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
             SFRAX_ADDRESS
         );
 
-        assertEq(res.length, 4);
+        assertEq(res.length, 5);
     }
 
     function testPoolBehaviourFraxV3Sfrax() public {
