@@ -22,20 +22,39 @@ pub fn map_components(
 ) -> Result<BlockTransactionProtocolComponents, anyhow::Error> {
     let vault_address = hex::decode(params).unwrap();
     let locked_asset = find_deployed_underlying_address(&vault_address).unwrap();
-
-    let deployment_tx = block
-        .transactions()
-        .find(|tx| is_deployment_tx(tx, &vault_address));
-
+    // We store these as a hashmap by tx hash since we need to agg by tx hash later
     Ok(BlockTransactionProtocolComponents {
-        tx_components: if let Some(tx) = deployment_tx {
-            vec![TransactionProtocolComponents {
-                tx: Some(tx.into()),
-                components: vec![create_vault_component(&tx.into(), &vault_address, &locked_asset)],
-            }]
-        } else {
-            Vec::new()
-        },
+        tx_components: block
+            .transactions()
+            .filter_map(|tx| {
+                let components = tx
+                    .calls()
+                    .filter(|call| !call.call.state_reverted)
+                    .filter_map(|_| {
+                        // address doesn't exist before contract deployment, hence the first tx with
+                        // a log.address = vault_address is the deployment tx
+                        if is_deployment_tx(tx, &vault_address) {
+                            Some(
+                                ProtocolComponent::at_contract(&vault_address, &tx.into())
+                                    .with_tokens(&[
+                                        locked_asset.as_slice(),
+                                        vault_address.as_slice(),
+                                    ])
+                                    .as_swap_type("sfrax_vault", ImplementationType::Vm),
+                            )
+                        } else {
+                            None
+                        }
+                    })
+                    .collect::<Vec<_>>();
+
+                if !components.is_empty() {
+                    Some(TransactionProtocolComponents { tx: Some(tx.into()), components })
+                } else {
+                    None
+                }
+            })
+            .collect::<Vec<_>>(),
     })
 }
 
@@ -144,9 +163,7 @@ pub fn map_relative_balances(
                     deltas.extend_from_slice(&[BalanceDelta {
                         ord: vault_log.ordinal(),
                         tx: Some(vault_log.receipt.transaction.into()),
-                        token: find_deployed_underlying_address(address_bytes_be)
-                            .unwrap()
-                            .to_vec(),
+                        token: address_bytes_be.to_vec(),
                         delta: ev
                             .rewards_to_distribute
                             .to_signed_bytes_be(),
@@ -248,17 +265,6 @@ fn is_deployment_tx(tx: &eth::v2::TransactionTrace, vault_address: &[u8]) -> boo
         return deployed_address.as_slice() == vault_address;
     }
     false
-}
-
-fn create_vault_component(
-    tx: &Transaction,
-    component_id: &[u8],
-    locked_asset: &[u8],
-) -> ProtocolComponent {
-    substreams::log::debug!("create_vault_component: {}", hex::encode(component_id));
-    ProtocolComponent::at_contract(component_id, tx)
-        .with_tokens(&[locked_asset, component_id])
-        .as_swap_type("sfrax_vault", ImplementationType::Vm)
 }
 
 fn find_deployed_underlying_address(vault_address: &[u8]) -> Option<[u8; 20]> {

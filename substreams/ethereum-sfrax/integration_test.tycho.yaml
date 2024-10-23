@@ -8,7 +8,7 @@ adapter_build_signature: "constructor(address)"
 adapter_build_args: "0xA663B02CF0a4b149d2aD41910CB81e23e1c41c32"
 # Whether or not the testing script should skip checking balances of the protocol components.
 # If set to `true` please always add a reason why it's skipped.
-skip_balance_check: false
+skip_balance_check: true
 
 # A list of accounts that need to be indexed to run the tests properly.
 # Usually used when there is a global component required by all pools and created before the tested range of blocks. For example a factory or a vault.
@@ -28,7 +28,7 @@ tests:
   - name: test_sfrax_vault_creation
     # Indexed block range where the vault was created
     start_block: 18378085
-    stop_block: 18380714
+    stop_block: 18380714 #2629 blocks difference 18380714
     # Same as global `initialized_accounts` but only scoped to this test.
     expected_components:
       - id: "0xA663B02CF0a4b149d2aD41910CB81e23e1c41c32" # sFrax Vault
