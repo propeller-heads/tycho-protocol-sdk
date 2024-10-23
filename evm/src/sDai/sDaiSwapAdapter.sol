@@ -39,7 +39,7 @@ contract sDaiSwapAdapter is ISwapAdapter {
     }
 
     /// @inheritdoc ISwapAdapter
-    /// @notice price doesn't change after swap for any given quantity
+    /// @notice price doesn't change in the same block after swap for any given quantity 
     function price(
         bytes32,
         address sellToken,

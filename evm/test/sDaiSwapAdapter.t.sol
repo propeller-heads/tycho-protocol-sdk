@@ -3,12 +3,13 @@ pragma solidity ^0.8.13;
 
 import "forge-std/Test.sol";
 import "src/interfaces/ISwapAdapterTypes.sol";
+import "./AdapterTest.sol";
 import "src/libraries/FractionMath.sol";
 import "src/sDai/sDaiSwapAdapter.sol";
 
 /// @title sDaiSwapAdapterTest
 
-contract sDaiSwapAdapterTest is Test, ISwapAdapterTypes {
+contract sDaiSwapAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
     using FractionMath for Fraction;
 
     sDaiSwapAdapter adapter;
@@ -31,8 +32,11 @@ contract sDaiSwapAdapterTest is Test, ISwapAdapterTypes {
     }
 
     function testPriceFuzzDaiForSDai(uint256 amount0, uint256 amount1) public {
-        uint256[] memory limits =
-            adapter.getLimits(PAIR, DAI_ADDRESS, SDAI_ADDRESS);
+        uint256[] memory limits = adapter.getLimits(
+            PAIR,
+            DAI_ADDRESS,
+            SDAI_ADDRESS
+        );
         vm.assume(amount0 < limits[0] && amount0 > 1);
         vm.assume(amount1 < limits[0] && amount1 > 1);
 
@@ -40,8 +44,12 @@ contract sDaiSwapAdapterTest is Test, ISwapAdapterTypes {
         amounts[0] = amount0;
         amounts[1] = amount1;
 
-        Fraction[] memory prices =
-            adapter.price(PAIR, DAI_ADDRESS, SDAI_ADDRESS, amounts);
+        Fraction[] memory prices = adapter.price(
+            PAIR,
+            DAI_ADDRESS,
+            SDAI_ADDRESS,
+            amounts
+        );
 
         for (uint256 i = 0; i < prices.length; i++) {
             assertGt(prices[i].numerator, 0);
@@ -50,8 +58,11 @@ contract sDaiSwapAdapterTest is Test, ISwapAdapterTypes {
     }
 
     function testPriceFuzzSDaiForDai(uint256 amount0, uint256 amount1) public {
-        uint256[] memory limits =
-            adapter.getLimits(PAIR, SDAI_ADDRESS, DAI_ADDRESS);
+        uint256[] memory limits = adapter.getLimits(
+            PAIR,
+            SDAI_ADDRESS,
+            DAI_ADDRESS
+        );
         vm.assume(amount0 < limits[0] && amount0 > 1);
         vm.assume(amount1 < limits[0] && amount1 > 1);
 
@@ -59,8 +70,12 @@ contract sDaiSwapAdapterTest is Test, ISwapAdapterTypes {
         amounts[0] = amount0;
         amounts[1] = amount1;
 
-        Fraction[] memory prices =
-            adapter.price(PAIR, SDAI_ADDRESS, DAI_ADDRESS, amounts);
+        Fraction[] memory prices = adapter.price(
+            PAIR,
+            SDAI_ADDRESS,
+            DAI_ADDRESS,
+            amounts
+        );
 
         for (uint256 i = 0; i < prices.length; i++) {
             assertGt(prices[i].numerator, 0);
@@ -77,11 +92,18 @@ contract sDaiSwapAdapterTest is Test, ISwapAdapterTypes {
             amounts[i] = amountConstant_ * i;
         }
 
-        Fraction[] memory prices =
-            adapter.price(PAIR, DAI_ADDRESS, SDAI_ADDRESS, amounts);
+        Fraction[] memory prices = adapter.price(
+            PAIR,
+            DAI_ADDRESS,
+            SDAI_ADDRESS,
+            amounts
+        );
 
         for (uint256 i = 1; i < TEST_ITERATIONS - 1; i++) {
-            assertEq(FractionMath.compareFractions(prices[i], prices[i + 1]), 0);
+            assertEq(
+                FractionMath.compareFractions(prices[i], prices[i + 1]),
+                0
+            );
             assertGt(prices[i].denominator, 0);
             assertGt(prices[i + 1].denominator, 0);
         }
@@ -96,11 +118,18 @@ contract sDaiSwapAdapterTest is Test, ISwapAdapterTypes {
             amounts[i] = amountConstant_ * i;
         }
 
-        Fraction[] memory prices =
-            adapter.price(PAIR, SDAI_ADDRESS, DAI_ADDRESS, amounts);
+        Fraction[] memory prices = adapter.price(
+            PAIR,
+            SDAI_ADDRESS,
+            DAI_ADDRESS,
+            amounts
+        );
 
         for (uint256 i = 1; i < TEST_ITERATIONS - 1; i++) {
-            assertEq(FractionMath.compareFractions(prices[i], prices[i + 1]), 0);
+            assertEq(
+                FractionMath.compareFractions(prices[i], prices[i + 1]),
+                0
+            );
             assertGt(prices[i].denominator, 0);
             assertGt(prices[i + 1].denominator, 0);
         }
@@ -110,7 +139,10 @@ contract sDaiSwapAdapterTest is Test, ISwapAdapterTypes {
         uint256 specifiedAmount
     ) public {
         testPriceAfterSwapEqPriceBeforeSwap(
-            DAI_ADDRESS, SDAI_ADDRESS, OrderSide.Sell, specifiedAmount
+            DAI_ADDRESS,
+            SDAI_ADDRESS,
+            OrderSide.Sell,
+            specifiedAmount
         );
     }
 
@@ -118,7 +150,10 @@ contract sDaiSwapAdapterTest is Test, ISwapAdapterTypes {
         uint256 specifiedAmount
     ) public {
         testPriceAfterSwapEqPriceBeforeSwap(
-            SDAI_ADDRESS, DAI_ADDRESS, OrderSide.Sell, specifiedAmount
+            SDAI_ADDRESS,
+            DAI_ADDRESS,
+            OrderSide.Sell,
+            specifiedAmount
         );
     }
 
@@ -134,29 +169,43 @@ contract sDaiSwapAdapterTest is Test, ISwapAdapterTypes {
 
         uint256[] memory specifiedAmount_ = new uint256[](1);
 
-        Fraction[] memory priceBeforeSwap =
-            adapter.price(PAIR, sellToken, buyToken, specifiedAmount_);
+        Fraction[] memory priceBeforeSwap = adapter.price(
+            PAIR,
+            sellToken,
+            buyToken,
+            specifiedAmount_
+        );
 
         deal(sellToken, address(this), specifiedAmount);
         IERC20(sellToken).approve(address(adapter), specifiedAmount);
 
-        Trade memory trade =
-            adapter.swap(PAIR, sellToken, buyToken, side, specifiedAmount);
+        Trade memory trade = adapter.swap(
+            PAIR,
+            sellToken,
+            buyToken,
+            side,
+            specifiedAmount
+        );
 
         assertEq(
-            FractionMath.compareFractions(priceBeforeSwap[0], trade.price), 0
+            FractionMath.compareFractions(priceBeforeSwap[0], trade.price),
+            0
         );
     }
 
-    function testSwapFuzzDaiForSDai(uint256 specifiedAmount, bool isBuy)
-        public
-    {
+    function testSwapFuzzDaiForSDai(
+        uint256 specifiedAmount,
+        bool isBuy
+    ) public {
         vm.assume(specifiedAmount > 1);
 
         OrderSide side = isBuy ? OrderSide.Buy : OrderSide.Sell;
 
-        uint256[] memory limits =
-            adapter.getLimits(PAIR, DAI_ADDRESS, SDAI_ADDRESS);
+        uint256[] memory limits = adapter.getLimits(
+            PAIR,
+            DAI_ADDRESS,
+            SDAI_ADDRESS
+        );
 
         if (side == OrderSide.Buy) {
             vm.assume(specifiedAmount < limits[1]);
@@ -173,8 +222,13 @@ contract sDaiSwapAdapterTest is Test, ISwapAdapterTypes {
         uint256 dai_balance_before = DAI.balanceOf(address(this));
         uint256 sDai_balance_before = SDAI.balanceOf(address(this));
 
-        Trade memory trade =
-            adapter.swap(PAIR, DAI_ADDRESS, SDAI_ADDRESS, side, specifiedAmount);
+        Trade memory trade = adapter.swap(
+            PAIR,
+            DAI_ADDRESS,
+            SDAI_ADDRESS,
+            side,
+            specifiedAmount
+        );
 
         uint256 dai_balance_after = DAI.balanceOf(address(this));
         uint256 sDai_balance_after = SDAI.balanceOf(address(this));
@@ -182,25 +236,31 @@ contract sDaiSwapAdapterTest is Test, ISwapAdapterTypes {
         if (side == OrderSide.Buy) {
             assertEq(specifiedAmount, sDai_balance_after - sDai_balance_before);
             assertEq(
-                trade.calculatedAmount, dai_balance_before - dai_balance_after
+                trade.calculatedAmount,
+                dai_balance_before - dai_balance_after
             );
         } else {
             assertEq(specifiedAmount, dai_balance_before - dai_balance_after);
             assertEq(
-                trade.calculatedAmount, sDai_balance_after - sDai_balance_before
+                trade.calculatedAmount,
+                sDai_balance_after - sDai_balance_before
             );
         }
     }
 
-    function testSwapFuzzSDaiForDai(uint256 specifiedAmount, bool isBuy)
-        public
-    {
+    function testSwapFuzzSDaiForDai(
+        uint256 specifiedAmount,
+        bool isBuy
+    ) public {
         vm.assume(specifiedAmount > 1);
 
         OrderSide side = isBuy ? OrderSide.Buy : OrderSide.Sell;
 
-        uint256[] memory limits =
-            adapter.getLimits(PAIR, SDAI_ADDRESS, DAI_ADDRESS);
+        uint256[] memory limits = adapter.getLimits(
+            PAIR,
+            SDAI_ADDRESS,
+            DAI_ADDRESS
+        );
 
         if (side == OrderSide.Buy) {
             vm.assume(specifiedAmount < limits[1]);
@@ -217,8 +277,13 @@ contract sDaiSwapAdapterTest is Test, ISwapAdapterTypes {
         uint256 sDai_balance_before = SDAI.balanceOf(address(this));
         uint256 dai_balance_before = DAI.balanceOf(address(this));
 
-        Trade memory trade =
-            adapter.swap(PAIR, SDAI_ADDRESS, DAI_ADDRESS, side, specifiedAmount);
+        Trade memory trade = adapter.swap(
+            PAIR,
+            SDAI_ADDRESS,
+            DAI_ADDRESS,
+            side,
+            specifiedAmount
+        );
 
         uint256 sDai_balance_after = SDAI.balanceOf(address(this));
         uint256 dai_balance_after = DAI.balanceOf(address(this));
@@ -226,12 +291,14 @@ contract sDaiSwapAdapterTest is Test, ISwapAdapterTypes {
         if (side == OrderSide.Buy) {
             assertEq(specifiedAmount, dai_balance_after - dai_balance_before);
             assertEq(
-                trade.calculatedAmount, sDai_balance_before - sDai_balance_after
+                trade.calculatedAmount,
+                sDai_balance_before - sDai_balance_after
             );
         } else {
             assertEq(specifiedAmount, sDai_balance_before - sDai_balance_after);
             assertEq(
-                trade.calculatedAmount, dai_balance_after - dai_balance_before
+                trade.calculatedAmount,
+                dai_balance_after - dai_balance_before
             );
         }
     }
@@ -262,17 +329,26 @@ contract sDaiSwapAdapterTest is Test, ISwapAdapterTypes {
             deal(DAI_ADDRESS, address(this), type(uint256).max);
             DAI.approve(address(adapter), type(uint256).max);
 
-            trades[i] =
-                adapter.swap(PAIR, DAI_ADDRESS, SDAI_ADDRESS, side, amounts[i]);
+            trades[i] = adapter.swap(
+                PAIR,
+                DAI_ADDRESS,
+                SDAI_ADDRESS,
+                side,
+                amounts[i]
+            );
             vm.revertTo(beforeSwap);
         }
 
         for (uint256 i = 1; i < TEST_ITERATIONS - 1; i++) {
-            assertLe(trades[i].calculatedAmount, trades[i + 1].calculatedAmount);
+            assertLe(
+                trades[i].calculatedAmount,
+                trades[i + 1].calculatedAmount
+            );
             assertLe(trades[i].gasUsed, trades[i + 1].gasUsed);
             assertEq(
                 FractionMath.compareFractions(
-                    trades[i].price, trades[i + 1].price
+                    trades[i].price,
+                    trades[i + 1].price
                 ),
                 0
             );
@@ -288,15 +364,30 @@ contract sDaiSwapAdapterTest is Test, ISwapAdapterTypes {
     }
 
     function testGetCapabilitiesSDai(bytes32, address, address) public {
-        Capability[] memory res =
-            adapter.getCapabilities(PAIR, DAI_ADDRESS, SDAI_ADDRESS);
+        Capability[] memory res = adapter.getCapabilities(
+            PAIR,
+            DAI_ADDRESS,
+            SDAI_ADDRESS
+        );
 
         assertEq(res.length, 4);
     }
 
     function testGetLimitsSDai() public {
-        uint256[] memory limits =
-            adapter.getLimits(PAIR, DAI_ADDRESS, SDAI_ADDRESS);
+        uint256[] memory limits = adapter.getLimits(
+            PAIR,
+            DAI_ADDRESS,
+            SDAI_ADDRESS
+        );
         assertEq(limits.length, 2);
+    }
+
+    // Fails because the conversion between DAI <-> sDAI is linear, meaning the underlying relationship
+    // between them is determined by the yield accrued by the DAI in the SavingsDai (sDAI) contract (which is constant in a given block).
+    // and it is consistent regardless of the amount being swapped.
+    function testPoolBehaviourSDai() public {
+        bytes32[] memory poolIds = new bytes32[](1);
+        poolIds[0] = PAIR;
+        runPoolBehaviourTest(adapter, poolIds);
     }
 }
