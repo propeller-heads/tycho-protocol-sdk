@@ -14,7 +14,7 @@ if [ -n "$current_tag" ]; then
         # Prefix without the trailing hyphen (if any)
         package="${BASH_REMATCH[1]%?}"
         # Semantic version
-        version="${BASH_REMATCH[2]}"
+        version="v${BASH_REMATCH[2]}"
 
         cargo_version=$(cargo pkgid -p "$package" | cut -d# -f2 | cut -d: -f2)
         if [[ "$cargo_version" != "$version" ]]; then
@@ -38,32 +38,29 @@ else
     fi
     package=$1
 
-    version_prefix=$(git describe --tags --match "$package-*" --abbrev=0 2>/dev/null)
-    if [ -z "$version_prefix" ]; then
-        # If no tags are found in the history, default to version 0.0.1
-        version_prefix="0.0.1"
-    fi
-
     # Get the short commit hash of the current HEAD
     commit_hash=$(git rev-parse --short HEAD)
-    version="${version_prefix}-pre.${commit_hash}"
+    version="pre.${commit_hash}"
+fi
+
+# Optional input for yaml file; defaults to substreams.yaml if not provided
+yaml_file=${2:-"substreams"}
+version_prefix=${2:-"$package"}
+
+echo "Building substreams package with config: $package/$yaml_file.yaml"
+
+if [[ ! -f "$package/$yaml_file.yaml" ]]; then
+    echo "Error: manifest reader: unable to stat input file $yaml_file.yaml: file does not exist."
+    exit 1
 fi
 
 REPOSITORY=${REPOSITORY:-"s3://repo.propellerheads/substreams"}
-repository_path="$REPOSITORY/$package/$package-$version.spkg"
-
-# Optional input for yaml file; defaults to substreams.yaml if not provided
-yaml_file=${2:-"substreams.yaml"}
-
-if [[ ! -f "$package/$yaml_file" ]]; then
-    echo "Error: manifest reader: unable to stat input file $yaml_file: file does not exist."
-    exit 1
-fi
+repository_path="$REPOSITORY/$package/$version_prefix-$version.spkg"
 
 set -e  # Exit the script if any command fails
 cargo build --target wasm32-unknown-unknown --release -p "$package"
 mkdir -p ./target/spkg/
-substreams pack "$package/$yaml_file" -o ./target/spkg/$package-$version.spkg
-aws s3 cp ./target/spkg/$package-$version.spkg $repository_path
+substreams pack "$package/$yaml_file.yaml" -o ./target/spkg/$version_prefix-$version.spkg
+aws s3 cp ./target/spkg/$version_prefix-$version.spkg $repository_path
 
 echo "Released substreams package: '$repository_path'"
