@@ -222,7 +222,7 @@ dependencies = [
 
 [[package]]
 name = "ethereum-balancer"
-version = "0.2.1"
+version = "0.2.2"
 dependencies = [
  "anyhow",
  "bytes",
@@ -286,6 +286,25 @@ dependencies = [
  "impl-serde 0.4.0",
  "primitive-types 0.12.2",
  "uint",
+]
+
+[[package]]
+name = "ethereum-uniswap-v2"
+version = "0.3.0"
+dependencies = [
+ "anyhow",
+ "ethabi 18.0.0",
+ "getrandom",
+ "hex-literal 0.4.1",
+ "itertools 0.12.1",
+ "num-bigint",
+ "prost 0.11.9",
+ "serde",
+ "serde_qs",
+ "substreams",
+ "substreams-ethereum",
+ "substreams-helper",
+ "tycho-substreams",
 ]
 
 [[package]]
@@ -1037,25 +1056,6 @@ dependencies = [
  "quote",
  "substreams-ethereum-abigen",
  "syn 1.0.109",
-]
-
-[[package]]
-name = "substreams-ethereum-uniswap-v2"
-version = "0.2.1"
-dependencies = [
- "anyhow",
- "ethabi 18.0.0",
- "getrandom",
- "hex-literal 0.4.1",
- "itertools 0.12.1",
- "num-bigint",
- "prost 0.11.9",
- "serde",
- "serde_qs",
- "substreams",
- "substreams-ethereum",
- "substreams-helper",
- "tycho-substreams",
 ]
 
 [[package]]
