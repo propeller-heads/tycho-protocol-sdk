@@ -157,14 +157,15 @@ contract FraxV3FrxEthAdapter is ISwapAdapter {
             limits[0] = type(uint256).max;
             limits[1] = type(uint256).max;
         } else if (sellToken == address(frxEth)) {
-            // Limited sell based on frxETH balance in the vault
-            uint256 frxBalance = frxEth.balanceOf(address(sfrxEth));
-            limits[0] = frxBalance;
+            // Max frxEth sell amount is fraxEth total supply
+            limits[0] = frxEth.totalSupply();
+            // Max sFraxEth buy amout
             limits[1] = type(uint256).max;
         } else {
-            uint256 totalSupply = sfrxEth.totalSupply();
-            limits[0] = totalSupply;
-            limits[1] = sfrxEth.previewRedeem(totalSupply);
+            // Max sFraxEth sell amount is sFraxEth total supply
+            limits[0] = sfrxEth.totalSupply();
+            // Max fraxEth buy amount is the reedemable totalsupply of sFraxEth
+            limits[1] = sfrxEth.previewRedeem(sfrxEth.totalSupply());
         }
 
         return limits;

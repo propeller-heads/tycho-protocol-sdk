@@ -145,7 +145,7 @@ contract FraxV3FrxEthAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
     //////////////////////////////////////// SWAP
     // ///////////////////////////////////
 
-    function testSwapFuzzFraxEthV3WithFraxEth(
+    function testSwapFuzzsFraxEthV3WithFraxEth(
         uint256 specifiedAmount,
         bool isBuy
     ) public {
