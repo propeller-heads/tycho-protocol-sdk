@@ -135,10 +135,6 @@ contract FraxV3FrxEthAdapter is ISwapAdapter {
     }
 
     /// @inheritdoc ISwapAdapter
-    /// @dev there is no hard cap of eth that can be staked for sfrx, but
-    /// type(uint256).max reverts,
-    /// @dev we are using approximately ethereum circulating supply (120
-    /// Millions) as limit
     function getLimits(
         bytes32,
         address sellToken,
@@ -152,19 +148,19 @@ contract FraxV3FrxEthAdapter is ISwapAdapter {
             return limits;
         }
 
-        if (sellToken == address(0)) {
-            // Unlimited buy sFraxETH with ETH
-            limits[0] = type(uint256).max;
-            limits[1] = type(uint256).max;
-        } else if (sellToken == address(frxEth)) {
-            // Limited sell based on frxETH balance in the vault
-            uint256 frxBalance = frxEth.balanceOf(address(sfrxEth));
-            limits[0] = frxBalance;
-            limits[1] = type(uint256).max;
-        } else {
-            uint256 totalSupply = sfrxEth.totalSupply();
-            limits[0] = totalSupply;
-            limits[1] = sfrxEth.previewRedeem(totalSupply);
+        if (sellToken == address(frxEth) || sellToken == address(0)) {
+            // No limits when minting sfrxEth, the protocol has no limits when creating
+            //  new sfrxETH as long as the user holds enough frxETH.
+            limits[0] = type(uint128).max;
+            limits[1] = type(uint128).max;
+        } else if (buyToken == address(frxEth)) {
+            uint totalAssets = sfrxEth.totalAssets();
+            // the amount of sfrxEth a user can exchange for frxETH is limited by the
+            //  amount of frxEth owned by the protocol, we convert that into shares to
+            //  get the corresponding sfrxEth amount.
+            limits[0] = sfrxEth.previewWithdraw(totalAssets);
+            // frxETH a user can buy is limited by the contracts balance
+            limits[1] = totalAssets;
         }
 
         return limits;
@@ -187,11 +183,10 @@ contract FraxV3FrxEthAdapter is ISwapAdapter {
     function getTokens(
         bytes32
     ) external view override returns (address[] memory tokens) {
-        tokens = new address[](3);
+        tokens = new address[](2);
 
-        tokens[0] = address(0);
-        tokens[1] = frxEthMinter.frxETHToken();
-        tokens[2] = frxEthMinter.sfrxETHToken();
+        tokens[0] = frxEthMinter.frxETHToken();
+        tokens[1] = frxEthMinter.sfrxETHToken();
     }
 
     /// @inheritdoc ISwapAdapter
