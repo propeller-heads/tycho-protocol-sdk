@@ -6,7 +6,7 @@ on:
       runs_on:
         required: false
         type: string
-        default: ubuntu-20.04
+        default: ubuntu-latest
       timeout_minutes:
         required: false
         type: number
