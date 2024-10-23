@@ -35,7 +35,7 @@ pub fn store_ticks_liquidity(ticks_deltas: TickDeltas, store: StoreAddBigInt) {
         store.add(
             delta.ordinal,
             format!("pool:{0}:tick:{1}", hex::encode(&delta.pool_address), delta.tick_index,),
-            BigInt::from_signed_bytes_le(&delta.liquidity_net_delta),
+            BigInt::from_signed_bytes_be(&delta.liquidity_net_delta),
         );
     });
 }
@@ -49,7 +49,7 @@ fn event_to_ticks_deltas(event: PoolEvent) -> Vec<TickDelta> {
                     tick_index: mint.tick_lower,
                     liquidity_net_delta: BigInt::from_str(&mint.amount)
                         .unwrap()
-                        .to_signed_bytes_le(),
+                        .to_signed_bytes_be(),
                     ordinal: event.log_ordinal,
                     transaction: event.transaction.clone(),
                 },
@@ -59,7 +59,7 @@ fn event_to_ticks_deltas(event: PoolEvent) -> Vec<TickDelta> {
                     liquidity_net_delta: BigInt::from_str(&mint.amount)
                         .unwrap()
                         .neg()
-                        .to_signed_bytes_le(),
+                        .to_signed_bytes_be(),
                     ordinal: event.log_ordinal,
                     transaction: event.transaction,
                 },
@@ -72,7 +72,7 @@ fn event_to_ticks_deltas(event: PoolEvent) -> Vec<TickDelta> {
                 liquidity_net_delta: BigInt::from_str(&burn.amount)
                     .unwrap()
                     .neg()
-                    .to_signed_bytes_le(),
+                    .to_signed_bytes_be(),
                 ordinal: event.log_ordinal,
                 transaction: event.transaction.clone(),
             },
@@ -81,7 +81,7 @@ fn event_to_ticks_deltas(event: PoolEvent) -> Vec<TickDelta> {
                 tick_index: burn.tick_upper,
                 liquidity_net_delta: BigInt::from_str(&burn.amount)
                     .unwrap()
-                    .to_signed_bytes_le(),
+                    .to_signed_bytes_be(),
                 ordinal: event.log_ordinal,
                 transaction: event.transaction,
             },

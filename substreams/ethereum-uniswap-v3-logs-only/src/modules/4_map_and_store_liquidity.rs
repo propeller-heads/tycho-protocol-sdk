@@ -58,14 +58,14 @@ pub fn store_liquidity(ticks_deltas: LiquidityChanges, store: StoreSetSumBigInt)
                 store.sum(
                     changes.ordinal,
                     format!("pool:{0}", hex::encode(&changes.pool_address)),
-                    BigInt::from_signed_bytes_le(&changes.value),
+                    BigInt::from_signed_bytes_be(&changes.value),
                 );
             }
             LiquidityChangeType::Absolute => {
                 store.set(
                     changes.ordinal,
                     format!("pool:{0}", hex::encode(&changes.pool_address)),
-                    BigInt::from_signed_bytes_le(&changes.value),
+                    BigInt::from_signed_bytes_be(&changes.value),
                 );
             }
         });
@@ -79,7 +79,7 @@ fn event_to_liquidity_deltas(current_tick: i64, event: PoolEvent) -> Option<Liqu
                     pool_address: hex::decode(event.pool_address).unwrap(),
                     value: BigInt::from_str(&mint.amount)
                         .unwrap()
-                        .to_signed_bytes_le(),
+                        .to_signed_bytes_be(),
                     change_type: LiquidityChangeType::Delta.into(),
                     ordinal: event.log_ordinal,
                     transaction: Some(event.transaction.unwrap()),
@@ -95,7 +95,7 @@ fn event_to_liquidity_deltas(current_tick: i64, event: PoolEvent) -> Option<Liqu
                     value: BigInt::from_str(&burn.amount)
                         .unwrap()
                         .neg()
-                        .to_signed_bytes_le(),
+                        .to_signed_bytes_be(),
                     change_type: LiquidityChangeType::Delta.into(),
                     ordinal: event.log_ordinal,
                     transaction: Some(event.transaction.unwrap()),
@@ -108,7 +108,7 @@ fn event_to_liquidity_deltas(current_tick: i64, event: PoolEvent) -> Option<Liqu
             pool_address: hex::decode(event.pool_address).unwrap(),
             value: BigInt::from_str(&swap.liquidity)
                 .unwrap()
-                .to_signed_bytes_le(),
+                .to_signed_bytes_be(),
             change_type: LiquidityChangeType::Absolute.into(),
             ordinal: event.log_ordinal,
             transaction: Some(event.transaction.unwrap()),

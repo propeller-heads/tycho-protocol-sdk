@@ -73,7 +73,7 @@ pub fn map_protocol_changes(
             let attribute_name = format!("ticks/{}/net-liquidity", tick_delta.tick_index);
             let attribute = Attribute {
                 name: attribute_name,
-                value: new_value_bigint.to_signed_bytes_le(),
+                value: new_value_bigint.to_signed_bytes_be(),
                 change: if new_value_bigint.is_zero() {
                     ChangeType::Deletion.into()
                 } else {
@@ -114,7 +114,7 @@ pub fn map_protocol_changes(
                 component_id: change.pool_address.to_hex(),
                 attributes: vec![Attribute {
                     name: "liquidity".to_string(),
-                    value: new_value_bigint.to_signed_bytes_le(),
+                    value: new_value_bigint.to_signed_bytes_be(),
                     change: ChangeType::Update.into(),
                 }],
             });
@@ -160,7 +160,7 @@ fn event_to_attributes_updates(event: PoolEvent) -> Vec<(Transaction, PoolAddres
                         name: "sqrt_price_x96".to_string(),
                         value: BigInt::from_str(&initalize.sqrt_price)
                             .unwrap()
-                            .to_signed_bytes_le(),
+                            .to_signed_bytes_be(),
                         change: ChangeType::Update.into(),
                     },
                 ),
@@ -169,7 +169,7 @@ fn event_to_attributes_updates(event: PoolEvent) -> Vec<(Transaction, PoolAddres
                     hex::decode(event.pool_address).unwrap(),
                     Attribute {
                         name: "tick".to_string(),
-                        value: BigInt::from(initalize.tick).to_signed_bytes_le(),
+                        value: BigInt::from(initalize.tick).to_signed_bytes_be(),
                         change: ChangeType::Update.into(),
                     },
                 ),
@@ -187,7 +187,7 @@ fn event_to_attributes_updates(event: PoolEvent) -> Vec<(Transaction, PoolAddres
                     name: "sqrt_price_x96".to_string(),
                     value: BigInt::from_str(&swap.sqrt_price)
                         .unwrap()
-                        .to_signed_bytes_le(),
+                        .to_signed_bytes_be(),
                     change: ChangeType::Update.into(),
                 },
             ),
@@ -196,7 +196,7 @@ fn event_to_attributes_updates(event: PoolEvent) -> Vec<(Transaction, PoolAddres
                 hex::decode(event.pool_address).unwrap(),
                 Attribute {
                     name: "tick".to_string(),
-                    value: BigInt::from(swap.tick).to_signed_bytes_le(),
+                    value: BigInt::from(swap.tick).to_signed_bytes_be(),
                     change: ChangeType::Update.into(),
                 },
             ),
@@ -211,7 +211,7 @@ fn event_to_attributes_updates(event: PoolEvent) -> Vec<(Transaction, PoolAddres
                 hex::decode(event.pool_address.clone()).unwrap(),
                 Attribute {
                     name: "protocol_fees/token0".to_string(),
-                    value: BigInt::from(sfp.fee_protocol_0_new).to_signed_bytes_le(),
+                    value: BigInt::from(sfp.fee_protocol_0_new).to_signed_bytes_be(),
                     change: ChangeType::Update.into(),
                 },
             ),
@@ -220,7 +220,7 @@ fn event_to_attributes_updates(event: PoolEvent) -> Vec<(Transaction, PoolAddres
                 hex::decode(event.pool_address).unwrap(),
                 Attribute {
                     name: "protocol_fees/token1".to_string(),
-                    value: BigInt::from(sfp.fee_protocol_1_new).to_signed_bytes_le(),
+                    value: BigInt::from(sfp.fee_protocol_1_new).to_signed_bytes_be(),
                     change: ChangeType::Update.into(),
                 },
             ),
