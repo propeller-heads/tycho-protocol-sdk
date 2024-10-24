@@ -83,7 +83,8 @@ pub fn map_relative_balances(
             let mut deltas = Vec::new();
 
             // Liquidty Pool Deposit:
-            // Contract balance just becomes += ETH, eeth balance is handled by eeth TransferShares event
+            // Contract balance just becomes += ETH, eeth balance is handled by eeth TransferShares
+            // event
             if let Some(ev) = abi::pool_contract::events::Deposit::match_and_decode(log.log) {
                 if store
                     .get_last(format!("pool:{}", liquidity_pool_hex))
@@ -101,14 +102,16 @@ pub fn map_relative_balances(
                 }
             }
             // Liquidty Pool Withdraw:
-            // Contract balance just becomes -= ETH, eeth balance is handled by eeth TransferShares event
+            // Contract balance just becomes -= ETH, eeth balance is handled by eeth TransferShares
+            // event
             else if let Some(ev) = abi::pool_contract::events::Withdraw::match_and_decode(log.log)
             {
                 if store
                     .get_last(format!("pool:{}", liquidity_pool_hex))
                     .is_some()
                 {
-                    // Shares are burnt, therefore not held by the contract; Contract balance just becomes -= ETH
+                    // Shares are burnt, therefore not held by the contract; Contract balance just
+                    // becomes -= ETH
                     substreams::log::info!("Liquidity Pool Withdraw: -ETH {}", ev.amount);
 
                     deltas.push(BalanceDelta {
@@ -121,7 +124,8 @@ pub fn map_relative_balances(
                 }
             }
             // EETH transfer shares:
-            // Contract balance just becomes +/-= eETH, burn: Receiver is address(0), mint: Sender is address(0)
+            // Contract balance just becomes +/-= eETH, burn: Receiver is address(0), mint: Sender
+            // is address(0)
             else if let Some(ev) =
                 abi::eeth_contract::events::TransferShares::match_and_decode(log.log)
             {
@@ -206,7 +210,8 @@ pub fn map_relative_balances(
                 }
             }
             // weETH transfer:
-            // Mint: Contract Balance becomes += eETH, += weETH, Burn: Contract Balance becomes -= eETH, -= weETH
+            // Mint: Contract Balance becomes += eETH, += weETH, Burn: Contract Balance becomes -=
+            // eETH, -= weETH
             else if let Some(ev) = abi::erc20::events::Transfer::match_and_decode(log.log) {
                 if store
                     .get_last(format!("pool:{}", weeth_hex))
