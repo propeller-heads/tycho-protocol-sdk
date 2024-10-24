@@ -4767,8 +4767,8 @@ pub mod events {
                 .topics
                 .get(0)
                 .expect("bounds already checked")
-                .as_ref()
-                == Self::TOPIC_ID;
+                .as_ref() ==
+                Self::TOPIC_ID;
         }
         pub fn decode(log: &substreams_ethereum::pb::eth::v2::Log) -> Result<Self, String> {
             let mut values =
@@ -4848,8 +4848,8 @@ pub mod events {
                 .topics
                 .get(0)
                 .expect("bounds already checked")
-                .as_ref()
-                == Self::TOPIC_ID;
+                .as_ref() ==
+                Self::TOPIC_ID;
         }
         pub fn decode(log: &substreams_ethereum::pb::eth::v2::Log) -> Result<Self, String> {
             let mut values = ethabi::decode(
@@ -4938,8 +4938,8 @@ pub mod events {
                 .topics
                 .get(0)
                 .expect("bounds already checked")
-                .as_ref()
-                == Self::TOPIC_ID;
+                .as_ref() ==
+                Self::TOPIC_ID;
         }
         pub fn decode(log: &substreams_ethereum::pb::eth::v2::Log) -> Result<Self, String> {
             let mut values =
@@ -4991,8 +4991,8 @@ pub mod events {
                 .topics
                 .get(0)
                 .expect("bounds already checked")
-                .as_ref()
-                == Self::TOPIC_ID;
+                .as_ref() ==
+                Self::TOPIC_ID;
         }
         pub fn decode(log: &substreams_ethereum::pb::eth::v2::Log) -> Result<Self, String> {
             let mut values = ethabi::decode(
@@ -5057,8 +5057,8 @@ pub mod events {
                 .topics
                 .get(0)
                 .expect("bounds already checked")
-                .as_ref()
-                == Self::TOPIC_ID;
+                .as_ref() ==
+                Self::TOPIC_ID;
         }
         pub fn decode(log: &substreams_ethereum::pb::eth::v2::Log) -> Result<Self, String> {
             let mut values = ethabi::decode(
@@ -5136,8 +5136,8 @@ pub mod events {
                 .topics
                 .get(0)
                 .expect("bounds already checked")
-                .as_ref()
-                == Self::TOPIC_ID;
+                .as_ref() ==
+                Self::TOPIC_ID;
         }
         pub fn decode(log: &substreams_ethereum::pb::eth::v2::Log) -> Result<Self, String> {
             Ok(Self {
@@ -5207,8 +5207,8 @@ pub mod events {
                 .topics
                 .get(0)
                 .expect("bounds already checked")
-                .as_ref()
-                == Self::TOPIC_ID;
+                .as_ref() ==
+                Self::TOPIC_ID;
         }
         pub fn decode(log: &substreams_ethereum::pb::eth::v2::Log) -> Result<Self, String> {
             Ok(Self {
@@ -5279,8 +5279,8 @@ pub mod events {
                 .topics
                 .get(0)
                 .expect("bounds already checked")
-                .as_ref()
-                == Self::TOPIC_ID;
+                .as_ref() ==
+                Self::TOPIC_ID;
         }
         pub fn decode(log: &substreams_ethereum::pb::eth::v2::Log) -> Result<Self, String> {
             let mut values =
@@ -5358,8 +5358,8 @@ pub mod events {
                 .topics
                 .get(0)
                 .expect("bounds already checked")
-                .as_ref()
-                == Self::TOPIC_ID;
+                .as_ref() ==
+                Self::TOPIC_ID;
         }
         pub fn decode(log: &substreams_ethereum::pb::eth::v2::Log) -> Result<Self, String> {
             let mut values = ethabi::decode(
