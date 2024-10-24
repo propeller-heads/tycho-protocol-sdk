@@ -30,7 +30,7 @@ contract FraxV3SFraxAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
         uint256 forkBlock = 19270612;
         vm.createSelectFork(vm.rpcUrl("mainnet"), forkBlock);
 
-        adapter = new FraxV3SFraxAdapter(SFRAX);
+        adapter = new FraxV3SFraxAdapter(SFRAX_ADDRESS, FRAX_ADDRESS);
         vm.label(address(FRAX), "FRAX");
         vm.label(address(SFRAX), "SFRAX");
     }

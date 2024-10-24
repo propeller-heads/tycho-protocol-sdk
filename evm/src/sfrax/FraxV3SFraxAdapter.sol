@@ -43,9 +43,9 @@ contract FraxV3SFraxAdapter is ISwapAdapter {
     ISFrax immutable sFrax;
     IERC20 immutable frax;
 
-    constructor(ISFrax _sFrax) {
-        sFrax = _sFrax;
-        frax = IERC20(0x853d955aCEf822Db058eb8505911ED77F175b99e);
+    constructor(address _sFrax, address _frax) {
+        sFrax = ISFrax(_sFrax);
+        frax = IERC20(_frax);
     }
 
     /// @dev Check if tokens in input are supported
@@ -141,7 +141,7 @@ contract FraxV3SFraxAdapter is ISwapAdapter {
 
         if (sellToken == address(frax)) {
             // Frax --> sFrax
-            limits[0] = frax.totalSupply() - frax.balanceOf(address(sFrax));
+            limits[0] = frax.totalSupply();
             limits[1] = sFrax.previewDeposit(limits[0]);
         } else {
             limits[1] = sFrax.storedTotalAssets();

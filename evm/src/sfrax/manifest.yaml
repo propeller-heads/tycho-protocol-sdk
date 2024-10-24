@@ -22,6 +22,7 @@ instances:
       id: 0
     arguments:
       - "0xA663B02CF0a4b149d2aD41910CB81e23e1c41c32"
+      - "0x853d955aCEf822Db058eb8505911ED77F175b99e"
 
 # Specify some automatic test cases in case getPoolIds and
 # getTokens are not implemented.
@@ -30,7 +31,7 @@ tests:
     - pool_id: "0xA663B02CF0a4b149d2aD41910CB81e23e1c41c32" # sFrax Vault
       sell_token: "0x853d955aCEf822Db058eb8505911ED77F175b99e" # Frax
       buy_token: "0xA663B02CF0a4b149d2aD41910CB81e23e1c41c32" # sFrax
-      block: 17000000
+      block: 19270612
       chain:
         id: 0
         name: mainnet
