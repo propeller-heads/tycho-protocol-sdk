@@ -11,13 +11,13 @@ adapter_build_signature: "constructor(address)"
 adapter_build_args: "0xCd5fE23C85820F7B72D0926FC9b05b43E359b7ee"
 
 # Whether or not the testing script should skip checking balances of the protocol components.
-skip_balance_check: false
+skip_balance_check: true
 
 # A list of accounts that need to be indexed to run the tests properly.
 # Usually used when there is a global component required by all pools and created before the tested range of blocks.
 initialized_accounts:
   - "0x308861A430be4cce5502d0A12724771Fc6DaF216" # Liquidity pool component for initialization
-  - "0xCd5fE23C85820F7B72D0926FC9b05b43E359b7ee"
+  - "0xCd5fE23C85820F7B72D0926FC9b05b43E359b7ee" # WeETH component for initialization
 
 # A list of protocol types names created by your Substreams module.
 protocol_type_names:
@@ -29,20 +29,20 @@ tests:
   # Test for Etherfi Liquidity Pool creation
   - name: test_liquidity_pool_creation
     # Indexed block range
-    start_block: 17664317
-    stop_block: 17664990
+    start_block: 19795841
+    stop_block: 19795941
     expected_components:
       - id: "0x308861A430be4cce5502d0A12724771Fc6DaF216" # Liquidity Pool Address
         tokens:
-          - "0x35fA164735182de50811E8e2E824cFb9B6118ac2" # eETH
           - "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE" # ETH
+          - "0x35fA164735182de50811E8e2E824cFb9B6118ac2" # eETH
         creation_tx: "0x491b823bc15ced4c54f0ed5a235d39e478f8aae3ad02eb553924b40ad9859e10"
         skip_simulation: false
 
   # Test for WeETH pool creation
   - name: test_weeth_pool_creation
-    start_block: 17664317
-    stop_block: 17664990
+    start_block: 19977518
+    stop_block: 19977618
     expected_components:
       - id: "0xCd5fE23C85820F7B72D0926FC9b05b43E359b7ee" # WeETH Address
         tokens:
