@@ -279,7 +279,7 @@ dependencies = [
  "substreams-database-change",
  "substreams-entity-change",
  "substreams-ethereum",
- "tycho-substreams",
+ "tycho-substreams 0.2.0 (git+https://github.com/propeller-heads/tycho-protocol-sdk.git?rev=b8aeaa3)",
 ]
 
 [[package]]
