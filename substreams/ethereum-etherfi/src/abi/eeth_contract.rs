@@ -4,89 +4,6 @@ const INTERNAL_ERR: &'static str = "`ethabi_derive` internal error";
 pub mod functions {
     use super::INTERNAL_ERR;
     #[derive(Debug, Clone, PartialEq)]
-    pub struct DomainSeparator {}
-    impl DomainSeparator {
-        const METHOD_ID: [u8; 4] = [54u8, 68u8, 229u8, 21u8];
-        pub fn decode(call: &substreams_ethereum::pb::eth::v2::Call) -> Result<Self, String> {
-            Ok(Self {})
-        }
-        pub fn encode(&self) -> Vec<u8> {
-            let data = ethabi::encode(&[]);
-            let mut encoded = Vec::with_capacity(4 + data.len());
-            encoded.extend(Self::METHOD_ID);
-            encoded.extend(data);
-            encoded
-        }
-        pub fn output_call(
-            call: &substreams_ethereum::pb::eth::v2::Call,
-        ) -> Result<[u8; 32usize], String> {
-            Self::output(call.return_data.as_ref())
-        }
-        pub fn output(data: &[u8]) -> Result<[u8; 32usize], String> {
-            let mut values =
-                ethabi::decode(&[ethabi::ParamType::FixedBytes(32usize)], data.as_ref())
-                    .map_err(|e| format!("unable to decode output data: {:?}", e))?;
-            Ok({
-                let mut result = [0u8; 32];
-                let v = values
-                    .pop()
-                    .expect("one output data should have existed")
-                    .into_fixed_bytes()
-                    .expect(INTERNAL_ERR);
-                result.copy_from_slice(&v);
-                result
-            })
-        }
-        pub fn match_call(call: &substreams_ethereum::pb::eth::v2::Call) -> bool {
-            match call.input.get(0..4) {
-                Some(signature) => Self::METHOD_ID == signature,
-                None => false,
-            }
-        }
-        pub fn call(&self, address: Vec<u8>) -> Option<[u8; 32usize]> {
-            use substreams_ethereum::pb::eth::rpc;
-            let rpc_calls = rpc::RpcCalls {
-                calls: vec![rpc::RpcCall { to_addr: address, data: self.encode() }],
-            };
-            let responses = substreams_ethereum::rpc::eth_call(&rpc_calls).responses;
-            let response = responses
-                .get(0)
-                .expect("one response should have existed");
-            if response.failed {
-                return None;
-            }
-            match Self::output(response.raw.as_ref()) {
-                Ok(data) => Some(data),
-                Err(err) => {
-                    use substreams_ethereum::Function;
-                    substreams::log::info!(
-                        "Call output for function `{}` failed to decode with error: {}",
-                        Self::NAME,
-                        err
-                    );
-                    None
-                }
-            }
-        }
-    }
-    impl substreams_ethereum::Function for DomainSeparator {
-        const NAME: &'static str = "DOMAIN_SEPARATOR";
-        fn match_call(call: &substreams_ethereum::pb::eth::v2::Call) -> bool {
-            Self::match_call(call)
-        }
-        fn decode(call: &substreams_ethereum::pb::eth::v2::Call) -> Result<Self, String> {
-            Self::decode(call)
-        }
-        fn encode(&self) -> Vec<u8> {
-            self.encode()
-        }
-    }
-    impl substreams_ethereum::rpc::RPCDecodable<[u8; 32usize]> for DomainSeparator {
-        fn output(data: &[u8]) -> Result<[u8; 32usize], String> {
-            Self::output(data)
-        }
-    }
-    #[derive(Debug, Clone, PartialEq)]
     pub struct Allowance {
         pub u_owner: Vec<u8>,
         pub u_spender: Vec<u8>,
@@ -808,6 +725,89 @@ pub mod functions {
     }
     impl substreams_ethereum::rpc::RPCDecodable<bool> for DecreaseAllowance {
         fn output(data: &[u8]) -> Result<bool, String> {
+            Self::output(data)
+        }
+    }
+    #[derive(Debug, Clone, PartialEq)]
+    pub struct DomainSeparator {}
+    impl DomainSeparator {
+        const METHOD_ID: [u8; 4] = [54u8, 68u8, 229u8, 21u8];
+        pub fn decode(call: &substreams_ethereum::pb::eth::v2::Call) -> Result<Self, String> {
+            Ok(Self {})
+        }
+        pub fn encode(&self) -> Vec<u8> {
+            let data = ethabi::encode(&[]);
+            let mut encoded = Vec::with_capacity(4 + data.len());
+            encoded.extend(Self::METHOD_ID);
+            encoded.extend(data);
+            encoded
+        }
+        pub fn output_call(
+            call: &substreams_ethereum::pb::eth::v2::Call,
+        ) -> Result<[u8; 32usize], String> {
+            Self::output(call.return_data.as_ref())
+        }
+        pub fn output(data: &[u8]) -> Result<[u8; 32usize], String> {
+            let mut values =
+                ethabi::decode(&[ethabi::ParamType::FixedBytes(32usize)], data.as_ref())
+                    .map_err(|e| format!("unable to decode output data: {:?}", e))?;
+            Ok({
+                let mut result = [0u8; 32];
+                let v = values
+                    .pop()
+                    .expect("one output data should have existed")
+                    .into_fixed_bytes()
+                    .expect(INTERNAL_ERR);
+                result.copy_from_slice(&v);
+                result
+            })
+        }
+        pub fn match_call(call: &substreams_ethereum::pb::eth::v2::Call) -> bool {
+            match call.input.get(0..4) {
+                Some(signature) => Self::METHOD_ID == signature,
+                None => false,
+            }
+        }
+        pub fn call(&self, address: Vec<u8>) -> Option<[u8; 32usize]> {
+            use substreams_ethereum::pb::eth::rpc;
+            let rpc_calls = rpc::RpcCalls {
+                calls: vec![rpc::RpcCall { to_addr: address, data: self.encode() }],
+            };
+            let responses = substreams_ethereum::rpc::eth_call(&rpc_calls).responses;
+            let response = responses
+                .get(0)
+                .expect("one response should have existed");
+            if response.failed {
+                return None;
+            }
+            match Self::output(response.raw.as_ref()) {
+                Ok(data) => Some(data),
+                Err(err) => {
+                    use substreams_ethereum::Function;
+                    substreams::log::info!(
+                        "Call output for function `{}` failed to decode with error: {}",
+                        Self::NAME,
+                        err
+                    );
+                    None
+                }
+            }
+        }
+    }
+    impl substreams_ethereum::Function for DomainSeparator {
+        const NAME: &'static str = "DOMAIN_SEPARATOR";
+        fn match_call(call: &substreams_ethereum::pb::eth::v2::Call) -> bool {
+            Self::match_call(call)
+        }
+        fn decode(call: &substreams_ethereum::pb::eth::v2::Call) -> Result<Self, String> {
+            Self::decode(call)
+        }
+        fn encode(&self) -> Vec<u8> {
+            self.encode()
+        }
+    }
+    impl substreams_ethereum::rpc::RPCDecodable<[u8; 32usize]> for DomainSeparator {
+        fn output(data: &[u8]) -> Result<[u8; 32usize], String> {
             Self::output(data)
         }
     }
@@ -2563,7 +2563,7 @@ pub mod events {
         }
     }
     impl substreams_ethereum::Event for AdminChanged1 {
-        const NAME: &'static str = "AdminChanged1";
+        const NAME: &'static str = "AdminChanged";
         fn match_log(log: &substreams_ethereum::pb::eth::v2::Log) -> bool {
             Self::match_log(log)
         }
@@ -2622,7 +2622,7 @@ pub mod events {
         }
     }
     impl substreams_ethereum::Event for AdminChanged2 {
-        const NAME: &'static str = "AdminChanged2";
+        const NAME: &'static str = "AdminChanged";
         fn match_log(log: &substreams_ethereum::pb::eth::v2::Log) -> bool {
             Self::match_log(log)
         }
@@ -2753,7 +2753,7 @@ pub mod events {
         }
     }
     impl substreams_ethereum::Event for BeaconUpgraded1 {
-        const NAME: &'static str = "BeaconUpgraded1";
+        const NAME: &'static str = "BeaconUpgraded";
         fn match_log(log: &substreams_ethereum::pb::eth::v2::Log) -> bool {
             Self::match_log(log)
         }
@@ -2804,7 +2804,7 @@ pub mod events {
         }
     }
     impl substreams_ethereum::Event for BeaconUpgraded2 {
-        const NAME: &'static str = "BeaconUpgraded2";
+        const NAME: &'static str = "BeaconUpgraded";
         fn match_log(log: &substreams_ethereum::pb::eth::v2::Log) -> bool {
             Self::match_log(log)
         }
@@ -2890,39 +2890,39 @@ pub mod events {
         }
         pub fn decode(log: &substreams_ethereum::pb::eth::v2::Log) -> Result<Self, String> {
             Ok(Self {
-                    previous_owner: ethabi::decode(
-                            &[ethabi::ParamType::Address],
-                            log.topics[1usize].as_ref(),
+                previous_owner: ethabi::decode(
+                        &[ethabi::ParamType::Address],
+                        log.topics[1usize].as_ref(),
+                    )
+                    .map_err(|e| {
+                        format!(
+                            "unable to decode param 'previous_owner' from topic of type 'address': {:?}",
+                            e
                         )
-                        .map_err(|e| {
-                            format!(
-                                "unable to decode param 'previous_owner' from topic of type 'address': {:?}",
-                                e
-                            )
-                        })?
-                        .pop()
-                        .expect(INTERNAL_ERR)
-                        .into_address()
-                        .expect(INTERNAL_ERR)
-                        .as_bytes()
-                        .to_vec(),
-                    new_owner: ethabi::decode(
-                            &[ethabi::ParamType::Address],
-                            log.topics[2usize].as_ref(),
+                    })?
+                    .pop()
+                    .expect(INTERNAL_ERR)
+                    .into_address()
+                    .expect(INTERNAL_ERR)
+                    .as_bytes()
+                    .to_vec(),
+                new_owner: ethabi::decode(
+                        &[ethabi::ParamType::Address],
+                        log.topics[2usize].as_ref(),
+                    )
+                    .map_err(|e| {
+                        format!(
+                            "unable to decode param 'new_owner' from topic of type 'address': {:?}",
+                            e
                         )
-                        .map_err(|e| {
-                            format!(
-                                "unable to decode param 'new_owner' from topic of type 'address': {:?}",
-                                e
-                            )
-                        })?
-                        .pop()
-                        .expect(INTERNAL_ERR)
-                        .into_address()
-                        .expect(INTERNAL_ERR)
-                        .as_bytes()
-                        .to_vec(),
-                })
+                    })?
+                    .pop()
+                    .expect(INTERNAL_ERR)
+                    .into_address()
+                    .expect(INTERNAL_ERR)
+                    .as_bytes()
+                    .to_vec(),
+            })
         }
     }
     impl substreams_ethereum::Event for OwnershipTransferred {
@@ -3114,27 +3114,27 @@ pub mod events {
         }
         pub fn decode(log: &substreams_ethereum::pb::eth::v2::Log) -> Result<Self, String> {
             Ok(Self {
-                    implementation: ethabi::decode(
-                            &[ethabi::ParamType::Address],
-                            log.topics[1usize].as_ref(),
+                implementation: ethabi::decode(
+                        &[ethabi::ParamType::Address],
+                        log.topics[1usize].as_ref(),
+                    )
+                    .map_err(|e| {
+                        format!(
+                            "unable to decode param 'implementation' from topic of type 'address': {:?}",
+                            e
                         )
-                        .map_err(|e| {
-                            format!(
-                                "unable to decode param 'implementation' from topic of type 'address': {:?}",
-                                e
-                            )
-                        })?
-                        .pop()
-                        .expect(INTERNAL_ERR)
-                        .into_address()
-                        .expect(INTERNAL_ERR)
-                        .as_bytes()
-                        .to_vec(),
-                })
+                    })?
+                    .pop()
+                    .expect(INTERNAL_ERR)
+                    .into_address()
+                    .expect(INTERNAL_ERR)
+                    .as_bytes()
+                    .to_vec(),
+            })
         }
     }
     impl substreams_ethereum::Event for Upgraded1 {
-        const NAME: &'static str = "Upgraded1";
+        const NAME: &'static str = "Upgraded";
         fn match_log(log: &substreams_ethereum::pb::eth::v2::Log) -> bool {
             Self::match_log(log)
         }
@@ -3168,27 +3168,27 @@ pub mod events {
         }
         pub fn decode(log: &substreams_ethereum::pb::eth::v2::Log) -> Result<Self, String> {
             Ok(Self {
-                    implementation: ethabi::decode(
-                            &[ethabi::ParamType::Address],
-                            log.topics[1usize].as_ref(),
+                implementation: ethabi::decode(
+                        &[ethabi::ParamType::Address],
+                        log.topics[1usize].as_ref(),
+                    )
+                    .map_err(|e| {
+                        format!(
+                            "unable to decode param 'implementation' from topic of type 'address': {:?}",
+                            e
                         )
-                        .map_err(|e| {
-                            format!(
-                                "unable to decode param 'implementation' from topic of type 'address': {:?}",
-                                e
-                            )
-                        })?
-                        .pop()
-                        .expect(INTERNAL_ERR)
-                        .into_address()
-                        .expect(INTERNAL_ERR)
-                        .as_bytes()
-                        .to_vec(),
-                })
+                    })?
+                    .pop()
+                    .expect(INTERNAL_ERR)
+                    .into_address()
+                    .expect(INTERNAL_ERR)
+                    .as_bytes()
+                    .to_vec(),
+            })
         }
     }
     impl substreams_ethereum::Event for Upgraded2 {
-        const NAME: &'static str = "Upgraded2";
+        const NAME: &'static str = "Upgraded";
         fn match_log(log: &substreams_ethereum::pb::eth::v2::Log) -> bool {
             Self::match_log(log)
         }
