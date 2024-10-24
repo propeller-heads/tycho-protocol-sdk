@@ -141,34 +141,35 @@ impl TransactionChangesBuilder {
     }
 
     pub fn build(self) -> Option<TransactionChanges> {
-        if self.contract_changes.is_empty() &&
-            self.component_changes.is_empty() &&
-            self.balance_changes.is_empty() &&
-            self.entity_changes.is_empty()
+        let tx_changes = TransactionChanges {
+            tx: self.tx,
+            contract_changes: self
+                .contract_changes
+                .into_values()
+                .filter_map(|interim| interim.into())
+                .collect::<Vec<_>>(),
+            entity_changes: self
+                .entity_changes
+                .into_values()
+                .map(|interim| interim.into())
+                .collect::<Vec<_>>(),
+            component_changes: self
+                .component_changes
+                .into_values()
+                .collect::<Vec<_>>(),
+            balance_changes: self
+                .balance_changes
+                .into_values()
+                .collect::<Vec<_>>(),
+        };
+        if tx_changes.contract_changes.is_empty() &&
+            tx_changes.component_changes.is_empty() &&
+            tx_changes.balance_changes.is_empty() &&
+            tx_changes.entity_changes.is_empty()
         {
             None
         } else {
-            Some(TransactionChanges {
-                tx: self.tx,
-                contract_changes: self
-                    .contract_changes
-                    .into_values()
-                    .map(|interim| interim.into())
-                    .collect::<Vec<_>>(),
-                entity_changes: self
-                    .entity_changes
-                    .into_values()
-                    .map(|interim| interim.into())
-                    .collect::<Vec<_>>(),
-                component_changes: self
-                    .component_changes
-                    .into_values()
-                    .collect::<Vec<_>>(),
-                balance_changes: self
-                    .balance_changes
-                    .into_values()
-                    .collect::<Vec<_>>(),
-            })
+            Some(tx_changes)
         }
     }
 }
@@ -416,7 +417,7 @@ impl From<InterimEntityChanges> for EntityChanges {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 struct SlotValue {
     new_value: Vec<u8>,
     start_value: Vec<u8>,
@@ -435,7 +436,7 @@ impl From<&StorageChange> for SlotValue {
 }
 
 // Uses a map for slots, protobuf does not allow bytes in hashmap keys
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct InterimContractChange {
     address: Vec<u8>,
     balance: Vec<u8>,
@@ -492,9 +493,9 @@ impl InterimContractChange {
     }
 }
 
-impl From<InterimContractChange> for ContractChange {
+impl From<InterimContractChange> for Option<ContractChange> {
     fn from(value: InterimContractChange) -> Self {
-        ContractChange {
+        let contract_change = ContractChange {
             address: value.address,
             balance: value.balance,
             code: value.code,
@@ -505,6 +506,39 @@ impl From<InterimContractChange> for ContractChange {
                 .map(|(slot, value)| ContractSlot { slot, value: value.new_value })
                 .collect(),
             change: value.change.into(),
+        };
+        if contract_change.balance.is_empty() &&
+            contract_change.slots.is_empty() &&
+            contract_change.code.is_empty() &&
+            contract_change.change == i32::from(ChangeType::Update)
+        {
+            None
+        } else {
+            Some(contract_change)
         }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use substreams_ethereum::pb::eth::v2::StorageChange;
+
+    use super::{InterimContractChange, TransactionChangesBuilder};
+
+    #[test]
+    fn test_transaction_changes_builder_ignored_contract_changes() {
+        let mut builder = TransactionChangesBuilder::new(&super::Transaction::default());
+        let mut contract_changes = InterimContractChange::new(&[1], false);
+        contract_changes.upsert_slot(&StorageChange {
+            address: [1].to_vec(),
+            key: [0].to_vec(),
+            old_value: [1].to_vec(),
+            new_value: [1].to_vec(), //Same old and new value, must be ignored
+            ordinal: 1,
+        });
+        builder.add_contract_changes(&contract_changes);
+
+        let tx_changes = builder.build();
+        assert!(tx_changes.is_none());
     }
 }
