@@ -45,7 +45,7 @@ contract FraxV3SFraxAdapter is ISwapAdapter {
 
     constructor(ISFrax _sFrax) {
         sFrax = _sFrax;
-        frax = IERC20(address(sFrax.asset()));
+        frax = IERC20(0x853d955aCEf822Db058eb8505911ED77F175b99e);
     }
 
     /// @dev Check if tokens in input are supported
