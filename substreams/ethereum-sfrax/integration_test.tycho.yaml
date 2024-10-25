@@ -5,18 +5,10 @@ adapter_contract: "FraxV3SFraxAdapter"
 # Constructor signature of the Adapter contract
 adapter_build_signature: "constructor(address)"
 # A comma separated list of args to be passed to the constructor of the Adapter contract
-adapter_build_args: "0xA663B02CF0a4b149d2aD41910CB81e23e1c41c32"
+adapter_build_args: "0xA663B02CF0a4b149d2aD41910CB81e23e1c41c32,0x853d955aCEf822Db058eb8505911ED77F175b99e"
 # Whether or not the testing script should skip checking balances of the protocol components.
 # If set to `true` please always add a reason why it's skipped.
 skip_balance_check: true
-
-# A list of accounts that need to be indexed to run the tests properly.
-# Usually used when there is a global component required by all pools and created before the tested range of blocks. For example a factory or a vault.
-# Please note that this component needs to be indexed by your substreams module, this feature is only for testing purposes.
-# Also, please always add a reason why this account is needed for your tests.
-# This will be applied to each test.
-initialized_accounts:
-  - "0x853d955aCEf822Db058eb8505911ED77F175b99e" # FRAX Stablecoin
 
 # A list of protocol types names created by your Substreams module.
 protocol_type_names:
@@ -33,7 +25,7 @@ tests:
     expected_components:
       - id: "0xA663B02CF0a4b149d2aD41910CB81e23e1c41c32" # sFrax Vault
         tokens:
-          - "0xA663B02CF0a4b149d2aD41910CB81e23e1c41c32" # sFrax
           - "0x853d955aCEf822Db058eb8505911ED77F175b99e" # FRAX
+          - "0xA663B02CF0a4b149d2aD41910CB81e23e1c41c32" # sFrax
         creation_tx: "0xecd4ab27bc3b4c300b11405fc6a156ee316ad3f4c24f63130cbcbc49ae6bef55"
         skip_simulation: false

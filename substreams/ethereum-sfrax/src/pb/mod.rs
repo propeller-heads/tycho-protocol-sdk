@@ -1,3 +1,4 @@
+#[allow(clippy::all)]
 // @generated
 pub mod contract {
     // @@protoc_insertion_point(attribute:contract.v1)

@@ -5,10 +5,11 @@ use std::fs;
 use substreams_ethereum::Abigen;
 
 fn main() -> Result<(), anyhow::Error> {
-    let file_names = ["abi/stakedfrax_contract.abi.json"];
-    let file_output_names = ["src/abi/stakedfrax_contract.rs"];
+    let file_names = ["abi/sfraxeth_contract.abi.json"];
+    let file_output_names = ["src/abi/sfraxeth_contract.rs"];
 
-    for (i, f) in file_names.into_iter().enumerate() {
+    let mut i = 0;
+    for f in file_names {
         let contents = fs::read_to_string(f).expect("Should have been able to read the file");
 
         // sanitize fields and attributes starting with an underscore
@@ -18,6 +19,8 @@ fn main() -> Result<(), anyhow::Error> {
         Abigen::from_bytes("Contract", sanitized_abi_file.as_bytes())?
             .generate()?
             .write_to_file(file_output_names[i])?;
+
+        i = i + 1;
     }
 
     Ok(())

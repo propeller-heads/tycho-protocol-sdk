@@ -30,7 +30,7 @@ contract FraxV3SFraxAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
         uint256 forkBlock = 19270612;
         vm.createSelectFork(vm.rpcUrl("mainnet"), forkBlock);
 
-        adapter = new FraxV3SFraxAdapter(SFRAX);
+        adapter = new FraxV3SFraxAdapter(SFRAX_ADDRESS, FRAX_ADDRESS);
         vm.label(address(FRAX), "FRAX");
         vm.label(address(SFRAX), "SFRAX");
     }
@@ -44,7 +44,7 @@ contract FraxV3SFraxAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
             adapter.getLimits(bytes32(0), FRAX_ADDRESS, SFRAX_ADDRESS);
         vm.assume(amount0 < limits[0]);
         vm.assume(amount0 > 1);
-        vm.assume(amount1 < limits[1]);
+        vm.assume(amount1 < limits[0]);
         vm.assume(amount1 > 1);
 
         uint256[] memory amounts = new uint256[](2);
@@ -83,6 +83,8 @@ contract FraxV3SFraxAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
 
         uint256 frax_balance = FRAX.balanceOf(address(this));
         uint256 sfrax_balance = IERC20(SFRAX_ADDRESS).balanceOf(address(this));
+
+        ISFrax(SFRAX_ADDRESS).totalAssets();
 
         Trade memory trade = adapter.swap(
             pair, FRAX_ADDRESS, SFRAX_ADDRESS, side, specifiedAmount
