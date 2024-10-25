@@ -251,9 +251,11 @@ fn create_vault_component(
 }
 
 fn find_deployed_underlying_address(vault_address: &[u8]) -> Option<[u8; 20]> {
+    // Ethereum
     match vault_address {
+        // sDai
         hex!("83F20F44975D03b1b09e64809B757c47f942BEeA") => {
-            // Ethereum
+            // Dai
             Some(hex!("6b175474e89094c44da98b954eedeac495271d0f"))
         }
         _ => None,
