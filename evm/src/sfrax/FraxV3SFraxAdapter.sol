@@ -141,8 +141,8 @@ contract FraxV3SFraxAdapter is ISwapAdapter {
 
         if (sellToken == address(frax)) {
             // Frax --> sFrax
-            limits[0] = frax.totalSupply() - frax.balanceOf(address(sFrax));
-            limits[1] = sFrax.previewDeposit(limits[0]);
+            limits[0] = type(uint128).max;
+            limits[1] = type(uint128).max;
         } else {
             limits[1] = sFrax.storedTotalAssets();
             limits[0] = sFrax.previewWithdraw(limits[1]);
