@@ -3,7 +3,7 @@ use crate::pb::uniswap::v3::{
     Events, LiquidityChanges, TickDeltas,
 };
 use itertools::Itertools;
-use std::{collections::HashMap, str::FromStr, usize, vec};
+use std::{collections::HashMap, str::FromStr, vec};
 use substreams::{pb::substreams::StoreDeltas, scalar::BigInt};
 use substreams_ethereum::pb::eth::v2::{self as eth};
 use substreams_helper::hex::Hexable;
@@ -136,7 +136,7 @@ pub fn map_protocol_changes(
         .for_each(|(tx, pool_address, attr)| {
             let builder = transaction_changes
                 .entry(tx.index)
-                .or_insert_with(|| TransactionChangesBuilder::new(&tx.into()));
+                .or_insert_with(|| TransactionChangesBuilder::new(&tx));
             builder.add_entity_change(&EntityChanges {
                 component_id: pool_address.to_hex(),
                 attributes: vec![attr],

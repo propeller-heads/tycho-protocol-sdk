@@ -34,6 +34,6 @@ impl From<TransactionTrace> for Transaction {
 
 impl From<Transaction> for tycho_substreams::prelude::Transaction {
     fn from(value: Transaction) -> Self {
-        Self { hash: value.hash, from: value.from, to: value.to, index: value.index.into() }
+        Self { hash: value.hash, from: value.from, to: value.to, index: value.index }
     }
 }
