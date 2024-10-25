@@ -17,8 +17,10 @@ pub fn map_components(
     params: String,
     block: eth::v2::Block,
 ) -> Result<BlockTransactionProtocolComponents> {
-    let sdai_address = hex::decode(params).unwrap();
-    let dai_address = find_deployed_underlying_address(&sdai_address).unwrap();
+    // vault address is sDai contract address
+    let vault_address = hex::decode(params).unwrap();
+    // locked asset is Dai contract address
+    let locked_asset = find_deployed_underlying_address(&vault_address).unwrap();
 
     // We store these as a hashmap by tx hash since we need to agg by tx hash later
     Ok(BlockTransactionProtocolComponents {
@@ -29,8 +31,18 @@ pub fn map_components(
                     .calls()
                     .filter(|call| !call.call.state_reverted)
                     .filter_map(|_| {
-                        if is_deployment_tx(tx, &sdai_address) {
-                            Some(create_vault_component(&tx.into(), &sdai_address, &dai_address))
+                        // address doesn't exist before contract deployment, hence the first tx with
+                        // a log.address = vault_address is the deployment tx
+                        if is_deployment_tx(tx, &vault_address) {
+                            Some(
+                                ProtocolComponent::at_contract(&vault_address, &tx.into()).with_tokens(&[
+                                    locked_asset.as_slice(), 
+                                    vault_address.as_slice(),
+                                    ])
+                                    .as_swap_type("sdai_vault", ImplementationType::Vm),
+                            )
+
+                            // Some(create_vault_component(&tx.into(), &vault_address, &locked_asset))
                         } else {
                             None
                         }
@@ -59,6 +71,10 @@ pub fn store_components(map: BlockTransactionProtocolComponents, store: StoreAdd
         1,
     );
 }
+
+//TODO------------------------------------------------------------------
+//TODO------------------------------------------------------------------
+//TODO------------------------------------------------------------------
 
 /// Since the `PoolBalanceChanged` and `Swap` events administer only deltas, we need to leverage a
 /// map and a  store to be able to tally up final balances for tokens in a pool.
