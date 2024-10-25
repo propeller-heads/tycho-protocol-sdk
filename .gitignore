@@ -22,3 +22,6 @@ tycho-indexer
 substreams/my_substream
 testing/tycho-client/build/*
 testing/tycho-client/*.egg-info
+
+# Shadowy Scripts
+setup_shadowy_env.sh
