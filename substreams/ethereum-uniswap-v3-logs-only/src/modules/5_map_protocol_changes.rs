@@ -70,11 +70,19 @@ pub fn map_protocol_changes(
         .for_each(|(store_delta, tick_delta)| {
             let new_value_bigint =
                 BigInt::from_str(&String::from_utf8(store_delta.new_value).unwrap()).unwrap();
+
+            // If old value is empty or the int value is 0, it's considered as a creation.
+            let is_creation = store_delta.old_value.is_empty() ||
+                BigInt::from_str(&String::from_utf8(store_delta.old_value).unwrap())
+                    .unwrap()
+                    .is_zero();
             let attribute_name = format!("ticks/{}/net-liquidity", tick_delta.tick_index);
             let attribute = Attribute {
                 name: attribute_name,
                 value: new_value_bigint.to_signed_bytes_be(),
-                change: if new_value_bigint.is_zero() {
+                change: if is_creation {
+                    ChangeType::Creation.into()
+                } else if new_value_bigint.is_zero() {
                     ChangeType::Deletion.into()
                 } else {
                     ChangeType::Update.into()
