@@ -36,7 +36,7 @@ fn get_new_pools(
         new_pools.push(TransactionEntityChanges {
             tx: Some(tycho_tx.clone()),
             entity_changes: vec![EntityChanges {
-                component_id: event.pool.to_hex(),
+                component_id: event.pool.clone().to_hex(),
                 attributes: vec![
                     Attribute {
                         name: "liquidity".to_string(),
@@ -57,7 +57,7 @@ fn get_new_pools(
             }],
             component_changes: vec![ProtocolComponent {
                 id: event.pool.to_hex(),
-                tokens: vec![event.token0, event.token1],
+                tokens: vec![event.token0.clone(), event.token1.clone()],
                 contracts: vec![],
                 static_att: vec![
                     Attribute {
@@ -72,7 +72,7 @@ fn get_new_pools(
                     },
                     Attribute {
                         name: "pool_address".to_string(),
-                        value: event.pool,
+                        value: event.pool.clone(),
                         change: ChangeType::Creation.into(),
                     },
                 ],
@@ -85,7 +85,23 @@ fn get_new_pools(
                 }),
                 tx: Some(tycho_tx),
             }],
-            balance_changes: vec![],
+            balance_changes: vec![
+                BalanceChange {
+                    token: event.token0,
+                    balance: BigInt::from(0).to_signed_bytes_be(),
+                    component_id: event
+                        .pool
+                        .clone()
+                        .to_hex()
+                        .as_bytes()
+                        .to_vec(),
+                },
+                BalanceChange {
+                    token: event.token1,
+                    balance: BigInt::from(0).to_signed_bytes_be(),
+                    component_id: event.pool.to_hex().as_bytes().to_vec(),
+                },
+            ],
         })
     };
 

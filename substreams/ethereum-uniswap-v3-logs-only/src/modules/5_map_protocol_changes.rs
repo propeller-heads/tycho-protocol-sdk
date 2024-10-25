@@ -44,7 +44,13 @@ pub fn map_protocol_changes(
             .iter()
             .for_each(|ec| {
                 builder.add_entity_change(ec);
-            })
+            });
+        change
+            .balance_changes
+            .iter()
+            .for_each(|bc| {
+                builder.add_balance_change(bc);
+            });
     }
 
     // Balance changes are gathered by the `StoreDelta` based on `PoolBalanceChanged` creating
