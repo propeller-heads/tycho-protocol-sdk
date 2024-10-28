@@ -20,7 +20,7 @@ binaries:
 modules:
   - name: map_components
     kind: map
-    initialBlock: 16428133
+    initialBlock: 16428133 # sDai vault creation block
     inputs:
       - params: string
       - source: sf.ethereum.type.v2.Block
@@ -47,13 +47,12 @@ modules:
 
   - name: map_relative_balances
     kind: map
-    initialBlock: 16428133 # An arbitrary block that should change based on your requirements
+    initialBlock: 16428133
     inputs:
       - source: sf.ethereum.type.v2.Block
       - store: store_components
     output:
       type: proto:tycho.evm.v1.BlockBalanceDeltas
-
 
   - name: map_protocol_changes
     kind: map
@@ -67,6 +66,5 @@ modules:
         mode: deltas # This is the key property that simplifies `BalanceChange` handling
     output:
       type: proto:tycho.evm.v1.BlockChanges
-
 params:
   map_components: "83F20F44975D03b1b09e64809B757c47f942BEeA"
