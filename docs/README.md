@@ -6,9 +6,9 @@ Protocol lib is a library used by Propellerheads.xyz solvers to integrate decent
 
 To integrate with PropellerHeads solvers, 3 components need to be provided:
 
-* **Protocol logic:** Provides simulations of the protocols logic.
-* **Indexing**: Provides access to the protocol state used by the simulation. This component is optional if your protocol is stateless.
-* **Execution**: Given a solution, this component will encode and execute it on-chain.
+1. **Protocol logic:** Provides simulations of the protocols logic.
+2. **Indexing**: Provides access to the protocol state used by the simulation.
+3. **Execution**: Given a solution, this component will encode and execute it on-chain.
 
 To propose an integration, create a pull request in this repository with the above components implemented.
 
@@ -27,7 +27,7 @@ While VM integration is certainly the quickest and probably most accessible one 
 
 For indexing purposes, it is required that you provide a [substreams](https://substreams.streamingfast.io/) package that emits a specified set of messages. If your protocol already has a [substreams package](https://github.com/messari/substreams) for indexing implemented, you can adjust it to emit the required messages.
 
-**VM Integration** Currently the only supported integration is for EVM protocols in order to complement the Solidity protocol logic. [**Read more here.**](https://github.com/propeller-heads/propeller-venue-lib/blob/main/docs/indexing/vm-integration/README.md)&#x20;
+**VM Integration** Currently the only supported integration is for EVM protocols in order to complement the Solidity protocol logic. [**Read more here**](indexing/general-integration-steps/3.-substream-package-structure.md)**.**&#x20;
 
 **Native Integration** Coming soon, this integration will complement the upcoming native Rust protocol logic.
 

@@ -1,4 +1,4 @@
-# Reserved attribute names
+# Reserved Attributes
 
 Certain attribute names are reserved exclusively for specific purposes. Please use them only for their intended applications.
 
@@ -6,7 +6,7 @@ Certain attribute names are reserved exclusively for specific purposes. Please u
 
 The following attributes names are reserved and must be given using `ProtocolComponent.static_att`. These attributes MUST be immutable. If it can ever change, it should be given as a state attribute (see below) for this component id.
 
-- ### <u>**manual_updates**</u>
+* #### **manual\_updates**
 
 #### Description
 
@@ -16,19 +16,19 @@ If it's enable, updates on this component are only triggered by emitting an `upd
 
 #### Type
 
-This attribute must be set to [1u8] to enable manual updates.
+This attribute must be set to \[1u8] to enable manual updates.
 
 #### Example Usage
 
 ```rust
 Attribute {
-name: "manual_updates".to_string(),
-value: [1u8],
-change: ChangeType::Creation.into(),
+    name: "manual_updates".to_string(),
+    value: [1u8],
+    change: ChangeType::Creation.into(),
 }
 ```
 
-- ### <u>**pool_id**</u>
+* #### **pool\_id**
 
 #### Description
 
@@ -44,17 +44,17 @@ This attribute value must be provided as a UTF-8 encoded string in bytes.
 
 ```rust
 Attribute {
-name: "pool_id".to_string(),
-value: format!("0x{}", hex::encode(pool_registered.pool_id)).as_bytes(),
-change: ChangeType::Creation.into(),
+    name: "pool_id".to_string(),
+    value: format!("0x{}", hex::encode(pool_registered.pool_id)).as_bytes(),
+    change: ChangeType::Creation.into(),
 }
 ```
 
 ## State Attributes
 
-The following attributes names are reserved and must be given using `EntityChanges`. Unlike [Static Attributes](#static-attributes), state attributes are used for dynamic attributes and are allowed to change at anytime.
+The following attributes names are reserved and must be given using `EntityChanges`. Unlike [Static Attributes](reserved-attributes.md#static-attributes), state attributes are used for dynamic attributes and are allowed to change at anytime.
 
-- ### <u>**stateless_contract_addr**</u>
+* #### **stateless\_contract\_addr**
 
 #### Description
 
@@ -73,7 +73,7 @@ This attribute value must be provided as a UTF-8 encoded string in bytes.
 
 #### Example Usage
 
-##### 1. Direct Contract Address
+**1. Direct Contract Address**
 
 To specify a direct contract address:
 
@@ -90,20 +90,20 @@ Attribute {
 }
 ```
 
-##### 2. Dynamic Address Resolution
+**2. Dynamic Address Resolution**
 
 To specify a function that dynamically resolves the address:
 
 ```rust
 Attribute {
-name: "stateless_contract_addr_0".into(),
-// Call views_implementation() on TRICRYPTO_FACTORY
-value: format!("call:0x{}:views_implementation()", hex::encode(TRICRYPTO_FACTORY)).into_bytes(),
-change: ChangeType::Creation.into(),
+    name: "stateless_contract_addr_0".into(),
+    // Call views_implementation() on TRICRYPTO_FACTORY
+    value: format!("call:0x{}:views_implementation()", hex::encode(TRICRYPTO_FACTORY)).into_bytes(),
+    change: ChangeType::Creation.into(),
 }
 ```
 
-- ### <u>**stateless_contract_code**</u>
+* #### **stateless\_contract\_code**
 
 #### Description
 
@@ -119,13 +119,13 @@ This attribute value must be provided as bytes.
 
 ```rust
 Attribute {
-name: "stateless_contract_code_0".to_string(),
-value: code.to_vec(),
-change: ChangeType::Creation.into(),
+    name: "stateless_contract_code_0".to_string(),
+    value: code.to_vec(),
+    change: ChangeType::Creation.into(),
 }
 ```
 
-- ### <u>**balance_owner**</u>
+* #### **balance\_owner**
 
 #### Description
 
@@ -139,13 +139,13 @@ This attribute value must be provided as bytes.
 
 ```rust
 Attribute {
-name: "balance_owner".to_string(),
-value: VAULT_ADDRESS.to_vec(),
-change: ChangeType::Creation.into(),
+    name: "balance_owner".to_string(),
+    value: VAULT_ADDRESS.to_vec(),
+    change: ChangeType::Creation.into(),
 }
 ```
 
-- ### <u>**update_marker**</u>
+* #### **update\_marker**
 
 #### Description
 
