@@ -2,12 +2,8 @@
 pragma solidity ^0.8.13;
 
 import {ISwapAdapter} from "src/interfaces/ISwapAdapter.sol";
-import {IERC20Metadata} from
-    "openzeppelin-contracts/contracts/token/ERC20/extensions/IERC20Metadata.sol";
-import {
-    IERC20,
-    SafeERC20
-} from "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
+import {IERC20Metadata} from "openzeppelin-contracts/contracts/token/ERC20/extensions/IERC20Metadata.sol";
+import {IERC20, SafeERC20} from "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 
 /// @title sDaiSwapAdapter
 
@@ -22,15 +18,15 @@ contract sDaiSwapAdapter is ISwapAdapter {
 
     constructor(address savingsDai_) {
         savingsDai = ISavingsDai(savingsDai_);
-        dai = IERC20(savingsDai.asset());
+        dai = IERC20(address(0x6B175474E89094C44Da98b954EedeAC495271d0F));
     }
 
     /// @dev Check if swap between provided sellToken and buyToken are supported
     /// by this adapter
     modifier checkInputTokens(address sellToken, address buyToken) {
         if (
-            sellToken == address(dai) && buyToken == address(savingsDai)
-                || sellToken == address(savingsDai) && buyToken == address(dai)
+            (sellToken == address(dai) && buyToken == address(savingsDai)) ||
+            (sellToken == address(savingsDai) && buyToken == address(dai))
         ) {} else {
             revert Unavailable("This pool only supports DAI<->sDAI swaps");
         }
@@ -39,7 +35,7 @@ contract sDaiSwapAdapter is ISwapAdapter {
     }
 
     /// @inheritdoc ISwapAdapter
-    /// @notice price doesn't change in the same block after swap for any given quantity 
+    /// @notice price doesn't change in the same block after swap for any given quantity
     function price(
         bytes32,
         address sellToken,
@@ -93,31 +89,31 @@ contract sDaiSwapAdapter is ISwapAdapter {
     /// @dev Limits are underestimated to 90% of totalSupply as both Dai and
     /// sDai
     // have no limits but revert in some cases
-    function getLimits(bytes32, address sellToken, address)
-        external
-        view
-        override
-        returns (uint256[] memory limits)
-    {
+    function getLimits(
+        bytes32,
+        address sellToken,
+        address
+    ) external view override returns (uint256[] memory limits) {
         limits = new uint256[](2);
 
         if (sellToken == address(dai)) {
-            limits[0] = (dai.totalSupply() - dai.balanceOf(address(savingsDai)))
-                * 90 / 100;
+            limits[0] =
+                ((dai.totalSupply() - dai.balanceOf(address(savingsDai))) *
+                    90) /
+                100;
             limits[1] = savingsDai.previewDeposit(limits[0]);
         } else {
-            limits[0] = savingsDai.totalSupply() * 90 / 100;
+            limits[0] = (savingsDai.totalSupply() * 90) / 100;
             limits[1] = savingsDai.previewRedeem(limits[0]);
         }
     }
 
     /// @inheritdoc ISwapAdapter
-    function getCapabilities(bytes32, address, address)
-        external
-        pure
-        override
-        returns (Capability[] memory capabilities)
-    {
+    function getCapabilities(
+        bytes32,
+        address,
+        address
+    ) external pure override returns (Capability[] memory capabilities) {
         capabilities = new Capability[](4);
         capabilities[0] = Capability.SellOrder;
         capabilities[1] = Capability.BuyOrder;
@@ -126,24 +122,19 @@ contract sDaiSwapAdapter is ISwapAdapter {
     }
 
     /// @inheritdoc ISwapAdapter
-    function getTokens(bytes32)
-        external
-        view
-        override
-        returns (address[] memory tokens)
-    {
+    function getTokens(
+        bytes32
+    ) external view override returns (address[] memory tokens) {
         tokens = new address[](2);
         tokens[0] = address(dai);
         tokens[1] = address(savingsDai);
     }
 
     /// @inheritdoc ISwapAdapter
-    function getPoolIds(uint256, uint256)
-        external
-        view
-        override
-        returns (bytes32[] memory ids)
-    {
+    function getPoolIds(
+        uint256,
+        uint256
+    ) external view override returns (bytes32[] memory ids) {
         ids = new bytes32[](1);
         ids[0] = bytes20(address(savingsDai));
     }
@@ -152,29 +143,30 @@ contract sDaiSwapAdapter is ISwapAdapter {
     /// @param sellToken The token being sold.
     /// @param amount The amount to be traded.
     /// @return calculatedAmount The amount of tokens received.
-    function sell(IERC20 sellToken, uint256 amount)
-        internal
-        returns (uint256 calculatedAmount)
-    {
+    function sell(
+        IERC20 sellToken,
+        uint256 amount
+    ) internal returns (uint256 calculatedAmount) {
         sellToken.safeTransferFrom(msg.sender, address(this), amount);
 
         if (address(sellToken) == address(dai)) {
             sellToken.safeIncreaseAllowance(address(savingsDai), amount);
         }
 
-        return address(sellToken) == address(dai)
-            ? savingsDai.deposit(amount, msg.sender)
-            : savingsDai.redeem(amount, msg.sender, address(this));
+        return
+            address(sellToken) == address(dai)
+                ? savingsDai.deposit(amount, msg.sender)
+                : savingsDai.redeem(amount, msg.sender, address(this));
     }
 
     /// @notice Executes a buy order on the contract.
     /// @param buyToken The token being bought.
     /// @param amount The amount of buyToken to receive.
     /// @return calculatedAmount The amount of sellToken sold.
-    function buy(IERC20 buyToken, uint256 amount)
-        internal
-        returns (uint256 calculatedAmount)
-    {
+    function buy(
+        IERC20 buyToken,
+        uint256 amount
+    ) internal returns (uint256 calculatedAmount) {
         if (address(buyToken) == address(savingsDai)) {
             // DAI-sDAI
             uint256 amountIn = savingsDai.previewMint(amount);
@@ -191,11 +183,9 @@ contract sDaiSwapAdapter is ISwapAdapter {
 
     /// @notice Get swap price
     /// @param sellToken token to sell
-    function getPriceAt(address sellToken)
-        internal
-        view
-        returns (Fraction memory)
-    {
+    function getPriceAt(
+        address sellToken
+    ) internal view returns (Fraction memory) {
         if (sellToken == address(dai)) {
             return
                 Fraction(savingsDai.previewDeposit(PRECISE_UNIT), PRECISE_UNIT);
@@ -225,19 +215,25 @@ interface ISavingsDai is IERC20 {
 
     function totalSupply() external pure returns (uint256);
 
-    function deposit(uint256 assets, address receiver)
-        external
-        returns (uint256 shares);
+    function deposit(
+        uint256 assets,
+        address receiver
+    ) external returns (uint256 shares);
 
-    function mint(uint256 shares, address receiver)
-        external
-        returns (uint256 assets);
+    function mint(
+        uint256 shares,
+        address receiver
+    ) external returns (uint256 assets);
 
-    function withdraw(uint256 assets, address receiver, address owner)
-        external
-        returns (uint256 shares);
+    function withdraw(
+        uint256 assets,
+        address receiver,
+        address owner
+    ) external returns (uint256 shares);
 
-    function redeem(uint256 shares, address receiver, address owner)
-        external
-        returns (uint256 assets);
+    function redeem(
+        uint256 shares,
+        address receiver,
+        address owner
+    ) external returns (uint256 assets);
 }

@@ -16,7 +16,7 @@ skip_balance_check: true
 # Also, please always add a reason why this account is needed for your tests.
 # This will be applied to each test.
 initialized_accounts:
-  - "0x6b175474e89094c44da98b954eedeac495271d0f" # FRAX Stablecoin
+  - "0x6B175474E89094C44Da98b954EedeAC495271d0F" # dai
 
 # A list of protocol types names created by your Substreams module.
 protocol_type_names:
@@ -24,23 +24,35 @@ protocol_type_names:
 
 # A list of tests.
 tests:
-  # Test to validate the creation of the sFrax vault
+  # Test to validate the creation of the sDai vault
   - name: test_sdai_vault_creation
     # Indexed block range where the vault was created
     start_block: 16428133 # sDai vault creation block
-    stop_block: 17322860 # 4 blocks after first withdraw tx
-    # block distance: 894727
-    # Could create issues to simulate vault creation and first deposit and withdraw
-    # Same as global `initialized_accounts` but only scoped to this test.
+    stop_block: 17293112 # 1 blocks after first deposit tx
+    # stop_block: 16428233 # 100 blocks after the vault creation
     expected_components:
       - id: "0x83F20F44975D03b1b09e64809B757c47f942BEeA" # sDai vault
         tokens:
           - "0x83F20F44975D03b1b09e64809B757c47f942BEeA" # sDai
-          - "0x6b175474e89094c44da98b954eedeac495271d0f" # dai
+          - "0x6B175474E89094C44Da98b954EedeAC495271d0F" # dai
         creation_tx: "0xa2f51048265f2fe9ffaf69b94cb5a2a4113be49bdecd2040d530dd6f68facc42"
         skip_simulation: false
 
-# First deposit tx: 0x44e1299a557c08e2325c53d28de6cb2c41ecfefbdb6353aa34773be0ad28588d
-# Block: 17293111
-# First withdraw tx: 0xd5b5f52f10286a9c04faced2f7ba3e4e66fdad3565d89a0d59d935c39e26c602
-# Block: 17322856
+  # First deposit tx: 0x44e1299a557c08e2325c53d28de6cb2c41ecfefbdb6353aa34773be0ad28588d
+  # Block: 17293111
+  # First withdraw tx: 0xd5b5f52f10286a9c04faced2f7ba3e4e66fdad3565d89a0d59d935c39e26c602
+  # Block: 17322856
+
+  # Test to validate deposit
+  # - name: test_sdai_deposit #deposit dai and receive sdai
+  #   start_block: 16428133 # sDai vault creation block
+  #   stop_block: 17293112 # 1 blocks after first deposit tx
+  #   # block distance: 864,979
+  #   # block distance could create issues to simulate vault creation and first deposit
+  #   expected_components:
+  #     - id: "0x83F20F44975D03b1b09e64809B757c47f942BEeA" # sDai vault
+  #       tokens:
+  #         - "0x83F20F44975D03b1b09e64809B757c47f942BEeA" # sDai
+  #         - "0x6b175474e89094c44da98b954eedeac495271d0f" # dai
+  #       creation_tx: "0xa2f51048265f2fe9ffaf69b94cb5a2a4113be49bdecd2040d530dd6f68facc42"
+  #       skip_simulation: false
