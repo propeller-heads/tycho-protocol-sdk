@@ -10,6 +10,7 @@ protobuf:
     - tycho/evm/v1/utils.proto
   importPaths:
     - ../../proto
+    - ./proto
 
 binaries:
   default:
@@ -24,7 +25,9 @@ modules:
       - params: string
       - source: sf.ethereum.type.v2.Block
     output:
-      type: proto:tycho.evm.v1.GroupedTransactionProtocolComponents
+      type: proto:tycho.evm.v1.BlockTransactionProtocolComponents
+    doc: |
+      param is the address without the 0x prefix of the vault you want to track (sdai)
 
   - name: store_components
     kind: store
@@ -34,15 +37,6 @@ modules:
     inputs:
       - map: map_components
 
-  - name: map_relative_balances
-    kind: map
-    initialBlock: 16428133 # An arbitrary block that should change based on your requirements
-    inputs:
-      - source: sf.ethereum.type.v2.Block
-      - store: store_components
-    output:
-      type: proto:tycho.evm.v1.BalanceDeltas
-
   - name: store_balances
     kind: store
     initialBlock: 16428133
@@ -50,6 +44,16 @@ modules:
     valueType: bigint
     inputs:
       - map: map_relative_balances
+
+  - name: map_relative_balances
+    kind: map
+    initialBlock: 16428133 # An arbitrary block that should change based on your requirements
+    inputs:
+      - source: sf.ethereum.type.v2.Block
+      - store: store_components
+    output:
+      type: proto:tycho.evm.v1.BlockBalanceDeltas
+
 
   - name: map_protocol_changes
     kind: map
@@ -62,4 +66,7 @@ modules:
       - store: store_balances
         mode: deltas # This is the key property that simplifies `BalanceChange` handling
     output:
-      type: proto:tycho.evm.v1.BlockContractChanges
+      type: proto:tycho.evm.v1.BlockChanges
+
+params:
+  map_components: "83F20F44975D03b1b09e64809B757c47f942BEeA"

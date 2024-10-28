@@ -1,0 +1,46 @@
+# Name of the substreams config file in your substreams module. Usually "./substreams.yaml"
+substreams_yaml_path: ./substreams.yaml
+# Name of the adapter contract, usually: ProtocolSwapAdapter
+adapter_contract: "sDaiSwapAdapter"
+# Constructor signature of the Adapter contract
+adapter_build_signature: "constructor(address)"
+# A comma separated list of args to be passed to the constructor of the Adapter contract
+adapter_build_args: "0x83F20F44975D03b1b09e64809B757c47f942BEeA"
+# Whether or not the testing script should skip checking balances of the protocol components.
+# If set to `true` please always add a reason why it's skipped.
+skip_balance_check: true
+
+# A list of accounts that need to be indexed to run the tests properly.
+# Usually used when there is a global component required by all pools and created before the tested range of blocks. For example a factory or a vault.
+# Please note that this component needs to be indexed by your substreams module, this feature is only for testing purposes.
+# Also, please always add a reason why this account is needed for your tests.
+# This will be applied to each test.
+initialized_accounts:
+  - "0x6b175474e89094c44da98b954eedeac495271d0f" # FRAX Stablecoin
+
+# A list of protocol types names created by your Substreams module.
+protocol_type_names:
+  - "sdai_vault"
+
+# A list of tests.
+tests:
+  # Test to validate the creation of the sFrax vault
+  - name: test_sdai_vault_creation
+    # Indexed block range where the vault was created
+    start_block: 16428133 # sDai vault creation block
+    stop_block: 17322860 # 4 blocks after first withdraw tx
+    # block distance: 894727
+    # Could create issues to simulate vault creation and first deposit and withdraw
+    # Same as global `initialized_accounts` but only scoped to this test.
+    expected_components:
+      - id: "0x83F20F44975D03b1b09e64809B757c47f942BEeA" # sDai vault
+        tokens:
+          - "0x83F20F44975D03b1b09e64809B757c47f942BEeA" # sDai
+          - "0x6b175474e89094c44da98b954eedeac495271d0f" # dai
+        creation_tx: "0xa2f51048265f2fe9ffaf69b94cb5a2a4113be49bdecd2040d530dd6f68facc42"
+        skip_simulation: false
+
+# First deposit tx: 0x44e1299a557c08e2325c53d28de6cb2c41ecfefbdb6353aa34773be0ad28588d
+# Block: 17293111
+# First withdraw tx: 0xd5b5f52f10286a9c04faced2f7ba3e4e66fdad3565d89a0d59d935c39e26c602
+# Block: 17322856
