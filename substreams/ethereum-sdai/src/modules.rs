@@ -7,7 +7,10 @@ use substreams::{
     pb::substreams::StoreDeltas,
     store::{StoreAdd, StoreAddBigInt, StoreAddInt64, StoreGet, StoreGetInt64, StoreNew},
 };
-use substreams_ethereum::{pb::eth, Event};
+use substreams_ethereum::{
+    pb::eth::{self},
+    Event,
+};
 use tycho_substreams::{
     balances::aggregate_balances_changes, contract::extract_contract_changes, prelude::*,
 };
@@ -37,8 +40,8 @@ pub fn map_components(
                             Some(
                                 ProtocolComponent::at_contract(&vault_address, &tx.into())
                                     .with_tokens(&[
-                                        locked_asset.as_slice(),
                                         vault_address.as_slice(),
+                                        locked_asset.as_slice(),
                                     ])
                                     .as_swap_type("sdai_vault", ImplementationType::Vm),
                             )

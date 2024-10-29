@@ -28,13 +28,13 @@ tests:
   - name: test_sdai_vault_creation
     # Indexed block range where the vault was created
     start_block: 16428133 # sDai vault creation block
-    stop_block: 17293112 # 1 blocks after first deposit tx
-    # stop_block: 16428233 # 100 blocks after the vault creation
+    # stop_block: 17293112 # 1 blocks after first deposit tx
+    stop_block: 16428233 # 100 blocks after the vault creation
     expected_components:
       - id: "0x83F20F44975D03b1b09e64809B757c47f942BEeA" # sDai vault
         tokens:
-          - "0x83F20F44975D03b1b09e64809B757c47f942BEeA" # sDai
           - "0x6B175474E89094C44Da98b954EedeAC495271d0F" # dai
+          - "0x83F20F44975D03b1b09e64809B757c47f942BEeA" # sDai
         creation_tx: "0xa2f51048265f2fe9ffaf69b94cb5a2a4113be49bdecd2040d530dd6f68facc42"
         skip_simulation: false
 
