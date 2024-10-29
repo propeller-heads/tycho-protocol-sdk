@@ -33,10 +33,10 @@ pub fn map_components(
                 let components = tx
                     .calls()
                     .filter(|call| !call.call.state_reverted)
-                    .filter_map(|_| {
+                    .filter_map(|call| {
                         // address doesn't exist before contract deployment, hence the first tx with
                         // a log.address = vault_address is the deployment tx
-                        if is_deployment_tx(tx, &vault_address) {
+                        if !call.call.state_reverted && is_deployment_tx(tx, &vault_address) {
                             Some(
                                 ProtocolComponent::at_contract(&vault_address, &tx.into())
                                     .with_tokens(&[
@@ -45,8 +45,6 @@ pub fn map_components(
                                     ])
                                     .as_swap_type("sdai_vault", ImplementationType::Vm),
                             )
-
-                            // Some(create_vault_component(&tx.into(), &vault_address, &locked_asset))
                         } else {
                             None
                         }
