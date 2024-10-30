@@ -25,39 +25,26 @@ pub fn map_components(
     // locked asset is Dai contract address
     let locked_asset = find_deployed_underlying_address(&vault_address).unwrap();
 
-    // We store these as a hashmap by tx hash since we need to agg by tx hash later
-    Ok(BlockTransactionProtocolComponents {
-        tx_components: block
-            .transactions()
-            .filter_map(|tx| {
-                let components = tx
-                    .calls()
-                    .filter(|call| !call.call.state_reverted)
-                    .filter_map(|call| {
-                        // address doesn't exist before contract deployment, hence the first tx with
-                        // a log.address = vault_address is the deployment tx
-                        if !call.call.state_reverted && is_deployment_tx(tx, &vault_address) {
-                            Some(
-                                ProtocolComponent::at_contract(&vault_address, &tx.into())
-                                    .with_tokens(&[
-                                        vault_address.as_slice(),
-                                        locked_asset.as_slice(),
-                                    ])
-                                    .as_swap_type("sdai_vault", ImplementationType::Vm),
-                            )
-                        } else {
-                            None
-                        }
-                    })
-                    .collect::<Vec<_>>();
-                if !components.is_empty() {
-                    Some(TransactionProtocolComponents { tx: Some(tx.into()), components })
-                } else {
-                    None
-                }
-            })
-            .collect::<Vec<_>>(),
-    })
+    let deployment_tx = block
+        .transactions()
+        .find(|tx| is_deployment_tx(tx, &vault_address));
+
+    let tx_protocol_components = deployment_tx
+        .map(|tx| {
+            let protocol_component = ProtocolComponent::at_contract(&vault_address, &tx.into())
+                .with_tokens(&[locked_asset.as_slice(), vault_address.as_slice()])
+                .as_swap_type("sdai_vault", ImplementationType::Vm);
+
+            TransactionProtocolComponents {
+                tx: Some(tx.into()),
+                components: vec![protocol_component],
+            }
+        })
+        .iter()
+        .cloned()
+        .collect::<Vec<_>>();
+
+    Ok(BlockTransactionProtocolComponents { tx_components: tx_protocol_components })
 }
 
 /// Simply stores the `ProtocolComponent`s with the pool id as the key
