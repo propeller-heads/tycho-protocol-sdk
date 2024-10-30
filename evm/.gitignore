@@ -17,3 +17,8 @@ docs/
 # Others
 .DS_STORE
 lcov.info
+
+# lib 
+lib/
+
+InternalFunctions.sol

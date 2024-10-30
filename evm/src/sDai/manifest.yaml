@@ -1,0 +1,37 @@
+# information about the author helps us reach out in case of issues.
+author:
+  name: shadowycoders.dev
+  email: hello@shadowycreators.com
+
+# Protocol Constants
+constants:
+  protocol_gas: 30000
+  # minimum capabilities we can expect, individual pools may extend these
+  capabilities:
+    - SellSide
+    - BuySide
+    - PriceFunction
+
+# The file containing the adapter contract
+contract: sDaiSwapAdapter.sol
+
+# Deployment instances used to generate chain specific bytecode.
+instances:
+  - chain:
+      name: mainnet
+      id: 1
+    arguments:
+      - "0x83F20F44975D03b1b09e64809B757c47f942BEeA"
+      - "0x6B175474E89094C44Da98b954EedeAC495271d0F"
+
+# Specify some automatic test cases in case getPoolIds and
+# getTokens are not implemented.
+tests:
+  instances:
+    - pool_id: "0x83F20F44975D03b1b09e64809B757c47f942BEeA"
+      sell_token: "0x6B175474E89094C44Da98b954EedeAC495271d0F"
+      buy_token: "0x83F20F44975D03b1b09e64809B757c47f942BEeA"
+      block: 19866715
+      chain:
+        id: 1
+        name: mainnet
