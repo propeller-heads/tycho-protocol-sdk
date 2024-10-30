@@ -217,7 +217,11 @@ pub fn map_protocol_changes(
                 .entry(tx.index)
                 .or_insert_with(|| TransactionChanges::new(&tx))
                 .balance_changes
-                .extend(balances.into_values());
+                .extend(
+                    balances
+                        .into_values()
+                        .flat_map(|inner_map| inner_map.into_values()),
+                );
         });
 
     // Extract and insert any storage changes that happened for any of the components.
