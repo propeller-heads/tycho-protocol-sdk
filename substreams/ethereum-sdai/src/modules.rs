@@ -77,11 +77,14 @@ pub fn map_relative_balances(
             // Take a deeper look if the balance is not returned correctly.
             // When withdrawing, _burn function is called:
             // 1. shares are subtracted to the balance of the owner and to the totalSupply (https://etherscan.io/address/0x83F20F44975D03b1b09e64809B757c47f942BEeA#code#L259)
-            // 2. pot.exit(shares) is called. pot is an immutable instance of PotLike initialized in sDai constructor. Deployed address: 0x197E90f9FAD81970bA7976f33CbD77088E5D7cf7
-            // 3. daiJoin.exit(receiver, assets) is called. daiJoin is an immutable instance of DaiJoinLike. Deployed address: 0x9759A6Ac90977b93B58547b4A71c78317f391A28
+            // 2. pot.exit(shares) is called. pot is an immutable instance of PotLike initialized in
+            //    sDai constructor. Deployed address: 0x197E90f9FAD81970bA7976f33CbD77088E5D7cf7
+            // 3. daiJoin.exit(receiver, assets) is called. daiJoin is an immutable instance of
+            //    DaiJoinLike. Deployed address: 0x9759A6Ac90977b93B58547b4A71c78317f391A28
             //  - It calls:
             //      - vat.move(msg.sender, address(this), mul(ONE, wad));
-            //          - dai[src] = sub(dai[src], rad); // subtract dai from the balance of the sender
+            //          - dai[src] = sub(dai[src], rad); // subtract dai from the balance of the
+            //            sender
             //          - dai[dst] = add(dai[dst], rad); // adds dai to the balance of sDai contract
             //      - dai.mint(usr, wad);
             //         - calls _mint function of sDai contract (https://etherscan.io/address/0x83F20F44975D03b1b09e64809B757c47f942BEeA#code#L227)
@@ -236,9 +239,9 @@ pub fn map_protocol_changes(
             .drain()
             .sorted_unstable_by_key(|(index, _)| *index)
             .filter_map(|(_, change)| {
-                if change.contract_changes.is_empty()
-                    && change.component_changes.is_empty()
-                    && change.balance_changes.is_empty()
+                if change.contract_changes.is_empty() &&
+                    change.component_changes.is_empty() &&
+                    change.balance_changes.is_empty()
                 {
                     None
                 } else {

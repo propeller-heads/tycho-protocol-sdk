@@ -8,7 +8,7 @@ members = [
     "ethereum-uniswap-v2",
     "ethereum-uniswap-v3",
     "ethereum-sfrax",
-    "ethereum-sfraxeth"
+    "ethereum-sfraxeth",
     "ethereum-sdai"
 ]
 resolver = "2"
