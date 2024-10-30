@@ -28,7 +28,7 @@ contract sDaiSwapAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
     function setUp() public {
         uint256 forkBlock = 19866715;
         vm.createSelectFork(vm.rpcUrl("mainnet"), forkBlock);
-        adapter = new sDaiSwapAdapter(SDAI_ADDRESS);
+        adapter = new sDaiSwapAdapter(SDAI_ADDRESS, DAI_ADDRESS);
     }
 
     function testPriceFuzzDaiForSDai(uint256 amount0, uint256 amount1) public {

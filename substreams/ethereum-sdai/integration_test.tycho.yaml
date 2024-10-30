@@ -1,0 +1,29 @@
+# Name of the substreams config file in your substreams module. Usually "./substreams.yaml"
+substreams_yaml_path: ./substreams.yaml
+# Name of the adapter contract, usually: ProtocolSwapAdapter
+adapter_contract: "sDaiSwapAdapter"
+# Constructor signature of the Adapter contract
+adapter_build_signature: "constructor(address, address)"
+# A comma separated list of args to be passed to the constructor of the Adapter contract
+adapter_build_args: "0x83F20F44975D03b1b09e64809B757c47f942BEeA,0x6B175474E89094C44Da98b954EedeAC495271d0F"
+# Whether or not the testing script should skip checking balances of the protocol components.
+# If set to `true` please always add a reason why it's skipped.
+skip_balance_check: true
+
+# A list of protocol types names created by your Substreams module.
+protocol_type_names:
+  - "sdai_vault"
+
+tests:
+  # Test to validate the creation of the sDai vault
+  - name: test_sdai_vault_creation
+    # Indexed block range where the vault was created
+    start_block: 16428133 # sDai vault creation block
+    stop_block: 16932340
+    expected_components:
+      - id: "0x83F20F44975D03b1b09e64809B757c47f942BEeA" # sDai vault
+        tokens:
+          - "0x6B175474E89094C44Da98b954EedeAC495271d0F" # dai
+          - "0x83F20F44975D03b1b09e64809B757c47f942BEeA" # sDai
+        creation_tx: "0xa2f51048265f2fe9ffaf69b94cb5a2a4113be49bdecd2040d530dd6f68facc42"
+        skip_simulation: false
