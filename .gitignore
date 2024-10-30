@@ -22,6 +22,3 @@ tycho-indexer
 substreams/my_substream
 testing/tycho-client/build/*
 testing/tycho-client/*.egg-info
-
-# Substreans
-substreams/ethereum-sfrax/
