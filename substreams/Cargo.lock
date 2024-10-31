@@ -221,7 +221,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "ethereum-balancer"
+name = "ethereum-balancer-v2"
 version = "0.2.3"
 dependencies = [
  "anyhow",
