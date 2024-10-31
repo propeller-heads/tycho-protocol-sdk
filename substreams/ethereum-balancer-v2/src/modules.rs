@@ -83,9 +83,7 @@ pub fn map_relative_balances(
                         .tokens
                         .iter()
                         .zip(ev.deltas.iter())
-                        .filter(|(token, _)| {
-                            **token != hex::decode(component_id[2..42].to_string()).unwrap()
-                        })
+                        .filter(|(token, _)| **token != hex::decode(&component_id[2..42]).unwrap())
                     {
                         deltas.push(BalanceDelta {
                             ord: vault_log.ordinal(),
