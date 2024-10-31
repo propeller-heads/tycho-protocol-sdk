@@ -24,7 +24,7 @@ initialized_accounts:
 #  - "0x1d8f8f00cfa6758d7be78336684788fb0ee0fa46"
 #  - "0xae78736cd615f374d3085123a210448e74fc6393"
 tests:
-  # WeightedPoolFactory - 0x897888115Ada5773E02aA29F775430BFB5F34c51
+  # WeightedPoolFactoryV4 - 0x897888115Ada5773E02aA29F775430BFB5F34c51
   - name: test_weighted_pool_creation
     start_block: 20128706
     stop_block: 20128806
@@ -38,7 +38,7 @@ tests:
           normalized_weights: "0x5b22307830623161326263326563353030303030222c22307830326336386166306262313430303030225d"
           fee: "0x11c37937e08000"
           manual_updates: "0x01"
-          pool_type: "0x5765696768746564506f6f6c466163746f7279"
+          pool_type: "0x5765696768746564506f6f6c466163746f72795634"
         creation_tx: "0xa63c671046ad2075ec8ea83ac21199cf3e3a5f433e72ec4c117cbabfb9b18de2"
 
   # WeightedPool2TokensFactory - 0xA5bf2ddF098bb0Ef6d120C98217dD6B141c74EE0
@@ -160,3 +160,20 @@ tests:
           main_token: "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2"
         skip_simulation: true
         creation_tx: "0x497aa03ce84d236c183204ddfc6762c8e4158da1ebc5e7e18e7f6cceaa497a2a"
+
+  # WeigthedPoolFactoryV1 - 0x8E9aa87E45e92bad84D5F8DD1bff34Fb92637dE9
+  - name: test_yearn_linear_pool_creation
+    start_block: 13899835
+    stop_block: 13901090
+    expected_components:
+      - id: "0xcb0e14e96f2cefa8550ad8e4aea344f211e5061d00020000000000000000011a"
+        tokens:
+          - "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2"
+          - "0xcAfE001067cDEF266AfB7Eb5A286dCFD277f3dE5"
+        static_attributes:
+          manual_updates: "0x01"
+          fee: "0x038d7ea4c68000"
+          normalized_weights: "0x5b22307830326336386166306262313430303030222c22307830623161326263326563353030303030225d"
+          pool_type: "0x5765696768746564506f6f6c466163746f72795631"
+        skip_simulation: false
+        creation_tx: "0xc5c3b384644363aa15cf9a0c33dfebd22df351446bce92ee49ead7d5d896b4e9"

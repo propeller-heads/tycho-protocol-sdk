@@ -10,6 +10,7 @@ import urllib.request
 abis = {
     # Factories
     "WeightedPoolFactory (v4)": "0x897888115Ada5773E02aA29F775430BFB5F34c51",
+    "WeightedPoolFactoryV1 (v1)": "0x8E9aa87E45e92bad84D5F8DD1bff34Fb92637dE9",
     "WeightedPool2TokensFactory": "0xA5bf2ddF098bb0Ef6d120C98217dD6B141c74EE0",  # 80Bal-20WETH
     "ComposableStablePoolFactory (v5)": "0xDB8d758BCb971e482B2C45f7F8a7740283A1bd3A",
     "ERC4626LinearPoolFactory (v4)": "0x813EE7a840CE909E7Fea2117A44a90b8063bd4fd",
@@ -33,7 +34,7 @@ if etherscan_key := os.environ.get("ETHERSCAN_API_TOKEN"):
 
 def __main__():
     for name, addr in abis.items():
-        normalized_name = "_".join(re.findall(r"[A-Z]+[a-z]*", name)).lower()
+        normalized_name = "_".join(re.findall(r"[A-Z]+[a-z]*\d*", name)).lower()
         print(f"Getting ABI for {name} at {addr} ({normalized_name})")
 
         try:
