@@ -21,7 +21,8 @@ instances:
       name: mainnet
       id: 0
     arguments:
-      - "0x8E303D296851B320e6a697bAcB979d13c9D6E760"
+      - "0x8E303D296851B320e6a697bAcB979d13c9D6E760" # Bancor Network Info V3
+      - "0xeEF417e1D5CC832e619ae18D2F140De2999dD4fB" # Bancor Network V3
 
 # Specify some automatic test cases in case getPoolIds and
 # getTokens are not implemented.
