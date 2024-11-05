@@ -18,21 +18,23 @@ contract BancorV3SwapAdapterTest is Test, ISwapAdapterTypes {
 
     BancorV3SwapAdapter adapter;
 
-    address constant BANCOR_NETWORK_INFO_PROXY_ADDRESS =
+    address constant BANCOR_NETWORK_INFO_V3 =
         0x8E303D296851B320e6a697bAcB979d13c9D6E760;
+    address constant BANCOR_NETWORK_V3 =
+        0xeEF417e1D5CC832e619ae18D2F140De2999dD4fB;
 
-    IERC20 constant ETH = IERC20(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE);
-    IERC20 constant LINK = IERC20(0x514910771AF9Ca656af840dff83E8264EcF986CA);
-    IERC20 constant BNT = IERC20(0x1F573D6Fb3F13d689FF844B4cE37794d79a7FF1C);
-    IERC20 constant WBTC = IERC20(0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599);
+    address constant ETH = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
+    address constant LINK = 0x514910771AF9Ca656af840dff83E8264EcF986CA;
+    address constant BNT = 0x1F573D6Fb3F13d689FF844B4cE37794d79a7FF1C;
+    address constant WBTC = 0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599;
 
     bytes32 constant PAIR = bytes32(0);
     uint256 constant TEST_ITERATIONS = 100;
 
-    Token immutable eth = Token(address(ETH));
-    Token immutable bnt = Token(address(BNT));
-    Token immutable link = Token(address(LINK));
-    Token immutable wbtc = Token(address(WBTC));
+    Token immutable eth = Token(ETH);
+    Token immutable bnt = Token(BNT);
+    Token immutable link = Token(LINK);
+    Token immutable wbtc = Token(WBTC);
 
     receive() external payable {}
 
@@ -40,7 +42,8 @@ contract BancorV3SwapAdapterTest is Test, ISwapAdapterTypes {
         uint256 forkBlock = 19489171;
         vm.createSelectFork(vm.rpcUrl("mainnet"), forkBlock);
 
-        adapter = new BancorV3SwapAdapter(BANCOR_NETWORK_INFO_PROXY_ADDRESS);
+        adapter =
+            new BancorV3SwapAdapter(BANCOR_NETWORK_INFO_V3, BANCOR_NETWORK_V3);
     }
 
     function testPriceFuzzBancorV3LinkBnt(uint256 amount0, uint256 amount1)
@@ -193,16 +196,16 @@ contract BancorV3SwapAdapterTest is Test, ISwapAdapterTypes {
             vm.assume(specifiedAmount < limits[1]);
 
             deal(address(BNT), address(this), type(uint256).max);
-            BNT.approve(address(adapter), type(uint256).max);
+            IERC20(BNT).approve(address(adapter), type(uint256).max);
         } else {
             vm.assume(specifiedAmount < limits[0]);
 
             deal(address(BNT), address(this), specifiedAmount);
-            BNT.approve(address(adapter), specifiedAmount);
+            IERC20(BNT).approve(address(adapter), specifiedAmount);
         }
 
-        uint256 bnt_balance_before_swap = BNT.balanceOf(address(this));
-        uint256 link_balance_before_swap = LINK.balanceOf(address(this));
+        uint256 bnt_balance_before_swap = IERC20(BNT).balanceOf(address(this));
+        uint256 link_balance_before_swap = IERC20(LINK).balanceOf(address(this));
 
         Trade memory trade =
             adapter.swap(PAIR, BNT, LINK, side, specifiedAmount);
@@ -211,20 +214,24 @@ contract BancorV3SwapAdapterTest is Test, ISwapAdapterTypes {
             if (side == OrderSide.Buy) {
                 assertEq(
                     specifiedAmount,
-                    LINK.balanceOf(address(this)) - link_balance_before_swap
+                    IERC20(LINK).balanceOf(address(this))
+                        - link_balance_before_swap
                 );
                 assertEq(
                     trade.calculatedAmount,
-                    bnt_balance_before_swap - BNT.balanceOf(address(this))
+                    bnt_balance_before_swap
+                        - IERC20(BNT).balanceOf(address(this))
                 );
             } else {
                 assertEq(
                     specifiedAmount,
-                    bnt_balance_before_swap - BNT.balanceOf(address(this))
+                    bnt_balance_before_swap
+                        - IERC20(BNT).balanceOf(address(this))
                 );
                 assertEq(
                     trade.calculatedAmount,
-                    LINK.balanceOf(address(this)) - link_balance_before_swap
+                    IERC20(LINK).balanceOf(address(this))
+                        - link_balance_before_swap
                 );
             }
         }
@@ -246,7 +253,7 @@ contract BancorV3SwapAdapterTest is Test, ISwapAdapterTypes {
             beforeSwap = vm.snapshot();
 
             deal(address(BNT), address(this), type(uint256).max);
-            BNT.approve(address(adapter), type(uint256).max);
+            IERC20(BNT).approve(address(adapter), type(uint256).max);
 
             trades[i] = adapter.swap(PAIR, BNT, LINK, side, amounts[i]);
             vm.revertTo(beforeSwap);
@@ -296,7 +303,7 @@ contract BancorV3SwapAdapterTest is Test, ISwapAdapterTypes {
         Fraction[] memory prices = adapter.price(PAIR, LINK, WBTC, amounts);
 
         deal(address(LINK), address(this), amountIn);
-        LINK.approve(address(adapter), amountIn);
+        IERC20(LINK).approve(address(adapter), amountIn);
 
         Fraction memory priceSwap =
             adapter.swap(PAIR, LINK, WBTC, OrderSide.Sell, amountIn).price;
