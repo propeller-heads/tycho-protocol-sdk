@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 pragma solidity ^0.8.13;
 
+import "./AdapterTest.sol";
 import "forge-std/Test.sol";
 import "forge-std/console.sol";
 import "src/interfaces/ISwapAdapterTypes.sol";
@@ -13,7 +14,7 @@ import "src/bancor-v3/BancorV3SwapAdapter.sol";
 /// included here are just an example.
 /// Feel free to use UniswapV2SwapAdapterTest and BalancerV2SwapAdapterTest as a
 /// reference.
-contract BancorV3SwapAdapterTest is Test, ISwapAdapterTypes {
+contract BancorV3SwapAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
     using FractionMath for Fraction;
 
     BancorV3SwapAdapter adapter;
@@ -30,11 +31,6 @@ contract BancorV3SwapAdapterTest is Test, ISwapAdapterTypes {
 
     bytes32 constant PAIR = bytes32(0);
     uint256 constant TEST_ITERATIONS = 100;
-
-    Token immutable eth = Token(ETH);
-    Token immutable bnt = Token(BNT);
-    Token immutable link = Token(LINK);
-    Token immutable wbtc = Token(WBTC);
 
     receive() external payable {}
 
@@ -310,5 +306,19 @@ contract BancorV3SwapAdapterTest is Test, ISwapAdapterTypes {
 
         assertEq(prices[0].numerator, priceSwap.numerator);
         assertEq(prices[0].denominator, priceSwap.denominator);
+    }
+
+    /**
+     * @dev test fails because AdapterTest.sol needs to reset allowance
+     * @dev "using SafeERC20 for IERC20"
+     */
+    function testPoolBehaviourBancorV3() public {
+        bytes32[] memory poolIds = adapter.getPoolIds(0, 1000);
+
+        for (uint256 i = 0; i < poolIds.length; i++) {
+            console.log(address(bytes20(poolIds[i])));
+        }
+
+        runPoolBehaviourTest(adapter, poolIds);
     }
 }

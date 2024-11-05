@@ -345,28 +345,48 @@ contract BancorV3SwapAdapter is ISwapAdapter {
         override
         returns (address[] memory tokens)
     {
-        tokens = new address[](1);
+        tokens = new address[](2);
         tokens[0] = address(bytes20(poolId));
+        tokens[1] = BNT;
     }
 
     /// @inheritdoc ISwapAdapter
     /// @dev poolIds in BanvorV3 corresponds to addresses of single tokens,
-    /// since each pool
-    /// is paired with bnt
+    /// since each pool is paired with bnt
     function getPoolIds(uint256 offset, uint256 limit)
         external
         view
         override
         returns (bytes32[] memory ids)
     {
-        uint256 endIdx = offset + limit;
         Token[] memory tokenPools = i_bancorNetwork.liquidityPools();
-        if (endIdx > tokenPools.length) {
-            endIdx = tokenPools.length;
+
+        uint256 numEnabledPools = 0;
+
+        for (uint256 i = 0; i < tokenPools.length; i++) {
+            if (i_bancorNetworkInfo.tradingEnabled(tokenPools[i])) {
+                numEnabledPools++;
+            }
+        }
+
+        bytes32[] memory poolIds = new bytes32[](numEnabledPools);
+
+        uint256 newPoolIdIndex = 0;
+
+        for (uint256 i = 0; i < tokenPools.length; i++) {
+            if (i_bancorNetworkInfo.tradingEnabled(tokenPools[i])) {
+                poolIds[newPoolIdIndex] = bytes20(address(tokenPools[i]));
+                newPoolIdIndex++;
+            }
+        }
+        uint256 endIdx = offset + limit;
+
+        if (endIdx > poolIds.length) {
+            endIdx = poolIds.length;
         }
         ids = new bytes32[](endIdx - offset);
         for (uint256 i = 0; i < ids.length; i++) {
-            ids[i] = bytes20(address(tokenPools[offset + i]));
+            ids[i] = poolIds[i + offset];
         }
     }
 
@@ -379,9 +399,6 @@ contract BancorV3SwapAdapter is ISwapAdapter {
         internal
         returns (uint256 calculatedAmount)
     {
-        // Token sellToken = Token(sellToken);
-        // Token buyToken = Token(buyToken);
-
         IERC20(sellToken).safeTransferFrom(msg.sender, address(this), amount);
         IERC20(sellToken).safeIncreaseAllowance(
             address(i_bancorNetwork), amount
@@ -406,9 +423,6 @@ contract BancorV3SwapAdapter is ISwapAdapter {
         internal
         returns (uint256 calculatedAmount)
     {
-        // Token sellToken = Token(sellToken);
-        // Token buyToken = Token(buyToken);
-
         uint256 amountIn = i_bancorNetworkInfo.tradeInputByTargetAmount(
             Token(sellToken), Token(buyToken), amount
         );
@@ -635,10 +649,6 @@ contract BancorV3SwapAdapter is ISwapAdapter {
         view
         returns (Fraction memory)
     {
-        // Token sellToken = Token(sellToken);
-        // Token buyToken = Token(buyToken);
-        // Token BNT = Token(BNT);
-
         uint256 tradingLiquiditySellTokenAfter = (sellToken == BNT)
             ? uint256(getTradingLiquidity(buyToken).bntTradingLiquidity)
             : uint256(getTradingLiquidity(sellToken).baseTokenTradingLiquidity);
