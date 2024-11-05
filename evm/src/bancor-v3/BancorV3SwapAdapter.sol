@@ -279,49 +279,48 @@ contract BancorV3SwapAdapter is ISwapAdapter {
 
     /// @inheritdoc ISwapAdapter
     /// @dev Limits are underestimated at 90% of total liquidity inside pools
-    function getLimits(bytes32, address sellToken, address buyToken)
+    function getLimits(bytes32, address _sellToken, address _buyToken)
         external
         view
         override
-        onlySupportedTokens(sellToken, buyToken)
+        onlySupportedTokens(_sellToken, _buyToken)
         returns (uint256[] memory limits)
     {
         limits = new uint256[](2);
-        // Token sellToken = Token(sellToken);
-        // Token buyToken = Token(buyToken);
-        // Token BNT = Token(BNT);
+        Token sellToken = Token(_sellToken);
+        Token buyToken = Token(_buyToken);
+        Token bnt = Token(BNT);
 
-        if (sellToken == BNT || buyToken == BNT) {
-            // Token token = (sellToken == bnt) ? buyToken : sellToken;
-            uint256 tradingLiquidityBuyToken = (sellToken == BNT)
-                ? i_bancorNetworkInfo.tradingLiquidity(Token(buyToken))
+        if (_sellToken == BNT || _buyToken == BNT) {
+            Token token = (_sellToken == BNT) ? buyToken : sellToken;
+            uint256 tradingLiquidityBuyToken = (_sellToken == BNT)
+                ? i_bancorNetworkInfo.tradingLiquidity(token)
                     .baseTokenTradingLiquidity
-                : i_bancorNetworkInfo.tradingLiquidity(Token(BNT))
-                    .bntTradingLiquidity;
+                : i_bancorNetworkInfo.tradingLiquidity(token).bntTradingLiquidity;
 
             limits[1] = (tradingLiquidityBuyToken * 90) / 100;
             limits[0] = i_bancorNetworkInfo.tradeInputByTargetAmount(
-                Token(sellToken), Token(buyToken), limits[1]
+                sellToken, buyToken, limits[1]
             );
         } else {
             uint256 maxBntTradeable = (
                 (
-                    i_bancorNetworkInfo.tradingLiquidity(Token(buyToken))
+                    i_bancorNetworkInfo.tradingLiquidity(buyToken)
                         .bntTradingLiquidity
-                        < i_bancorNetworkInfo.tradingLiquidity(Token(sellToken))
+                        < i_bancorNetworkInfo.tradingLiquidity(sellToken)
                             .bntTradingLiquidity
-                        ? i_bancorNetworkInfo.tradingLiquidity(Token(buyToken))
+                        ? i_bancorNetworkInfo.tradingLiquidity(buyToken)
                             .bntTradingLiquidity
-                        : i_bancorNetworkInfo.tradingLiquidity(Token(sellToken))
+                        : i_bancorNetworkInfo.tradingLiquidity(sellToken)
                             .bntTradingLiquidity
                 ) * 90
             ) / 100;
 
             limits[0] = i_bancorNetworkInfo.tradeInputByTargetAmount(
-                Token(sellToken), Token(BNT), maxBntTradeable
+                sellToken, bnt, maxBntTradeable
             );
             limits[1] = i_bancorNetworkInfo.tradeOutputBySourceAmount(
-                Token(sellToken), Token(buyToken), limits[0]
+                sellToken, buyToken, limits[0]
             );
         }
     }
