@@ -16,7 +16,8 @@ contract LidoAdapter is ISwapAdapter {
 
     /// @notice Internal check for input and output tokens
     /// @dev This contract only supports swaps of tokens: ETH(address(0)), stETH
-    /// and wstETH, ETH cannot be used as buy token because its withdrawal is not instant
+    /// and wstETH, ETH cannot be used as buy token because its withdrawal is
+    /// not instant
     modifier checkInputTokens(
         address sellTokenAddress,
         address buyTokenAddress
@@ -94,11 +95,6 @@ contract LidoAdapter is ISwapAdapter {
 
         address stETHAddress = address(stETH);
         address wstETHAddress = address(wstETH);
-        if (buyToken == address(0)) {
-            revert Unavailable(
-                "Cannot swap for ETH since withdrawal is processed externally"
-            );
-        }
 
         if (side == OrderSide.Buy) {
             if (sellToken == stETHAddress) {
@@ -234,29 +230,20 @@ contract LidoAdapter is ISwapAdapter {
         address sellTokenAddress,
         address buyTokenAddress
     ) internal view returns (Fraction memory) {
-        address wstETHAddress = address(wstETH);
         address stETHAddress = address(stETH);
         uint256 amount0;
         uint256 amount1;
 
         if (sellTokenAddress == stETHAddress) {
-            if (buyTokenAddress == wstETHAddress) {
-                amount0 = wstETH.getWstETHByStETH(specifiedAmount);
-                amount1 = wstETH.getStETHByWstETH(amount0);
-            } else {
-                amount0 = stETH.getPooledEthByShares(specifiedAmount);
-                amount1 = stETH.getSharesByPooledEth(amount0);
-            }
-        } else if (sellTokenAddress == wstETHAddress) {
-            if (buyTokenAddress == stETHAddress) {
-                amount0 = wstETH.getStETHByWstETH(specifiedAmount);
-                amount1 = wstETH.getWstETHByStETH(amount0);
-            } else {
-                uint256 stETHAmount = wstETH.getStETHByWstETH(specifiedAmount);
-                amount0 = stETH.getPooledEthByShares(stETHAmount);
-                amount1 =
-                    wstETH.getWstETHByStETH(stETH.getSharesByPooledEth(amount0));
-            }
+            // stETH-wstETH, ETH is not possible as checked through
+            // checkInputTokens
+            amount0 = wstETH.getWstETHByStETH(specifiedAmount);
+            amount1 = wstETH.getStETHByWstETH(amount0);
+        } else if (sellTokenAddress == address(wstETH)) {
+            // wstETH-stETH, ETH is not possible as checked through
+            // checkInputTokens
+            amount0 = wstETH.getStETHByWstETH(specifiedAmount);
+            amount1 = wstETH.getWstETHByStETH(amount0);
         } else {
             // ETH (address(0))
             if (buyTokenAddress == stETHAddress) {
