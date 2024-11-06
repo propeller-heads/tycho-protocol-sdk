@@ -46,7 +46,7 @@ contract LidoAdapter is ISwapAdapter {
 
         if (!supported) {
             revert Unavailable(
-                "This contract only supports wstETH, ETH(address(0)) and stETH tokens"
+                "This contract only supports wstETH<->stETH, ETH(address(0))->wstETH and ETH(address(0))->stETH swaps"
             );
         }
         _;
