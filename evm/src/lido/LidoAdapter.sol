@@ -2,7 +2,6 @@
 pragma experimental ABIEncoderV2;
 pragma solidity ^0.8.13;
 
-import "forge-std/Test.sol";
 import {IERC20, ISwapAdapter} from "src/interfaces/ISwapAdapter.sol";
 
 /// @title Lido DAO Adapter
@@ -11,9 +10,9 @@ contract LidoAdapter is ISwapAdapter {
     IwstETH wstETH;
     IStETH stETH;
 
-    constructor(IwstETH _wstETH) {
-        wstETH = _wstETH;
-        stETH = _wstETH.stETH();
+    constructor(address _wstETH, address _stETH) {
+        wstETH = IwstETH(_wstETH)
+        stETH = IStETH(_stETH);
     }
 
     /// @notice Internal check for input and output tokens
@@ -169,16 +168,19 @@ contract LidoAdapter is ISwapAdapter {
         }
     }
 
+    /// @inheritdoc ISwapAdapter
     function getCapabilities(bytes32, IERC20, IERC20)
         external
         pure
         override
         returns (Capability[] memory capabilities)
     {
-        capabilities = new Capability[](3);
+        capabilities = new Capability[](5);
         capabilities[0] = Capability.SellOrder;
         capabilities[1] = Capability.BuyOrder;
         capabilities[2] = Capability.PriceFunction;
+        capabilities[3] = Capability.ConstantPrice;
+        capabilities[4] = Capability.HardLimits;
     }
 
     /// @inheritdoc ISwapAdapter
