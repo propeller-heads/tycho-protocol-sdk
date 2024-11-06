@@ -11,7 +11,7 @@ import {ERC20} from "openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
 import "src/libraries/FractionMath.sol";
 
 /// @dev custom RESERVE_LIMIT_FACTOR for limits for this adapter(underestimate)
-uint256 constant RESERVE_LIMIT_FACTOR = 10;
+uint256 constant RESERVE_LIMIT_FACTOR = 2;
 
 /// @title Curve Finance Adapter
 /// @dev This contract supports both CryptoSwap and StableSwap Curve pools
