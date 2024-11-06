@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 pragma solidity ^0.8.13;
 
-import {IERC20} from "openzeppelin-contracts/contracts/interfaces/IERC20.sol";
-
 interface ISwapAdapterTypes {
     /// @dev The OrderSide enum represents possible sides of a trade: Sell or
     /// Buy. E.g. if OrderSide is Sell, the sell amount is interpreted to be
@@ -32,7 +30,13 @@ interface ISwapAdapterTypes {
         TokenBalanceIndependent,
         // Indicates that prices are returned scaled, else it is assumed prices
         // still require scaling by token decimals. (required)
-        ScaledPrices
+        ScaledPrices,
+        // Indicates that if we try to go over the sell limits, the pool will
+        // revert (optional)
+        HardLimits,
+        // Indicates whether the pool's price function can be called with
+        // amountIn=0 to return the current price (optional)
+        MarginalPrice
     }
 
     /// @dev Representation used for rational numbers such as prices.
