@@ -16,7 +16,7 @@ contract LidoAdapter is ISwapAdapter {
 
     /// @notice Internal check for input and output tokens
     /// @dev This contract only supports swaps of tokens: ETH(address(0)), stETH
-    /// and wstETH
+    /// and wstETH, ETH cannot be used as buy token because its withdrawal is not instant
     modifier checkInputTokens(
         address sellTokenAddress,
         address buyTokenAddress
@@ -38,7 +38,6 @@ contract LidoAdapter is ISwapAdapter {
                 if (
                     buyTokenAddress != wstETHAddress
                         && buyTokenAddress != stETHAddress
-                        && buyTokenAddress != address(0)
                 ) {
                     supported = false;
                 }
