@@ -34,18 +34,17 @@ fn get_token_registered(
         .clone()
 }
 
-/// This is the main function that handles the creation of `ProtocolComponent`s with `Attribute`s
-/// based on the specific factory address. There's 3 factory groups that are represented here:
-///  - Weighted Pool Factories
-///  - Linear Pool Factories
-///  - Stable Pool Factories
-///
-/// (Balancer does have a bit more (esp. in the deprecated section) that could be implemented as
-/// desired.)
-/// We use the specific ABIs to decode both the log event and corresponding call to gather
-/// `PoolCreated` event information alongside the `Create` call data that provide us details to
-/// fulfill both the required details + any extra `Attributes`
-/// Ref: https://docs.balancer.fi/reference/contracts/deployment-addresses/mainnet.html
+// This is the main function that handles the creation of `ProtocolComponent`s with `Attribute`s
+//  based on the specific factory address. There's 3 factory groups that are represented here:
+//  - Weighted Pool Factories
+//  - Linear Pool Factories
+//  - Stable Pool Factories
+// (Balancer does have a bit more (esp. in the deprecated section) that could be implemented as
+//  desired.)
+// We use the specific ABIs to decode both the log event and corresponding call to gather
+//  `PoolCreated` event information alongside the `Create` call data that provide us details to
+//  fulfill both the required details + any extra `Attributes`
+// Ref: https://docs.balancer.fi/reference/contracts/deployment-addresses/mainnet.html
 pub fn address_map(
     pool_factory_address: &[u8],
     log: &Log,
@@ -53,11 +52,11 @@ pub fn address_map(
     tx: &TransactionTrace,
 ) -> Option<ProtocolComponent> {
     match *pool_factory_address {
-        hex!("897888115Ada5773E02aA29F775430BFB5F34c51") => {
+        hex!("8E9aa87E45e92bad84D5F8DD1bff34Fb92637dE9") => {
             let create_call =
-                abi::weighted_pool_factory::functions::Create::match_and_decode(call)?;
+                abi::weighted_pool_factory_v1::functions::Create::match_and_decode(call)?;
             let pool_created =
-                abi::weighted_pool_factory::events::PoolCreated::match_and_decode(log)?;
+                abi::weighted_pool_factory_v1::events::PoolCreated::match_and_decode(log)?;
             let pool_registered = get_pool_registered(tx, &pool_created.pool);
 
             Some(
@@ -68,7 +67,35 @@ pub fn address_map(
                 .with_contracts(&[pool_created.pool, VAULT_ADDRESS.to_vec()])
                 .with_tokens(&create_call.tokens)
                 .with_attributes(&[
-                    ("pool_type", "WeightedPoolFactory".as_bytes()),
+                    ("pool_type", "WeightedPoolFactoryV1".as_bytes()),
+                    ("normalized_weights", &json_serialize_bigint_list(&create_call.weights)),
+                    (
+                        "fee",
+                        &create_call
+                            .swap_fee_percentage
+                            .to_signed_bytes_be(),
+                    ),
+                    ("manual_updates", &[1u8]),
+                ])
+                .as_swap_type("balancer_v2_pool", ImplementationType::Vm),
+            )
+        }
+        hex!("cC508a455F5b0073973107Db6a878DdBDab957bC") => {
+            let create_call =
+                abi::weighted_pool_factory_v2::functions::Create::match_and_decode(call)?;
+            let pool_created =
+                abi::weighted_pool_factory_v2::events::PoolCreated::match_and_decode(log)?;
+            let pool_registered = get_pool_registered(tx, &pool_created.pool);
+
+            Some(
+                ProtocolComponent::new(
+                    &format!("0x{}", hex::encode(pool_registered.pool_id)),
+                    &(tx.into()),
+                )
+                .with_contracts(&[pool_created.pool, VAULT_ADDRESS.to_vec()])
+                .with_tokens(&create_call.tokens)
+                .with_attributes(&[
+                    ("pool_type", "WeightedPoolFactoryV2".as_bytes()),
                     (
                         "normalized_weights",
                         &json_serialize_bigint_list(&create_call.normalized_weights),
@@ -82,7 +109,71 @@ pub fn address_map(
                     ),
                     ("manual_updates", &[1u8]),
                 ])
-                .as_swap_type("balancer_pool", ImplementationType::Vm),
+                .as_swap_type("balancer_v2_pool", ImplementationType::Vm),
+            )
+        }
+        hex!("5Dd94Da3644DDD055fcf6B3E1aa310Bb7801EB8b") => {
+            let create_call =
+                abi::weighted_pool_factory_v3::functions::Create::match_and_decode(call)?;
+            let pool_created =
+                abi::weighted_pool_factory_v3::events::PoolCreated::match_and_decode(log)?;
+            let pool_registered = get_pool_registered(tx, &pool_created.pool);
+
+            Some(
+                ProtocolComponent::new(
+                    &format!("0x{}", hex::encode(pool_registered.pool_id)),
+                    &(tx.into()),
+                )
+                .with_contracts(&[pool_created.pool, VAULT_ADDRESS.to_vec()])
+                .with_tokens(&create_call.tokens)
+                .with_attributes(&[
+                    ("pool_type", "WeightedPoolFactoryV3".as_bytes()),
+                    (
+                        "normalized_weights",
+                        &json_serialize_bigint_list(&create_call.normalized_weights),
+                    ),
+                    ("rate_providers", &json_serialize_address_list(&create_call.rate_providers)),
+                    (
+                        "fee",
+                        &create_call
+                            .swap_fee_percentage
+                            .to_signed_bytes_be(),
+                    ),
+                    ("manual_updates", &[1u8]),
+                ])
+                .as_swap_type("balancer_v2_pool", ImplementationType::Vm),
+            )
+        }
+        hex!("897888115Ada5773E02aA29F775430BFB5F34c51") => {
+            let create_call =
+                abi::weighted_pool_factory_v4::functions::Create::match_and_decode(call)?;
+            let pool_created =
+                abi::weighted_pool_factory_v4::events::PoolCreated::match_and_decode(log)?;
+            let pool_registered = get_pool_registered(tx, &pool_created.pool);
+
+            Some(
+                ProtocolComponent::new(
+                    &format!("0x{}", hex::encode(pool_registered.pool_id)),
+                    &(tx.into()),
+                )
+                .with_contracts(&[pool_created.pool, VAULT_ADDRESS.to_vec()])
+                .with_tokens(&create_call.tokens)
+                .with_attributes(&[
+                    ("pool_type", "WeightedPoolFactoryV4".as_bytes()),
+                    (
+                        "normalized_weights",
+                        &json_serialize_bigint_list(&create_call.normalized_weights),
+                    ),
+                    ("rate_providers", &json_serialize_address_list(&create_call.rate_providers)),
+                    (
+                        "fee",
+                        &create_call
+                            .swap_fee_percentage
+                            .to_signed_bytes_be(),
+                    ),
+                    ("manual_updates", &[1u8]),
+                ])
+                .as_swap_type("balancer_v2_pool", ImplementationType::Vm),
             )
         }
         hex!("DB8d758BCb971e482B2C45f7F8a7740283A1bd3A") => {
@@ -112,7 +203,7 @@ pub fn address_map(
                     ("rate_providers", &json_serialize_address_list(&create_call.rate_providers)),
                     ("manual_updates", &[1u8]),
                 ])
-                .as_swap_type("balancer_pool", ImplementationType::Vm),
+                .as_swap_type("balancer_v2_pool", ImplementationType::Vm),
             )
         }
         hex!("813EE7a840CE909E7Fea2117A44a90b8063bd4fd") => {
@@ -149,7 +240,7 @@ pub fn address_map(
                             .to_signed_bytes_be(),
                     ),
                 ])
-                .as_swap_type("balancer_pool", ImplementationType::Vm),
+                .as_swap_type("balancer_v2_pool", ImplementationType::Vm),
             )
         }
         hex!("5F43FBa61f63Fa6bFF101a0A0458cEA917f6B347") => {
@@ -186,7 +277,7 @@ pub fn address_map(
                             .to_signed_bytes_be(),
                     ),
                 ])
-                .as_swap_type("balancer_pool", ImplementationType::Vm),
+                .as_swap_type("balancer_v2_pool", ImplementationType::Vm),
             )
         }
         // ❌ Reading the deployed factory for Gearbox showcases that it's currently disabled
@@ -271,7 +362,7 @@ pub fn address_map(
                             .to_signed_bytes_be(),
                     ),
                 ])
-                .as_swap_type("balancer_pool", ImplementationType::Vm),
+                .as_swap_type("balancer_v2_pool", ImplementationType::Vm),
             )
         }
         hex!("5F5222Ffa40F2AEd6380D022184D6ea67C776eE0") => {
@@ -308,7 +399,7 @@ pub fn address_map(
                             .to_signed_bytes_be(),
                     ),
                 ])
-                .as_swap_type("balancer_pool", ImplementationType::Vm),
+                .as_swap_type("balancer_v2_pool", ImplementationType::Vm),
             )
         }
         // The `WeightedPool2TokenFactory` is a deprecated contract, but we've included
@@ -338,7 +429,7 @@ pub fn address_map(
                     ),
                     ("manual_updates", &[1u8]),
                 ])
-                .as_swap_type("balancer_pool", ImplementationType::Vm),
+                .as_swap_type("balancer_v2_pool", ImplementationType::Vm),
             )
         }
         _ => None,

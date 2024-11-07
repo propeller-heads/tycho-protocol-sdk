@@ -1,12 +1,13 @@
 [workspace]
 members = [
-    "ethereum-balancer",
+    "ethereum-balancer-v2",
     "ethereum-curve",
     "crates/tycho-substreams",
     "crates/substreams-helper",
     "ethereum-ambient",
     "ethereum-uniswap-v2",
     "ethereum-uniswap-v3",
+    "ethereum-sfrax",
     "ethereum-sfraxeth",
     "ethereum-uniswap-v3-logs-only",
 ]
