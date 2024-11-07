@@ -294,7 +294,7 @@ tests:
   #  - name: test_stableswap_factory_meta_pool
   # There was no metapool created from this factory yet.
   # https://etherscan.io/address/0x4F8846Ae9380B90d2E71D5e3D042dff3E7ebb40d#events search events with topic 0x01f31cd2abdeb4e5e10ba500f2db0f937d9e8c735ab04681925441b4ea37eda5.
-  # related event is MetaPoolDeployed(address,address,uint256,uint256,address)
+  # related event is MetaPoolDeployed(address,address,uint256,uint256,address).
 
   # - name: test_metapool_factory_old
   #   start_block: 11968730
