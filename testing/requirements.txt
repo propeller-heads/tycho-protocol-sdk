@@ -3,4 +3,4 @@ PyYAML==6.0.1
 Requests==2.32.2
 web3==5.31.3
 tycho-indexer-client>=0.7.2
-tycho_simulation_py>=0.32.0
+tycho-simulation-py>=0.32.0
