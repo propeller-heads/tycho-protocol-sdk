@@ -2,10 +2,15 @@
 pragma experimental ABIEncoderV2;
 pragma solidity ^0.8.13;
 
-import {IERC20, ISwapAdapter} from "src/interfaces/ISwapAdapter.sol";
+import {ISwapAdapter} from "src/interfaces/ISwapAdapter.sol";
+import {IERC20} from "openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
+import {SafeERC20} from
+    "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 
 /// @title Lido DAO Adapter
 contract LidoAdapter is ISwapAdapter {
+    using SafeERC20 for IERC20;
+
     IwstETH wstETH;
     IStETH stETH;
 
@@ -100,13 +105,17 @@ contract LidoAdapter is ISwapAdapter {
             if (sellToken == stETHAddress) {
                 // stETH-wstETH
                 uint256 amountIn = wstETH.getStETHByWstETH(specifiedAmount);
-                stETH.transferFrom(msg.sender, address(this), amountIn);
-                stETH.approve(wstETHAddress, amountIn);
+                IERC20(stETH).safeTransferFrom(
+                    msg.sender, address(this), amountIn
+                );
+                IERC20(stETH).safeIncreaseAllowance(wstETHAddress, amountIn);
                 wstETH.wrap(amountIn);
             } else if (sellToken == wstETHAddress) {
                 // wstETH-stETH
                 uint256 amountIn = wstETH.getWstETHByStETH(specifiedAmount);
-                wstETH.transferFrom(msg.sender, address(this), amountIn);
+                IERC20(wstETH).safeTransferFrom(
+                    msg.sender, address(this), amountIn
+                );
                 wstETH.unwrap(amountIn);
             } else {
                 // ETH-wstETH and ETH-stETH
@@ -126,8 +135,12 @@ contract LidoAdapter is ISwapAdapter {
             }
         } else {
             if (sellToken == stETHAddress) {
-                stETH.transferFrom(msg.sender, address(this), specifiedAmount);
-                stETH.approve(wstETHAddress, specifiedAmount);
+                IERC20(stETH).safeTransferFrom(
+                    msg.sender, address(this), specifiedAmount
+                );
+                IERC20(stETH).safeIncreaseAllowance(
+                    wstETHAddress, specifiedAmount
+                );
                 wstETH.wrap(specifiedAmount);
             } else if (sellToken == address(0)) {
                 if (buyToken == stETHAddress) {
@@ -143,7 +156,9 @@ contract LidoAdapter is ISwapAdapter {
                     if (!sent_) revert Unavailable("Ether transfer failed");
                 }
             } else {
-                wstETH.transferFrom(msg.sender, address(this), specifiedAmount);
+                IERC20(wstETH).safeTransferFrom(
+                    msg.sender, address(this), specifiedAmount
+                );
                 wstETH.unwrap(specifiedAmount);
             }
         }
@@ -205,7 +220,7 @@ contract LidoAdapter is ISwapAdapter {
         override
         returns (address[] memory tokens)
     {
-        tokens = new IERC20[](3);
+        tokens = new address[](3);
         tokens[0] = address(0);
         tokens[1] = address(wstETH);
         tokens[2] = address(stETH);
