@@ -20,33 +20,32 @@ binaries:
 modules:
   - name: map_components
     kind: map
-    initialBlock: 14609359
+    initialBlock: 14609379
     inputs:
-      - params: string
       - source: sf.ethereum.type.v2.Block
     output:
       type: proto:tycho.evm.v1.BlockTransactionProtocolComponents
-
-  - name: store_component_tokens
+  
+  - name: store_components
     kind: store
-    initialBlock: 14609359
-    updatePolicy: set
-    valueType: string
+    initialBlock: 14609379
+    updatePolicy: add
+    valueType: int64
     inputs:
       - map: map_components
 
   - name: map_relative_balances
     kind: map
-    initialBlock: 14609359  # An arbitrary block that should change based on your requirements
+    initialBlock: 14609379  # An arbitrary block that should change based on your requirements
     inputs:
       - source: sf.ethereum.type.v2.Block
-      - store: store_component_tokens
+      - store: store_components
     output:
       type: proto:tycho.evm.v1.BlockBalanceDeltas
 
   - name: store_balances
     kind: store
-    initialBlock: 14609359
+    initialBlock: 14609379
     updatePolicy: add
     valueType: bigint
     inputs:
@@ -54,13 +53,13 @@ modules:
 
   - name: map_protocol_changes
     kind: map
-    initialBlock: 14609359
+    initialBlock: 14609379
     inputs:
       - source: sf.ethereum.type.v2.Block
       - map: map_components
       - map: map_relative_balances
-      - store: store_component_tokens
+      - store: store_components
       - store: store_balances
         mode: deltas  # This is the key property that simplifies `BalanceChange` handling
     output:
-      type: proto:tycho.evm.v1.BlockContractChanges
+      type: proto:tycho.evm.v1.BlockChanges

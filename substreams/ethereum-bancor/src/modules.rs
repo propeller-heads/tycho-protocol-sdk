@@ -1,24 +1,28 @@
-use crate::{abi, consts};
+use crate::abi::{pool_contract::events::PoolAdded, pool_contract::events::TokensTraded};
 use anyhow::Result;
 use itertools::Itertools;
 use std::collections::HashMap;
 use substreams::{
+    hex,
     pb::substreams::StoreDeltas,
     store::{
-        StoreAddBigInt, StoreGet, StoreGetInt64, StoreGetProto, StoreNew, StoreSet, StoreSetProto,
-    },
+        StoreAddBigInt, StoreGet, StoreGetInt64, StoreGetProto, StoreNew, StoreSet, StoreSetString
+    }
 };
-use substreams_ethereum::{pb::eth::v2::{Call, Log}, pb::eth, Event};
+use substreams_ethereum::{ pb::eth,
+    pb::eth::v2::{Call, Log, TransactionTrace},
+    Event
+};
 use tycho_substreams::{
-    balances::aggregate_balances_changes, contract::extract_contract_changes_builder, prelude::*,
+    balances::aggregate_balances_changes, contract::extract_contract_changes_builder, prelude::*
 };
+
+pub const FACTORY_ADDRESS: [u8; 20] = hex!("eEF417e1D5CC832e619ae18D2F140De2999dD4fB");
 
 #[substreams::handlers::map]
 pub fn map_components(
-    param: String,
     block: eth::v2::Block,
 ) -> Result<BlockTransactionProtocolComponents, anyhow::Error> {
-    let pool_factory_address = hex::decode(param).unwrap();
 
     Ok(BlockTransactionProtocolComponents {
         tx_components: block
@@ -29,14 +33,14 @@ pub fn map_components(
                     .filter(|(_, call)| !call.call.state_reverted)
                     .filter_map(|(log, call)| {
                         address_map(
-                            pool_factory_address.as_slice(),
+                            call.call.address.as_slice(),
                             log,
                             call.call,
-                            &(tx.into()),
+                            tx,
                         )
                     })
                     .collect::<Vec<_>>();
-
+    
                 if !components.is_empty() {
                     Some(TransactionProtocolComponents { tx: Some(tx.into()), components })
                 } else {
@@ -47,21 +51,17 @@ pub fn map_components(
     })
 }
 
-/// Stores the `ProtocolComponent`s with the pool id as the key, together with the token pair as
-/// events do not contain the pair info
+/// Simply stores the `ProtocolComponent`s with the pool address as the key and the pool id as value
 #[substreams::handlers::store]
-pub fn store_components(
-    map: BlockTransactionProtocolComponents,
-    store: StoreSetProto<ProtocolComponent>,
-) {
+pub fn store_components(map: BlockTransactionProtocolComponents, store: StoreSetString) {
     map.tx_components
-        .iter()
-        .for_each(|tx_components| {
-            tx_components
+        .into_iter()
+        .for_each(|tx_pc| {
+            tx_pc
                 .components
-                .iter()
-                .for_each(|component| store_component(&store, component));
-        })
+                .into_iter()
+                .for_each(|pc| store.set(0, format!("pool:{0}", &pc.id[..42]), &pc.id))
+        });
 }
 
 /// we need to leverage a
@@ -73,46 +73,47 @@ pub fn map_relative_balances(
 ) -> Result<BlockBalanceDeltas, anyhow::Error> {
     let balance_deltas = block
         .logs()
+        .filter(|log| log.address() == &FACTORY_ADDRESS)
         .flat_map(|log| {
             let mut deltas = Vec::new();
+            
+            // Match the `TokensTraded` event from the log
+            if let Some(event) = TokensTraded::match_and_decode(log) {
+                let source_component_id = address_to_hex(&event.source_token);
+                let target_component_id = address_to_hex(&event.target_token);
 
-            let address_bytes_be = log.address();
-            let address_hex = format!("0x{}", hex::encode(address_bytes_be));
+                // Retrieve source and target components from the store
+                if let (Some(_source_component), Some(_target_component)) = (
+                    store.get_last(format!("pool:{}", source_component_id)),
+                    store.get_last(format!("pool:{}", target_component_id)),
+                ) {
+                    // Adding balance delta for source token
+                    deltas.push(BalanceDelta {
+                        ord: log.ordinal(),
+                        tx: Some(log.receipt.transaction.into()),
+                        token: event.source_token.clone(),
+                        delta: event.source_amount.to_signed_bytes_be(),
+                        component_id: source_component_id.clone().into_bytes(),
+                    });
 
-            if let Some(event) = abi::pool_contract::events::TokensTraded::match_and_decode(log) {
-                let component_id = address_to_hex(log.address());
-
-                if store
-                    .get_last(format!("pool:{}", address_hex))
-                    .is_some()
-                {
-                    deltas.extend_from_slice(&[
-                        BalanceDelta {
-                            ord: log.ordinal(),
-                            tx: Some(log.receipt.transaction.into()),
-                            token: event.source_token,
-                            delta: event.source_amount.to_signed_bytes_be(),
-                            component_id: string_to_bytes(&component_id),
-                        },
-                        BalanceDelta {
-                            ord: log.ordinal(),
-                            tx: Some(log.receipt.transaction.into()),
-                            token: event.target_token,
-                            delta: event
-                                .target_amount
-                                .neg()
-                                .to_signed_bytes_be(),
-                            component_id: string_to_bytes(&component_id),
-                        },
-                    ]);
+                    // Adding balance delta for target token
+                    deltas.push(BalanceDelta {
+                        ord: log.ordinal(),
+                        tx: Some(log.receipt.transaction.into()),
+                        token: event.target_token.clone(),
+                        delta: event.target_amount.neg().to_signed_bytes_be(),
+                        component_id: target_component_id.clone().into_bytes(),
+                    });
                 }
             }
+
             deltas
         })
         .collect::<Vec<_>>();
 
     Ok(BlockBalanceDeltas { balance_deltas })
 }
+
 
 /// It's significant to include both the `pool_id` and the `token_id` for each balance delta as the
 ///  store key to ensure that there's a unique balance being tallied for each.
@@ -208,44 +209,29 @@ pub fn map_protocol_changes(
     Ok(block_changes)
 }
 
-fn address_map(
-    pool_factory_address: &[u8],
-    log: &Log,
-    _call: &Call,
-    tx: &Transaction,
-) -> Option<ProtocolComponent> {
-    let mut found = false;
-
-    for i in 0..consts::FACTORIES.len() {
-        if !consts::FACTORIES[i].is_empty() &&
-            consts::FACTORIES[i] == pool_factory_address &&
-            pool_factory_address == _call.address.as_slice()
-        {
-            found = true;
-            break;
-        }
-    }
-
-    if found {
-        let pool_created = abi::pool_contract::events::PoolAdded::match_and_decode(log).unwrap();
-
-        Some(
-            ProtocolComponent::at_contract(&pool_created.pool, tx)
-                .as_swap_type("bancor_pool", ImplementationType::Vm),
-        )
-    } else {
-        None
-    }
-}
 
 fn address_to_hex(address: &[u8]) -> String {
     format!("0x{}", hex::encode(address))
 }
 
-fn string_to_bytes(string: &str) -> Vec<u8> {
-    string.as_bytes().to_vec()
-}
-
-fn store_component(store: &StoreSetProto<ProtocolComponent>, component: &ProtocolComponent) {
-    store.set(1, format!("pool:{}", component.id), component);
+fn address_map(
+    pool_factory_address_call: &[u8],
+    log: &Log,
+    _call: &Call,
+    tx: &TransactionTrace,
+) -> Option<ProtocolComponent> {
+    if pool_factory_address_call == FACTORY_ADDRESS {
+        let pool_created = PoolAdded::match_and_decode(log)?;
+        Some(
+            ProtocolComponent::new(
+                &format!("0x{}", hex::encode(&pool_created.pool)),
+                &(tx.into()),
+            )
+            .with_contracts(&[pool_created.pool.clone(), pool_created.pool_collection])
+            .with_tokens(&[pool_created.pool.clone()])
+            .as_swap_type("bancor_v3_pool", ImplementationType::Vm)
+        )
+    } else {
+        None
+    }
 }
