@@ -189,6 +189,17 @@ contract LidoAdapter is ISwapAdapter {
             limits[1] = currentStakeLimitStETH;
         } else {
             // ETH-wstETH and ETH-stETH
+
+            /// @dev Fix for side == Buy, because getTotalPooledEthByShares
+            /// would be higher than currentStakeLimit if using the limit as
+            /// amount
+            uint256 pooledEthByShares_ =
+                stETH.getPooledEthByShares(currentStakeLimitStETH);
+            if (pooledEthByShares_ > currentStakeLimitStETH) {
+                currentStakeLimitStETH = currentStakeLimitStETH
+                    - (pooledEthByShares_ - currentStakeLimitStETH);
+            }
+
             limits[0] = currentStakeLimitStETH;
             if (buyToken == stETHAddress) {
                 limits[1] = currentStakeLimitStETH;
