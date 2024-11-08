@@ -4,7 +4,10 @@ pragma solidity ^0.8.13;
 import {ISwapAdapter} from "src/interfaces/ISwapAdapter.sol";
 import {SafeERC20} from
     "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
-import {ERC20, IERC20} from "openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
+import {
+    ERC20,
+    IERC20
+} from "openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
 
 /// @title Renzo Protocol Adapter
 /// @dev This adapter only supports (supported token, ETH)->ezETH swaps
@@ -43,8 +46,7 @@ contract RenzoAdapter is ISwapAdapter {
         _prices = new Fraction[](_specifiedAmounts.length);
 
         for (uint256 i = 0; i < _specifiedAmounts.length; i++) {
-            _prices[i] =
-                getPriceAt(_sellToken, _specifiedAmounts[i], true);
+            _prices[i] = getPriceAt(_sellToken, _specifiedAmounts[i], true);
         }
     }
 
@@ -129,7 +131,9 @@ contract RenzoAdapter is ISwapAdapter {
                     limits[0] = ezEthTotalSupply / RESERVE_LIMIT_FACTOR;
                     limits[1] = renzoOracle.calculateMintAmount(
                         totalTvl,
-                        renzoOracle.lookupTokenValue(IERC20(sellToken), limits[0]),
+                        renzoOracle.lookupTokenValue(
+                            IERC20(sellToken), limits[0]
+                        ),
                         ezEthTotalSupply
                     );
                 } else {
