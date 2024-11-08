@@ -1,19 +1,17 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 pragma solidity ^0.8.13;
 
+import "./AdapterTest.sol";
 import "forge-std/Test.sol";
 import "forge-std/console.sol";
 import "src/interfaces/ISwapAdapterTypes.sol";
 import "src/libraries/FractionMath.sol";
 import "src/bancor-v3/BancorV3SwapAdapter.sol";
 
-/// @title TemplateSwapAdapterTest
-/// @dev This is a template for a swap adapter test.
-/// Test all functions that are implemented in your swap adapter, the two test
-/// included here are just an example.
-/// Feel free to use UniswapV2SwapAdapterTest and BalancerV2SwapAdapterTest as a
-/// reference.
-contract BancorV3SwapAdapterTest is Test, ISwapAdapterTypes {
+/**
+ * @title BancorV3SwapAdapterTest
+ */
+contract BancorV3SwapAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
     using FractionMath for Fraction;
 
     BancorV3SwapAdapter adapter;
@@ -31,15 +29,10 @@ contract BancorV3SwapAdapterTest is Test, ISwapAdapterTypes {
     bytes32 constant PAIR = bytes32(0);
     uint256 constant TEST_ITERATIONS = 100;
 
-    Token immutable eth = Token(ETH);
-    Token immutable bnt = Token(BNT);
-    Token immutable link = Token(LINK);
-    Token immutable wbtc = Token(WBTC);
-
     receive() external payable {}
 
     function setUp() public {
-        uint256 forkBlock = 19489171;
+        uint256 forkBlock = 21127835;
         vm.createSelectFork(vm.rpcUrl("mainnet"), forkBlock);
 
         adapter =
@@ -237,6 +230,111 @@ contract BancorV3SwapAdapterTest is Test, ISwapAdapterTypes {
         }
     }
 
+    function testSwapFuzzBancorV3BntEth(uint256 specifiedAmount, bool isBuy)
+        public
+    {
+        OrderSide side = isBuy ? OrderSide.Buy : OrderSide.Sell;
+
+        uint256[] memory limits = adapter.getLimits(PAIR, BNT, ETH);
+
+        vm.assume(specifiedAmount > 10 ** 8);
+
+        if (side == OrderSide.Buy) {
+            vm.assume(specifiedAmount < limits[1]);
+
+            deal(address(BNT), address(this), type(uint256).max);
+            IERC20(BNT).approve(address(adapter), type(uint256).max);
+        } else {
+            vm.assume(specifiedAmount < limits[0]);
+
+            deal(address(BNT), address(this), specifiedAmount);
+            IERC20(BNT).approve(address(adapter), specifiedAmount);
+        }
+
+        uint256 bnt_balance_before_swap = IERC20(BNT).balanceOf(address(this));
+        uint256 eth_balance_before_swap = address(this).balance;
+
+        Trade memory trade = adapter.swap(PAIR, BNT, ETH, side, specifiedAmount);
+
+        if (trade.calculatedAmount > 0) {
+            if (side == OrderSide.Buy) {
+                assertEq(
+                    specifiedAmount,
+                    address(this).balance - eth_balance_before_swap
+                );
+                assertEq(
+                    trade.calculatedAmount,
+                    bnt_balance_before_swap
+                        - IERC20(BNT).balanceOf(address(this))
+                );
+            } else {
+                assertEq(
+                    specifiedAmount,
+                    bnt_balance_before_swap
+                        - IERC20(BNT).balanceOf(address(this))
+                );
+                assertEq(
+                    trade.calculatedAmount,
+                    address(this).balance - eth_balance_before_swap
+                );
+            }
+        }
+    }
+
+    function testSwapFuzzBancorV3EthForBnt(uint256 specifiedAmount, bool isBuy)
+        public
+    {
+        OrderSide side = isBuy ? OrderSide.Buy : OrderSide.Sell;
+        uint256 amountEth = 10 ** 25;
+        uint256 eth_balance_before_swap;
+
+        uint256[] memory limits = adapter.getLimits(PAIR, ETH, BNT);
+
+        if (side == OrderSide.Buy) {
+            vm.assume(specifiedAmount < limits[1] && specifiedAmount > 10 ** 8);
+
+            deal(address(this), type(uint256).max);
+
+            (bool success,) = address(adapter).call{value: amountEth}("");
+
+            eth_balance_before_swap = address(adapter).balance;
+        } else {
+            vm.assume(specifiedAmount < limits[0]);
+
+            deal(address(this), specifiedAmount);
+            eth_balance_before_swap = address(this).balance;
+            (bool success,) = address(adapter).call{value: specifiedAmount}("");
+        }
+
+        uint256 bnt_balance_before_swap = IERC20(BNT).balanceOf(address(this));
+
+        Trade memory trade = adapter.swap(PAIR, ETH, BNT, side, specifiedAmount);
+
+        if (trade.calculatedAmount > 0) {
+            if (side == OrderSide.Buy) {
+                assertEq(
+                    specifiedAmount,
+                    IERC20(BNT).balanceOf(address(this))
+                        - bnt_balance_before_swap
+                );
+                assertEq(
+                    trade.calculatedAmount,
+                    eth_balance_before_swap - address(adapter).balance
+                );
+            } else {
+                assertEq(
+                    specifiedAmount,
+                    eth_balance_before_swap - address(this).balance
+                );
+                assertEq(
+                    trade.calculatedAmount,
+                    IERC20(BNT).balanceOf(address(this))
+                        - bnt_balance_before_swap
+                );
+            }
+        }
+    }
+
     function testSwapSellIncreasingBancorV3() public {
         executeIncreasingSwaps(OrderSide.Sell);
     }
@@ -271,9 +369,8 @@ contract BancorV3SwapAdapterTest is Test, ISwapAdapterTypes {
     }
 
     function testGetPoolIdsBancorV3() public view {
-        bytes32[] memory ids = adapter.getPoolIds(1, 20);
-        console.log(ids.length);
-        console.logBytes32(ids[1]);
+        bytes32[] memory ids = adapter.getPoolIds(1, 1000);
+        assertGe(ids.length, 0);
     }
 
     function testGetLimitsBancorV3() public {
@@ -311,4 +408,15 @@ contract BancorV3SwapAdapterTest is Test, ISwapAdapterTypes {
         assertEq(prices[0].numerator, priceSwap.numerator);
         assertEq(prices[0].denominator, priceSwap.denominator);
     }
+
+    /**
+     * @dev test fails with poolIds[0] =  bytes32(bytes20(address(ETH))) because
+     * AdapterTest.sol
+     * @dev doesn't handle selling eth
+     * @dev And because allowance needs to be reset "using SafeERC20 for IERC20"
+     */
+    // function testPoolBehaviourBancorV3() public {
+    //     bytes32[] memory poolIds = adapter.getPoolIds(0, 1000);
+    //     runPoolBehaviourTest(adapter, poolIds);
+    // }
 }

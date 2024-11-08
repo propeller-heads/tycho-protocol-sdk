@@ -160,7 +160,9 @@ library MathEx {
     }
 }
 
-/// @title BancorV3SwapAdapter
+/**
+ * @title BancorV3SwapAdapter
+ */
 contract BancorV3SwapAdapter is ISwapAdapter {
     using SafeERC20 for IERC20;
 
@@ -193,12 +195,17 @@ contract BancorV3SwapAdapter is ISwapAdapter {
 
     uint32 private constant PPM_RESOLUTION = 1_000_000;
     address public constant BNT = 0x1F573D6Fb3F13d689FF844B4cE37794d79a7FF1C;
+    address public constant ETH = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
 
     IBancorV3BancorNetwork private immutable i_bancorNetwork;
     IBancorV3BancorNetworkInfo private immutable i_bancorNetworkInfo;
 
-    /// @dev check if sellToken and buyToken are tradeable
+    /// @dev check if sellToken and buyToken are tradeable.
     modifier onlySupportedTokens(address sellToken, address buyToken) {
+        if (sellToken == address(0)) {
+            sellToken = ETH;
+        }
+
         bool sellTokenPoolEnabled =
             i_bancorNetworkInfo.tradingEnabled(Token(sellToken));
         bool buyTokenPoolEnabled =
@@ -216,7 +223,7 @@ contract BancorV3SwapAdapter is ISwapAdapter {
         i_bancorNetwork = IBancorV3BancorNetwork(bancorNetwork);
     }
 
-    /// @dev enable receive to fill the contract with ether for payable swaps
+    /// @dev enable receive to fill the contract with ether for payable swaps.
     receive() external payable {}
 
     /// @inheritdoc ISwapAdapter
@@ -232,6 +239,10 @@ contract BancorV3SwapAdapter is ISwapAdapter {
         onlySupportedTokens(sellToken, buyToken)
         returns (Fraction[] memory prices)
     {
+        if (sellToken == address(0)) {
+            sellToken = ETH;
+        }
+
         IBancorV3PoolCollection bancorPoolCollection =
             checkSameCollection(sellToken, buyToken);
         prices = new Fraction[](specifiedAmounts.length);
@@ -267,6 +278,10 @@ contract BancorV3SwapAdapter is ISwapAdapter {
             return trade;
         }
 
+        if (sellToken == address(0)) {
+            sellToken = ETH;
+        }
+
         uint256 gasBefore = gasleft();
         if (side == OrderSide.Sell) {
             trade.calculatedAmount = sell(sellToken, buyToken, specifiedAmount);
@@ -278,7 +293,7 @@ contract BancorV3SwapAdapter is ISwapAdapter {
     }
 
     /// @inheritdoc ISwapAdapter
-    /// @dev Limits are underestimated at 90% of total liquidity inside pools
+    /// @dev Limits are underestimated at 90% of total liquidity inside pools.
     function getLimits(bytes32, address _sellToken, address _buyToken)
         external
         view
@@ -286,6 +301,10 @@ contract BancorV3SwapAdapter is ISwapAdapter {
         onlySupportedTokens(_sellToken, _buyToken)
         returns (uint256[] memory limits)
     {
+        if (_sellToken == address(0)) {
+            _sellToken = ETH;
+        }
+
         limits = new uint256[](2);
         Token sellToken = Token(_sellToken);
         Token buyToken = Token(_buyToken);
@@ -345,56 +364,86 @@ contract BancorV3SwapAdapter is ISwapAdapter {
         override
         returns (address[] memory tokens)
     {
-        tokens = new address[](1);
+        tokens = new address[](2);
         tokens[0] = address(bytes20(poolId));
+        tokens[1] = BNT;
     }
 
     /// @inheritdoc ISwapAdapter
     /// @dev poolIds in BanvorV3 corresponds to addresses of single tokens,
-    /// since each pool
-    /// is paired with bnt
+    /// since each pool is paired with bnt.
     function getPoolIds(uint256 offset, uint256 limit)
         external
         view
         override
         returns (bytes32[] memory ids)
     {
-        uint256 endIdx = offset + limit;
         Token[] memory tokenPools = i_bancorNetwork.liquidityPools();
-        if (endIdx > tokenPools.length) {
-            endIdx = tokenPools.length;
+
+        uint256 numEnabledPools = 0;
+
+        for (uint256 i = 0; i < tokenPools.length; i++) {
+            if (i_bancorNetworkInfo.tradingEnabled(tokenPools[i])) {
+                numEnabledPools++;
+            }
+        }
+
+        bytes32[] memory poolIds = new bytes32[](numEnabledPools);
+
+        uint256 newPoolIdIndex = 0;
+
+        for (uint256 i = 0; i < tokenPools.length; i++) {
+            if (i_bancorNetworkInfo.tradingEnabled(tokenPools[i])) {
+                poolIds[newPoolIdIndex] = bytes20(address(tokenPools[i]));
+                newPoolIdIndex++;
+            }
+        }
+        uint256 endIdx = offset + limit;
+
+        if (endIdx > poolIds.length) {
+            endIdx = poolIds.length;
         }
         ids = new bytes32[](endIdx - offset);
         for (uint256 i = 0; i < ids.length; i++) {
-            ids[i] = bytes20(address(tokenPools[offset + i]));
+            ids[i] = poolIds[i + offset];
         }
     }
 
     /// @notice Executes a sell order on a given pool.
     /// @param sellToken The token being sold.
     /// @param buyToken The token being bought.
-    /// @param amount The amount to be traded.
+    /// @param amount The amount to trade.
     /// @return calculatedAmount The amount of tokens received.
     function sell(address sellToken, address buyToken, uint256 amount)
         internal
         returns (uint256 calculatedAmount)
     {
-        // Token sellToken = Token(sellToken);
-        // Token buyToken = Token(buyToken);
+        if (sellToken == ETH) {
+            return i_bancorNetwork.tradeBySourceAmount{value: amount}(
+                Token(ETH),
+                Token(buyToken),
+                amount,
+                1,
+                block.timestamp + 300,
+                msg.sender
+            );
+        } else {
+            IERC20(sellToken).safeTransferFrom(
+                msg.sender, address(this), amount
+            );
+            IERC20(sellToken).safeIncreaseAllowance(
+                address(i_bancorNetwork), amount
+            );
 
-        IERC20(sellToken).safeTransferFrom(msg.sender, address(this), amount);
-        IERC20(sellToken).safeIncreaseAllowance(
-            address(i_bancorNetwork), amount
-        );
-
-        return i_bancorNetwork.tradeBySourceAmount(
-            Token(sellToken),
-            Token(buyToken),
-            amount,
-            1,
-            block.timestamp + 300,
-            msg.sender
-        );
+            return i_bancorNetwork.tradeBySourceAmount(
+                Token(sellToken),
+                Token(buyToken),
+                amount,
+                1,
+                block.timestamp + 300,
+                msg.sender
+            );
+        }
     }
 
     /// @notice Executes a buy order on a given pool.
@@ -406,33 +455,44 @@ contract BancorV3SwapAdapter is ISwapAdapter {
         internal
         returns (uint256 calculatedAmount)
     {
-        // Token sellToken = Token(sellToken);
-        // Token buyToken = Token(buyToken);
-
         uint256 amountIn = i_bancorNetworkInfo.tradeInputByTargetAmount(
             Token(sellToken), Token(buyToken), amount
         );
+
         if (amountIn == 0) {
             revert Unavailable("AmountIn is zero!");
         }
 
-        IERC20(sellToken).safeTransferFrom(msg.sender, address(this), amountIn);
-        IERC20(sellToken).safeIncreaseAllowance(
-            address(i_bancorNetwork), amountIn
-        );
+        if (sellToken == ETH) {
+            return i_bancorNetwork.tradeByTargetAmount{value: amountIn}(
+                Token(sellToken),
+                Token(buyToken),
+                amount,
+                amountIn,
+                block.timestamp + 300,
+                msg.sender
+            );
+        } else {
+            IERC20(sellToken).safeTransferFrom(
+                msg.sender, address(this), amountIn
+            );
+            IERC20(sellToken).safeIncreaseAllowance(
+                address(i_bancorNetwork), amountIn
+            );
 
-        return i_bancorNetwork.tradeByTargetAmount(
-            Token(sellToken),
-            Token(buyToken),
-            amount,
-            amountIn,
-            block.timestamp + 300,
-            msg.sender
-        );
+            return i_bancorNetwork.tradeByTargetAmount(
+                Token(sellToken),
+                Token(buyToken),
+                amount,
+                amountIn,
+                block.timestamp + 300,
+                msg.sender
+            );
+        }
     }
 
     /// @dev check if buyToken and sellToken are in the same collection and
-    /// return collection
+    /// return collection.
     function checkSameCollection(address sellToken, address buyToken)
         internal
         view
@@ -472,12 +532,12 @@ contract BancorV3SwapAdapter is ISwapAdapter {
             : IBancorV3PoolCollection(poolCollectionSellToken);
     }
 
-    /// @notice Calculates pair prices for specified amounts
-    /// @param amountIn The amount of the token being sold
-    /// @param sellToken the token to sell
-    /// @param buyToken The token ro buy
+    /// @notice Calculates pair prices for specified amounts.
+    /// @param amountIn The amount of the token being sold.
+    /// @param sellToken The token to sell.
+    /// @param buyToken The token to buy.
     /// @return (fraction) price as a fraction corresponding to the provided
-    /// amount
+    /// amount.
     function getPriceAt(
         uint256 amountIn,
         address sellToken,
@@ -622,23 +682,18 @@ contract BancorV3SwapAdapter is ISwapAdapter {
     }
 
     /// @notice Calculates pair prices for specified amounts. We use as amount
-    /// in to calculate the price post swap
-    /// a fractional value (1/100000) of the trading liquidity, to impact as
-    /// little as possible on the slippage
-    /// @param sellToken the token to sell
-    /// @param buyToken The token ro buy
+    /// in to calculate the price post swap a fractional value (1/100000) of the
+    /// trading liquidity,
+    /// to impact as little as possible on the slippage
+    /// @param sellToken The token to sell.
+    /// @param buyToken The token to buy.
     /// @return (fraction) price as a fraction corresponding to the provided
-    /// amount after a
-    /// a swap has been executed
+    /// amount after a swap has been executed
     function getPriceSwapAt(address sellToken, address buyToken)
         internal
         view
         returns (Fraction memory)
     {
-        // Token sellToken = Token(sellToken);
-        // Token buyToken = Token(buyToken);
-        // Token BNT = Token(BNT);
-
         uint256 tradingLiquiditySellTokenAfter = (sellToken == BNT)
             ? uint256(getTradingLiquidity(buyToken).bntTradingLiquidity)
             : uint256(getTradingLiquidity(sellToken).baseTokenTradingLiquidity);
@@ -652,9 +707,9 @@ contract BancorV3SwapAdapter is ISwapAdapter {
         return Fraction(amountOut, punctualAmountIn);
     }
 
-    /// @notice Get the liquidity of buyToken and sellToken in a specific pool
-    /// @param sellToken the token to sell
-    /// @param buyToken The token ro buy
+    /// @notice Get the liquidity of buyToken and sellToken in a specific pool.
+    /// @param sellToken The token to sell.
+    /// @param buyToken The token to buy.
     function getTradingLiquidityBntPool(address sellToken, address buyToken)
         internal
         view
