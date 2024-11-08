@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 pragma solidity ^0.8.13;
 
-import {IERC20, ISwapAdapter} from "src/interfaces/ISwapAdapter.sol";
+import {ISwapAdapter} from "src/interfaces/ISwapAdapter.sol";
 import {SafeERC20} from
     "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
-import {ERC20} from "openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
+import {ERC20, IERC20} from "openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
 
 /// @title Renzo Protocol Adapter
 /// @dev This adapter only supports (supported token, ETH)->ezETH swaps
@@ -24,10 +24,10 @@ contract RenzoAdapter is ISwapAdapter {
     IRenzoOracle immutable renzoOracle;
     IERC20 immutable ezETH;
 
-    constructor(address _restakeManager) {
+    constructor(address _restakeManager, address _renzoOracle, address _ezETH) {
         restakeManager = IRestakeManager(_restakeManager);
-        renzoOracle = restakeManager.renzoOracle();
-        ezETH = IERC20(address(restakeManager.ezETH()));
+        renzoOracle = IRenzoOracle(_renzoOracle);
+        ezETH = IERC20(_ezETH);
     }
 
     /// @dev enable receive
@@ -36,24 +36,23 @@ contract RenzoAdapter is ISwapAdapter {
     /// @inheritdoc ISwapAdapter
     function price(
         bytes32,
-        IERC20 _sellToken,
-        IERC20,
+        address _sellToken,
+        address,
         uint256[] memory _specifiedAmounts
     ) external view override returns (Fraction[] memory _prices) {
         _prices = new Fraction[](_specifiedAmounts.length);
-        address sellTokenAddress = address(_sellToken);
 
         for (uint256 i = 0; i < _specifiedAmounts.length; i++) {
             _prices[i] =
-                getPriceAt(sellTokenAddress, _specifiedAmounts[i], true);
+                getPriceAt(_sellToken, _specifiedAmounts[i], true);
         }
     }
 
     /// @inheritdoc ISwapAdapter
     function swap(
         bytes32,
-        IERC20 sellToken,
-        IERC20,
+        address sellToken,
+        address,
         OrderSide side,
         uint256 specifiedAmount
     ) external override returns (Trade memory trade) {
@@ -63,28 +62,27 @@ contract RenzoAdapter is ISwapAdapter {
 
         uint256 gasBefore = gasleft();
         if (side == OrderSide.Sell) {
-            trade.calculatedAmount = sell(sellToken, specifiedAmount);
+            trade.calculatedAmount = sell(IERC20(sellToken), specifiedAmount);
         } else {
-            trade.calculatedAmount = buy(sellToken, specifiedAmount);
+            trade.calculatedAmount = buy(IERC20(sellToken), specifiedAmount);
         }
         trade.gasUsed = gasBefore - gasleft();
         trade.price = getPriceAt(
-            address(sellToken),
-            address(sellToken) == address(0)
+            sellToken,
+            sellToken == address(0)
                 ? 10 ** 18 / PRICE_SCALE_FACTOR
-                : 10 ** ERC20(address(sellToken)).decimals() / PRICE_SCALE_FACTOR,
+                : 10 ** ERC20(sellToken).decimals() / PRICE_SCALE_FACTOR,
             false
         );
     }
 
     /// @inheritdoc ISwapAdapter
-    function getLimits(bytes32, IERC20 sellToken, IERC20)
+    function getLimits(bytes32, address sellToken, address)
         external
         view
         override
         returns (uint256[] memory limits)
     {
-        address sellTokenAddress = address(sellToken);
         limits = new uint256[](2);
         (uint256[][] memory operatorDelegatorTokenTVLs,, uint256 totalTvl) =
             restakeManager.calculateTVLs();
@@ -95,12 +93,12 @@ contract RenzoAdapter is ISwapAdapter {
             limitInValue = restakeManager.maxDepositTVL() - totalTvl;
         }
 
-        if (sellTokenAddress != address(0)) {
+        if (sellToken != address(0)) {
             uint256 tokenIndex =
-                restakeManager.getCollateralTokenIndex(sellTokenAddress);
+                restakeManager.getCollateralTokenIndex(sellToken);
 
             uint256 collateralTvlLimitSellToken =
-                restakeManager.collateralTokenTvlLimits(sellToken);
+                restakeManager.collateralTokenTvlLimits(IERC20(sellToken));
 
             if (collateralTvlLimitSellToken != 0) {
                 uint256 currentTokenTVL = 0;
@@ -116,7 +114,7 @@ contract RenzoAdapter is ISwapAdapter {
 
         uint256 ezEthTotalSupply = ezETH.totalSupply();
 
-        if (sellTokenAddress == address(0)) {
+        if (sellToken == address(0)) {
             if (limitInValue == 0) {
                 limits[0] = ezEthTotalSupply / RESERVE_LIMIT_FACTOR;
             } else {
@@ -131,12 +129,12 @@ contract RenzoAdapter is ISwapAdapter {
                     limits[0] = ezEthTotalSupply / RESERVE_LIMIT_FACTOR;
                     limits[1] = renzoOracle.calculateMintAmount(
                         totalTvl,
-                        renzoOracle.lookupTokenValue(sellToken, limits[0]),
+                        renzoOracle.lookupTokenValue(IERC20(sellToken), limits[0]),
                         ezEthTotalSupply
                     );
                 } else {
                     limits[0] = renzoOracle.lookupTokenAmountFromValue(
-                        sellToken, secondLimitInValue
+                        IERC20(sellToken), secondLimitInValue
                     );
                     limits[1] = renzoOracle.calculateMintAmount(
                         totalTvl, limits[0], ezEthTotalSupply
@@ -145,14 +143,14 @@ contract RenzoAdapter is ISwapAdapter {
             } else {
                 if (secondLimitInValue < limitInValue) {
                     limits[0] = renzoOracle.lookupTokenAmountFromValue(
-                        sellToken, secondLimitInValue
+                        IERC20(sellToken), secondLimitInValue
                     );
                     limits[1] = renzoOracle.calculateMintAmount(
                         totalTvl, limits[0], ezEthTotalSupply
                     );
                 } else {
                     limits[0] = renzoOracle.lookupTokenAmountFromValue(
-                        sellToken, limitInValue
+                        IERC20(sellToken), limitInValue
                     );
                     limits[1] = renzoOracle.calculateMintAmount(
                         totalTvl, limits[0], ezEthTotalSupply
@@ -163,16 +161,17 @@ contract RenzoAdapter is ISwapAdapter {
     }
 
     /// @inheritdoc ISwapAdapter
-    function getCapabilities(bytes32, IERC20, IERC20)
+    function getCapabilities(bytes32, address, address)
         external
         pure
         override
         returns (Capability[] memory capabilities)
     {
-        capabilities = new Capability[](3);
+        capabilities = new Capability[](4);
         capabilities[0] = Capability.SellOrder;
         capabilities[1] = Capability.BuyOrder;
         capabilities[2] = Capability.PriceFunction;
+        capabilities[3] = Capability.HardLimits;
     }
 
     /// @inheritdoc ISwapAdapter
@@ -180,23 +179,24 @@ contract RenzoAdapter is ISwapAdapter {
         external
         view
         override
-        returns (IERC20[] memory tokens)
+        returns (address[] memory tokens)
     {
         uint256 tokensLength = restakeManager.getCollateralTokensLength();
-        tokens = new IERC20[](tokensLength + 2);
+        tokens = new address[](tokensLength + 2);
         for (uint256 i = 0; i < tokensLength; i++) {
-            tokens[i] = IERC20(restakeManager.collateralTokens(i));
+            tokens[i] = restakeManager.collateralTokens(i);
         }
-        tokens[tokensLength] = ezETH;
-        tokens[tokensLength + 1] = IERC20(address(0));
+        tokens[tokensLength] = address(ezETH);
+        tokens[tokensLength + 1] = address(0);
     }
 
+    /// @inheritdoc ISwapAdapter
     function getPoolIds(uint256, uint256)
         external
         pure
         returns (bytes32[] memory)
     {
-        revert NotImplemented("RenzoAdapter.getPoolIds");
+        return new bytes32[](1);
     }
 
     /// @notice Get swap price, incl. fee
@@ -218,8 +218,8 @@ contract RenzoAdapter is ISwapAdapter {
 
         if (simulateTrade) {
             amount = sellToken == address(0)
-                ? 10 ** 18 / PRICE_SCALE_FACTOR
-                : 10 ** ERC20(sellToken).decimals() / PRICE_SCALE_FACTOR;
+                ? (10 ** 18) / PRICE_SCALE_FACTOR
+                : (10 ** ERC20(sellToken).decimals()) / PRICE_SCALE_FACTOR;
             uint256 collateralTokenValueAfter = sellToken == address(0)
                 ? amount
                 : renzoOracle.lookupTokenValue(IERC20(sellToken), amount);
