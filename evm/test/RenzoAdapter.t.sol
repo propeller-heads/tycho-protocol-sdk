@@ -25,7 +25,9 @@ contract RenzoAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
         IERC20 ezETH_ = IERC20(address(restakeManager.ezETH()));
         IRenzoOracle renzoOracle_ = restakeManager.renzoOracle();
 
-        adapter = new RenzoAdapter(address(restakeManager), address(renzoOracle_), address(ezETH_));
+        adapter = new RenzoAdapter(
+            address(restakeManager), address(renzoOracle_), address(ezETH_)
+        );
         ezETH = ezETH_;
 
         vm.label(address(adapter), "RenzoAdapter");
@@ -36,7 +38,8 @@ contract RenzoAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
 
     function testPriceFuzzRenzo(uint256 amount0, uint256 amount1) public {
         bytes32 pair = bytes32(0);
-        uint256[] memory limits = adapter.getLimits(pair, address(wBETH), address(ezETH));
+        uint256[] memory limits =
+            adapter.getLimits(pair, address(wBETH), address(ezETH));
         vm.assume(amount0 < limits[0] && amount0 > 10 ** 8);
         vm.assume(amount1 < limits[0] && amount1 > 10 ** 8);
 
@@ -44,7 +47,8 @@ contract RenzoAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
         amounts[0] = amount0;
         amounts[1] = amount1;
 
-        Fraction[] memory prices = adapter.price(pair, address(wBETH), address(ezETH), amounts);
+        Fraction[] memory prices =
+            adapter.price(pair, address(wBETH), address(ezETH), amounts);
 
         for (uint256 i = 0; i < prices.length; i++) {
             assertGt(prices[i].numerator, 0);
@@ -56,7 +60,8 @@ contract RenzoAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
         OrderSide side = isBuy ? OrderSide.Buy : OrderSide.Sell;
 
         bytes32 pair = bytes32(0);
-        uint256[] memory limits = adapter.getLimits(pair, address(wBETH), address(ezETH));
+        uint256[] memory limits =
+            adapter.getLimits(pair, address(wBETH), address(ezETH));
         Fraction[] memory price = new Fraction[](1);
 
         if (side == OrderSide.Buy) {
@@ -72,14 +77,17 @@ contract RenzoAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
 
             uint256[] memory specifiedAmounts = new uint256[](1);
             specifiedAmounts[0] = specifiedAmount;
-            price = adapter.price(pair, address(wBETH), address(ezETH), specifiedAmounts);
+            price = adapter.price(
+                pair, address(wBETH), address(ezETH), specifiedAmounts
+            );
         }
 
         uint256 wBETH_balance = wBETH.balanceOf(address(this));
         uint256 ezETH_balance = ezETH.balanceOf(address(this));
 
-        Trade memory trade =
-            adapter.swap(pair, address(wBETH), address(ezETH), side, specifiedAmount);
+        Trade memory trade = adapter.swap(
+            pair, address(wBETH), address(ezETH), side, specifiedAmount
+        );
 
         if (trade.calculatedAmount > 0) {
             if (side == OrderSide.Buy) {
@@ -126,15 +134,17 @@ contract RenzoAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
             deal(address(adapter), specifiedAmount);
             uint256[] memory specifiedAmounts = new uint256[](1);
             specifiedAmounts[0] = specifiedAmount;
-            price =
-                adapter.price(pair, address(0), address(ezETH), specifiedAmounts);
+            price = adapter.price(
+                pair, address(0), address(ezETH), specifiedAmounts
+            );
         }
 
         uint256 ETH_balance = address(adapter).balance;
         uint256 ezETH_balance = ezETH.balanceOf(address(this));
 
-        Trade memory trade =
-            adapter.swap(pair, address(0), address(ezETH), side, specifiedAmount);
+        Trade memory trade = adapter.swap(
+            pair, address(0), address(ezETH), side, specifiedAmount
+        );
 
         if (trade.calculatedAmount > 0) {
             if (side == OrderSide.Buy) {
@@ -147,12 +157,8 @@ contract RenzoAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
                     ETH_balance - address(adapter).balance
                 );
             } else {
-                assertEq(
-                    price[0].numerator, trade.price.numerator
-                );
-                assertEq(
-                    price[0].denominator, trade.price.denominator
-                );
+                assertEq(price[0].numerator, trade.price.numerator);
+                assertEq(price[0].denominator, trade.price.denominator);
                 assertEq(
                     specifiedAmount, ETH_balance - address(adapter).balance
                 );
@@ -192,7 +198,9 @@ contract RenzoAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
             deal(address(wBETH), address(this), amounts[i]);
             wBETH.approve(address(adapter), amounts[i]);
 
-            trades[i] = adapter.swap(pair, address(wBETH), address(ezETH), side, amounts[i]);
+            trades[i] = adapter.swap(
+                pair, address(wBETH), address(ezETH), side, amounts[i]
+            );
             vm.revertTo(beforeSwap);
         }
 
@@ -205,8 +213,7 @@ contract RenzoAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
     function testGetCapabilitiesRenzo(bytes32 pair, address t0, address t1)
         public
     {
-        Capability[] memory res =
-            adapter.getCapabilities(pair, t0, t1);
+        Capability[] memory res = adapter.getCapabilities(pair, t0, t1);
 
         assertEq(res.length, 3);
     }
@@ -220,7 +227,8 @@ contract RenzoAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
 
     function testGetLimitsRenzo() public {
         bytes32 pair = bytes32(0);
-        uint256[] memory limits = adapter.getLimits(pair, address(wBETH), address(ezETH));
+        uint256[] memory limits =
+            adapter.getLimits(pair, address(wBETH), address(ezETH));
 
         assertEq(limits.length, 2);
     }
@@ -229,11 +237,11 @@ contract RenzoAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
      * @dev test fails with poolIds[0] =  bytes32(bytes20(address(ETH))) because
      * AdapterTest.sol
      * @dev doesn't handle selling eth
-     * @dev And because AdapterTest.sol:76 does not consider handle the ezETH TVL (price can actually be Higher)
+     * @dev And because AdapterTest.sol:76 does not consider handle the ezETH
+     * TVL (price can actually be Higher)
      */
     // function testPoolBehaviourRenzo() public {
     //     bytes32[] memory poolIds = adapter.getPoolIds(0, 1000);
     //     runPoolBehaviourTest(adapter, poolIds);
     // }
-
 }
