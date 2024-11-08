@@ -7,8 +7,9 @@ import "src/renzo/RenzoAdapter.sol";
 import "src/interfaces/ISwapAdapterTypes.sol";
 import "forge-std/console.sol";
 import {FractionMath} from "src/libraries/FractionMath.sol";
+import "./AdapterTest.sol";
 
-contract RenzoAdapterTest is Test, ISwapAdapterTypes {
+contract RenzoAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
     using FractionMath for Fraction;
 
     RenzoAdapter adapter;
@@ -19,19 +20,23 @@ contract RenzoAdapterTest is Test, ISwapAdapterTypes {
     uint256 constant TEST_ITERATIONS = 100;
 
     function setUp() public {
-        uint256 forkBlock = 19797651; //19797651;
+        uint256 forkBlock = 19797651;
         vm.createSelectFork(vm.rpcUrl("mainnet"), forkBlock);
-        adapter = new RenzoAdapter(address(restakeManager));
-        ezETH = IERC20(address(restakeManager.ezETH()));
+        IERC20 ezETH_ = IERC20(address(restakeManager.ezETH()));
+        IRenzoOracle renzoOracle_ = restakeManager.renzoOracle();
+
+        adapter = new RenzoAdapter(address(restakeManager), address(renzoOracle_), address(ezETH_));
+        ezETH = ezETH_;
 
         vm.label(address(adapter), "RenzoAdapter");
+        vm.label(address(renzoOracle_), "RenzoOracle");
         vm.label(address(ezETH), "ezETH");
         vm.label(address(wBETH), "wBETH");
     }
 
     function testPriceFuzzRenzo(uint256 amount0, uint256 amount1) public {
         bytes32 pair = bytes32(0);
-        uint256[] memory limits = adapter.getLimits(pair, wBETH, ezETH);
+        uint256[] memory limits = adapter.getLimits(pair, address(wBETH), address(ezETH));
         vm.assume(amount0 < limits[0] && amount0 > 10 ** 8);
         vm.assume(amount1 < limits[0] && amount1 > 10 ** 8);
 
@@ -39,7 +44,7 @@ contract RenzoAdapterTest is Test, ISwapAdapterTypes {
         amounts[0] = amount0;
         amounts[1] = amount1;
 
-        Fraction[] memory prices = adapter.price(pair, wBETH, ezETH, amounts);
+        Fraction[] memory prices = adapter.price(pair, address(wBETH), address(ezETH), amounts);
 
         for (uint256 i = 0; i < prices.length; i++) {
             assertGt(prices[i].numerator, 0);
@@ -51,7 +56,7 @@ contract RenzoAdapterTest is Test, ISwapAdapterTypes {
         OrderSide side = isBuy ? OrderSide.Buy : OrderSide.Sell;
 
         bytes32 pair = bytes32(0);
-        uint256[] memory limits = adapter.getLimits(pair, wBETH, ezETH);
+        uint256[] memory limits = adapter.getLimits(pair, address(wBETH), address(ezETH));
         Fraction[] memory price = new Fraction[](1);
 
         if (side == OrderSide.Buy) {
@@ -67,14 +72,14 @@ contract RenzoAdapterTest is Test, ISwapAdapterTypes {
 
             uint256[] memory specifiedAmounts = new uint256[](1);
             specifiedAmounts[0] = specifiedAmount;
-            price = adapter.price(pair, wBETH, ezETH, specifiedAmounts);
+            price = adapter.price(pair, address(wBETH), address(ezETH), specifiedAmounts);
         }
 
         uint256 wBETH_balance = wBETH.balanceOf(address(this));
         uint256 ezETH_balance = ezETH.balanceOf(address(this));
 
         Trade memory trade =
-            adapter.swap(pair, wBETH, ezETH, side, specifiedAmount);
+            adapter.swap(pair, address(wBETH), address(ezETH), side, specifiedAmount);
 
         if (trade.calculatedAmount > 0) {
             if (side == OrderSide.Buy) {
@@ -108,7 +113,7 @@ contract RenzoAdapterTest is Test, ISwapAdapterTypes {
 
         bytes32 pair = bytes32(0);
         uint256[] memory limits =
-            adapter.getLimits(pair, IERC20(address(0)), ezETH);
+            adapter.getLimits(pair, address(0), address(ezETH));
         Fraction[] memory price = new Fraction[](1);
 
         if (side == OrderSide.Buy) {
@@ -122,14 +127,14 @@ contract RenzoAdapterTest is Test, ISwapAdapterTypes {
             uint256[] memory specifiedAmounts = new uint256[](1);
             specifiedAmounts[0] = specifiedAmount;
             price =
-                adapter.price(pair, IERC20(address(0)), ezETH, specifiedAmounts);
+                adapter.price(pair, address(0), address(ezETH), specifiedAmounts);
         }
 
         uint256 ETH_balance = address(adapter).balance;
         uint256 ezETH_balance = ezETH.balanceOf(address(this));
 
         Trade memory trade =
-            adapter.swap(pair, IERC20(address(0)), ezETH, side, specifiedAmount);
+            adapter.swap(pair, address(0), address(ezETH), side, specifiedAmount);
 
         if (trade.calculatedAmount > 0) {
             if (side == OrderSide.Buy) {
@@ -187,7 +192,7 @@ contract RenzoAdapterTest is Test, ISwapAdapterTypes {
             deal(address(wBETH), address(this), amounts[i]);
             wBETH.approve(address(adapter), amounts[i]);
 
-            trades[i] = adapter.swap(pair, wBETH, ezETH, side, amounts[i]);
+            trades[i] = adapter.swap(pair, address(wBETH), address(ezETH), side, amounts[i]);
             vm.revertTo(beforeSwap);
         }
 
@@ -201,22 +206,34 @@ contract RenzoAdapterTest is Test, ISwapAdapterTypes {
         public
     {
         Capability[] memory res =
-            adapter.getCapabilities(pair, IERC20(t0), IERC20(t1));
+            adapter.getCapabilities(pair, t0, t1);
 
         assertEq(res.length, 3);
     }
 
     function testGetTokensRenzo() public {
         bytes32 pair = bytes32(0);
-        IERC20[] memory tokens = adapter.getTokens(pair);
+        address[] memory tokens = adapter.getTokens(pair);
 
         assertGe(tokens.length, 2);
     }
 
     function testGetLimitsRenzo() public {
         bytes32 pair = bytes32(0);
-        uint256[] memory limits = adapter.getLimits(pair, wBETH, ezETH);
+        uint256[] memory limits = adapter.getLimits(pair, address(wBETH), address(ezETH));
 
         assertEq(limits.length, 2);
     }
+
+    /**
+     * @dev test fails with poolIds[0] =  bytes32(bytes20(address(ETH))) because
+     * AdapterTest.sol
+     * @dev doesn't handle selling eth
+     * @dev And because AdapterTest.sol:76 does not consider handle the ezETH TVL (price can actually be Higher)
+     */
+    // function testPoolBehaviourRenzo() public {
+    //     bytes32[] memory poolIds = adapter.getPoolIds(0, 1000);
+    //     runPoolBehaviourTest(adapter, poolIds);
+    // }
+
 }
