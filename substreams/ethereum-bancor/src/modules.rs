@@ -1,4 +1,4 @@
-use crate::abi::{pool_contract::events::PoolAdded, pool_contract::events::TokensTraded};
+use crate::abi::pool_contract::events::{PoolAdded, TokensTraded};
 use anyhow::Result;
 use itertools::Itertools;
 use std::collections::HashMap;
@@ -10,8 +10,10 @@ use substreams::{
     },
 };
 use substreams_ethereum::{
-    pb::eth,
-    pb::eth::v2::{Log, TransactionTrace},
+    pb::{
+        eth,
+        eth::v2::{Log, TransactionTrace},
+    },
     Event,
 };
 use tycho_substreams::{
