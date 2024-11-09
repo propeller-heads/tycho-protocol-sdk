@@ -11,7 +11,7 @@ use substreams::{
 };
 use substreams_ethereum::{
     pb::eth,
-    pb::eth::v2::{Call, Log, TransactionTrace},
+    pb::eth::v2::{Log, TransactionTrace},
     Event,
 };
 use tycho_substreams::{
@@ -32,7 +32,7 @@ pub fn map_components(
                 let components = tx
                     .logs_with_calls()
                     .filter(|(_, call)| !call.call.state_reverted)
-                    .filter_map(|(log, call)| address_map(log, tx))
+                    .filter_map(|(log, _)| address_map(&log, &tx))
                     .collect::<Vec<_>>();
 
                 if !components.is_empty() {
@@ -213,7 +213,7 @@ fn address_map(log: &Log, tx: &TransactionTrace) -> Option<ProtocolComponent> {
     let address = log.address.to_owned();
     if address == FACTORY_ADDRESS {
         PoolAdded::match_and_decode(log).map(|pool_added| {
-            substreams::log::info!("🚨 Pool added {:?}", pool_added.pool);
+            substreams::log::info!("🚨 Pool added 0x{:?}", hex::encode(&pool_added.pool));
 
             ProtocolComponent::at_contract(&pool_added.pool, &(tx.into()))
                 .with_tokens(&[pool_added.pool, BNT_ADDRESS.to_vec()])
