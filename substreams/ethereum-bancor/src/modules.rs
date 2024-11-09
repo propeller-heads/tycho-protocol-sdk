@@ -6,24 +6,25 @@ use substreams::{
     hex,
     pb::substreams::StoreDeltas,
     store::{
-        StoreAddBigInt, StoreGet, StoreGetInt64, StoreGetProto, StoreNew, StoreSet, StoreSetString
-    }
+        StoreAddBigInt, StoreGet, StoreGetInt64, StoreGetProto, StoreNew, StoreSet, StoreSetString,
+    },
 };
-use substreams_ethereum::{ pb::eth,
+use substreams_ethereum::{
+    pb::eth,
     pb::eth::v2::{Call, Log, TransactionTrace},
-    Event
+    Event,
 };
 use tycho_substreams::{
-    balances::aggregate_balances_changes, contract::extract_contract_changes_builder, prelude::*
+    balances::aggregate_balances_changes, contract::extract_contract_changes_builder, prelude::*,
 };
 
 pub const FACTORY_ADDRESS: [u8; 20] = hex!("eEF417e1D5CC832e619ae18D2F140De2999dD4fB");
+pub const BNT_ADDRESS: [u8; 20] = hex!("1F573D6Fb3F13d689FF844B4cE37794d79a7FF1C");
 
 #[substreams::handlers::map]
 pub fn map_components(
     block: eth::v2::Block,
 ) -> Result<BlockTransactionProtocolComponents, anyhow::Error> {
-
     Ok(BlockTransactionProtocolComponents {
         tx_components: block
             .transactions()
@@ -31,16 +32,9 @@ pub fn map_components(
                 let components = tx
                     .logs_with_calls()
                     .filter(|(_, call)| !call.call.state_reverted)
-                    .filter_map(|(log, call)| {
-                        address_map(
-                            call.call.address.as_slice(),
-                            log,
-                            call.call,
-                            tx,
-                        )
-                    })
+                    .filter_map(|(log, call)| address_map(log, tx))
                     .collect::<Vec<_>>();
-    
+
                 if !components.is_empty() {
                     Some(TransactionProtocolComponents { tx: Some(tx.into()), components })
                 } else {
@@ -76,7 +70,7 @@ pub fn map_relative_balances(
         .filter(|log| log.address() == &FACTORY_ADDRESS)
         .flat_map(|log| {
             let mut deltas = Vec::new();
-            
+
             // Match the `TokensTraded` event from the log
             if let Some(event) = TokensTraded::match_and_decode(log) {
                 let source_component_id = address_to_hex(&event.source_token);
@@ -101,7 +95,10 @@ pub fn map_relative_balances(
                         ord: log.ordinal(),
                         tx: Some(log.receipt.transaction.into()),
                         token: event.target_token.clone(),
-                        delta: event.target_amount.neg().to_signed_bytes_be(),
+                        delta: event
+                            .target_amount
+                            .neg()
+                            .to_signed_bytes_be(),
                         component_id: target_component_id.clone().into_bytes(),
                     });
                 }
@@ -113,7 +110,6 @@ pub fn map_relative_balances(
 
     Ok(BlockBalanceDeltas { balance_deltas })
 }
-
 
 /// It's significant to include both the `pool_id` and the `token_id` for each balance delta as the
 ///  store key to ensure that there's a unique balance being tallied for each.
@@ -209,28 +205,20 @@ pub fn map_protocol_changes(
     Ok(block_changes)
 }
 
-
 fn address_to_hex(address: &[u8]) -> String {
     format!("0x{}", hex::encode(address))
 }
 
-fn address_map(
-    pool_factory_address_call: &[u8],
-    log: &Log,
-    _call: &Call,
-    tx: &TransactionTrace,
-) -> Option<ProtocolComponent> {
-    if pool_factory_address_call == FACTORY_ADDRESS {
-        let pool_created = PoolAdded::match_and_decode(log)?;
-        Some(
-            ProtocolComponent::new(
-                &format!("0x{}", hex::encode(&pool_created.pool)),
-                &(tx.into()),
-            )
-            .with_contracts(&[pool_created.pool.clone(), pool_created.pool_collection])
-            .with_tokens(&[pool_created.pool.clone()])
-            .as_swap_type("bancor_v3_pool", ImplementationType::Vm)
-        )
+fn address_map(log: &Log, tx: &TransactionTrace) -> Option<ProtocolComponent> {
+    let address = log.address.to_owned();
+    if address == FACTORY_ADDRESS {
+        PoolAdded::match_and_decode(log).map(|pool_added| {
+            substreams::log::info!("🚨 Pool added {:?}", pool_added.pool);
+
+            ProtocolComponent::at_contract(&pool_added.pool, &(tx.into()))
+                .with_tokens(&[pool_added.pool, BNT_ADDRESS.to_vec()])
+                .as_swap_type("bancor_v3_pool", ImplementationType::Vm)
+        })
     } else {
         None
     }
