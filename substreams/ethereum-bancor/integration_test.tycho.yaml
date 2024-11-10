@@ -1,0 +1,67 @@
+substreams_yaml_path: ./substreams.yaml
+adapter_contract: "BancorV3SwapAdapter"
+adapter_build_signature: "constructor(address,address)"
+# Bancor Neteowk Info V3 Address & Bancor Network V3 Address"
+adapter_build_args: "0x8E303D296851B320e6a697bAcB979d13c9D6E760,0xeEF417e1D5CC832e619ae18D2F140De2999dD4fB"
+# Whether or not the testing script should skip checking balances of the protocol components.
+# If set to `true` please always add a reason why it's skipped.
+skip_balance_check: true
+# A list of accounts that need to be indexed to run the tests properly.
+# Usually used when there is a global component required by all pools and created before the tested range of blocks. For example a factory or a vault.
+# Please note that this component needs to be indexed by your substreams module, this feature is only for testing purpose.
+# Also please always add a reason why this account is needed for your tests.
+# This will be applied to each test.
+initialized_accounts:
+  - "0xeEF417e1D5CC832e619ae18D2F140De2999dD4fB" # Bancor Network == Factory
+  - "0x1F573D6Fb3F13d689FF844B4cE37794d79a7FF1C" # BNT Token Address
+  - "0x6B175474E89094C44Da98b954EedeAC495271d0F" # DAI Token Address
+
+protocol_type_names:
+  - "bancor_v3_pool"
+
+tests:
+  - name: test_dai_pool_creation
+    start_block: 14609480
+    stop_block: 14623650 #5 blocks after creation tx
+    # Same as global `initialized_accounts` but only scoped to this test.
+    # initialized_accounts:
+    #   - "0x0c0e5f2fF0ff18a3be9b835635039256dC4B4963" # Needed for ....
+    # A list of expected component indexed in the block range. Each component must match perfectly the `ProtocolComponent` indexed by your subtreams module.
+    expected_components:
+      - id: "0x6b175474e89094c44da98b954eedeac495271d0f"
+        tokens:
+          - "0x6B175474E89094C44Da98b954EedeAC495271d0F" # DAI
+          - "0x1F573D6Fb3F13d689FF844B4cE37794d79a7FF1C" # BNT
+        static_attributes: null
+        creation_tx: "0x96141627a1b1106215811ee1981cfae638a81dbf7a23dbde01f33789f7c58783"
+        skip_simulation: false
+
+  - name: test_eth_pool_creation
+    start_block: 14609480
+    stop_block: 14623650
+    # Same as global `initialized_accounts` but only scoped to this test.
+    # initialized_accounts:
+    #   - "0x0c0e5f2fF0ff18a3be9b835635039256dC4B4963" # Needed for ....
+    # A list of expected component indexed in the block range. Each component must match perfectly the `ProtocolComponent` indexed by your subtreams module.
+    expected_components:
+      - id: "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+        tokens:
+          - "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE" # ETH
+          - "0x1F573D6Fb3F13d689FF844B4cE37794d79a7FF1C" # BNT
+        static_attributes: null
+        creation_tx: "0x894cc251eb4eeda2045c5cc9ebef8ad0b6c05c99cf2b0b46e9ce09864ceb3009"
+        skip_simulation: false
+
+  # - name: test_something_else
+  #   start_block: 123
+  #   stop_block: 456
+  #   expected_components:
+  #     - id: "0xdc24316b9ae028f1497c275eb9192a3ea0f67022"
+  #       tokens:
+  #         - "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE"
+  #         - "0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84"
+  #       static_attributes:
+            # attr_1: "value"
+            # attr_2: "value"
+  #       creation_tx: "0xfac67ecbd423a5b915deff06045ec9343568edaec34ae95c43d35f2c018afdaa"
+  #       skip_simulation: true # If true, always add a reason
