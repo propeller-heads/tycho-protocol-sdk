@@ -6,7 +6,7 @@ use substreams::{
     hex,
     pb::substreams::StoreDeltas,
     store::{
-        StoreAddBigInt, StoreGet, StoreGetInt64, StoreGetProto, StoreNew, StoreSet, StoreSetString, StoreGetString
+        StoreAddBigInt, StoreGet, StoreNew, StoreSet, StoreSetString, StoreGetString
     },
 };
 use substreams_ethereum::{
@@ -90,39 +90,40 @@ pub fn store_components(
 #[substreams::handlers::map]
 pub fn map_relative_balances(
     block: eth::v2::Block,
-    store: StoreGetString
+    store: StoreGetString // Input parameter: Store interface for retrieving strings
 ) -> Result<BlockBalanceDeltas, anyhow::Error> {
     let balance_deltas = block
-        .logs()
-        .filter(|log| log.address() == &FACTORY_ADDRESS)
-        .flat_map(|log| {
-            let mut deltas = Vec::new();
+        .logs() // Get all the logs from the block
+        .filter(|log| log.address() == &FACTORY_ADDRESS) // Only keep logs from the FACTORY_ADDRESS
+        .flat_map(|log| {   // Transform each log into multiple BalanceDeltas
+            let mut deltas = Vec::new(); // Create an empty vector to store deltas
 
-            // Match the `TokensTraded` event from the log
+            // Try to decode the log received from `store_components` as a TokenTraded event
             if let Some(event) = TokensTraded::match_and_decode(log) {
+                // Convert token addresses to hex strings
                 let source_component_id = address_to_hex(&event.source_token);
                 let target_component_id = address_to_hex(&event.target_token);
 
-                // Retrieve source and target components from the store
+                // Check if both tokens exist in the store
                 if let (Some(_source_component), Some(_target_component)) = (
                     store.get_last(format!("pool:{}", source_component_id)),
                     store.get_last(format!("pool:{}", target_component_id)),
                 ) {
-                    // Adding balance delta for source token
+                    // Create delta for source token (positive amount)
                     deltas.push(BalanceDelta {
-                        ord: log.ordinal(),
-                        tx: Some(log.receipt.transaction.into()),
-                        token: event.source_token.clone(),
-                        delta: event.source_amount.to_signed_bytes_be(),
-                        component_id: source_component_id.clone().into_bytes(),
+                        ord: log.ordinal(), // Event ordering number
+                        tx: Some(log.receipt.transaction.into()), // Transaction info
+                        token: event.source_token.clone(), // Source token address
+                        delta: event.source_amount.to_signed_bytes_be(), // Source token amount as sygned bytes
+                        component_id: source_component_id.clone().into_bytes(), // Component ID
                     });
 
-                    // Adding balance delta for target token
+                    // Create delta for target token (negative amount)
                     deltas.push(BalanceDelta {
                         ord: log.ordinal(),
                         tx: Some(log.receipt.transaction.into()),
                         token: event.target_token.clone(),
-                        delta: event
+                        delta: event        // Negate the target amount
                             .target_amount
                             .neg()
                             .to_signed_bytes_be(),
@@ -131,12 +132,14 @@ pub fn map_relative_balances(
                 }
             }
 
-            deltas
+            deltas  // Return the vector of deltas for this log
         })
-        .collect::<Vec<_>>();
+        .collect::<Vec<_>>();  // Collect all deltas into a vector
 
+    // Return the balance deltas wrapped in BlockBalanceDeltas struct
     Ok(BlockBalanceDeltas { balance_deltas })
 }
+
 
 /// It's significant to include both the `pool_id` and the `token_id` for each balance delta as the
 ///  store key to ensure that there's a unique balance being tallied for each.
