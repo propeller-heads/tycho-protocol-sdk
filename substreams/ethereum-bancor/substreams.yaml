@@ -20,8 +20,9 @@ binaries:
 modules:
   - name: map_components
     kind: map
-    initialBlock: 14609480 #first pool created
+    initialBlock: 14609330
     inputs:
+      - params: string
       - source: sf.ethereum.type.v2.Block
     output:
       type: proto:tycho.evm.v1.BlockTransactionProtocolComponents
@@ -63,3 +64,6 @@ modules:
         mode: deltas  # This is the key property that simplifies `BalanceChange` handling
     output:
       type: proto:tycho.evm.v1.BlockChanges
+
+params:
+  map_components: "eEF417e1D5CC832e619ae18D2F140De2999dD4fB"
