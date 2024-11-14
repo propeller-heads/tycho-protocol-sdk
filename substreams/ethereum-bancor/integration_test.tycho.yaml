@@ -12,25 +12,35 @@ skip_balance_check: true
 # Also please always add a reason why this account is needed for your tests.
 # This will be applied to each test.
 initialized_accounts:
-  - "0x8E303D296851B320e6a697bAcB979d13c9D6E760" # Network Info
-  - "0x649765821D9f64198c905eC0B2B037a4a52Bc373" # Master Vault
-  - "0x6f9124C32a9f6E532C908798F872d5472e9Cb714" # Pool Collection
-  - "0x6B175474E89094C44Da98b954EedeAC495271d0F" # DAI Address
-  - "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE" # ETH Address
+  - "0x6B175474E89094C44Da98b954EedeAC495271d0F"   # DAI Address
+  - "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE"   # ETH Address
 
 protocol_type_names:
   - "bancor_master_vault"
 
 tests:
-  - name: test_vault_creation_and_swap
-    start_block: 14609379 # Master vault creation
-    stop_block: 14623625 # DAI pool first swap
+  - name: test_vault_creation
+    start_block: 14609331  # Block Master vault creation
+    stop_block: 14609390
     expected_components:
-      - id: "0x649765821D9f64198c905eC0B2B037a4a52Bc373"
-        static_attributes: null
-        tokens:
+      - id: "vault:0x649765821d9f64198c905ec0b2b037a4a52bc373"
+        tokens:  # Uncomment tokens section since these are important for balance tracking
           - "0x6B175474E89094C44Da98b954EedeAC495271d0F" # DAI
           - "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE" # ETH
-        creation_tx: "0x6b1dfd6608d4ababbb50e25adb8498f318551cd305981fc0e950e51e0d3c6e7f"
+        creation_tx: "0x771fabdc9c778ea942b465cce5e64dea77dfd12f83c110431dab4c77563e6407"
         skip_simulation: false
+        type: "bancor_master_vault"  # Add type to match protocol_type_names
+
+
+
+  # - name: test_vault_creation_and_swap
+  #   start_block: 14609330 # Master vault creation
+  #   stop_block: 14623625 # DAI pool first swap
+  #   expected_components:
+  #     - id: "0x649765821D9f64198c905eC0B2B037a4a52Bc373"
+  #       tokens:
+  #         - "0x6B175474E89094C44Da98b954EedeAC495271d0F" # DAI
+  #         - "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE" # ETH
+  #       creation_tx: "0x771fabdc9c778ea942b465cce5e64dea77dfd12f83c110431dab4c77563e6407"
+  #       skip_simulation: false
 

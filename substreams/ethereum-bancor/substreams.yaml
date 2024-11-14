@@ -1,6 +1,6 @@
 specVersion: v0.1.0
 package:
-  name: "substreams_bancor"
+  name: "ethereum_bancor"
   version: v0.1.0
 
 protobuf:
@@ -20,50 +20,50 @@ binaries:
 modules:
   - name: map_components
     kind: map
-    initialBlock: 14609330
+    initialBlock: 14609331
     inputs:
       - params: string
       - source: sf.ethereum.type.v2.Block
     output:
       type: proto:tycho.evm.v1.BlockTransactionProtocolComponents
-  
+
   - name: store_components
     kind: store
-    initialBlock: 14609480 #first pool created
-    updatePolicy: set
-    valueType: string
+    initialBlock: 14609331
+    updatePolicy: add
+    valueType: int64
     inputs:
       - map: map_components
 
   - name: map_relative_balances
     kind: map
-    initialBlock: 14609480  # first trade
+    initialBlock: 14609331
     inputs:
+      - params: string
       - source: sf.ethereum.type.v2.Block
-      - store: store_components
     output:
       type: proto:tycho.evm.v1.BlockBalanceDeltas
 
   - name: store_balances
     kind: store
-    initialBlock: 14609480 # first trade
-    updatePolicy: add
+    initialBlock: 14609331
+    updatePolicy: set
     valueType: bigint
     inputs:
       - map: map_relative_balances
 
   - name: map_protocol_changes
     kind: map
-    initialBlock: 14609480 #first pool created
+    initialBlock: 14609331
     inputs:
       - source: sf.ethereum.type.v2.Block
       - map: map_components
       - map: map_relative_balances
       - store: store_components
       - store: store_balances
-        mode: deltas  # This is the key property that simplifies `BalanceChange` handling
+        mode: deltas
     output:
       type: proto:tycho.evm.v1.BlockChanges
 
 params:
-  map_components: "eEF417e1D5CC832e619ae18D2F140De2999dD4fB"
+  map_components: "649765821D9f64198c905eC0B2B037a4a52Bc373"

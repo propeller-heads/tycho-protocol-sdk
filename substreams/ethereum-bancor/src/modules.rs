@@ -1,28 +1,25 @@
-use crate::abi::{self};
+use crate::abi;
 use anyhow::Result;
 use itertools::Itertools;
 use std::collections::HashMap;
 use substreams::{
-    hex,
     pb::substreams::StoreDeltas,
     scalar::BigInt as ScalarBigInt,
-    store::{StoreAddBigInt, StoreGet, StoreGetString, StoreNew, StoreSet, StoreSetString},
+    store::{StoreAdd, StoreAddBigInt, StoreAddInt64, StoreGet, StoreGetString, StoreNew},
 };
 use substreams_ethereum::{pb::eth, Event};
 use tycho_substreams::{
     balances::aggregate_balances_changes, contract::extract_contract_changes_builder, prelude::*,
 };
 
-pub const ETH_ADDRESS: [u8; 20] = [238u8; 20]; // 0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+// pub const ETH_ADDRESS: [u8; 20] = [238u8; 20]; // 0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
 
 #[substreams::handlers::map]
 pub fn map_components(
     params: String,
     block: eth::v2::Block,
 ) -> Result<BlockTransactionProtocolComponents, anyhow::Error> {
-    let network_address = hex::decode(params).unwrap();
-    let vault_address = get_master_vault_address(&network_address).unwrap();
-    // We store these as a hashmap by tx hash since we need to agg by tx hash later
+    let vault_address = hex::decode(params).unwrap();
     Ok(BlockTransactionProtocolComponents {
         tx_components: block
             .transactions()
@@ -56,137 +53,98 @@ pub fn map_components(
 
 /// Simply stores the `ProtocolComponent`s with the pool address as the key and the pool id as value
 #[substreams::handlers::store]
-pub fn store_components(
-    map: BlockTransactionProtocolComponents, // Input: contains transactions with their components
-    store: StoreSetString,                   // Store interface for setting string values
-) {
-    map.tx_components // Get all transactions that have components
-        .into_iter() // Convert into an iterator
-        .for_each(|tx_pc| {
-            // For each transaction with components...
-            tx_pc
-                .components // Get the components from this transaction
-                .into_iter()
-                .for_each(|pc| {
-                    // For each component
-                    let key = format!("pool:{0}", &pc.id[..42]);
-                    substreams::log::info!(
-                        "Storing component with key: {}, value: {}",
-                        key,
-                        &pc.id
-                    );
-                    store.set(
-                        0, /* Starting ordinal (always 0 in this
-                            * case) */
-                        format!("pool:{0}", &pc.id[..42]), /* Key: "pool:" prefix + first 42
-                                                            * chars of component ID */
-                        &pc.id, // Value: the full component ID
-                    )
-                });
-        });
+pub fn store_components(map: BlockTransactionProtocolComponents, store: StoreAddInt64) {
+    store.add_many(
+        0,
+        &map.tx_components
+            .iter()
+            .flat_map(|tx_components| &tx_components.components)
+            .map(|component| format!("vault:{}", &component.id))
+            .collect::<Vec<_>>(),
+        1,
+    );
 }
 
-/// we need to leverage a
-/// map and a  store to be able to tally up final balances for tokens in a pool.
+
+
 #[substreams::handlers::map]
 pub fn map_relative_balances(
+    params: String,
     block: eth::v2::Block,
-    store: StoreGetString, // Input parameter: Store interface for retrieving strings
+    // store: StoreGetString,
 ) -> Result<BlockBalanceDeltas, anyhow::Error> {
-    // Iterate for transactions (find ETH transfers)
+
+    let vault_address = hex::decode(&params).unwrap();
+    // let store_key = format!("vault:{}", &params);
+    
+    // Verify the vault exists in our store
+    // store
+    //   .get_last(&store_key)
+    //   .expect("Vault address should be stored");
+
     let balance_deltas = block
-        .transactions() // Get all the logs from the block
+        .transactions()
         .flat_map(|tx| {
-            // Transform each log into multiple BalanceDeltas
-            let mut deltas = Vec::new(); // Create an empty vector to store deltas
+            let mut deltas = Vec::new();
+            
+            // let vault_hex = store
+            //     .get_last("vault:master")
+            //     .expect("Master vault address should be stored");
+            // let vault_address = hex::decode(&vault_hex[2..]).expect("Invalid hex");
 
-            // convert tx value to scalar BigInt
-            let tx_value = ScalarBigInt::from_signed_bytes_be(&tx.value.as_ref().unwrap().bytes);
 
-            // lookup for this tx's executor in store
-            let address_bytes_be_from = tx.from.to_vec();
-            let address_hex_from = format!("0x{}", hex::encode(&address_bytes_be_from));
+            let tx_value = tx.value
+                .as_ref()
+                .map(|v| ScalarBigInt::from_signed_bytes_be(&v.bytes))
+                .unwrap_or_else(|| ScalarBigInt::zero());
 
-            let address_bytes_be_to = tx.to.to_vec();
-            let address_hex_to = format!("0x{}", hex::encode(&address_bytes_be_to));
-
-            let mut component_id = Vec::new();
-            if store
-                .get_last(format!("pool:{}", address_hex_from))
-                .is_some()
-            {
-                component_id = address_bytes_be_to.clone();
-            } else {
-                if store
-                    .get_last(format!("pool:{}", address_hex_to))
-                    .is_some()
-                {
-                    component_id = address_bytes_be_from.clone();
-                }
+            if tx.to == vault_address {
+                deltas.push(BalanceDelta {
+                    ord: tx.begin_ordinal,
+                    tx: Some(tx.into()),
+                    token: vec![0; 20],
+                    delta: tx_value.to_signed_bytes_be(),
+                    component_id: vault_address.clone(),
+                });
+            } else if tx.from == vault_address {
+                deltas.push(BalanceDelta {
+                    ord: tx.begin_ordinal,
+                    tx: Some(tx.into()),
+                    token: vec![0; 20],
+                    delta: tx_value.neg().to_signed_bytes_be(),
+                    component_id: vault_address.clone(),
+                });
             }
 
-            if !component_id.is_empty() {
-                let mut tx_trace = None;
-                // detect ERC20 transfers
-                tx.logs_with_calls()
-                    .for_each(|(log, _)| {
-                        if let Some(transfer) = abi::erc20::events::Transfer::match_and_decode(log)
-                        {
-                            if transfer.from.to_vec() == component_id {
-                                tx_trace = Some(tx.into());
-                                deltas.push(BalanceDelta {
-                                    ord: tx.begin_ordinal,       // Event ordering number
-                                    tx: Some(tx.into()),         // Transaction receipt
-                                    token: log.address.to_vec(), // Source token address
-                                    delta: transfer
-                                        .value
-                                        .neg()
-                                        .to_signed_bytes_be(),
-                                    component_id: component_id.clone(), // Component ID
-                                });
-                            } else if transfer.to.to_vec() == component_id {
-                                tx_trace = Some(tx.into());
-                                deltas.push(BalanceDelta {
-                                    ord: tx.begin_ordinal,       // Event ordering number
-                                    tx: Some(tx.into()),         // Transaction receipt
-                                    token: log.address.to_vec(), // Destination token address
-                                    delta: transfer.value.to_signed_bytes_be(),
-                                    component_id: component_id.clone(), // Component ID
-                                });
-                            }
+            // Track ERC20 transfers
+            tx.logs_with_calls()
+                .filter_map(|(log, _call)| {
+                    if let Some(transfer) = abi::erc20::events::Transfer::match_and_decode(log) {
+                        if transfer.from == vault_address || transfer.to == vault_address {
+                            Some(BalanceDelta {
+                                ord: tx.begin_ordinal,
+                                tx: Some(tx.into()),
+                                token: log.address.to_vec(),
+                                delta: if transfer.from == vault_address {
+                                    transfer.value.neg().to_signed_bytes_be()
+                                } else {
+                                    transfer.value.to_signed_bytes_be()
+                                },
+                                component_id: vault_address.clone(),
+                            })
+                        } else {
+                            None
                         }
+                    } else {
+                        None
+                    }
+                })
+                .for_each(|delta| deltas.push(delta));
 
-                        // detect ETH transfers
-                        if tx_trace.is_some() && tx_value.gt(&ScalarBigInt::zero()) {
-                            if tx.to.to_vec() == component_id {
-                                deltas.push(BalanceDelta {
-                                    ord: tx.begin_ordinal,       // Event ordering number
-                                    tx: tx_trace.clone(),        // Transaction receipt
-                                    token: ETH_ADDRESS.to_vec(), // Source token address
-                                    delta: tx_value.to_signed_bytes_be(),
-                                    component_id: component_id.clone(), // Component ID
-                                });
-                            } else if tx.from.to_vec() == component_id {
-                                deltas.push(BalanceDelta {
-                                    ord: tx.begin_ordinal,       /* Event ordering
-                                                                  * number */
-                                    tx: tx_trace.clone(), // Transaction receipt
-                                    token: ETH_ADDRESS.to_vec(), // Source token address
-                                    delta: tx_value.neg().to_signed_bytes_be(), /* Source token
-                                                           * amount as sygned
-                                                           * bytes */
-                                    component_id: component_id.clone(), // Component ID
-                                });
-                            }
-                        }
-                    });
-            }
-
-            deltas // Return the vector of deltas for this log
+            deltas
         })
         .collect::<Vec<_>>();
 
-    // Return the balance deltas wrapped in BlockBalanceDeltas struct
     Ok(BlockBalanceDeltas { balance_deltas })
 }
 
@@ -260,7 +218,7 @@ pub fn map_protocol_changes(
         &block,
         |addr| {
             components_store
-                .get_last(format!("pool:0x{0}", hex::encode(addr)))
+                .get_last(format!("0x{0}", hex::encode(addr)))
                 .is_some()
         },
         &mut transaction_changes,
@@ -299,13 +257,4 @@ fn is_deployment_tx(tx: &eth::v2::TransactionTrace, vault_address: &[u8]) -> boo
         return deployed_address.as_slice() == vault_address;
     }
     false
-}
-
-fn get_master_vault_address(network_address: &[u8]) -> Option<[u8; 20]> {
-    match network_address {
-        hex!("eEF417e1D5CC832e619ae18D2F140De2999dD4fB") => {
-            Some(hex!("2f14750b0d267be47dcd30a134796c2e4b1638a3"))
-        }
-        _ => None,
-    }
 }
