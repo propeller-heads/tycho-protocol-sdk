@@ -1,3 +1,0 @@
-# Substreams Integration
-
-Coming Soon

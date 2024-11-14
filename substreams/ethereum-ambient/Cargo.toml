@@ -1,0 +1,22 @@
+[package]
+name = "substreams-ethereum-ambient"
+version = "0.5.1"
+edition = "2021"
+
+[lib]
+name = "substreams_ethereum_ambient"
+crate-type = ["cdylib"]
+
+[dependencies]
+tycho-substreams.workspace = true
+substreams.workspace = true
+substreams-ethereum.workspace = true
+prost.workspace = true
+hex-literal.workspace = true
+ethabi.workspace = true
+hex.workspace = true
+bytes = "1.5.0"
+anyhow.workspace = true
+tiny-keccak = "2.0.2"
+num-bigint = { version = "0.4.4", features = [] }
+quote = "1.0.33"
