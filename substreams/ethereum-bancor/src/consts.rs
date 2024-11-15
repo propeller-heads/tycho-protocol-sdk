@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+use ethabi::ethereum_types::H256;
 use substreams::hex;
 
 // This is wrong, this is the address of Bancor Network V3
@@ -44,3 +46,6 @@ pub const QNT: [u8; 20] = hex!("4a220E6096B25EADb88358cb44068A3248254675");
 pub const WBTC: [u8; 20] = hex!("2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599");
 pub const W_NXM: [u8; 20] = hex!("0d438F3b5175Bebc262bF23753C1E53d03432bDE");
 pub const DAI: [u8; 20] = hex!("85B9E00f820849BE1308A49eaDCFd44C74E3F001");
+
+// Global and agnostic ERC20 signatures used to filter events (Transfer and Approval)
+pub const ERC20_TRANSFER_SIG: [u8; 32] = hex!("ddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef");

@@ -1,4 +1,4 @@
-use crate::abi;
+use crate::erc20_transfer::decode_erc20_transfer;
 use anyhow::Result;
 use itertools::Itertools;
 use std::collections::HashMap;
@@ -7,7 +7,7 @@ use substreams::{
     scalar::BigInt as ScalarBigInt,
     store::{StoreAdd, StoreAddBigInt, StoreAddInt64, StoreGet, StoreGetString, StoreNew},
 };
-use substreams_ethereum::{pb::eth, Event};
+use substreams_ethereum::pb::eth;
 use tycho_substreams::{
     balances::aggregate_balances_changes, contract::extract_contract_changes_builder, prelude::*,
 };
@@ -119,7 +119,9 @@ pub fn map_relative_balances(
             // Track ERC20 transfers
             tx.logs_with_calls()
                 .filter_map(|(log, _call)| {
-                    if let Some(transfer) = abi::erc20::events::Transfer::match_and_decode(log) {
+
+                    if let Some(transfer) = decode_erc20_transfer(&log) {
+
                         if transfer.from == vault_address || transfer.to == vault_address {
                             Some(BalanceDelta {
                                 ord: tx.begin_ordinal,
