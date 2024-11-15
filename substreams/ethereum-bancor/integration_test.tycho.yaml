@@ -23,7 +23,7 @@ tests:
     start_block: 14609331  # Block Master vault creation
     stop_block: 14609390
     expected_components:
-      - id: "vault:0x649765821d9f64198c905ec0b2b037a4a52bc373"
+      - id: "0x649765821d9f64198c905ec0b2b037a4a52bc373"
         tokens:  # Uncomment tokens section since these are important for balance tracking
           - "0x6B175474E89094C44Da98b954EedeAC495271d0F" # DAI
           - "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE" # ETH

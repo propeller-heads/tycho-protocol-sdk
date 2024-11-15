@@ -39,15 +39,15 @@ modules:
     kind: map
     initialBlock: 14609331
     inputs:
-      - params: string
       - source: sf.ethereum.type.v2.Block
+      - store: store_components
     output:
       type: proto:tycho.evm.v1.BlockBalanceDeltas
 
   - name: store_balances
     kind: store
     initialBlock: 14609331
-    updatePolicy: set
+    updatePolicy: add
     valueType: bigint
     inputs:
       - map: map_relative_balances

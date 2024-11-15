@@ -1,12 +1,15 @@
 use crate::erc20_transfer::decode_erc20_transfer;
 use anyhow::Result;
 use itertools::Itertools;
-use std::collections::HashMap;
+use std::{collections::HashMap, vec};
 use substreams::{
     pb::substreams::StoreDeltas,
     scalar::BigInt as ScalarBigInt,
-    store::{StoreAdd, StoreAddBigInt, StoreAddInt64, StoreGet, StoreGetString, StoreNew},
+    store::{
+        StoreAdd, StoreAddBigInt, StoreAddInt64, StoreGet, StoreGetInt64, StoreGetString, StoreNew,
+    },
 };
+use substreams_database_change::{change::AsString, tables::ToDatabaseValue};
 use substreams_ethereum::pb::eth;
 use tycho_substreams::{
     balances::aggregate_balances_changes, contract::extract_contract_changes_builder, prelude::*,
@@ -65,75 +68,103 @@ pub fn store_components(map: BlockTransactionProtocolComponents, store: StoreAdd
     );
 }
 
-
-
 #[substreams::handlers::map]
 pub fn map_relative_balances(
-    params: String,
     block: eth::v2::Block,
-    // store: StoreGetString,
+    store: StoreGetInt64,
 ) -> Result<BlockBalanceDeltas, anyhow::Error> {
-
-    let vault_address = hex::decode(&params).unwrap();
-    // let store_key = format!("vault:{}", &params);
-    
-    // Verify the vault exists in our store
-    // store
-    //   .get_last(&store_key)
-    //   .expect("Vault address should be stored");
-
     let balance_deltas = block
         .transactions()
         .flat_map(|tx| {
             let mut deltas = Vec::new();
-            
-            // let vault_hex = store
-            //     .get_last("vault:master")
-            //     .expect("Master vault address should be stored");
-            // let vault_address = hex::decode(&vault_hex[2..]).expect("Invalid hex");
 
-
-            let tx_value = tx.value
+            let tx_value = tx
+                .value
                 .as_ref()
                 .map(|v| ScalarBigInt::from_signed_bytes_be(&v.bytes))
                 .unwrap_or_else(|| ScalarBigInt::zero());
 
-            if tx.to == vault_address {
-                deltas.push(BalanceDelta {
-                    ord: tx.begin_ordinal,
-                    tx: Some(tx.into()),
-                    token: vec![0; 20],
-                    delta: tx_value.to_signed_bytes_be(),
-                    component_id: vault_address.clone(),
-                });
-            } else if tx.from == vault_address {
-                deltas.push(BalanceDelta {
-                    ord: tx.begin_ordinal,
-                    tx: Some(tx.into()),
-                    token: vec![0; 20],
-                    delta: tx_value.neg().to_signed_bytes_be(),
-                    component_id: vault_address.clone(),
-                });
+            if tx_value.gt(&ScalarBigInt::zero()) {
+                let vault_address = if store
+                    .get_last(format!("vault:{}", hex::encode(&tx.to)))
+                    .is_some()
+                {
+                    tx.to.to_vec()
+                } else if store
+                    .get_last(format!("vault:{}", hex::encode(&tx.from)))
+                    .is_some()
+                {
+                    tx.from.to_vec()
+                } else {
+                    vec![0; 0]
+                };
+
+                let vault_exists = vault_address != vec![0; 0];
+
+                if vault_exists {
+                    if tx.from == vault_address {
+                        deltas.push(BalanceDelta {
+                            ord: tx.begin_ordinal,
+                            tx: Some(tx.into()),
+                            token: vec![0; 20],
+                            delta: tx_value.neg().to_signed_bytes_be(),
+                            component_id: vault_address.clone(),
+                        });
+                    } else if tx.to == vault_address {
+                        deltas.push(BalanceDelta {
+                            ord: tx.begin_ordinal,
+                            tx: Some(tx.into()),
+                            token: vec![0; 20],
+                            delta: tx_value.to_signed_bytes_be(),
+                            component_id: vault_address.clone(),
+                        });
+                    }
+                }
             }
 
             // Track ERC20 transfers
             tx.logs_with_calls()
                 .filter_map(|(log, _call)| {
-
                     if let Some(transfer) = decode_erc20_transfer(&log) {
+                        let vault_address = if store
+                            .get_last(format!("vault:{}", hex::encode(&transfer.to)))
+                            .is_some()
+                        {
+                            tx.to.to_vec()
+                        } else if store
+                            .get_last(format!("vault:{}", hex::encode(&transfer.from)))
+                            .is_some()
+                        {
+                            tx.from.to_vec()
+                        } else {
+                            vec![0; 0]
+                        };
 
-                        if transfer.from == vault_address || transfer.to == vault_address {
-                            Some(BalanceDelta {
-                                ord: tx.begin_ordinal,
-                                tx: Some(tx.into()),
-                                token: log.address.to_vec(),
-                                delta: if transfer.from == vault_address {
-                                    transfer.value.neg().to_signed_bytes_be()
-                                } else {
-                                    transfer.value.to_signed_bytes_be()
-                                },
-                                component_id: vault_address.clone(),
-                            })
+                        let vault_exists = vault_address != vec![0; 0];
+
+                        if vault_exists {
+                            if transfer.from == vault_address {
+                                Some(BalanceDelta {
+                                    ord: tx.begin_ordinal,
+                                    tx: Some(tx.into()),
+                                    token: log.address.to_vec(),
+                                    delta: transfer
+                                        .value
+                                        .neg()
+                                        .to_signed_bytes_be(),
+                                    component_id: vault_address.clone(),
+                                })
+                            } else if transfer.to == vault_address {
+                                Some(BalanceDelta {
+                                    ord: tx.begin_ordinal,
+                                    tx: Some(tx.into()),
+                                    token: log.address.to_vec(),
+                                    delta: transfer.value.to_signed_bytes_be(),
+                                    component_id: vault_address.clone(),
+                                })
+                            } else {
+                                None
+                            }
                         } else {
                             None
                         }
