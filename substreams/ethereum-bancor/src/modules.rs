@@ -1,16 +1,22 @@
 use crate::erc20_transfer::decode_erc20_transfer;
 use anyhow::Result;
+use hex_literal::hex;
 use itertools::Itertools;
+use num_bigint::BigInt;
 use std::{collections::HashMap, vec};
 use substreams::{
+    log,
     pb::substreams::StoreDeltas,
-    scalar::BigInt as ScalarBigInt,
+    scalar::{self, BigInt as ScalarBigInt},
     store::{
         StoreAdd, StoreAddBigInt, StoreAddInt64, StoreGet, StoreGetInt64, StoreGetString, StoreNew,
     },
 };
 use substreams_database_change::{change::AsString, tables::ToDatabaseValue};
-use substreams_ethereum::pb::eth;
+use substreams_ethereum::{
+    pb::eth::{self},
+    Event,
+};
 use tycho_substreams::{
     balances::aggregate_balances_changes, contract::extract_contract_changes_builder, prelude::*,
 };
@@ -34,6 +40,18 @@ pub fn map_components(
                         // address doesn't exist before contract deployment, hence the first tx with
                         // a log.address = vault_address is the deployment tx
                         if is_deployment_tx(tx, &vault_address) {
+                            let ignazio =
+                                ProtocolComponent::at_contract(&vault_address, &tx.into())
+                                    .as_swap_type("bancor_master_vault", ImplementationType::Vm);
+
+                            let mut cur_tokens = Vec::new();
+
+                            ignazio.tokens.iter().for_each(|token| {
+                                if !cur_tokens.contains(token) {
+                                    cur_tokens.push(token.clone());
+                                }
+                            });
+
                             Some(
                                 ProtocolComponent::at_contract(&vault_address, &tx.into())
                                     .as_swap_type("bancor_master_vault", ImplementationType::Vm),
@@ -78,45 +96,48 @@ pub fn map_relative_balances(
         .flat_map(|tx| {
             let mut deltas = Vec::new();
 
-            let tx_value = tx
-                .value
-                .as_ref()
-                .map(|v| ScalarBigInt::from_signed_bytes_be(&v.bytes))
-                .unwrap_or_else(|| ScalarBigInt::zero());
+            let mut tx_value: ScalarBigInt = ScalarBigInt::zero();
+
+            if let Some(value) = &tx.value {
+                tx_value = ScalarBigInt::from_signed_bytes_be(&value.bytes);
+            }
 
             if tx_value.gt(&ScalarBigInt::zero()) {
+                let tx_from = format!("0x{}", hex::encode(&tx.from));
+                let tx_to = format!("0x{}", hex::encode(&tx.to));
                 let vault_address = if store
-                    .get_last(format!("vault:{}", hex::encode(&tx.to)))
+                    .get_last(format!("vault:{}", tx_from))
                     .is_some()
                 {
-                    tx.to.to_vec()
+                    tx_from.clone()
                 } else if store
-                    .get_last(format!("vault:{}", hex::encode(&tx.from)))
+                    .get_last(format!("vault:{}", tx_to))
                     .is_some()
                 {
-                    tx.from.to_vec()
+                    tx_to.clone()
                 } else {
-                    vec![0; 0]
+                    "".to_string()
                 };
 
-                let vault_exists = vault_address != vec![0; 0];
+                let vault_exists: bool = !vault_address.is_empty();
 
                 if vault_exists {
-                    if tx.from == vault_address {
+                    let address_hex = format!("0x{}", vault_address);
+                    if &tx_from == &vault_address {
                         deltas.push(BalanceDelta {
                             ord: tx.begin_ordinal,
                             tx: Some(tx.into()),
                             token: vec![0; 20],
                             delta: tx_value.neg().to_signed_bytes_be(),
-                            component_id: vault_address.clone(),
+                            component_id: address_hex.as_bytes().to_vec(),
                         });
-                    } else if tx.to == vault_address {
+                    } else if &tx_to == &vault_address {
                         deltas.push(BalanceDelta {
                             ord: tx.begin_ordinal,
                             tx: Some(tx.into()),
                             token: vec![0; 20],
                             delta: tx_value.to_signed_bytes_be(),
-                            component_id: vault_address.clone(),
+                            component_id: address_hex.as_bytes().to_vec(),
                         });
                     }
                 }
@@ -126,44 +147,54 @@ pub fn map_relative_balances(
             tx.logs_with_calls()
                 .filter_map(|(log, _call)| {
                     if let Some(transfer) = decode_erc20_transfer(&log) {
+                        let tx_from = hex::encode(&transfer.from);
+                        let tx_to = hex::encode(&transfer.from);
                         let vault_address = if store
-                            .get_last(format!("vault:{}", hex::encode(&transfer.to)))
+                            .get_last(format!("vault:{}", tx_from))
                             .is_some()
                         {
-                            tx.to.to_vec()
+                            tx_from.clone()
                         } else if store
-                            .get_last(format!("vault:{}", hex::encode(&transfer.from)))
+                            .get_last(format!("vault:{}", tx_to))
                             .is_some()
                         {
-                            tx.from.to_vec()
+                            tx_to.clone()
                         } else {
-                            vec![0; 0]
+                            "".to_string()
                         };
 
-                        let vault_exists = vault_address != vec![0; 0];
+                        let vault_exists: bool = !vault_address.is_empty();
 
                         if vault_exists {
-                            if transfer.from == vault_address {
+                            let address_hex = format!("0x{}", vault_address);
+
+                            if tx_from == vault_address {
                                 Some(BalanceDelta {
-                                    ord: tx.begin_ordinal,
+                                    ord: log.ordinal,
                                     tx: Some(tx.into()),
                                     token: log.address.to_vec(),
                                     delta: transfer
                                         .value
                                         .neg()
                                         .to_signed_bytes_be(),
-                                    component_id: vault_address.clone(),
+                                    component_id: address_hex.as_bytes().to_vec(),
                                 })
-                            } else if transfer.to == vault_address {
+                            } else if tx_to == vault_address {
                                 Some(BalanceDelta {
-                                    ord: tx.begin_ordinal,
+                                    ord: log.ordinal,
                                     tx: Some(tx.into()),
                                     token: log.address.to_vec(),
                                     delta: transfer.value.to_signed_bytes_be(),
-                                    component_id: vault_address.clone(),
+                                    component_id: address_hex.as_bytes().to_vec(),
                                 })
                             } else {
-                                None
+                                Some(BalanceDelta {
+                                    ord: log.ordinal,
+                                    tx: Some(tx.into()),
+                                    token: log.address.to_vec(),
+                                    delta: BigInt::from(123).to_signed_bytes_be(),
+                                    component_id: address_hex.as_bytes().to_vec(),
+                                })
                             }
                         } else {
                             None
