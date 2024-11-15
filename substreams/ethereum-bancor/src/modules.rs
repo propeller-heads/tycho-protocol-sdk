@@ -147,8 +147,8 @@ pub fn map_relative_balances(
             tx.logs_with_calls()
                 .filter_map(|(log, _call)| {
                     if let Some(transfer) = decode_erc20_transfer(&log) {
-                        let tx_from = hex::encode(&transfer.from);
-                        let tx_to = hex::encode(&transfer.from);
+                        let tx_from = format!("0x{}", hex::encode(&tx.from));
+                        let tx_to = format!("0x{}", hex::encode(&tx.to));
                         let vault_address = if store
                             .get_last(format!("vault:{}", tx_from))
                             .is_some()
@@ -188,13 +188,7 @@ pub fn map_relative_balances(
                                     component_id: address_hex.as_bytes().to_vec(),
                                 })
                             } else {
-                                Some(BalanceDelta {
-                                    ord: log.ordinal,
-                                    tx: Some(tx.into()),
-                                    token: log.address.to_vec(),
-                                    delta: BigInt::from(123).to_signed_bytes_be(),
-                                    component_id: address_hex.as_bytes().to_vec(),
-                                })
+                                None
                             }
                         } else {
                             None
