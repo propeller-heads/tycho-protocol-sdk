@@ -1,7 +1,7 @@
 # information about the author helps us reach out in case of issues.
 author:
-  name: Propellerheads.xyz
-  email: pistomat@propellerheads.xyz
+  name: shadowycoders.dev
+  email: hello@shadowycreators.com
 
 # Protocol Constants
 constants:
@@ -27,10 +27,10 @@ instances:
 # getTokens are not implemented.
 tests:
   instances:
-    - pool_id: "0xB4e16d0168e52d35CaCD2c6185b44281Ec28C9Dc"
-      sell_token: "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2"
-      buy_token: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"
-      block: 17000000
+    - pool_id: "0x9e347Af362059bf2E55839002c699F7A5BaFE86E"
+      sell_token: "0x0000000000000000000000000000000000000000"
+      buy_token: "0x52F24a5e03aee338Da5fd9Df68D2b6FAe1178827"
+      block: 34449980
       chain:
-        id: 0
-        name: mainnet
+        name: bsc
+        id: 56
