@@ -40,18 +40,6 @@ pub fn map_components(
                         // address doesn't exist before contract deployment, hence the first tx with
                         // a log.address = vault_address is the deployment tx
                         if is_deployment_tx(tx, &vault_address) {
-                            let ignazio =
-                                ProtocolComponent::at_contract(&vault_address, &tx.into())
-                                    .as_swap_type("bancor_master_vault", ImplementationType::Vm);
-
-                            let mut cur_tokens = Vec::new();
-
-                            ignazio.tokens.iter().for_each(|token| {
-                                if !cur_tokens.contains(token) {
-                                    cur_tokens.push(token.clone());
-                                }
-                            });
-
                             Some(
                                 ProtocolComponent::at_contract(&vault_address, &tx.into())
                                     .as_swap_type("bancor_master_vault", ImplementationType::Vm),
