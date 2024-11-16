@@ -8,11 +8,7 @@ import "src/interfaces/ISwapAdapterTypes.sol";
 import "src/libraries/FractionMath.sol";
 import "./AdapterTest.sol";
 
-contract AnkrBNBStakingPoolAdapterTest is
-    Test,
-    ISwapAdapterTypes,
-    AdapterTest
-{
+contract AnkrBNBStakingPoolAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
     using FractionMath for Fraction;
 
     AnkrBNBStakingPoolAdapter adapter;
@@ -38,21 +34,19 @@ contract AnkrBNBStakingPoolAdapterTest is
     /// contract, to prevent reverts
     receive() external payable {}
 
-    function getMinLimits(address sellTokenAddress)
-        internal
-        view
-        returns (uint256[] memory minLimits)
-    {
+    function getMinLimits(
+        address sellTokenAddress
+    ) internal view returns (uint256[] memory minLimits) {
         minLimits = new uint256[](2);
         address ankrBNBAddress = address(ankrBNB);
 
-        uint256 minBNBAmount = pool.getMinUnstake();
+        uint256 minAnkrBNBAmount = pool.getMinUnstake();
         if (sellTokenAddress == ankrBNBAddress) {
-            minLimits[0] = ankrBNB.bondsToShares(minBNBAmount);
-            minLimits[1] = minBNBAmount;
+            minLimits[0] = minAnkrBNBAmount;
+            minLimits[1] = ankrBNB.sharesToBonds(minAnkrBNBAmount);
         } else {
-            minLimits[0] = minBNBAmount;
-            minLimits[1] = ankrBNB.bondsToShares(minBNBAmount);
+            minLimits[0] = ankrBNB.sharesToBonds(minAnkrBNBAmount);
+            minLimits[1] = minAnkrBNBAmount;
         }
     }
 
@@ -73,8 +67,12 @@ contract AnkrBNBStakingPoolAdapterTest is
             amounts[i] = minLimit + (i * 10 ** 12);
         }
 
-        Fraction[] memory prices =
-            adapter.price(bytes32(0), BNB, address(ankrBNB), amounts);
+        Fraction[] memory prices = adapter.price(
+            bytes32(0),
+            BNB,
+            address(ankrBNB),
+            amounts
+        );
 
         for (uint256 i = 0; i < prices.length; i++) {
             assertGt(prices[i].numerator, 0);
@@ -82,40 +80,58 @@ contract AnkrBNBStakingPoolAdapterTest is
         }
     }
 
-    function testWTF() public {
-        uint256 specifiedAmount = 107007575938555269;
-        specifiedAmount = specifiedAmount + (i * 10 ** 6);
-        deal(address(ankrBNB), address(this), type(uint256).max);
-        ankrBNB.approve(address(adapter), type(uint256).max);
-
-        Trade memory trade =
-            adapter.swap(bytes32(0), address(ankrBNB), BNB, OrderSide.Buy, specifiedAmount);
-    }
-
     function testSwapFuzzAnkrWithAnkrBNB(bool isBuy) public {
         OrderSide side = isBuy ? OrderSide.Buy : OrderSide.Sell;
 
         bytes32 pair = bytes32(0);
-        uint256[] memory limits = adapter.getLimits(pair, address(ankrBNB), BNB);
-        uint256[] memory minLimits = getMinLimits(address(ankrBNB));
 
         for (uint256 i = 0; i < TEST_ITERATIONS; i++) {
-            uint256 specifiedAmount =
-                side == OrderSide.Buy ? minLimits[1] : minLimits[0];
-            specifiedAmount = specifiedAmount + (i * 10 ** 6);
+            uint256[] memory limits = adapter.getLimits(
+                pair,
+                address(ankrBNB),
+                BNB
+            );
+            uint256[] memory minLimits = getMinLimits(address(ankrBNB));
+
+            uint256 specifiedAmount = side == OrderSide.Buy
+                ? minLimits[1]
+                : minLimits[0];
+            specifiedAmount = specifiedAmount + i;
 
             if (side == OrderSide.Buy) {
                 if (specifiedAmount > limits[1]) {
                     specifiedAmount = limits[1];
                 }
-                console.log("Sp, limit1, limit0", specifiedAmount, limits[1], limits[0]);
-                console.log("Converted", ankrBNB.sharesToBonds(specifiedAmount));
+
+                /** 
+                 * @dev 
+                 * Min. limit is very close to max. limit in this block, therefore at some point if we don't stop the test
+                 * It will fail because, e.g.:
+                 * Max. limit(BNB) 45231099045423138
+                 * Min. limit(BNB) 107007575936415118
+                 */
+                if(specifiedAmount <= minLimits[1]) {
+                    break;
+                }
+
                 deal(address(ankrBNB), address(this), type(uint256).max);
                 ankrBNB.approve(address(adapter), type(uint256).max);
             } else {
                 if (specifiedAmount > limits[0]) {
                     specifiedAmount = limits[0];
                 }
+
+                /** 
+                 * @dev 
+                 * Min. limit is very close to max. limit in this block, therefore at some point if we don't stop the test
+                 * It will fail because, e.g.:
+                 * Max. limit(BNB) 45231099045423138
+                 * Min. limit(BNB) 107007575936415118
+                 */
+                if(specifiedAmount <= minLimits[0]) {
+                    break;
+                }
+
                 deal(address(ankrBNB), address(this), specifiedAmount);
                 ankrBNB.approve(address(adapter), specifiedAmount);
             }
@@ -123,13 +139,19 @@ contract AnkrBNBStakingPoolAdapterTest is
             uint256 ankrBNB_balance = ankrBNB.balanceOf(address(this));
             uint256 BNB_balance = address(this).balance;
 
-            Trade memory trade =
-                adapter.swap(pair, address(ankrBNB), BNB, side, specifiedAmount);
+            Trade memory trade = adapter.swap(
+                pair,
+                address(ankrBNB),
+                BNB,
+                side,
+                specifiedAmount
+            );
 
             if (trade.calculatedAmount > 0) {
                 if (side == OrderSide.Buy) {
                     assertEq(
-                        specifiedAmount, address(this).balance - BNB_balance
+                        specifiedAmount,
+                        address(this).balance - BNB_balance
                     );
                     assertEq(
                         trade.calculatedAmount,
@@ -160,7 +182,7 @@ contract AnkrBNBStakingPoolAdapterTest is
             specifiedAmount = specifiedAmount + (i * 10 ** 6);
             if (side == OrderSide.Buy) {
                 deal(address(this), 10000 ether);
-                (bool sent,) = address(adapter).call{value: 10000 ether}("");
+                (bool sent, ) = address(adapter).call{value: 10000 ether}("");
                 /// @dev although send will never fail since contract has
                 /// receive() function,
                 /// we add the require anyway to hide the "unused local
@@ -169,7 +191,9 @@ contract AnkrBNBStakingPoolAdapterTest is
                 require(sent, "Failed to transfer ether");
             } else {
                 deal(address(this), specifiedAmount);
-                (bool sent,) = address(adapter).call{value: specifiedAmount}("");
+                (bool sent, ) = address(adapter).call{value: specifiedAmount}(
+                    ""
+                );
                 /// @dev although send will never fail since contract has
                 /// receive() function,
                 /// we add the require anyway to hide the "unused local
@@ -181,8 +205,13 @@ contract AnkrBNBStakingPoolAdapterTest is
             uint256 ankrBNB_balance = ankrBNB.balanceOf(address(this));
             uint256 BNB_balance = address(this).balance;
 
-            Trade memory trade =
-                adapter.swap(pair, BNB, address(ankrBNB), side, specifiedAmount);
+            Trade memory trade = adapter.swap(
+                pair,
+                BNB,
+                address(ankrBNB),
+                side,
+                specifiedAmount
+            );
 
             if (trade.calculatedAmount > 0) {
                 if (side == OrderSide.Buy) {
@@ -196,7 +225,8 @@ contract AnkrBNBStakingPoolAdapterTest is
                     );
                 } else {
                     assertEq(
-                        specifiedAmount, address(this).balance - BNB_balance
+                        specifiedAmount,
+                        address(this).balance - BNB_balance
                     );
                     assertEq(
                         trade.calculatedAmount,
@@ -216,8 +246,9 @@ contract AnkrBNBStakingPoolAdapterTest is
 
         uint256[] memory amounts = new uint256[](TEST_ITERATIONS);
         uint256[] memory minLimits = getMinLimits(address(ankrBNB));
-        uint256 specifiedAmount =
-            side == OrderSide.Buy ? minLimits[1] : minLimits[0];
+        uint256 specifiedAmount = side == OrderSide.Buy
+            ? minLimits[1]
+            : minLimits[0];
 
         for (uint256 i = 0; i < TEST_ITERATIONS; i++) {
             amounts[i] = specifiedAmount + (i * 10 ** 6);
@@ -231,13 +262,21 @@ contract AnkrBNBStakingPoolAdapterTest is
             deal(address(ankrBNB), address(this), amounts[i]);
             ankrBNB.approve(address(adapter), amounts[i]);
 
-            trades[i] =
-                adapter.swap(pair, address(ankrBNB), BNB, side, amounts[i]);
+            trades[i] = adapter.swap(
+                pair,
+                address(ankrBNB),
+                BNB,
+                side,
+                amounts[i]
+            );
             vm.revertTo(beforeSwap);
         }
 
         for (uint256 i = 1; i < TEST_ITERATIONS - 1; i++) {
-            assertLe(trades[i].calculatedAmount, trades[i + 1].calculatedAmount);
+            assertLe(
+                trades[i].calculatedAmount,
+                trades[i + 1].calculatedAmount
+            );
             assertLe(trades[i].gasUsed, trades[i + 1].gasUsed);
         }
     }
@@ -246,9 +285,11 @@ contract AnkrBNBStakingPoolAdapterTest is
         executeIncreasingSwapsAnkr(OrderSide.Buy);
     }
 
-    function testGetCapabilitiesAnkr(bytes32 pair, address t0, address t1)
-        public
-    {
+    function testGetCapabilitiesAnkr(
+        bytes32 pair,
+        address t0,
+        address t1
+    ) public {
         Capability[] memory res = adapter.getCapabilities(pair, t0, t1);
 
         assertGe(res.length, 4);
@@ -256,7 +297,11 @@ contract AnkrBNBStakingPoolAdapterTest is
 
     function testGetLimitsAnkr() public {
         bytes32 pair = bytes32(0);
-        uint256[] memory limits = adapter.getLimits(pair, address(ankrBNB), BNB);
+        uint256[] memory limits = adapter.getLimits(
+            pair,
+            address(ankrBNB),
+            BNB
+        );
 
         assertEq(limits.length, 2);
     }

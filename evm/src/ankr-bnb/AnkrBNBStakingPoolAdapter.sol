@@ -138,7 +138,7 @@ contract AnkrBNBStakingPoolAdapter is ISwapAdapter {
         ICertificateToken certificateToken =
             ICertificateToken(certificateTokenAddress);
 
-        uint256 maxBNBAmount = pool.flashPoolCapacity() * 80 / 100;
+        uint256 maxBNBAmount = pool.flashPoolCapacity();
         maxBNBAmount -= (maxBNBAmount * pool.getFlashUnstakeFee()) / FEE_MAX;
 
         if (sellToken == certificateTokenAddress) {
