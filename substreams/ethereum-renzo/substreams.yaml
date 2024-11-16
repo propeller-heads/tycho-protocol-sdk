@@ -1,0 +1,55 @@
+specVersion: v0.1.0
+package:
+  name: ethereum_renzo
+  version: v0.1.0
+
+imports:
+    ethcommon: https://spkg.io/streamingfast/ethereum-common-v0.3.0.spkg
+
+protobuf:
+  files:
+    - contract.proto
+  importPaths:
+    - ./proto
+  excludePaths:
+    - sf/substreams
+    - google
+
+binaries:
+  default:
+    type: wasm/rust-v1
+    file: ./target/wasm32-unknown-unknown/release/substreams.wasm
+
+modules:
+
+  - name: map_events
+    kind: map
+    initialBlock: 18722789
+    blockFilter:
+      module: ethcommon:index_events
+      query:
+        string: evt_addr:0x74a09653a083691711cf8215a6ab074bb4e99ef5 || evt_addr:0x5efc9d10e42fb517456f4ac41eb5e2ebe42c8918
+    inputs:
+      - source: sf.ethereum.type.v2.Block
+    output:
+      type: proto:contract.v1.Events
+  - name: map_calls
+    kind: map
+    initialBlock: 18722789
+    blockFilter:
+      module: ethcommon:index_calls
+      query:
+        string: call_to:0x74a09653a083691711cf8215a6ab074bb4e99ef5 || call_to:0x5efc9d10e42fb517456f4ac41eb5e2ebe42c8918
+    inputs:
+      - source: sf.ethereum.type.v2.Block
+    output:
+      type: proto:contract.v1.Calls
+  - name: map_events_calls
+    kind: map
+    initialBlock: 18722789
+    inputs:
+      - map: map_events
+      - map: map_calls
+    output:
+      type: proto:contract.v1.EventsCalls
+network: mainnet
