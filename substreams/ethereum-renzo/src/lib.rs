@@ -1,5 +1,6 @@
 mod abi;
 mod pb;
+pub mod modules;
 use hex_literal::hex;
 use pb::contract::v1 as contract;
 use substreams::Hex;
