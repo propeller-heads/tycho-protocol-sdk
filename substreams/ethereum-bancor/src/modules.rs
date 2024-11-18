@@ -42,6 +42,10 @@ pub fn map_components(
                         if is_deployment_tx(tx, &vault_address) {
                             Some(
                                 ProtocolComponent::at_contract(&vault_address, &tx.into())
+                                    .with_tokens(&[
+                                        hex!("6b175474e89094c44da98b954eedeac495271d0f").as_slice(),
+                                        vault_address.as_slice()
+                                    ])
                                     .as_swap_type("bancor_master_vault", ImplementationType::Vm),
                             )
                         } else {
@@ -68,7 +72,7 @@ pub fn store_components(map: BlockTransactionProtocolComponents, store: StoreAdd
         &map.tx_components
             .iter()
             .flat_map(|tx_components| &tx_components.components)
-            .map(|component| format!("vault:{}", &component.id))
+            .map(|component| format!("pool:{0}", component.id))
             .collect::<Vec<_>>(),
         1,
     );
@@ -94,12 +98,12 @@ pub fn map_relative_balances(
                 let tx_from = format!("0x{}", hex::encode(&tx.from));
                 let tx_to = format!("0x{}", hex::encode(&tx.to));
                 let vault_address = if store
-                    .get_last(format!("vault:{}", tx_from))
+                    .get_last(format!("pool:{}", tx_from))
                     .is_some()
                 {
                     tx_from.clone()
                 } else if store
-                    .get_last(format!("vault:{}", tx_to))
+                    .get_last(format!("pool:{}", tx_to))
                     .is_some()
                 {
                     tx_to.clone()
@@ -138,12 +142,12 @@ pub fn map_relative_balances(
                         let tx_from = format!("0x{}", hex::encode(&tx.from));
                         let tx_to = format!("0x{}", hex::encode(&tx.to));
                         let vault_address = if store
-                            .get_last(format!("vault:{}", tx_from))
+                            .get_last(format!("pool:{}", tx_from))
                             .is_some()
                         {
                             tx_from.clone()
                         } else if store
-                            .get_last(format!("vault:{}", tx_to))
+                            .get_last(format!("pool:{}", tx_to))
                             .is_some()
                         {
                             tx_to.clone()

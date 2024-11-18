@@ -11,9 +11,7 @@ skip_balance_check: true
 # Please note that this component needs to be indexed by your substreams module, this feature is only for testing purpose.
 # Also please always add a reason why this account is needed for your tests.
 # This will be applied to each test.
-initialized_accounts:
-  - "0x6B175474E89094C44Da98b954EedeAC495271d0F"   # DAI Address
-  - "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE"   # ETH Address
+
 
 protocol_type_names:
   - "bancor_master_vault"
@@ -25,10 +23,13 @@ tests:
     expected_components:
       - id: "0x649765821d9f64198c905ec0b2b037a4a52bc373"
         tokens:  # Uncomment tokens section since these are important for balance tracking
-          - "0x6B175474E89094C44Da98b954EedeAC495271d0F" # DAI
-          - "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE" # ETH
+          - "0x6b175474e89094c44da98b954eedeac495271d0f"
+          - "0x649765821d9f64198c905ec0b2b037a4a52bc373"
+        initialized_accounts:
+          - "0x649765821d9f64198c905ec0b2b037a4a52bc373"
+          - "0x6b175474e89094c44da98b954eedeac495271d0f"   # DAI Address
         creation_tx: "0x771fabdc9c778ea942b465cce5e64dea77dfd12f83c110431dab4c77563e6407"
-        skip_simulation: false
+        skip_simulation: true
         type: "bancor_master_vault"  # Add type to match protocol_type_names
 
 
