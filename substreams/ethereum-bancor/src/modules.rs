@@ -21,7 +21,7 @@ use tycho_substreams::{
     balances::aggregate_balances_changes, contract::extract_contract_changes_builder, prelude::*,
 };
 
-// pub const ETH_ADDRESS: [u8; 20] = [238u8; 20]; // 0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+pub const ETH_ADDRESS: [u8; 20] = [238u8; 20]; // 0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
 
 #[substreams::handlers::map]
 pub fn map_components(
@@ -43,7 +43,7 @@ pub fn map_components(
                             Some(
                                 ProtocolComponent::at_contract(&vault_address, &tx.into())
                                     .with_tokens(&[
-                                        hex!("6b175474e89094c44da98b954eedeac495271d0f").as_slice(),
+                                        ETH_ADDRESS.as_slice(),
                                         vault_address.as_slice()
                                     ])
                                     .as_swap_type("bancor_master_vault", ImplementationType::Vm),
@@ -119,7 +119,7 @@ pub fn map_relative_balances(
                         deltas.push(BalanceDelta {
                             ord: tx.begin_ordinal,
                             tx: Some(tx.into()),
-                            token: vec![0; 20],
+                            token: ETH_ADDRESS.as_slice().to_vec(),
                             delta: tx_value.neg().to_signed_bytes_be(),
                             component_id: address_hex.as_bytes().to_vec(),
                         });
@@ -127,7 +127,7 @@ pub fn map_relative_balances(
                         deltas.push(BalanceDelta {
                             ord: tx.begin_ordinal,
                             tx: Some(tx.into()),
-                            token: vec![0; 20],
+                            token: ETH_ADDRESS.as_slice().to_vec(),
                             delta: tx_value.to_signed_bytes_be(),
                             component_id: address_hex.as_bytes().to_vec(),
                         });
@@ -268,7 +268,7 @@ pub fn map_protocol_changes(
         &block,
         |addr| {
             components_store
-                .get_last(format!("0x{0}", hex::encode(addr)))
+                .get_last(format!("pool:{0}", hex::encode(addr)))
                 .is_some()
         },
         &mut transaction_changes,
