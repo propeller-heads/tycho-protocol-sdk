@@ -234,8 +234,8 @@ dependencies = [
  "num-bigint",
  "prost 0.11.9",
  "prost-types 0.12.6",
- "substreams 0.5.22",
- "substreams-ethereum 0.9.13",
+ "substreams",
+ "substreams-ethereum",
  "tycho-substreams 0.2.0 (git+https://github.com/propeller-heads/tycho-protocol-sdk.git?rev=b8aeaa3)",
 ]
 
@@ -255,9 +255,31 @@ dependencies = [
  "prost-types 0.12.6",
  "serde",
  "serde_qs",
- "substreams 0.5.22",
- "substreams-ethereum 0.9.13",
+ "substreams",
+ "substreams-ethereum",
  "tycho-substreams 0.2.0 (git+https://github.com/propeller-heads/tycho-protocol-sdk.git?rev=b8aeaa3)",
+]
+
+[[package]]
+name = "ethereum-renzo"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "bytes",
+ "ethabi 18.0.0",
+ "getrandom",
+ "hex",
+ "hex-literal 0.4.1",
+ "itertools 0.13.0",
+ "num-bigint",
+ "prost 0.11.9",
+ "prost-types 0.12.6",
+ "regex",
+ "serde",
+ "serde_qs",
+ "substreams",
+ "substreams-ethereum",
+ "tycho-substreams 0.2.0 (git+https://github.com/propeller-heads/tycho-protocol-sdk.git?rev=3c08359)",
 ]
 
 [[package]]
@@ -275,8 +297,8 @@ dependencies = [
  "prost 0.11.9",
  "prost-types 0.11.9",
  "regex",
- "substreams 0.5.22",
- "substreams-ethereum 0.9.13",
+ "substreams",
+ "substreams-ethereum",
  "tycho-substreams 0.2.0 (git+https://github.com/propeller-heads/tycho-protocol-sdk.git?rev=b8aeaa3)",
 ]
 
@@ -295,8 +317,8 @@ dependencies = [
  "prost 0.11.9",
  "prost-types 0.11.9",
  "regex",
- "substreams 0.5.22",
- "substreams-ethereum 0.9.13",
+ "substreams",
+ "substreams-ethereum",
  "tycho-substreams 0.2.0 (git+https://github.com/propeller-heads/tycho-protocol-sdk.git?rev=b8aeaa3)",
 ]
 
@@ -312,8 +334,8 @@ dependencies = [
  "prost 0.11.9",
  "serde",
  "serde-sibor",
- "substreams 0.5.22",
- "substreams-ethereum 0.9.13",
+ "substreams",
+ "substreams-ethereum",
  "tycho-substreams 0.2.0 (git+https://github.com/propeller-heads/tycho-protocol-sdk.git?rev=3c08359)",
 ]
 
@@ -330,8 +352,8 @@ dependencies = [
  "serde",
  "serde-sibor",
  "serde_qs",
- "substreams 0.5.22",
- "substreams-ethereum 0.9.13",
+ "substreams",
+ "substreams-ethereum",
  "tycho-substreams 0.2.0 (git+https://github.com/propeller-heads/tycho-protocol-sdk.git?rev=3c08359)",
 ]
 
@@ -376,8 +398,8 @@ dependencies = [
  "prost 0.11.9",
  "serde",
  "serde_qs",
- "substreams 0.5.22",
- "substreams-ethereum 0.9.13",
+ "substreams",
+ "substreams-ethereum",
  "substreams-helper 0.0.2 (git+https://github.com/propeller-heads/tycho-protocol-sdk.git?rev=b8aeaa3)",
  "tycho-substreams 0.2.0 (git+https://github.com/propeller-heads/tycho-protocol-sdk.git?rev=b8aeaa3)",
 ]
@@ -394,9 +416,9 @@ dependencies = [
  "itertools 0.13.0",
  "num-bigint",
  "prost 0.11.9",
- "substreams 0.5.22",
- "substreams-entity-change 1.3.2",
- "substreams-ethereum 0.9.13",
+ "substreams",
+ "substreams-entity-change",
+ "substreams-ethereum",
  "substreams-helper 0.0.2 (git+https://github.com/propeller-heads/tycho-protocol-sdk.git?rev=b8aeaa3)",
  "tiny-keccak",
  "tycho-substreams 0.2.0 (git+https://github.com/propeller-heads/tycho-protocol-sdk.git?rev=b8aeaa3)",
@@ -415,31 +437,12 @@ dependencies = [
  "num-bigint",
  "prost 0.11.9",
  "rstest",
- "substreams 0.5.22",
- "substreams-entity-change 1.3.2",
- "substreams-ethereum 0.9.13",
+ "substreams",
+ "substreams-entity-change",
+ "substreams-ethereum",
  "substreams-helper 0.0.2 (git+https://github.com/propeller-heads/tycho-protocol-sdk.git?rev=b8aeaa3)",
  "tiny-keccak",
  "tycho-substreams 0.2.0 (git+https://github.com/propeller-heads/tycho-protocol-sdk.git?rev=b8aeaa3)",
-]
-
-[[package]]
-name = "ethereum_renzo"
-version = "0.0.1"
-dependencies = [
- "anyhow",
- "ethabi 17.2.0",
- "getrandom",
- "hex-literal 0.3.4",
- "num-bigint",
- "num-traits",
- "prost 0.13.3",
- "prost-types 0.13.3",
- "regex",
- "substreams 0.6.0",
- "substreams-database-change",
- "substreams-entity-change 2.0.0",
- "substreams-ethereum 0.10.0",
 ]
 
 [[package]]
@@ -893,16 +896,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "prettyplease"
-version = "0.2.17"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8d3928fb5db768cb86f891ff014f0144589297e3c6a1aba6ed7cecfdace270c7"
-dependencies = [
- "proc-macro2",
- "syn 2.0.96",
-]
-
-[[package]]
 name = "primitive-types"
 version = "0.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -967,16 +960,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "prost"
-version = "0.13.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7b0487d90e047de87f984913713b85c601c05609aad5b0df4b4573fbf69aa13f"
-dependencies = [
- "bytes",
- "prost-derive 0.13.3",
-]
-
-[[package]]
 name = "prost-build"
 version = "0.11.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -989,34 +972,13 @@ dependencies = [
  "log",
  "multimap",
  "petgraph",
- "prettyplease 0.1.25",
+ "prettyplease",
  "prost 0.11.9",
  "prost-types 0.11.9",
  "regex",
  "syn 1.0.109",
  "tempfile",
  "which",
-]
-
-[[package]]
-name = "prost-build"
-version = "0.13.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0c1318b19085f08681016926435853bbf7858f9c082d0999b80550ff5d9abe15"
-dependencies = [
- "bytes",
- "heck",
- "itertools 0.13.0",
- "log",
- "multimap",
- "once_cell",
- "petgraph",
- "prettyplease 0.2.17",
- "prost 0.13.3",
- "prost-types 0.13.3",
- "regex",
- "syn 2.0.96",
- "tempfile",
 ]
 
 [[package]]
@@ -1046,19 +1008,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "prost-derive"
-version = "0.13.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e9552f850d5f0964a4e4d0bf306459ac29323ddfbae05e35a7c0d35cb0803cc5"
-dependencies = [
- "anyhow",
- "itertools 0.13.0",
- "proc-macro2",
- "quote",
- "syn 2.0.96",
-]
-
-[[package]]
 name = "prost-types"
 version = "0.11.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1074,15 +1023,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9091c90b0a32608e984ff2fa4091273cbdd755d54935c51d520887f4a1dbd5b0"
 dependencies = [
  "prost 0.12.6",
-]
-
-[[package]]
-name = "prost-types"
-version = "0.13.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4759aa0d3a6232fb8dbdb97b61de2c20047c68aca932c7ed76da9d788508d670"
-dependencies = [
- "prost 0.13.3",
 ]
 
 [[package]]
@@ -1351,44 +1291,10 @@ dependencies = [
  "pest",
  "pest_derive",
  "prost 0.11.9",
- "prost-build 0.11.9",
+ "prost-build",
  "prost-types 0.11.9",
- "substreams-macro 0.5.22",
+ "substreams-macro",
  "thiserror 1.0.69",
-]
-
-[[package]]
-name = "substreams"
-version = "0.6.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5bb63116b90d4c174114fb237a8916dd995c939874f7576333990a44d78b642a"
-dependencies = [
- "anyhow",
- "bigdecimal",
- "hex",
- "hex-literal 0.3.4",
- "num-bigint",
- "num-integer",
- "num-traits",
- "pad",
- "pest",
- "pest_derive",
- "prost 0.13.3",
- "prost-build 0.13.3",
- "prost-types 0.13.3",
- "substreams-macro 0.6.0",
- "thiserror 1.0.69",
-]
-
-[[package]]
-name = "substreams-database-change"
-version = "2.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "06fe88d25f4c3d56fc2a92583708dc34822ea99fb3f96609f9d684f717974b27"
-dependencies = [
- "prost 0.13.3",
- "prost-types 0.13.3",
- "substreams 0.6.0",
 ]
 
 [[package]]
@@ -1400,19 +1306,7 @@ dependencies = [
  "base64",
  "prost 0.11.9",
  "prost-types 0.11.9",
- "substreams 0.5.22",
-]
-
-[[package]]
-name = "substreams-entity-change"
-version = "2.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0587b8d5dd7bffb0415d544c31e742c4cabdb81bbe9a3abfffff125185e4e9e8"
-dependencies = [
- "base64",
- "prost 0.13.3",
- "prost-types 0.13.3",
- "substreams 0.6.0",
+ "substreams",
 ]
 
 [[package]]
@@ -1423,24 +1317,10 @@ checksum = "3d033738be190ad9c9a63712cf121e4f33ae9c57845c64021e421c45aac688b5"
 dependencies = [
  "getrandom",
  "num-bigint",
- "substreams 0.5.22",
- "substreams-ethereum-abigen 0.9.13",
- "substreams-ethereum-core 0.9.13",
- "substreams-ethereum-derive 0.9.13",
-]
-
-[[package]]
-name = "substreams-ethereum"
-version = "0.10.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2fa2176b86f99108f900663897a7d1dd61c4672d5c3ce4b4c42d61c016e18298"
-dependencies = [
- "getrandom",
- "num-bigint",
- "substreams 0.6.0",
- "substreams-ethereum-abigen 0.10.0",
- "substreams-ethereum-core 0.10.0",
- "substreams-ethereum-derive 0.10.0",
+ "substreams",
+ "substreams-ethereum-abigen",
+ "substreams-ethereum-core",
+ "substreams-ethereum-derive",
 ]
 
 [[package]]
@@ -1453,27 +1333,10 @@ dependencies = [
  "ethabi 17.2.0",
  "heck",
  "hex",
- "prettyplease 0.1.25",
+ "prettyplease",
  "proc-macro2",
  "quote",
- "substreams-ethereum-core 0.9.13",
- "syn 1.0.109",
-]
-
-[[package]]
-name = "substreams-ethereum-abigen"
-version = "0.10.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9fdbf58e5241f188d7508a6ee641d2ff25ab31100612713d512de61d7e26cfde"
-dependencies = [
- "anyhow",
- "ethabi 17.2.0",
- "heck",
- "hex",
- "prettyplease 0.1.25",
- "proc-macro2",
- "quote",
- "substreams-ethereum-core 0.10.0",
+ "substreams-ethereum-core",
  "syn 1.0.109",
 ]
 
@@ -1489,8 +1352,8 @@ dependencies = [
  "num-bigint",
  "prost 0.11.9",
  "quote",
- "substreams 0.5.22",
- "substreams-ethereum 0.9.13",
+ "substreams",
+ "substreams-ethereum",
  "tiny-keccak",
  "tycho-substreams 0.2.0 (git+https://github.com/propeller-heads/tycho-protocol-sdk.git?rev=f90c33b)",
 ]
@@ -1506,25 +1369,9 @@ dependencies = [
  "getrandom",
  "num-bigint",
  "prost 0.11.9",
- "prost-build 0.11.9",
+ "prost-build",
  "prost-types 0.11.9",
- "substreams 0.5.22",
-]
-
-[[package]]
-name = "substreams-ethereum-core"
-version = "0.10.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bfc8d9dee4125e2e789e49e3f7c74224bdab75d7b538dbf5918a697ab8baa1e3"
-dependencies = [
- "bigdecimal",
- "ethabi 17.2.0",
- "getrandom",
- "num-bigint",
- "prost 0.13.3",
- "prost-build 0.11.9",
- "prost-types 0.13.3",
- "substreams 0.6.0",
+ "substreams",
 ]
 
 [[package]]
@@ -1539,23 +1386,7 @@ dependencies = [
  "num-bigint",
  "proc-macro2",
  "quote",
- "substreams-ethereum-abigen 0.9.13",
- "syn 1.0.109",
-]
-
-[[package]]
-name = "substreams-ethereum-derive"
-version = "0.10.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ac254e508e6ab3cafaa8063484a920b25d6966345cd2f06c73a03e3529a3ce36"
-dependencies = [
- "ethabi 17.2.0",
- "heck",
- "hex",
- "num-bigint",
- "proc-macro2",
- "quote",
- "substreams-ethereum-abigen 0.10.0",
+ "substreams-ethereum-abigen",
  "syn 1.0.109",
 ]
 
@@ -1570,9 +1401,9 @@ dependencies = [
  "hex-literal 0.4.1",
  "num-bigint",
  "prost 0.11.9",
- "substreams 0.5.22",
- "substreams-entity-change 1.3.2",
- "substreams-ethereum 0.9.13",
+ "substreams",
+ "substreams-entity-change",
+ "substreams-ethereum",
  "substreams-helper 0.0.2 (git+https://github.com/propeller-heads/tycho-protocol-sdk.git?rev=b8aeaa3)",
  "tiny-keccak",
  "tycho-substreams 0.2.0 (git+https://github.com/propeller-heads/tycho-protocol-sdk.git?rev=b8aeaa3)",
@@ -1593,9 +1424,9 @@ dependencies = [
  "pad",
  "prost 0.11.9",
  "prost-types 0.12.6",
- "substreams 0.5.22",
- "substreams-entity-change 1.3.2",
- "substreams-ethereum 0.9.13",
+ "substreams",
+ "substreams-entity-change",
+ "substreams-ethereum",
  "thiserror 1.0.69",
  "tiny-keccak",
 ]
@@ -1616,9 +1447,9 @@ dependencies = [
  "pad",
  "prost 0.11.9",
  "prost-types 0.12.6",
- "substreams 0.5.22",
- "substreams-entity-change 1.3.2",
- "substreams-ethereum 0.9.13",
+ "substreams",
+ "substreams-entity-change",
+ "substreams-ethereum",
  "thiserror 1.0.69",
  "tiny-keccak",
 ]
@@ -1628,18 +1459,6 @@ name = "substreams-macro"
 version = "0.5.22"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a4ac77f08d723dace35739d65df8ed122f6d04e2a3e47929831d4021e3339240"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 1.0.109",
- "thiserror 1.0.69",
-]
-
-[[package]]
-name = "substreams-macro"
-version = "0.6.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f36f36e9da94db29f49daf3ab6b47b529b57c43fc5d58bc35b160aaad1a7233f"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1765,8 +1584,8 @@ dependencies = [
  "prost 0.11.9",
  "serde",
  "serde_json",
- "substreams 0.5.22",
- "substreams-ethereum 0.9.13",
+ "substreams",
+ "substreams-ethereum",
 ]
 
 [[package]]
@@ -1781,8 +1600,8 @@ dependencies = [
  "prost 0.11.9",
  "serde",
  "serde_json",
- "substreams 0.5.22",
- "substreams-ethereum 0.9.13",
+ "substreams",
+ "substreams-ethereum",
 ]
 
 [[package]]
@@ -1797,8 +1616,8 @@ dependencies = [
  "prost 0.11.9",
  "serde",
  "serde_json",
- "substreams 0.5.22",
- "substreams-ethereum 0.9.13",
+ "substreams",
+ "substreams-ethereum",
 ]
 
 [[package]]
@@ -1813,8 +1632,8 @@ dependencies = [
  "prost 0.11.9",
  "serde",
  "serde_json",
- "substreams 0.5.22",
- "substreams-ethereum 0.9.13",
+ "substreams",
+ "substreams-ethereum",
 ]
 
 [[package]]

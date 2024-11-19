@@ -1,34 +1,33 @@
 [package]
-name = "ethereum_renzo"
-version = "0.0.1"
+name = "ethereum-renzo"
+version = "0.1.0"
 edition = "2021"
 
 [lib]
-name = "substreams"
+name = "ethereum_renzo"
 crate-type = ["cdylib"]
 
 [dependencies]
-ethabi = "17"
-hex-literal = "0.3.4"
-num-bigint = "0.4"
-num-traits = "0.2.15"
-prost = "0.13.3"
-prost-types = "0.13.3"
-substreams = "0.6.0"
-substreams-ethereum = "0.10.0"
-substreams-database-change = "2.0"
-substreams-entity-change = "2.0"
+substreams = "0.5.22"
+substreams-ethereum = "0.9.9"
+prost = "0.11"
+prost-types = "0.12.3"
+hex-literal = "0.4.1"
+ethabi = "18.0.0"
+hex = { version = "0.4", features = ["serde"] }
+bytes = "1.5.0"
+anyhow = "1.0.75"
+num-bigint = "0.4.4"
+tycho-substreams = { git = "https://github.com/propeller-heads/tycho-protocol-sdk.git", rev = "3c08359" }
+serde = { version = "1.0", features = ["derive"] }
+serde_qs = "0.13.0"
+itertools = "0.13.0"
+
+[build-dependencies]
+anyhow = "1"
+substreams-ethereum = "0.9"
+regex = "1.10.4"
 
 # Required so that ethabi > ethereum-types build correctly under wasm32-unknown-unknown
 [target.wasm32-unknown-unknown.dependencies]
 getrandom = { version = "0.2", features = ["custom"] }
-
-[build-dependencies]
-anyhow = "1"
-substreams-ethereum = "0.10.0"
-regex = "1.8"
-
-[profile.release]
-lto = true
-opt-level = 's'
-strip = "debuginfo"
