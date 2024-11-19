@@ -1,22 +1,15 @@
 use crate::erc20_transfer::decode_erc20_transfer;
 use anyhow::Result;
-use hex_literal::hex;
 use itertools::Itertools;
-use num_bigint::BigInt;
-use std::{collections::HashMap, vec};
+use std::collections::HashMap;
 use substreams::{
-    log,
     pb::substreams::StoreDeltas,
-    scalar::{self, BigInt as ScalarBigInt},
+    scalar::BigInt as ScalarBigInt,
     store::{
         StoreAdd, StoreAddBigInt, StoreAddInt64, StoreGet, StoreGetInt64, StoreGetString, StoreNew,
     },
 };
-use substreams_database_change::{change::AsString, tables::ToDatabaseValue};
-use substreams_ethereum::{
-    pb::eth::{self},
-    Event,
-};
+use substreams_ethereum::pb::eth;
 use tycho_substreams::{
     balances::aggregate_balances_changes, contract::extract_contract_changes_builder, prelude::*,
 };
@@ -44,7 +37,7 @@ pub fn map_components(
                                 ProtocolComponent::at_contract(&vault_address, &tx.into())
                                     .with_tokens(&[
                                         ETH_ADDRESS.as_slice(),
-                                        vault_address.as_slice()
+                                        vault_address.as_slice(),
                                     ])
                                     .as_swap_type("bancor_master_vault", ImplementationType::Vm),
                             )
@@ -268,7 +261,7 @@ pub fn map_protocol_changes(
         &block,
         |addr| {
             components_store
-                .get_last(format!("pool:{0}", hex::encode(addr)))
+                .get_last(format!("pool:0x{0}", hex::encode(addr)))
                 .is_some()
         },
         &mut transaction_changes,
@@ -293,18 +286,9 @@ pub fn map_protocol_changes(
 }
 
 fn is_deployment_tx(tx: &eth::v2::TransactionTrace, vault_address: &[u8]) -> bool {
-    let created_accounts = tx
-        .calls
-        .iter()
-        .flat_map(|call| {
-            call.account_creations
-                .iter()
-                .map(|ac| ac.account.to_owned())
-        })
-        .collect::<Vec<_>>();
-
-    if let Some(deployed_address) = created_accounts.first() {
-        return deployed_address.as_slice() == vault_address;
-    }
-    false
+    tx.calls.iter().any(|call| {
+        call.account_creations
+            .iter()
+            .any(|ac| ac.account.as_slice() == vault_address)
+    })
 }
