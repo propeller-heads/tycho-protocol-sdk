@@ -3,6 +3,7 @@ syntax = "proto3";
 import "google/protobuf/timestamp.proto";
 
 package contract.v1;
+
 message Events {
     repeated RestakeManager_AdminChanged restake_manager_admin_changeds = 1;
     repeated RestakeManager_BeaconUpgraded restake_manager_beacon_upgradeds = 2;

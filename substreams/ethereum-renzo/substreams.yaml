@@ -15,19 +15,19 @@ protobuf:
 binaries:
   default:
     type: wasm/rust-v1
-    file: ../target/wasm32-unknown-unknown/release/ethereum_sfrax.wasm
+    file: ../target/wasm32-unknown-unknown/release/ethereum_renzo.wasm
 
 modules:
   - name: map_components
     kind: map
-    initialBlock: 18722789 #Renzo Restake Manager Contract Creation Tx
+    initialBlock: 18722789 # Restake Manager Contract Creation Block
     inputs:
       - params: string
       - source: sf.ethereum.type.v2.Block
     output:
       type: proto:tycho.evm.v1.BlockTransactionProtocolComponents
     doc: |
-      param is the address without the 0x prefix of the sfrax vault you want to track
+      This module detects protocol components such as tokens and contracts associated with the Restake Manager.
 
   - name: store_components
     kind: store
@@ -36,14 +36,8 @@ modules:
     valueType: int64
     inputs:
       - map: map_components
-
-  - name: store_balances
-    kind: store
-    initialBlock: 18722789
-    updatePolicy: add
-    valueType: bigint
-    inputs:
-      - map: map_relative_balances
+    doc: |
+      This module persists protocol components such as the Restake Manager contract.
 
   - name: map_relative_balances
     kind: map
@@ -53,6 +47,18 @@ modules:
       - store: store_components
     output:
       type: proto:tycho.evm.v1.BlockBalanceDeltas
+    doc: |
+      This module calculates relative balance changes (deltas) for each token based on deposit and withdrawal events.
+
+  - name: store_balances
+    kind: store
+    initialBlock: 18722789
+    updatePolicy: add
+    valueType: bigint
+    inputs:
+      - map: map_relative_balances
+    doc: |
+      This module tracks the overall cumulative balances of each token used in the Restake Manager.
 
   - name: map_protocol_changes
     kind: map
@@ -66,68 +72,9 @@ modules:
         mode: deltas
     output:
       type: proto:tycho.evm.v1.BlockChanges
+    doc: |
+      This module provides a detailed view of protocol changes, including deposits and withdrawals, for analytics and reporting.
 
 params:
-  # Renzo Restake Manager Contract - Users deposit and withdraw from the protocol
+  # Restake Manager Contract - Tracks deposits and withdrawals
   map_components: "74a09653A083691711cF8215a6ab074BB4e99ef5"
-
-
-
-
-
-
-# specVersion: v0.1.0
-# package:
-#   name: ethereum_renzo
-#   version: v0.1.0
-
-# imports:
-#     ethcommon: https://spkg.io/streamingfast/ethereum-common-v0.3.0.spkg
-
-# protobuf:
-#   files:
-#     - contract.proto
-#   importPaths:
-#     - ./proto
-#   excludePaths:
-#     - sf/substreams
-#     - google
-
-# binaries:
-#   default:
-#     type: wasm/rust-v1
-#     file: ./target/wasm32-unknown-unknown/release/substreams.wasm
-
-# modules:
-
-#   - name: map_events
-#     kind: map
-#     initialBlock: 18722789
-#     blockFilter:
-#       module: ethcommon:index_events
-#       query:
-#         string: evt_addr:0x74a09653a083691711cf8215a6ab074bb4e99ef5 || evt_addr:0x5efc9d10e42fb517456f4ac41eb5e2ebe42c8918
-#     inputs:
-#       - source: sf.ethereum.type.v2.Block
-#     output:
-#       type: proto:contract.v1.Events
-#   - name: map_calls
-#     kind: map
-#     initialBlock: 18722789
-#     blockFilter:
-#       module: ethcommon:index_calls
-#       query:
-#         string: call_to:0x74a09653a083691711cf8215a6ab074bb4e99ef5 || call_to:0x5efc9d10e42fb517456f4ac41eb5e2ebe42c8918
-#     inputs:
-#       - source: sf.ethereum.type.v2.Block
-#     output:
-#       type: proto:contract.v1.Calls
-#   - name: map_events_calls
-#     kind: map
-#     initialBlock: 18722789
-#     inputs:
-#       - map: map_events
-#       - map: map_calls
-#     output:
-#       type: proto:contract.v1.EventsCalls
-# network: mainnet
