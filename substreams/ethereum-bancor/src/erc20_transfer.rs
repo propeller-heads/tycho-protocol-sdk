@@ -9,7 +9,8 @@ pub const ERC20_TRANSFER_SIG: [u8; 32] =
 pub fn is_erc20_transfer(log: &eth::v2::Log) -> bool {
     log.topics
         .first()
-        .map_or(false, |topic| *topic == ERC20_TRANSFER_SIG)
+        .map(|topic| *topic == ERC20_TRANSFER_SIG)
+        .unwrap_or(false)
 }
 
 pub fn decode_erc20_transfer(log: &eth::v2::Log) -> Option<Transfer> {
