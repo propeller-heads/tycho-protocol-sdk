@@ -29,10 +29,10 @@ pub fn map_components(
                 let components = tx
                     .calls()
                     .filter(|call| !call.call.state_reverted)
-                    .filter_map(|_| {
+                    .filter_map(|call| {
                         // address doesn't exist before contract deployment, hence the first tx with
                         // a log.address = vault_address is the deployment tx
-                        if is_deployment_tx(tx, &vault_address) {
+                        if is_deployment_call(call.call, &vault_address) {
                             Some(
                                 ProtocolComponent::at_contract(&vault_address, &tx.into())
                                     .with_tokens(&[
@@ -285,10 +285,8 @@ pub fn map_protocol_changes(
     Ok(block_changes)
 }
 
-fn is_deployment_tx(tx: &eth::v2::TransactionTrace, vault_address: &[u8]) -> bool {
-    tx.calls.iter().any(|call| {
-        call.account_creations
-            .iter()
-            .any(|ac| ac.account.as_slice() == vault_address)
-    })
+fn is_deployment_call(call: &eth::v2::Call, vault_address: &[u8]) -> bool {
+    call.account_creations
+        .iter()
+        .any(|ac| ac.account.as_slice() == vault_address)
 }
