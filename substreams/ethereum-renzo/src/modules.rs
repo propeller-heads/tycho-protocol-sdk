@@ -1,5 +1,5 @@
 use crate::abi;
-use anyhow::{Ok, Result, anyhow};
+use anyhow::{Ok, Result};
 use itertools::Itertools;
 use std::collections::HashMap;
 use substreams::{
@@ -21,8 +21,12 @@ pub fn map_components(
     block: eth::v2::Block,
 ) -> Result<BlockTransactionProtocolComponents, anyhow::Error> {
     let restake_manager_address = hex::decode(params)?;
-    let locked_assets = find_deployed_underlying_addresses(&restake_manager_address)
-        .ok_or_else(|| anyhow!("No underlying assets found for restake manager"))?;
+    // let locked_assets = find_deployed_underlying_addresses(&restake_manager_address)
+    //     .ok_or_else(|| anyhow!("No underlying assets found for restake manager"))?;
+    let locked_steth = hex!("ae7ab96520DE3A18E5e111B5EaAb095312D7fE84");
+    let locked_wbeth = hex!("a2E3356610840701BDf5611a53974510Ae27E2e1");
+    let locked_eth = hex!("0000000000000000000000000000000000000000");
+    let ezeth = hex!("bf5495Efe5DB9ce00f80364C8B423567e58d2110");
 
     Ok(BlockTransactionProtocolComponents {
         tx_components: block
@@ -34,15 +38,14 @@ pub fn map_components(
                     .filter_map(|_| {
                         if is_deployment_tx(&tx, &restake_manager_address) {
                             Some(
-                                locked_assets
-                                    .iter()
-                                    .map(|token| {
-                                        ProtocolComponent::at_contract(&restake_manager_address, &tx.into())
-                                            .with_tokens(&[token.to_vec()])
-                                            .as_swap_type("renzo_vault", ImplementationType::Vm)
-                                    })
-                                    .collect::<Vec<_>>()
-                                    .
+                                ProtocolComponent::at_contract(&restake_manager_address, &tx.into())
+                                    .with_tokens(&[
+                                        locked_steth.as_slice(),
+                                        locked_wbeth.as_slice(),
+                                        locked_eth.as_slice(),
+                                        ezeth.as_slice()
+                                    ])
+                                    .as_swap_type("restake_manager", ImplementationType::Vm),
                             )
                             
                         } else {
@@ -107,7 +110,7 @@ pub fn map_relative_balances(
                             tx: Some(log.receipt.transaction.into()),
                             token: token.clone(),
                             delta: ev.amount.to_signed_bytes_be(),
-                            component_id: hex::encode(token), // Use token address as component ID
+                            component_id: token.clone(), // Use token address as component ID
                         });
                     }
 
@@ -116,8 +119,8 @@ pub fn map_relative_balances(
                         ord: log.ordinal(),
                         tx: Some(log.receipt.transaction.into()),
                         token: ez_eth_address.clone(), // Use the declared ezETH address
-                        delta: ev.ez_eth_minted.parse::<BigInt>()?.to_signed_bytes_be(),
-                        component_id: hex::encode(&ez_eth_address), // Use ezETH address as ID
+                        delta: ev.ez_eth_minted.to_signed_bytes_be(),
+                        component_id: ez_eth_address.clone(), // Use ezETH address as ID
                     });
                 }
             }
@@ -141,8 +144,8 @@ pub fn map_relative_balances(
                             ord: log.ordinal(),
                             tx: Some(log.receipt.transaction.into()),
                             token: token.clone(),
-                            delta: ev.amount.parse::<BigInt>()?.neg().to_signed_bytes_be(),
-                            component_id: hex::encode(token), // Use token address as component ID
+                            delta: ev.amount.neg().to_signed_bytes_be(),
+                            component_id: token.clone(), // Use token address as component ID
                         });
                     }
 
@@ -151,8 +154,8 @@ pub fn map_relative_balances(
                         ord: log.ordinal(),
                         tx: Some(log.receipt.transaction.into()),
                         token: ez_eth_address.clone(), // Use the declared ezETH address
-                        delta: ev.ez_eth_burned.parse::<BigInt>()?.neg().to_signed_bytes_be(),
-                        component_id: hex::encode(&ez_eth_address), // Use ezETH address as ID
+                        delta: ev.ez_eth_burned.neg().to_signed_bytes_be(),
+                        component_id: ez_eth_address.clone(), // Use ezETH address as ID
                     });
                 }
             }
@@ -172,7 +175,7 @@ pub fn map_relative_balances(
 
 #[substreams::handlers::store]
 pub fn store_balances(deltas: BlockBalanceDeltas, store: StoreAddBigInt) {
-    store_balance_changes(deltas, store);
+    tycho_substreams::balances::store_balance_changes(deltas, store);
 }
 
 #[substreams::handlers::map]
@@ -246,10 +249,10 @@ pub fn map_protocol_changes(
 fn find_deployed_underlying_addresses(restake_manager_address: &[u8]) -> Option<Vec<Vec<u8>>> {
     match restake_manager_address {
         hex!("74a09653A083691711cF8215a6ab074BB4e99ef5") => Some(vec![
-            hex!("bf5495Efe5DB9ce00f80364C8B423567e58d2110").to_vec(),
-            hex!("a2E3356610840701BDf5611a53974510Ae27E2e1").to_vec(),
-            hex!("ae7ab96520DE3A18E5e111B5EaAb095312D7fE84").to_vec(),
-            hex!("0000000000000000000000000000000000000000").to_vec(),
+            hex!("bf5495Efe5DB9ce00f80364C8B423567e58d2110").to_vec(), // ezETH
+            hex!("a2E3356610840701BDf5611a53974510Ae27E2e1").to_vec(), // wBETH
+            hex!("ae7ab96520DE3A18E5e111B5EaAb095312D7fE84").to_vec(), // stETH
+            hex!("0000000000000000000000000000000000000000").to_vec(), // ETH
         ]),
         _ => None,
     }
