@@ -8,7 +8,7 @@ pub const ERC20_TRANSFER_SIG: [u8; 32] =
 
 pub fn is_erc20_transfer(log: &eth::v2::Log) -> bool {
     log.topics
-        .get(0)
+        .first()
         .map_or(false, |topic| *topic == ERC20_TRANSFER_SIG)
 }
 
@@ -20,8 +20,8 @@ pub fn decode_erc20_transfer(log: &eth::v2::Log) -> Option<Transfer> {
     let log_amount = log
         .data
         .get(0..32)
-        .map(|slice| ScalarBigInt::from_signed_bytes_be(slice))
-        .unwrap_or_else(|| ScalarBigInt::zero());
+        .map(ScalarBigInt::from_signed_bytes_be)
+        .unwrap_or_else(ScalarBigInt::zero);
 
     Some(Transfer {
         from: log

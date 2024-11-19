@@ -108,7 +108,7 @@ pub fn map_relative_balances(
 
                 if vault_exists {
                     let address_hex = format!("0x{}", vault_address);
-                    if &tx_from == &vault_address {
+                    if tx_from == vault_address {
                         deltas.push(BalanceDelta {
                             ord: tx.begin_ordinal,
                             tx: Some(tx.into()),
@@ -116,7 +116,7 @@ pub fn map_relative_balances(
                             delta: tx_value.neg().to_signed_bytes_be(),
                             component_id: address_hex.as_bytes().to_vec(),
                         });
-                    } else if &tx_to == &vault_address {
+                    } else if tx_to == vault_address {
                         deltas.push(BalanceDelta {
                             ord: tx.begin_ordinal,
                             tx: Some(tx.into()),
@@ -131,7 +131,7 @@ pub fn map_relative_balances(
             // Track ERC20 transfers
             tx.logs_with_calls()
                 .filter_map(|(log, _call)| {
-                    if let Some(transfer) = decode_erc20_transfer(&log) {
+                    if let Some(transfer) = decode_erc20_transfer(log) {
                         let tx_from = format!("0x{}", hex::encode(&tx.from));
                         let tx_to = format!("0x{}", hex::encode(&tx.to));
                         let vault_address = if store
