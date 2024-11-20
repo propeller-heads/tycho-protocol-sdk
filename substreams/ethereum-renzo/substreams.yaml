@@ -22,7 +22,7 @@ modules:
     kind: map
     initialBlock: 18722789 # Restake Manager Contract Creation Block
     inputs:
-      - params: string
+      - params: string # Restake Manager address
       - source: sf.ethereum.type.v2.Block
     output:
       type: proto:tycho.evm.v1.BlockTransactionProtocolComponents
