@@ -1,6 +1,7 @@
 use crate::erc20_transfer::decode_erc20_transfer;
-use anyhow::Result;
+use anyhow::{Context, Result};
 use itertools::Itertools;
+use serde::Deserialize;
 use std::collections::HashMap;
 use substreams::{
     pb::substreams::StoreDeltas,
@@ -14,6 +15,12 @@ use tycho_substreams::{
     balances::aggregate_balances_changes, contract::extract_contract_changes_builder, prelude::*,
 };
 
+#[derive(Debug, Deserialize, PartialEq)]
+struct ComponentParams {
+    vault_address: String,
+    dai_address: String,
+}
+
 pub const ETH_ADDRESS: [u8; 20] = [238u8; 20]; // 0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
 
 #[substreams::handlers::map]
@@ -21,40 +28,51 @@ pub fn map_components(
     params: String,
     block: eth::v2::Block,
 ) -> Result<BlockTransactionProtocolComponents, anyhow::Error> {
-    let vault_address = hex::decode(params).unwrap();
-    Ok(BlockTransactionProtocolComponents {
-        tx_components: block
-            .transactions()
-            .filter_map(|tx| {
-                let components = tx
-                    .calls()
-                    .filter(|call| !call.call.state_reverted)
-                    .filter_map(|call| {
-                        // address doesn't exist before contract deployment, hence the first tx with
-                        // a log.address = vault_address is the deployment tx
-                        if is_deployment_call(call.call, &vault_address) {
-                            Some(
-                                ProtocolComponent::at_contract(&vault_address, &tx.into())
-                                    .with_tokens(&[
-                                        ETH_ADDRESS.as_slice(),
-                                        vault_address.as_slice(),
-                                    ])
-                                    .as_swap_type("bancor_master_vault", ImplementationType::Vm),
-                            )
-                        } else {
-                            None
-                        }
-                    })
-                    .collect::<Vec<_>>();
+    let comp = parse_params(&params);
 
-                if !components.is_empty() {
-                    Some(TransactionProtocolComponents { tx: Some(tx.into()), components })
-                } else {
-                    None
-                }
-            })
-            .collect::<Vec<_>>(),
-    })
+    if let Some(pool) = comp.unwrap().get("bancor_component") {
+        let vault_address = hex::decode(pool.vault_address.clone()).unwrap();
+        let dai_address = hex::decode(pool.dai_address.clone()).unwrap();
+        Ok(BlockTransactionProtocolComponents {
+            tx_components: block
+                .transactions()
+                .filter_map(|tx| {
+                    let components = tx
+                        .calls()
+                        .filter(|call| !call.call.state_reverted)
+                        .filter_map(|call| {
+                            // address doesn't exist before contract deployment, hence the first tx
+                            // with a log.address = vault_address is the
+                            // deployment tx
+                            if is_deployment_call(call.call, &vault_address) {
+                                Some(
+                                    ProtocolComponent::at_contract(&vault_address, &tx.into())
+                                        .with_tokens(&[
+                                            dai_address.as_slice(),
+                                            ETH_ADDRESS.as_slice(),
+                                        ])
+                                        .as_swap_type(
+                                            "bancor_master_vault",
+                                            ImplementationType::Vm,
+                                        ),
+                                )
+                            } else {
+                                None
+                            }
+                        })
+                        .collect::<Vec<_>>();
+
+                    if !components.is_empty() {
+                        Some(TransactionProtocolComponents { tx: Some(tx.into()), components })
+                    } else {
+                        None
+                    }
+                })
+                .collect::<Vec<_>>(),
+        })
+    } else {
+        Err(anyhow::Error::msg("Params mismatch or not found"))
+    }
 }
 
 /// Simply stores the `ProtocolComponent`s with the pool address as the key and the pool id as value
@@ -289,4 +307,17 @@ fn is_deployment_call(call: &eth::v2::Call, vault_address: &[u8]) -> bool {
     call.account_creations
         .iter()
         .any(|ac| ac.account.as_slice() == vault_address)
+}
+
+fn parse_params(params: &str) -> Result<HashMap<String, ComponentParams>, anyhow::Error> {
+    let pools: HashMap<String, ComponentParams> = params
+        .split(",")
+        .map(|param| {
+            let pool: ComponentParams = serde_qs::from_str(param)
+                .with_context(|| format!("Failed to parse query params: {0}", param))?;
+            Ok(("bancor_component".into(), pool))
+        })
+        .collect::<Result<HashMap<_, _>>>()
+        .with_context(|| "Failed to parse all query params")?;
+    Ok(pools)
 }

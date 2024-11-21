@@ -19,15 +19,15 @@ protocol_type_names:
 tests:
   - name: test_vault_creation
     start_block: 14609331  # Block Master vault creation
-    stop_block: 14609390
+    stop_block: 14623625
     expected_components:
       - id: "0x649765821d9f64198c905ec0b2b037a4a52bc373"
         tokens:  # Uncomment tokens section since these are important for balance tracking
           - "0x6b175474e89094c44da98b954eedeac495271d0f"
-          - "0x649765821d9f64198c905ec0b2b037a4a52bc373"
+          - "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
         initialized_accounts:
-          - "0x649765821d9f64198c905ec0b2b037a4a52bc373"
           - "0x6b175474e89094c44da98b954eedeac495271d0f"   # DAI Address
+          - "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee" # ETH Address
         creation_tx: "0x771fabdc9c778ea942b465cce5e64dea77dfd12f83c110431dab4c77563e6407"
         skip_simulation: true
         type: "bancor_master_vault"  # Add type to match protocol_type_names

@@ -66,4 +66,4 @@ modules:
       type: proto:tycho.evm.v1.BlockChanges
 
 params:
-  map_components: "649765821D9f64198c905eC0B2B037a4a52Bc373"
+  map_components: "vault_address=649765821D9f64198c905eC0B2B037a4a52Bc373&dai_address=6b175474e89094c44da98b954eedeac495271d0f"
