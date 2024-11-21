@@ -254,6 +254,8 @@ dependencies = [
  "prost 0.11.9",
  "prost-types 0.12.6",
  "regex",
+ "serde",
+ "serde_qs",
  "substreams",
  "substreams-database-change",
  "substreams-entity-change",
