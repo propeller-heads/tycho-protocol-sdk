@@ -29,6 +29,10 @@ pub const ETH_ADDRESS: [u8; 20] = hex!("eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
 pub const FIRST_DEPOSIT_SIG: [u8; 32] =
     hex!("dcbc1c05240f31ff3ad067ef1ee35ce4997762752e3a095284754544f4c709d7");
 
+// Domenico Shadowy, [26 Nov 2024 at 14:48:06]:
+// 0xdcbc1c05240f31ff3ad067ef1ee35ce4997762752e3a095284754544f4c709d7
+// 0x4e2ca0515ed1aef1395f66b5303bb5d6f1bf9d61a353fa53f73f8ac9973fa9f6
+
 /// Second deposit signature (with referralId)
 /// Deployed at block 19164302
 /// Example TX: 0x7d40c574c44e441a0c851d8d3a5fb186127fa5675405629bef91983fcccfeb01
@@ -113,14 +117,10 @@ pub fn map_relative_balances(
     store: StoreGetInt64,
 ) -> Result<BlockBalanceDeltas, anyhow::Error> {
     let mut balance_deltas = Vec::new();
-    
+
     // Log block processing start
     let logs: Vec<_> = block.logs().collect();
-    substreams::log::info!(
-        "Processing block {} with {} logs", 
-        block.number,
-        logs.len()
-    );
+    substreams::log::info!("Processing block {} with {} logs", block.number, logs.len());
 
     for log in logs {
         // Log basic info for each event
@@ -132,7 +132,15 @@ pub fn map_relative_balances(
         );
 
         // Try to decode as deposit
-        if let Some(ev) = decode_renzo_deposit(log.log) {
+        // if let Some(ev) = decode_renzo_deposit(log.log) {
+        if 1 == 1 {
+            let ev: Deposit = Deposit {
+                depositor: log.log.address.clone(),
+                token: hex!("0000000000000000000000000000000000000000").to_vec(),
+                amount: ScalarBigInt::from(0),
+                ez_eth_minted: ScalarBigInt::from(0),
+                referral_id: ScalarBigInt::from(0),
+            };
             let address_hex = format!("0x{}", hex::encode(log.log.address.clone()));
             substreams::log::info!(
                 "Found deposit event: address={}, token={}, amount={}, ez_eth_minted={}",
@@ -147,9 +155,9 @@ pub fn map_relative_balances(
             let is_tracked = store.get_last(&store_key).is_some();
             substreams::log::debug!("Component tracked status for {}: {}", store_key, is_tracked);
 
+            let ez_eth_address = hex!("bf5495Efe5DB9ce00f80364C8B423567e58d2110").to_vec();
             if let Some(_component_key) = store.get_last(&store_key) {
-                let ez_eth_address = hex!("bf5495Efe5DB9ce00f80364C8B423567e58d2110").to_vec();
-                
+                // let ez_eth_address: Option<[u8; 20]> = find_deployed_underlying_address(&log.log.address.clone());
                 // Log deposit delta creation
                 substreams::log::info!(
                     "Creating deposit delta: token={}, amount={}, component_id={}",
@@ -183,10 +191,46 @@ pub fn map_relative_balances(
                     delta: ev.ez_eth_minted.to_signed_bytes_be(),
                     component_id: ez_eth_address,
                 });
+            } else {
+                let deposit_mock: Deposit = Deposit {
+                    depositor: log.log.address.clone(),
+                    token: hex!("0000000000000000000000000000000000000000").to_vec(),
+                    amount: ScalarBigInt::from(333),
+                    ez_eth_minted: ScalarBigInt::from(333),
+                    referral_id: ScalarBigInt::from(333),
+                };
+                balance_deltas.push(BalanceDelta {
+                    ord: log.log.ordinal,
+                    tx: Some(log.receipt.transaction.into()),
+                    token: deposit_mock.token.to_vec(),
+                    delta: deposit_mock.amount.to_signed_bytes_be(),
+                    component_id: deposit_mock.token.to_vec(),
+                });
+
+                // Log ezETH minting delta creation
+                substreams::log::info!(
+                    "Creating ezETH mint delta: token={}, amount={}, component_id={}",
+                    hex::encode(&ez_eth_address),
+                    deposit_mock.ez_eth_minted,
+                    hex::encode(&ez_eth_address)
+                );
+
+                // Handle the balance delta for minted ezETH
+                balance_deltas.push(BalanceDelta {
+                    ord: log.log.ordinal,
+                    tx: Some(log.receipt.transaction.into()),
+                    token: ez_eth_address.clone(),
+                    delta: deposit_mock
+                        .ez_eth_minted
+                        .to_signed_bytes_be(),
+                    component_id: ez_eth_address,
+                });
             }
-        } else if let Some(ev) = abi::restake_manager_contract::events::UserWithdrawCompleted::match_and_decode(log.log) {
+        } else if let Some(ev) =
+            abi::restake_manager_contract::events::UserWithdrawCompleted::match_and_decode(log.log)
+        {
             let address_hex = format!("0x{}", hex::encode(log.log.address.clone()));
-            
+
             substreams::log::info!(
                 "Found withdrawal event: address={}, token={}, amount={}, ez_eth_burned={}",
                 address_hex,
@@ -197,7 +241,7 @@ pub fn map_relative_balances(
 
             if let Some(_component_key) = store.get_last(format!("pool:{0}", address_hex)) {
                 let ez_eth_address = hex!("bf5495Efe5DB9ce00f80364C8B423567e58d2110").to_vec();
-                
+
                 // Log withdrawal delta creation
                 substreams::log::info!(
                     "Creating withdrawal delta: token={}, amount=-{}, component_id={}",
@@ -228,7 +272,10 @@ pub fn map_relative_balances(
                     ord: log.ordinal(),
                     tx: Some(log.receipt.transaction.into()),
                     token: ez_eth_address.clone(),
-                    delta: ev.ez_eth_burned.neg().to_signed_bytes_be(),
+                    delta: ev
+                        .ez_eth_burned
+                        .neg()
+                        .to_signed_bytes_be(),
                     component_id: ez_eth_address,
                 });
             }
@@ -393,15 +440,15 @@ pub fn decode_renzo_deposit(log: &eth::v2::Log) -> Option<Deposit> {
     }
 
     // Validate required topic length for each type
-    if (is_type_1 && log.topics.len() < 5) || (is_type_2 && log.topics.len() < 6) {
-        substreams::log::info!(
-            "Invalid number of topics for deposit type: {} topics, type1: {}, type2: {}",
-            log.topics.len(),
-            is_type_1,
-            is_type_2
-        );
-        return None;
-    }
+    // if (is_type_1 && log.topics.len() < 5) || (is_type_2 && log.topics.len() < 6) {
+    //     substreams::log::info!(
+    //         "Invalid number of topics for deposit type: {} topics, type1: {}, type2: {}",
+    //         log.topics.len(),
+    //         is_type_1,
+    //         is_type_2
+    //     );
+    //     return None;
+    // }
 
     // Common fields for both types
     let depositor = log
