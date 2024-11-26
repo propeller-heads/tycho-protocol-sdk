@@ -14,66 +14,66 @@ use tycho_substreams::{
     balances::aggregate_balances_changes, contract::extract_contract_changes, prelude::*,
 };
 
+pub const ETH_ADDRESS: [u8; 20] = [238u8; 20]; // 0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+
 /// Map to extract protocol components for transactions in a block
 #[substreams::handlers::map]
 pub fn map_components(
     params: String,
     block: eth::v2::Block,
 ) -> Result<BlockTransactionProtocolComponents, anyhow::Error> {
-    let restake_manager_address = hex::decode(&params)?;
-    let token_addresses = vec![
-        hex!("ae7ab96520DE3A18E5e111B5EaAb095312D7fE84"), // stETH
-        hex!("a2E3356610840701BDf5611a53974510Ae27E2e1"), // wBETH
-        hex!("0000000000000000000000000000000000000000"), // ETH
-        hex!("bf5495Efe5DB9ce00f80364C8B423567e58d2110"), // ezETH
-    ];
+    let component_address = hex::decode(params).unwrap();
+    let component_token = find_deployed_underlying_address(&component_address).unwrap();
+    // We store these as a hashmap by tx hash since we need to agg by tx hash later
+    Ok(BlockTransactionProtocolComponents {
+        tx_components: block
+            .transactions()
+            .filter_map(|tx| {
+                let components = tx
+                    .calls()
+                    .filter(|call| !call.call.state_reverted)
+                    .filter_map(|call| {
+                        // address doesn't exist before contract deployment, hence the first tx with
+                        // a log.address = component_address is the deployment tx
+                        if is_deployment_call(call.call, &component_address) {
+                            Some(
+                                ProtocolComponent::at_contract(&component_address, &tx.into())
+                                    .with_tokens(&[
+                                        component_token.as_slice(),
+                                        ETH_ADDRESS.as_slice(),
+                                    ])
+                                    .as_swap_type("restake_manager", ImplementationType::Vm),
+                            )
+                        } else {
+                            None
+                        }
+                    })
+                    .collect::<Vec<_>>();
 
-    let tx_components = block.transactions()
-        .filter_map(|tx| {
-            let components = tx.calls()
-                .filter(|call| !call.call.state_reverted)
-                .filter_map(|_| {
-                    if is_deployment_tx(&tx, &restake_manager_address) {
-                        Some(
-                            ProtocolComponent::at_contract(&restake_manager_address, &tx.into())
-                                .with_tokens(&token_addresses)
-                                .as_swap_type("restake_manager", ImplementationType::Vm),
-                        )
-                    } else {
-                        None
-                    }
-                })
-                .collect::<Vec<_>>();
-
-            if components.is_empty() {
-                None
-            } else {
-                Some(TransactionProtocolComponents {
-                    tx: Some(tx.into()),
-                    components,
-                })
-            }
-        })
-        .collect();
-
-    Ok(BlockTransactionProtocolComponents { tx_components })
+                if !components.is_empty() {
+                    Some(TransactionProtocolComponents { tx: Some(tx.into()), components })
+                } else {
+                    None
+                }
+            })
+            .collect::<Vec<_>>(),
+    })
 }
 
 /// Store protocol components and associated tokens
 #[substreams::handlers::store]
 pub fn store_components(map: BlockTransactionProtocolComponents, store: StoreAddInt64) {
-    for tx_components in &map.tx_components {
-        for component in &tx_components.components {
-            let component_key = format!("restake_manager:{}", component.id);
-            store.add(0, &component_key, 1);
-
-            for token in &component.tokens {
-                let token_key = format!("{}:token:{}", component_key, hex::encode(token));
-                store.add(0, &token_key, 1);
-            }
-        }
-    }
+    store.add_many(
+        0,
+        &map.tx_components
+            .iter()
+            .flat_map(|tx_components| &tx_components.components)
+            .map(|component| format!("pool:{0}", component.id))
+            .collect::<Vec<_>>(),
+        1,
+    );
 }
+
 
 /// Map balance changes caused by deposit and withdrawal events
 #[substreams::handlers::map]
@@ -81,13 +81,15 @@ pub fn map_relative_balances(
     block: eth::v2::Block,
     store: StoreGetInt64,
 ) -> Result<BlockBalanceDeltas, anyhow::Error> {
-    let ez_eth_address = hex!("bf5495Efe5DB9ce00f80364C8B423567e58d2110");
     let mut balance_deltas = Vec::new();
 
     for log in block.logs() {
         if let Some(ev) = abi::restake_manager_contract::events::Deposit::match_and_decode(log.log) {
-            let address_hex = format!("0x{}", hex::encode(log.log.address.clone()));
-            if let Some(_component_key) = store.get_last(format!("restake_manager:{}", address_hex)) {
+            let _address_hex = format!("0x{}", hex::encode(log.log.address.clone()));
+            if 1 == 1 { // let Some(_component_key) = store.get_last(format!("pool:{0}", address_hex)) {
+                // let ez_eth_address = find_deployed_underlying_address(&log.log.address.clone());
+                let ez_eth_address = hex!("bf5495Efe5DB9ce00f80364C8B423567e58d2110");
+                let ez_eth_comp = ez_eth_address.to_vec();
                 balance_deltas.push(BalanceDelta {
                     ord: log.log.ordinal,
                     tx: Some(log.receipt.transaction.into()),
@@ -98,17 +100,19 @@ pub fn map_relative_balances(
 
                 // Handle the balance delta for minted ezETH
                 balance_deltas.push(BalanceDelta {
-                    ord: log.ordinal(),
+                    ord: log.log.ordinal,
                     tx: Some(log.receipt.transaction.into()),
-                    token: ez_eth_address.to_vec(), // Use the declared ezETH address
+                    token: ez_eth_comp.clone(), // Use the declared ezETH address
                     delta: ev.ez_eth_minted.to_signed_bytes_be(),
-                    component_id: ez_eth_address.to_vec(), // Use ezETH address as ID
+                    component_id: ez_eth_comp, // Use ezETH address as ID
                 });
         
             }
         } else if let Some(ev) = abi::restake_manager_contract::events::UserWithdrawCompleted::match_and_decode(log.log) {
             let address_hex = format!("0x{}", hex::encode(log.log.address.clone()));
-            if let Some(_component_key) = store.get_last(format!("restake_manager:{}", address_hex)) {
+            if let Some(_component_key) = store.get_last(format!("pool:{0}", address_hex)) {
+                let ez_eth_address = find_deployed_underlying_address(&log.log.address.clone());
+                let ez_eth_comp = ez_eth_address.unwrap().to_vec();
                 balance_deltas.push(BalanceDelta {
                     ord: log.log.ordinal,
                     tx: Some(log.receipt.transaction.into()),
@@ -121,9 +125,9 @@ pub fn map_relative_balances(
                 balance_deltas.push(BalanceDelta {
                     ord: log.ordinal(),
                     tx: Some(log.receipt.transaction.into()),
-                    token: ez_eth_address.to_vec(), // Use the declared ezETH address
+                    token: ez_eth_comp.clone(), // Use the declared ezETH address
                     delta: ev.ez_eth_burned.neg().to_signed_bytes_be(),
-                    component_id: ez_eth_address.to_vec(), // Use ezETH address as ID
+                    component_id: ez_eth_comp, // Use ezETH address as ID
                 });
         
             }
@@ -132,6 +136,95 @@ pub fn map_relative_balances(
 
     Ok(BlockBalanceDeltas { balance_deltas })
 }
+
+// #[substreams::handlers::map]
+// pub fn map_relative_balances(
+//     block: eth::v2::Block,
+//     store: StoreGetInt64,
+// ) -> Result<BlockBalanceDeltas, anyhow::Error> {
+//     let balance_deltas = block
+//         .logs()
+//         .flat_map(|component_log| {
+//             let mut deltas = Vec::new();
+
+//             if let Some(ev) =
+//             abi::restake_manager_contract::events::Deposit::match_and_decode(component_log.log)
+//             {
+//                 let address_bytes_be = vault_log.address();
+//                 let address_hex = format!("0x{}", hex::encode(address_bytes_be));
+//                 if store
+//                     .get_last(format!("pool:{}", address_hex))
+//                     .is_some()
+//                 {
+//                     deltas.extend_from_slice(&[
+//                         BalanceDelta {
+//                             ord: vault_log.ordinal(),
+//                             tx: Some(vault_log.receipt.transaction.into()),
+//                             token: find_deployed_underlying_address(address_bytes_be)
+//                                 .unwrap()
+//                                 .to_vec(),
+//                             delta: ev.assets.neg().to_signed_bytes_be(),
+//                             component_id: address_hex.as_bytes().to_vec(),
+//                         },
+//                         BalanceDelta {
+//                             ord: vault_log.ordinal(),
+//                             tx: Some(vault_log.receipt.transaction.into()),
+//                             token: address_bytes_be.to_vec(),
+//                             delta: ev.shares.neg().to_signed_bytes_be(),
+//                             component_id: address_hex.as_bytes().to_vec(),
+//                         },
+//                     ]);
+//                     substreams::log::debug!(
+//                         "Withdraw: vault: {}, frax:- {}, sfrax:- {}",
+//                         address_hex,
+//                         ev.assets,
+//                         ev.shares
+//                     );
+//                 }
+//             } else if let Some(ev) =
+//                 abi::stakedfrax_contract::events::Deposit::match_and_decode(vault_log.log)
+//             {
+//                 let address_bytes_be = vault_log.address();
+//                 let address_hex = format!("0x{}", hex::encode(address_bytes_be));
+
+//                 if store
+//                     .get_last(format!("pool:{}", address_hex))
+//                     .is_some()
+//                 {
+//                     deltas.extend_from_slice(&[
+//                         BalanceDelta {
+//                             ord: vault_log.ordinal(),
+//                             tx: Some(vault_log.receipt.transaction.into()),
+//                             token: find_deployed_underlying_address(address_bytes_be)
+//                                 .unwrap()
+//                                 .to_vec(),
+//                             delta: ev.assets.to_signed_bytes_be(),
+//                             component_id: address_hex.as_bytes().to_vec(),
+//                         },
+//                         BalanceDelta {
+//                             ord: vault_log.ordinal(),
+//                             tx: Some(vault_log.receipt.transaction.into()),
+//                             token: address_bytes_be.to_vec(),
+//                             delta: ev.shares.to_signed_bytes_be(),
+//                             component_id: address_hex.as_bytes().to_vec(),
+//                         },
+//                     ]);
+//                     substreams::log::debug!(
+//                         "Deposit: vault: {}, frax:+ {}, sfrax:+ {}",
+//                         address_hex,
+//                         ev.assets,
+//                         ev.shares
+//                     );
+//                 }
+//             } 
+            
+//             deltas
+//         })
+//         .collect::<Vec<_>>();
+
+//     Ok(BlockBalanceDeltas { balance_deltas })
+// }
+
 
 /// Store aggregated balance changes
 #[substreams::handlers::store]
@@ -171,7 +264,7 @@ pub fn map_protocol_changes(
 
     extract_contract_changes(
         &block,
-        |addr| components_store.get_last(format!("restake_manager:{}", hex::encode(addr))).is_some(),
+        |addr| components_store.get_last(format!("pool:0x{0}", hex::encode(addr))).is_some(),
         &mut transaction_contract,
     );
 
@@ -186,10 +279,17 @@ pub fn map_protocol_changes(
 
 
 /// Determine if a transaction deploys the Restake Manager
-fn is_deployment_tx(tx: &eth::v2::TransactionTrace, restake_manager_address: &[u8]) -> bool {
-    tx.calls.iter().any(|call| {
-        call.account_creations
-            .iter()
-            .any(|ac| ac.account.as_slice() == restake_manager_address)
-    })
+fn is_deployment_call(call: &eth::v2::Call, component_address: &[u8]) -> bool {
+    call.account_creations
+        .iter()
+        .any(|ac| ac.account.as_slice() == component_address)
+}
+
+fn find_deployed_underlying_address(component_address: &[u8]) -> Option<[u8; 20]> {
+    match component_address {
+        hex!("74a09653A083691711cF8215a6ab074BB4e99ef5") => {
+            Some(hex!("bf5495Efe5DB9ce00f80364C8B423567e58d2110"))
+        }
+        _ => None,
+    }
 }
