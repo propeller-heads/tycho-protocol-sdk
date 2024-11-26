@@ -25,8 +25,6 @@ tests:
     expected_components:
       - id: "0x74a09653A083691711cF8215a6ab074BB4e99ef5" # Restake Manager Address
         tokens:
-          - "0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84" # stETH
-          - "0xa2E3356610840701BDf5611a53974510Ae27E2e1" # wBETH
           - "0x0000000000000000000000000000000000000000" # ETH
           - "0xbf5495Efe5DB9ce00f80364C8B423567e58d2110" # ezETH
         creation_tx: "0xd944d0aa4dc9706abcba3a4320f386dc94e54d6c522ce9a0a494c933a16d91fa"
