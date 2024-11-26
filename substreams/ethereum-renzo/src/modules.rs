@@ -120,110 +120,38 @@ pub fn map_relative_balances(
 
     // Log block processing start
     let logs: Vec<_> = block.logs().collect();
-    substreams::log::info!("Processing block {} with {} logs", block.number, logs.len());
 
     for log in logs {
-        // Log basic info for each event
-        substreams::log::debug!(
-            "Processing log: address={}, topics_len={}, ordinal={}",
-            hex::encode(&log.log.address),
-            log.log.topics.len(),
-            log.log.ordinal
-        );
 
         // Try to decode as deposit
         // if let Some(ev) = decode_renzo_deposit(log.log) {
         if 1 == 1 {
-            let ev: Deposit = Deposit {
-                depositor: log.log.address.clone(),
-                token: hex!("0000000000000000000000000000000000000000").to_vec(),
-                amount: ScalarBigInt::from(0),
-                ez_eth_minted: ScalarBigInt::from(0),
-                referral_id: ScalarBigInt::from(0),
-            };
             let address_hex = format!("0x{}", hex::encode(log.log.address.clone()));
-            substreams::log::info!(
-                "Found deposit event: address={}, token={}, amount={}, ez_eth_minted={}",
-                address_hex,
-                hex::encode(&ev.token),
-                ev.amount,
-                ev.ez_eth_minted
-            );
 
             // Check if this is a tracked component
             let store_key = format!("pool:{0}", address_hex);
-            let is_tracked = store.get_last(&store_key).is_some();
-            substreams::log::debug!("Component tracked status for {}: {}", store_key, is_tracked);
 
-            let ez_eth_address = hex!("bf5495Efe5DB9ce00f80364C8B423567e58d2110").to_vec();
-            if let Some(_component_key) = store.get_last(&store_key) {
-                // let ez_eth_address: Option<[u8; 20]> = find_deployed_underlying_address(&log.log.address.clone());
-                // Log deposit delta creation
-                substreams::log::info!(
-                    "Creating deposit delta: token={}, amount={}, component_id={}",
-                    hex::encode(&ev.token),
-                    ev.amount,
-                    hex::encode(&ev.token)
-                );
+            if let Some(component) = store.get_last(&store_key) {
+                let ez_eth_address = find_deployed_underlying_address(&log.log.address).unwrap();
 
-                // Handle the balance delta for deposited token
-                balance_deltas.push(BalanceDelta {
-                    ord: log.log.ordinal,
-                    tx: Some(log.receipt.transaction.into()),
-                    token: ev.token.to_vec(),
-                    delta: ev.amount.to_signed_bytes_be(),
-                    component_id: ev.token.to_vec(),
-                });
-
-                // Log ezETH minting delta creation
-                substreams::log::info!(
-                    "Creating ezETH mint delta: token={}, amount={}, component_id={}",
-                    hex::encode(&ez_eth_address),
-                    ev.ez_eth_minted,
-                    hex::encode(&ez_eth_address)
-                );
-
-                // Handle the balance delta for minted ezETH
-                balance_deltas.push(BalanceDelta {
-                    ord: log.log.ordinal,
-                    tx: Some(log.receipt.transaction.into()),
-                    token: ez_eth_address.clone(),
-                    delta: ev.ez_eth_minted.to_signed_bytes_be(),
-                    component_id: ez_eth_address,
-                });
-            } else {
                 let deposit_mock: Deposit = Deposit {
                     depositor: log.log.address.clone(),
-                    token: hex!("0000000000000000000000000000000000000000").to_vec(),
+                    token: ez_eth_address.clone().to_vec(),
                     amount: ScalarBigInt::from(333),
                     ez_eth_minted: ScalarBigInt::from(333),
                     referral_id: ScalarBigInt::from(333),
                 };
+
+                substreams::log::debug!(
+                    "Pushing token:{} to:{} value:{}", hex::encode(deposit_mock.token.clone()), address_hex,deposit_mock.amount
+                );
+
                 balance_deltas.push(BalanceDelta {
-                    ord: log.log.ordinal,
+                    ord: log.ordinal(),
                     tx: Some(log.receipt.transaction.into()),
                     token: deposit_mock.token.to_vec(),
                     delta: deposit_mock.amount.to_signed_bytes_be(),
-                    component_id: deposit_mock.token.to_vec(),
-                });
-
-                // Log ezETH minting delta creation
-                substreams::log::info!(
-                    "Creating ezETH mint delta: token={}, amount={}, component_id={}",
-                    hex::encode(&ez_eth_address),
-                    deposit_mock.ez_eth_minted,
-                    hex::encode(&ez_eth_address)
-                );
-
-                // Handle the balance delta for minted ezETH
-                balance_deltas.push(BalanceDelta {
-                    ord: log.log.ordinal,
-                    tx: Some(log.receipt.transaction.into()),
-                    token: ez_eth_address.clone(),
-                    delta: deposit_mock
-                        .ez_eth_minted
-                        .to_signed_bytes_be(),
-                    component_id: ez_eth_address,
+                    component_id: address_hex.as_bytes().to_vec(),
                 });
             }
         } else if let Some(ev) =
