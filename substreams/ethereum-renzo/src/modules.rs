@@ -15,17 +15,17 @@ use tycho_substreams::{
     balances::aggregate_balances_changes, contract::extract_contract_changes, prelude::*,
 };
 
-// hex!("ae7ab96520DE3A18E5e111B5EaAb095312D7fE84") stETH
-// hex!("a2E3356610840701BDf5611a53974510Ae27E2e1") wBETH
-// hex!("0000000000000000000000000000000000000000") ETH
-// hex!("bf5495Efe5DB9ce00f80364C8B423567e58d2110") ezETH
-
 /// Ethereum native token address representation
 pub const ETH_ADDRESS: [u8; 20] = hex!("0000000000000000000000000000000000000000");
 
+/// Restake manager contract address
+pub const VAULT_ADDRESS: [u8; 20] = hex!("74a09653A083691711cF8215a6ab074BB4e99ef5");
+
+/// ezETH address
+pub const EZETH_ADDRESS: [u8; 20] = hex!("bf5495Efe5DB9ce00f80364C8B423567e58d2110");
+
 #[substreams::handlers::map]
 pub fn map_components(
-    params: String,
     block: eth::v2::Block,
 ) -> Result<BlockTransactionProtocolComponents, anyhow::Error> {
     let component_address =
@@ -40,12 +40,10 @@ pub fn map_components(
             .transactions()
             .filter_map(|tx| {
                 let components = tx
-                    .calls()
-                    .filter(|call| !call.call.state_reverted)
-                    .filter_map(|call| {
+                    .filter_map(|tx| {
                         // address doesn't exist before contract deployment, hence the first tx with
                         // a log.address = component_address is the deployment tx
-                        if is_deployment_call(call.call, &component_address) {
+                        if is_deployment_call(&tx) {
                             Some(
                                 ProtocolComponent::at_contract(&component_address, &tx.into())
                                     .with_tokens(&[
@@ -101,7 +99,7 @@ pub fn map_relative_balances(
 ) -> Result<BlockBalanceDeltas, anyhow::Error> {
     let balance_deltas = block
         .logs()
-        .filter(|log| log.address() == VAULT_ADDRESS) // TODO: use deployed restake manager address
+        .filter(|log| log.address() == &RESTAKE_MANAGER_ADDRESS)
         .flat_map(|log| {
             let mut deltas = Vec::new();
 
@@ -137,7 +135,7 @@ pub fn map_relative_balances(
                             tx: Some(log.receipt.transaction.into()),
                             token: ez_eth_address.clone(),
                             delta: ev.ez_eth_minted.to_signed_bytes_be(),
-                            component_id: ez_eth_address,
+                            component_id: ez_eth_addressEZETH_ADDRESS.to_vec(),
                         },
                     ]);
                 }
@@ -270,10 +268,9 @@ pub fn map_protocol_changes(
 }
 
 /// Determine if a transaction deploys the Restake Manager
-fn is_deployment_call(call: &eth::v2::Call, component_address: &[u8]) -> bool {
-    call.account_creations
-        .iter()
-        .any(|ac| ac.account.as_slice() == component_address)
+fn is_deployment_call(tx: &eth::v2::Transaction) -> bool {
+    // https://etherscan.io/tx/0xd944d0aa4dc9706abcba3a4320f386dc94e54d6c522ce9a0a494c933a16d91fa
+    tx.hash() == hex!("d944d0aa4dc9706abcba3a4320f386dc94e54d6c522ce9a0a494c933a16d91fa")
 }
 
 fn find_deployed_underlying_address(component_address: &[u8]) -> Option<[u8; 20]> {
