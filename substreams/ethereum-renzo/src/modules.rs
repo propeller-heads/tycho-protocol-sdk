@@ -14,7 +14,7 @@ use tycho_substreams::{
     balances::aggregate_balances_changes, contract::extract_contract_changes, prelude::*,
 };
 
-/// Ethereum native token address representation
+/// Ethererum address 0
 pub const ETH_ADDRESS: [u8; 20] = hex!("0000000000000000000000000000000000000000");
 
 /// Restake manager contract address
@@ -30,28 +30,36 @@ pub const WITHDRAW_QUEUE_ADDRESS: [u8; 20] = hex!("2946399B2CF1ec41A1890d8196929
 pub fn map_components(
     block: eth::v2::Block,
 ) -> Result<BlockTransactionProtocolComponents, anyhow::Error> {
-    Ok(BlockTransactionProtocolComponents {
-        tx_components: block
-            .transactions()
-            .filter_map(|tx| {
-                let components = tx
-                    .logs_with_calls()
-                    .filter_map(|(log,_)| {
-                        // address doesn't exist before contract deployment, hence the first tx with
-                        // a log.address = component_address is the deployment tx
-                        if let Some(ev) =
-                            restake_manager_contract::events::CollateralTokenAdded::match_and_decode(log)
-                        {
+    let tx_components = block
+        .transactions()
+        .filter_map(|tx| {
+            if tx.hash == &hex!("d944d0aa4dc9706abcba3a4320f386dc94e54d6c522ce9a0a494c933a16d91fa") {
+                // Set up ethereum component at deployment
+                Some(TransactionProtocolComponents {
+                    tx: Some(tx.into()),
+                    components: vec![
+                        ProtocolComponent::new(
+                            &format!("0x{}", hex::encode(ETH_ADDRESS.to_vec())),
+                            &tx.into(),
+                        )
+                        .with_tokens(&[ETH_ADDRESS.as_slice(), EZETH_ADDRESS.as_slice()])
+                        .as_swap_type("restake_manager", ImplementationType::Vm),
+                    ],
+                })
+            } else {
+                // Process regular block transactions
+                let components = tx.logs_with_calls()
+                    .filter_map(|(log, _)| {
+                        if log.address != &RESTAKE_MANAGER_ADDRESS {
+                            return None;
+                        } else if let Some(ev) = restake_manager_contract::events::CollateralTokenAdded::match_and_decode(log) {
                             Some(
                                 ProtocolComponent::new(
                                     &format!("0x{}", hex::encode(ev.token.to_owned())),
                                     &tx.into(),
                                 )
-                                .with_tokens(&[
-                                    ev.token.as_slice(),
-                                    ETH_ADDRESS.as_slice(),
-                                ])
-                                .as_swap_type("restake_manager", ImplementationType::Vm),
+                                .with_tokens(&[ev.token.as_slice(), EZETH_ADDRESS.as_slice()])
+                                .as_swap_type("restake_manager", ImplementationType::Vm)
                             )
                         } else {
                             None
@@ -60,13 +68,18 @@ pub fn map_components(
                     .collect::<Vec<_>>();
 
                 if !components.is_empty() {
-                    Some(TransactionProtocolComponents { tx: Some(tx.into()), components })
+                    Some(TransactionProtocolComponents {
+                        tx: Some(tx.into()),
+                        components
+                    })
                 } else {
                     None
                 }
-            })
-            .collect::<Vec<_>>(),
-    })
+            }
+        })
+        .collect::<Vec<_>>();
+
+    Ok(BlockTransactionProtocolComponents { tx_components })
 }
 
 /// Store protocol components and associated tokens
@@ -107,7 +120,7 @@ pub fn map_relative_balances(
             let mut deltas = Vec::new();
 
             // Try to decode as deposit
-            if let Some(ev) = restake_manager_contract::events::Deposit::match_and_decode(&log) {
+            if let Some(ev) = restake_manager_contract::events::Deposit2::match_and_decode(&log) {
                 let component_id = format!("0x{}", hex::encode(&ev.token));
 
                 // Check if this is a tracked component
@@ -163,18 +176,37 @@ pub fn map_relative_balances(
                         },
                     ]);
                 }
+            } else if let Some(ev) =
+                restake_manager_contract::events::Deposit1::match_and_decode(&log)
+            {
+                let component_id = format!("0x{}", hex::encode(&ev.token));
+
+                if store
+                    .get_last(&format!("pool:{0}", component_id))
+                    .is_some()
+                {
+                    deltas.extend_from_slice(&[
+                        BalanceDelta {
+                            ord: log.log.ordinal,
+                            tx: Some(log.receipt.transaction.into()),
+                            token: ev.token.to_vec(),
+                            delta: ev.amount.to_signed_bytes_be(),
+                            component_id: component_id.as_bytes().to_vec(),
+                        },
+                        BalanceDelta {
+                            ord: log.log.ordinal,
+                            tx: Some(log.receipt.transaction.into()),
+                            token: EZETH_ADDRESS.to_vec(),
+                            delta: ev.ez_eth_minted.to_signed_bytes_be(),
+                            component_id: component_id.as_bytes().to_vec(),
+                        },
+                    ]);
+                }
             }
 
             deltas
         })
         .collect::<Vec<_>>();
-
-    // Log summary of processed deltas
-    substreams::log::info!(
-        "Block {} processing complete. Created {} balance deltas",
-        block.number,
-        balance_deltas.len()
-    );
 
     Ok(BlockBalanceDeltas { balance_deltas })
 }

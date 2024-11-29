@@ -73,3 +73,4 @@ modules:
       type: proto:tycho.evm.v1.BlockChanges
     doc: |
       This module provides a detailed view of protocol changes, including deposits and withdrawals, for analytics and reporting.
+
