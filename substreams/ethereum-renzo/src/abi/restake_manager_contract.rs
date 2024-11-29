@@ -4182,14 +4182,127 @@ pub mod events {
         }
     }
     #[derive(Debug, Clone, PartialEq)]
-    pub struct Deposit {
+    pub struct Deposit1 {
+        pub depositor: Vec<u8>,
+        pub token: Vec<u8>,
+        pub amount: substreams::scalar::BigInt,
+        pub ez_eth_minted: substreams::scalar::BigInt,
+    }
+    impl Deposit1 {
+        const TOPIC_ID: [u8; 32] = [
+            220u8,
+            188u8,
+            28u8,
+            5u8,
+            36u8,
+            15u8,
+            49u8,
+            255u8,
+            58u8,
+            208u8,
+            103u8,
+            239u8,
+            30u8,
+            227u8,
+            92u8,
+            228u8,
+            153u8,
+            119u8,
+            98u8,
+            117u8,
+            46u8,
+            58u8,
+            9u8,
+            82u8,
+            132u8,
+            117u8,
+            69u8,
+            68u8,
+            244u8,
+            199u8,
+            9u8,
+            215u8,
+        ];
+        pub fn match_log(log: &substreams_ethereum::pb::eth::v2::Log) -> bool {
+            if log.topics.len() != 1usize {
+                return false;
+            }
+            if log.data.len() != 128usize {
+                return false;
+            }
+            return log.topics.get(0).expect("bounds already checked").as_ref()
+                == Self::TOPIC_ID;
+        }
+        pub fn decode(
+            log: &substreams_ethereum::pb::eth::v2::Log,
+        ) -> Result<Self, String> {
+            let mut values = ethabi::decode(
+                    &[
+                        ethabi::ParamType::Address,
+                        ethabi::ParamType::Address,
+                        ethabi::ParamType::Uint(256usize),
+                        ethabi::ParamType::Uint(256usize),
+                    ],
+                    log.data.as_ref(),
+                )
+                .map_err(|e| format!("unable to decode log.data: {:?}", e))?;
+            values.reverse();
+            Ok(Self {
+                depositor: values
+                    .pop()
+                    .expect(INTERNAL_ERR)
+                    .into_address()
+                    .expect(INTERNAL_ERR)
+                    .as_bytes()
+                    .to_vec(),
+                token: values
+                    .pop()
+                    .expect(INTERNAL_ERR)
+                    .into_address()
+                    .expect(INTERNAL_ERR)
+                    .as_bytes()
+                    .to_vec(),
+                amount: {
+                    let mut v = [0 as u8; 32];
+                    values
+                        .pop()
+                        .expect(INTERNAL_ERR)
+                        .into_uint()
+                        .expect(INTERNAL_ERR)
+                        .to_big_endian(v.as_mut_slice());
+                    substreams::scalar::BigInt::from_unsigned_bytes_be(&v)
+                },
+                ez_eth_minted: {
+                    let mut v = [0 as u8; 32];
+                    values
+                        .pop()
+                        .expect(INTERNAL_ERR)
+                        .into_uint()
+                        .expect(INTERNAL_ERR)
+                        .to_big_endian(v.as_mut_slice());
+                    substreams::scalar::BigInt::from_unsigned_bytes_be(&v)
+                },
+            })
+        }
+    }
+    impl substreams_ethereum::Event for Deposit1 {
+        const NAME: &'static str = "Deposit";
+        fn match_log(log: &substreams_ethereum::pb::eth::v2::Log) -> bool {
+            Self::match_log(log)
+        }
+        fn decode(log: &substreams_ethereum::pb::eth::v2::Log) -> Result<Self, String> {
+            Self::decode(log)
+        }
+    }
+    #[derive(Debug, Clone, PartialEq)]
+    pub struct Deposit2 {
         pub depositor: Vec<u8>,
         pub token: Vec<u8>,
         pub amount: substreams::scalar::BigInt,
         pub ez_eth_minted: substreams::scalar::BigInt,
         pub referral_id: substreams::scalar::BigInt,
     }
-    impl Deposit {
+    impl Deposit2 {
         const TOPIC_ID: [u8; 32] = [
             78u8,
             44u8,
@@ -4297,7 +4410,7 @@ pub mod events {
             })
         }
     }
-    impl substreams_ethereum::Event for Deposit {
+    impl substreams_ethereum::Event for Deposit2 {
         const NAME: &'static str = "Deposit";
         fn match_log(log: &substreams_ethereum::pb::eth::v2::Log) -> bool {
             Self::match_log(log)
