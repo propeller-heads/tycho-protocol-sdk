@@ -8,7 +8,7 @@ adapter_build_signature: "constructor(address,address,address)"
 adapter_build_args: "0x74a09653A083691711cF8215a6ab074BB4e99ef5,0x5a12796f7e7EBbbc8a402667d266d2e65A814042,0xbf5495Efe5DB9ce00f80364C8B423567e58d2110"
 # Whether or not the testing script should skip checking balances of the protocol components.
 # If set to `true` please always add a reason why it's skipped.
-skip_balance_check: true
+skip_balance_check: true 
 
 # A list of protocol types names created by your Substreams module.
 protocol_type_names:
@@ -16,14 +16,11 @@ protocol_type_names:
 
 # A list of tests.
 tests:
-  # Test to validate the creation of the sFrax vault
   - name: test_restake_manager_creation
-    # Indexed block range where the vault was created
     start_block: 18722789
-    stop_block: 18727859 # 1 Block after first Deposit event
-    # Same as global `initialized_accounts` but only scoped to this test.
+    stop_block: 18722790 # 1 Block after first Deposit event
     expected_components:
-      - id: "0x74a09653A083691711cF8215a6ab074BB4e99ef5" # Restake Manager Address
+      - id: "0x74a09653A083691711cF8215a6ab074BB4e99ef5" 
         tokens:
           - "0x0000000000000000000000000000000000000000" # ETH
           - "0xbf5495Efe5DB9ce00f80364C8B423567e58d2110" # ezETH
