@@ -35,7 +35,7 @@ pub fn map_components(
     let tx_components = block
         .transactions()
         .filter_map(|tx| {
-            if tx.hash == &hex!("d944d0aa4dc9706abcba3a4320f386dc94e54d6c522ce9a0a494c933a16d91fa") {
+            if tx.hash == hex!("d944d0aa4dc9706abcba3a4320f386dc94e54d6c522ce9a0a494c933a16d91fa") {
                 // Set up ethereum component at deployment
                 Some(TransactionProtocolComponents {
                     tx: Some(tx.into()),
@@ -54,8 +54,8 @@ pub fn map_components(
                 // Process regular block transactions
                 let components = tx.logs_with_calls()
                     .filter_map(|(log, _)| {
-                        if log.address != &RESTAKE_MANAGER_ADDRESS {
-                            return None;
+                        if log.address != RESTAKE_MANAGER_ADDRESS {
+                             None
                         } else if let Some(ev) = restake_manager_contract::events::CollateralTokenAdded::match_and_decode(log) {
                             Some(
                                 ProtocolComponent::at_contract(
@@ -118,13 +118,13 @@ pub fn map_relative_balances(
     let balance_deltas = block
         .logs()
         .filter(|log| {
-            log.address() == &RESTAKE_MANAGER_ADDRESS || log.address() == &WITHDRAW_QUEUE_ADDRESS
+            log.address() == RESTAKE_MANAGER_ADDRESS || log.address() == WITHDRAW_QUEUE_ADDRESS
         })
         .flat_map(|log| {
             let mut deltas = Vec::new();
 
             // Try to decode as deposit
-            if let Some(ev) = restake_manager_contract::events::Deposit2::match_and_decode(&log) {
+            if let Some(ev) = restake_manager_contract::events::Deposit2::match_and_decode(log) {
                 let token = if ev.token == ETH_ADDRESS {
                     RESTAKE_MANAGER_ADDRESS.to_vec()
                 } else {
@@ -134,7 +134,7 @@ pub fn map_relative_balances(
 
                 // Check if this is a tracked component
                 if store
-                    .get_last(&format!("pool:{0}", component_id))
+                    .get_last(format!("pool:{0}", component_id))
                     .is_some()
                 {
                     deltas.extend_from_slice(&[
@@ -157,7 +157,7 @@ pub fn map_relative_balances(
                 // For some reason UserWithdraw* events are not being emitted in the renzo source
                 // code we will use those from WithdrawQueue
             } else if let Some(ev) =
-                withdrawal_contract_contract::events::WithdrawRequestClaimed::match_and_decode(&log)
+                withdrawal_contract_contract::events::WithdrawRequestClaimed::match_and_decode(log)
             {
                 let (_token, _, amount_to_redeem, ezeth_burned, _) = ev.withdraw_request;
                 let token =
@@ -165,7 +165,7 @@ pub fn map_relative_balances(
                 let component_id = format!("0x{}", hex::encode(&token));
 
                 if store
-                    .get_last(&format!("pool:{0}", component_id))
+                    .get_last(format!("pool:{0}", component_id))
                     .is_some()
                 {
                     deltas.extend_from_slice(&[
@@ -188,7 +188,7 @@ pub fn map_relative_balances(
                     ]);
                 }
             } else if let Some(ev) =
-                restake_manager_contract::events::Deposit1::match_and_decode(&log)
+                restake_manager_contract::events::Deposit1::match_and_decode(log)
             {
                 let token = if ev.token == ETH_ADDRESS {
                     RESTAKE_MANAGER_ADDRESS.to_vec()
@@ -198,7 +198,7 @@ pub fn map_relative_balances(
                 let component_id = format!("0x{}", hex::encode(&token));
 
                 if store
-                    .get_last(&format!("pool:{0}", component_id))
+                    .get_last(format!("pool:{0}", component_id))
                     .is_some()
                 {
                     deltas.extend_from_slice(&[
