@@ -4,7 +4,6 @@ use std::collections::HashMap;
 use substreams::{
     hex,
     pb::substreams::StoreDeltas,
-    scalar::BigInt as ScalarBigInt,
     store::{StoreAdd, StoreAddBigInt, StoreAddInt64, StoreGet, StoreGetInt64, StoreNew},
 };
 use substreams_ethereum::{
@@ -19,7 +18,7 @@ use tycho_substreams::{
 pub const ETH_ADDRESS: [u8; 20] = hex!("0000000000000000000000000000000000000000");
 
 /// Restake manager contract address
-pub const VAULT_ADDRESS: [u8; 20] = hex!("74a09653A083691711cF8215a6ab074BB4e99ef5");
+pub const RESTAKE_MANAGER_ADDRESS: [u8; 20] = hex!("74a09653A083691711cF8215a6ab074BB4e99ef5");
 
 /// ezETH address
 pub const EZETH_ADDRESS: [u8; 20] = hex!("bf5495Efe5DB9ce00f80364C8B423567e58d2110");
@@ -31,29 +30,28 @@ pub const WITHDRAW_QUEUE_ADDRESS: [u8; 20] = hex!("2946399B2CF1ec41A1890d8196929
 pub fn map_components(
     block: eth::v2::Block,
 ) -> Result<BlockTransactionProtocolComponents, anyhow::Error> {
-    let component_address =
-        hex::decode(params).map_err(|e| anyhow::anyhow!("Failed to decode params: {}", e))?;
-
-    let component_token = find_deployed_underlying_address(&component_address)
-        .ok_or_else(|| anyhow::anyhow!("Failed to find deployed underlying address"))?;
-
-    // We store these as a hashmap by tx hash since we need to agg by tx hash later
     Ok(BlockTransactionProtocolComponents {
         tx_components: block
             .transactions()
             .filter_map(|tx| {
                 let components = tx
-                    .filter_map(|tx| {
+                    .logs_with_calls()
+                    .filter_map(|(log,_)| {
                         // address doesn't exist before contract deployment, hence the first tx with
                         // a log.address = component_address is the deployment tx
-                        if is_deployment_call(&tx) {
+                        if let Some(ev) =
+                            restake_manager_contract::events::CollateralTokenAdded::match_and_decode(log)
+                        {
                             Some(
-                                ProtocolComponent::at_contract(&component_address, &tx.into())
-                                    .with_tokens(&[
-                                        component_token.as_slice(),
-                                        ETH_ADDRESS.as_slice(),
-                                    ])
-                                    .as_swap_type("restake_manager", ImplementationType::Vm),
+                                ProtocolComponent::new(
+                                    &format!("0x{}", hex::encode(ev.token.to_owned())),
+                                    &tx.into(),
+                                )
+                                .with_tokens(&[
+                                    ev.token.as_slice(),
+                                    ETH_ADDRESS.as_slice(),
+                                ])
+                                .as_swap_type("restake_manager", ImplementationType::Vm),
                             )
                         } else {
                             None
@@ -117,20 +115,20 @@ pub fn map_relative_balances(
                     .get_last(&format!("pool:{0}", component_id))
                     .is_some()
                 {
-                    balance_deltas.extend_from_slice(&[
+                    deltas.extend_from_slice(&[
                         BalanceDelta {
                             ord: log.log.ordinal,
                             tx: Some(log.receipt.transaction.into()),
                             token: ev.token.to_vec(),
                             delta: ev.amount.to_signed_bytes_be(),
-                            component_id: component_id.to_vec(),
+                            component_id: component_id.as_bytes().to_vec(),
                         },
                         BalanceDelta {
                             ord: log.log.ordinal,
                             tx: Some(log.receipt.transaction.into()),
-                            token: ez_eth_address.clone(),
+                            token: EZETH_ADDRESS.to_vec(),
                             delta: ev.ez_eth_minted.to_signed_bytes_be(),
-                            component_id: component_id.to_vec(),
+                            component_id: component_id.as_bytes().to_vec(),
                         },
                     ]);
                 }
@@ -146,22 +144,22 @@ pub fn map_relative_balances(
                     .get_last(&format!("pool:{0}", component_id))
                     .is_some()
                 {
-                    balance_deltas.extend_from_slice(&[
+                    deltas.extend_from_slice(&[
                         BalanceDelta {
                             ord: log.log.ordinal,
                             tx: Some(log.receipt.transaction.into()),
-                            token: ev.token.clone(),
+                            token: token.to_vec(),
                             delta: amount_to_redeem
                                 .neg()
                                 .to_signed_bytes_be(),
-                            component_id: component_id.to_vec(),
+                            component_id: component_id.as_bytes().to_vec(),
                         },
                         BalanceDelta {
                             ord: log.log.ordinal,
                             tx: Some(log.receipt.transaction.into()),
                             token: EZETH_ADDRESS.to_vec(),
                             delta: ezeth_burned.neg().to_signed_bytes_be(),
-                            component_id: component_id.to_vec(),
+                            component_id: component_id.as_bytes().to_vec(),
                         },
                     ]);
                 }
@@ -238,26 +236,4 @@ pub fn map_protocol_changes(
             .filter(|change| !change.component_changes.is_empty())
             .collect(),
     })
-}
-
-/// Determine if a transaction deploys the Restake Manager
-fn is_deployment_call(tx: &eth::v2::Transaction) -> bool {
-    // https://etherscan.io/tx/0xd944d0aa4dc9706abcba3a4320f386dc94e54d6c522ce9a0a494c933a16d91fa
-    tx.hash() == hex!("d944d0aa4dc9706abcba3a4320f386dc94e54d6c522ce9a0a494c933a16d91fa")
-}
-
-fn find_deployed_underlying_address(component_address: &[u8]) -> Option<[u8; 20]> {
-    let result = match component_address {
-        hex!("74a09653A083691711cF8215a6ab074BB4e99ef5") => {
-            Some(hex!("bf5495Efe5DB9ce00f80364C8B423567e58d2110"))
-        }
-        _ => {
-            substreams::log::info!(
-                "Unknown component address: 0x{}",
-                hex::encode(component_address)
-            );
-            None
-        }
-    };
-    result
 }
