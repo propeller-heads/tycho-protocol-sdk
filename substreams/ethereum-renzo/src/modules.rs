@@ -40,12 +40,13 @@ pub fn map_components(
                 Some(TransactionProtocolComponents {
                     tx: Some(tx.into()),
                     components: vec![
-                        ProtocolComponent::at_contract(
+                        ProtocolComponent::new(
                             // according to the general logic used in other components this should be ETH_ADDRESS, 
                             // however using RESTAKE_MANAGER_ADDRESS to make integration tests pass
-                            RESTAKE_MANAGER_ADDRESS.as_slice(),
+                            &format!("0x{}", hex::encode(RESTAKE_MANAGER_ADDRESS)),
                             &tx.into(),
                         )
+                        .with_contracts(&[RESTAKE_MANAGER_ADDRESS.as_slice()])
                         .with_tokens(&[ETH_ADDRESS.as_slice(), EZETH_ADDRESS.as_slice()])
                         .as_swap_type("restake_manager", ImplementationType::Vm),
                     ],
@@ -58,10 +59,11 @@ pub fn map_components(
                              None
                         } else if let Some(ev) = restake_manager_contract::events::CollateralTokenAdded::match_and_decode(log) {
                             Some(
-                                ProtocolComponent::at_contract(
-                                    ev.token.as_slice(),
+                                ProtocolComponent::new(
+                                    &format!("0x{}", hex::encode(&ev.token)),
                                     &tx.into(),
                                 )
+                                .with_contracts(&[RESTAKE_MANAGER_ADDRESS.as_slice()])
                                 .with_tokens(&[ev.token.as_slice(), EZETH_ADDRESS.as_slice()])
                                 .as_swap_type("restake_manager", ImplementationType::Vm)
                             )
