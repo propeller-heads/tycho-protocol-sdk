@@ -1,4 +1,4 @@
-use crate::abi::restake_manager_contract;
+use crate::abi::{restake_manager_contract, withdrawal_contract_contract};
 use anyhow::Result;
 use std::collections::HashMap;
 use substreams::{
@@ -23,6 +23,9 @@ pub const VAULT_ADDRESS: [u8; 20] = hex!("74a09653A083691711cF8215a6ab074BB4e99e
 
 /// ezETH address
 pub const EZETH_ADDRESS: [u8; 20] = hex!("bf5495Efe5DB9ce00f80364C8B423567e58d2110");
+
+/// Withdraw queue address
+pub const WITHDRAW_QUEUE_ADDRESS: [u8; 20] = hex!("2946399B2CF1ec41A1890d81969293DE59E9C855");
 
 #[substreams::handlers::map]
 pub fn map_components(
@@ -99,98 +102,68 @@ pub fn map_relative_balances(
 ) -> Result<BlockBalanceDeltas, anyhow::Error> {
     let balance_deltas = block
         .logs()
-        .filter(|log| log.address() == &RESTAKE_MANAGER_ADDRESS)
+        .filter(|log| {
+            log.address() == &RESTAKE_MANAGER_ADDRESS || log.address() == &WITHDRAW_QUEUE_ADDRESS
+        })
         .flat_map(|log| {
             let mut deltas = Vec::new();
 
             // Try to decode as deposit
             if let Some(ev) = restake_manager_contract::events::Deposit::match_and_decode(&log) {
-                let address_hex = format!("0x{}", hex::encode(&log.address));
-                // substreams::log::info!(
-                //     "Found deposit event: address={}, token={}, amount={}, ez_eth_minted={}",
-                //     address_hex,
-                //     hex::encode(&ev.token),
-                //     ev.amount,
-                //     ev.ez_eth_minted
-                // );
+                let component_id = format!("0x{}", hex::encode(&ev.token));
 
                 // Check if this is a tracked component
-                let store_key = format!("pool:{0}", address_hex);
-                let is_tracked = store.get_last(&store_key).is_some();
-                // substreams::log::debug!("Component tracked status for {}: {}", store_key,
-                // is_tracked);
-
-                if store.get_last(&store_key).is_some() {
-                    let ez_eth_address = hex!("bf5495Efe5DB9ce00f80364C8B423567e58d2110").to_vec();
+                if store
+                    .get_last(&format!("pool:{0}", component_id))
+                    .is_some()
+                {
                     balance_deltas.extend_from_slice(&[
                         BalanceDelta {
                             ord: log.log.ordinal,
                             tx: Some(log.receipt.transaction.into()),
                             token: ev.token.to_vec(),
                             delta: ev.amount.to_signed_bytes_be(),
-                            component_id: ev.token.to_vec(),
+                            component_id: component_id.to_vec(),
                         },
                         BalanceDelta {
                             ord: log.log.ordinal,
                             tx: Some(log.receipt.transaction.into()),
                             token: ez_eth_address.clone(),
                             delta: ev.ez_eth_minted.to_signed_bytes_be(),
-                            component_id: ez_eth_addressEZETH_ADDRESS.to_vec(),
+                            component_id: component_id.to_vec(),
                         },
                     ]);
                 }
+                // For some reason UserWithdraw* events are not being emitted in the renzo source
+                // code we will use those from WithdrawQueue
             } else if let Some(ev) =
-                restake_manager_contract::events::UserWithdrawCompleted::match_and_decode(&log)
+                withdrawal_contract_contract::events::WithdrawRequestClaimed::match_and_decode(&log)
             {
-                let address_hex = format!("0x{}", hex::encode(log.log.address.clone()));
+                let (token, _, amount_to_redeem, ezeth_burned, _) = ev.withdraw_request;
+                let component_id = format!("0x{}", hex::encode(&token));
 
-                substreams::log::info!(
-                    "Found withdrawal event: address={}, token={}, amount={}, ez_eth_burned={}",
-                    address_hex,
-                    hex::encode(&ev.token),
-                    ev.amount,
-                    ev.ez_eth_burned
-                );
-
-                if let Some(_component_key) = store.get_last(format!("pool:{0}", address_hex)) {
-                    let ez_eth_address = hex!("bf5495Efe5DB9ce00f80364C8B423567e58d2110").to_vec();
-
-                    // Log withdrawal delta creation
-                    substreams::log::info!(
-                        "Creating withdrawal delta: token={}, amount=-{}, component_id={}",
-                        hex::encode(&ev.token),
-                        ev.amount,
-                        hex::encode(&ev.token)
-                    );
-
-                    // Handle the balance delta for withdrawn token
-                    balance_deltas.push(BalanceDelta {
-                        ord: log.log.ordinal,
-                        tx: Some(log.receipt.transaction.into()),
-                        token: ev.token.clone(),
-                        delta: ev.amount.neg().to_signed_bytes_be(),
-                        component_id: ev.token.to_vec(),
-                    });
-
-                    // Log ezETH burning delta creation
-                    substreams::log::info!(
-                        "Creating ezETH burn delta: token={}, amount=-{}, component_id={}",
-                        hex::encode(&ez_eth_address),
-                        ev.ez_eth_burned,
-                        hex::encode(&ez_eth_address)
-                    );
-
-                    // Handle the balance delta for burned ezETH
-                    balance_deltas.push(BalanceDelta {
-                        ord: log.ordinal(),
-                        tx: Some(log.receipt.transaction.into()),
-                        token: ez_eth_address.clone(),
-                        delta: ev
-                            .ez_eth_burned
-                            .neg()
-                            .to_signed_bytes_be(),
-                        component_id: ez_eth_address,
-                    });
+                if store
+                    .get_last(&format!("pool:{0}", component_id))
+                    .is_some()
+                {
+                    balance_deltas.extend_from_slice(&[
+                        BalanceDelta {
+                            ord: log.log.ordinal,
+                            tx: Some(log.receipt.transaction.into()),
+                            token: ev.token.clone(),
+                            delta: amount_to_redeem
+                                .neg()
+                                .to_signed_bytes_be(),
+                            component_id: component_id.to_vec(),
+                        },
+                        BalanceDelta {
+                            ord: log.log.ordinal,
+                            tx: Some(log.receipt.transaction.into()),
+                            token: EZETH_ADDRESS.to_vec(),
+                            delta: ezeth_burned.neg().to_signed_bytes_be(),
+                            component_id: component_id.to_vec(),
+                        },
+                    ]);
                 }
             }
 
