@@ -1,18 +1,19 @@
-use crate::erc20_transfer::decode_erc20_transfer;
 use anyhow::{Context, Result};
 use itertools::Itertools;
 use serde::Deserialize;
 use std::collections::HashMap;
 use substreams::{
+    hex,
     pb::substreams::StoreDeltas,
-    scalar::BigInt as ScalarBigInt,
     store::{
         StoreAdd, StoreAddBigInt, StoreAddInt64, StoreGet, StoreGetInt64, StoreGetString, StoreNew,
     },
 };
 use substreams_ethereum::pb::eth;
 use tycho_substreams::{
-    balances::aggregate_balances_changes, contract::extract_contract_changes_builder, prelude::*,
+    balances::{aggregate_balances_changes, extract_balance_deltas_from_tx},
+    contract::extract_contract_changes_builder,
+    prelude::*,
 };
 
 #[derive(Debug, Deserialize, PartialEq)]
@@ -21,7 +22,8 @@ struct ComponentParams {
     dai_address: String,
 }
 
-pub const ETH_ADDRESS: [u8; 20] = [238u8; 20]; // 0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+pub const MASTER_VAULT_ADDRESS: [u8; 20] = hex!("649765821D9f64198c905eC0B2B037a4a52Bc373");
+pub const ETH_ADDRESS: [u8; 20] = hex!("eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee");
 
 #[substreams::handlers::map]
 pub fn map_components(
@@ -99,108 +101,17 @@ pub fn map_relative_balances(
         .flat_map(|tx| {
             let mut deltas = Vec::new();
 
-            let mut tx_value: ScalarBigInt = ScalarBigInt::zero();
+            let erc20_deltas =
+                extract_balance_deltas_from_tx(tx, |token_address, transfer_or_receiver| {
+                    // token refers to a component being tracked AND tx destination is the master
+                    // vault
+                    store
+                        .get_last(format!("pool:0x{0}", hex::encode(token_address)))
+                        .is_some() &&
+                        transfer_or_receiver == MASTER_VAULT_ADDRESS
+                });
 
-            if let Some(value) = &tx.value {
-                tx_value = ScalarBigInt::from_signed_bytes_be(&value.bytes);
-            }
-
-            if tx_value.gt(&ScalarBigInt::zero()) {
-                let tx_from = format!("0x{}", hex::encode(&tx.from));
-                let tx_to = format!("0x{}", hex::encode(&tx.to));
-                let vault_address = if store
-                    .get_last(format!("pool:{}", tx_from))
-                    .is_some()
-                {
-                    tx_from.clone()
-                } else if store
-                    .get_last(format!("pool:{}", tx_to))
-                    .is_some()
-                {
-                    tx_to.clone()
-                } else {
-                    "".to_string()
-                };
-
-                let vault_exists: bool = !vault_address.is_empty();
-
-                if vault_exists {
-                    let address_hex = format!("0x{}", vault_address);
-                    if tx_from == vault_address {
-                        deltas.push(BalanceDelta {
-                            ord: tx.begin_ordinal,
-                            tx: Some(tx.into()),
-                            token: ETH_ADDRESS.as_slice().to_vec(),
-                            delta: tx_value.neg().to_signed_bytes_be(),
-                            component_id: address_hex.as_bytes().to_vec(),
-                        });
-                    } else if tx_to == vault_address {
-                        deltas.push(BalanceDelta {
-                            ord: tx.begin_ordinal,
-                            tx: Some(tx.into()),
-                            token: ETH_ADDRESS.as_slice().to_vec(),
-                            delta: tx_value.to_signed_bytes_be(),
-                            component_id: address_hex.as_bytes().to_vec(),
-                        });
-                    }
-                }
-            }
-
-            // Track ERC20 transfers
-            tx.logs_with_calls()
-                .filter_map(|(log, _call)| {
-                    if let Some(transfer) = decode_erc20_transfer(log) {
-                        let tx_from = format!("0x{}", hex::encode(&tx.from));
-                        let tx_to = format!("0x{}", hex::encode(&tx.to));
-                        let vault_address = if store
-                            .get_last(format!("pool:{}", tx_from))
-                            .is_some()
-                        {
-                            tx_from.clone()
-                        } else if store
-                            .get_last(format!("pool:{}", tx_to))
-                            .is_some()
-                        {
-                            tx_to.clone()
-                        } else {
-                            "".to_string()
-                        };
-
-                        let vault_exists: bool = !vault_address.is_empty();
-
-                        if vault_exists {
-                            let address_hex = format!("0x{}", vault_address);
-
-                            if tx_from == vault_address {
-                                Some(BalanceDelta {
-                                    ord: log.ordinal,
-                                    tx: Some(tx.into()),
-                                    token: log.address.to_vec(),
-                                    delta: transfer
-                                        .value
-                                        .neg()
-                                        .to_signed_bytes_be(),
-                                    component_id: address_hex.as_bytes().to_vec(),
-                                })
-                            } else if tx_to == vault_address {
-                                Some(BalanceDelta {
-                                    ord: log.ordinal,
-                                    tx: Some(tx.into()),
-                                    token: log.address.to_vec(),
-                                    delta: transfer.value.to_signed_bytes_be(),
-                                    component_id: address_hex.as_bytes().to_vec(),
-                                })
-                            } else {
-                                None
-                            }
-                        } else {
-                            None
-                        }
-                    } else {
-                        None
-                    }
-                })
-                .for_each(|delta| deltas.push(delta));
+            deltas.extend(erc20_deltas);
 
             deltas
         })
