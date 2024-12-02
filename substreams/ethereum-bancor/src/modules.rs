@@ -5,6 +5,7 @@ use std::collections::HashMap;
 use substreams::{
     hex,
     pb::substreams::StoreDeltas,
+    scalar::BigInt,
     store::{
         StoreAdd, StoreAddBigInt, StoreAddInt64, StoreGet, StoreGetInt64, StoreGetString, StoreNew,
     },
@@ -101,17 +102,43 @@ pub fn map_relative_balances(
         .flat_map(|tx| {
             let mut deltas = Vec::new();
 
-            let erc20_deltas =
-                extract_balance_deltas_from_tx(tx, |token_address, transfer_or_receiver| {
-                    // token refers to a component being tracked AND tx destination is the master
-                    // vault
-                    store
-                        .get_last(format!("pool:0x{0}", hex::encode(token_address)))
-                        .is_some() &&
-                        transfer_or_receiver == MASTER_VAULT_ADDRESS
-                });
+            // early return if component is not present
+            if store
+                .get_last(format!("pool:0x{0}", hex::encode(MASTER_VAULT_ADDRESS)))
+                .is_none()
+            {
+                return vec![];
+            }
+
+            let erc20_deltas = extract_balance_deltas_from_tx(tx, |_, transfer_or_receiver| {
+                transfer_or_receiver == MASTER_VAULT_ADDRESS
+            });
 
             deltas.extend(erc20_deltas);
+
+            let eth_deltas = tx.value.as_ref().map_or(vec![], |v| {
+                let amount = BigInt::from_signed_bytes_be(v.bytes.as_slice());
+                if tx.to.as_slice() == MASTER_VAULT_ADDRESS {
+                    vec![BalanceDelta {
+                        tx: Some(tx.into()),
+                        token: ETH_ADDRESS.to_vec(),
+                        delta: amount.to_signed_bytes_be(),
+                        component_id: MASTER_VAULT_ADDRESS.to_vec(),
+                        ord: tx.begin_ordinal,
+                    }]
+                } else if tx.from.as_slice() == MASTER_VAULT_ADDRESS {
+                    vec![BalanceDelta {
+                        tx: Some(tx.into()),
+                        token: ETH_ADDRESS.to_vec(),
+                        delta: amount.neg().to_signed_bytes_be(),
+                        component_id: MASTER_VAULT_ADDRESS.to_vec(),
+                        ord: tx.begin_ordinal,
+                    }]
+                } else {
+                    vec![]
+                }
+            });
+            deltas.extend(eth_deltas);
 
             deltas
         })
