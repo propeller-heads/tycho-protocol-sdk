@@ -1,0 +1,47 @@
+substreams_yaml_path: ./substreams.yaml
+adapter_contract: "BancorV3SwapAdapter"
+adapter_build_signature: "constructor(address,address)"
+# Bancor Neteowk Info V3 Address & Bancor Network V3 Address"
+adapter_build_args: "0x8E303D296851B320e6a697bAcB979d13c9D6E760,0xeEF417e1D5CC832e619ae18D2F140De2999dD4fB"
+# Whether or not the testing script should skip checking balances of the protocol components.
+# If set to `true` please always add a reason why it's skipped.
+skip_balance_check: true
+# A list of accounts that need to be indexed to run the tests properly.
+# Usually used when there is a global component required by all pools and created before the tested range of blocks. For example a factory or a vault.
+# Please note that this component needs to be indexed by your substreams module, this feature is only for testing purpose.
+# Also please always add a reason why this account is needed for your tests.
+# This will be applied to each test.
+
+
+protocol_type_names:
+  - "bancor_master_vault"
+
+tests:
+  - name: test_vault_creation
+    start_block: 14609331  # Block Master vault creation
+    stop_block: 14623625
+    expected_components:
+      - id: "0x649765821d9f64198c905ec0b2b037a4a52bc373"
+        tokens:  # Uncomment tokens section since these are important for balance tracking
+          - "0x6b175474e89094c44da98b954eedeac495271d0f"
+          - "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+        initialized_accounts:
+          - "0x6b175474e89094c44da98b954eedeac495271d0f"   # DAI Address
+          - "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee" # ETH Address
+        creation_tx: "0x771fabdc9c778ea942b465cce5e64dea77dfd12f83c110431dab4c77563e6407"
+        skip_simulation: true
+        type: "bancor_master_vault"  # Add type to match protocol_type_names
+
+
+
+  # - name: test_vault_creation_and_swap
+  #   start_block: 14609330 # Master vault creation
+  #   stop_block: 14623625 # DAI pool first swap
+  #   expected_components:
+  #     - id: "0x649765821D9f64198c905eC0B2B037a4a52Bc373"
+  #       tokens:
+  #         - "0x6B175474E89094C44Da98b954EedeAC495271d0F" # DAI
+  #         - "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE" # ETH
+  #       creation_tx: "0x771fabdc9c778ea942b465cce5e64dea77dfd12f83c110431dab4c77563e6407"
+  #       skip_simulation: false
+

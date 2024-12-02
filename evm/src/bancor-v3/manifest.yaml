@@ -1,0 +1,36 @@
+# information about the author helps us reach out in case of issues.
+author:
+  name: shadowycoders.dev
+  email: hello@shadowycreators.com
+
+# Protocol Constants
+constants:
+  protocol_gas: 30000
+  # minimum capabilities we can expect, individual pools may extend these
+  capabilities:
+    - SellSide
+    - BuySide
+    - PriceFunction
+
+# The file containing the adapter contract
+contract: BancorV3SwapAdapter.sol
+
+# Deployment instances used to generate chain specific bytecode.
+instances:
+  - chain:
+      name: mainnet
+      id: 0
+    arguments:
+      - "0x8E303D296851B320e6a697bAcB979d13c9D6E760" # Bancor Network Info V3
+      - "0xeEF417e1D5CC832e619ae18D2F140De2999dD4fB" # Bancor Network V3
+
+# Specify some automatic test cases in case getPoolIds and
+# getTokens are not implemented.
+tests:
+  instances:
+      sell_token: "0x514910771AF9Ca656af840dff83E8264EcF986CA"
+      buy_token: "0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599"
+      block: 19489171
+      chain:
+        id: 0
+        name: mainnet
