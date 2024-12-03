@@ -4,7 +4,7 @@ use substreams_ethereum::{
 };
 
 use crate::abi;
-use tycho_substreams::prelude::*;
+use tycho_substreams::{attributes::json_serialize_bigint_list, prelude::*};
 
 use crate::consts::*;
 use substreams::scalar::BigInt;
@@ -475,6 +475,11 @@ pub fn address_map(
                                 value: address_to_bytes_with_0x(&CRYPTO_SWAP_NG_FACTORY),
                                 change: ChangeType::Creation.into(),
                             },
+                            Attribute {
+                                name: "asset_types".into(),
+                                value: json_serialize_bigint_list(&add_pool.asset_types),
+                                change: ChangeType::Creation.into(),
+                            },
                         ],
                         change: ChangeType::Creation.into(),
                         protocol_type: Some(ProtocolType {
@@ -547,6 +552,11 @@ pub fn address_map(
                                 value: address_to_bytes_with_0x(
                                     &pool_added.base_pool.try_into().unwrap(),
                                 ),
+                                change: ChangeType::Creation.into(),
+                            },
+                            Attribute {
+                                name: "asset_type".into(),
+                                value: add_pool.asset_type.to_signed_bytes_be(),
                                 change: ChangeType::Creation.into(),
                             },
                         ],
