@@ -104,7 +104,11 @@ pub fn address_map(
                         index: tx.index.into(),
                     }),
                     tokens,
-                    contracts: vec![component_id.into(), pool_added.token.clone()],
+                    contracts: vec![
+                        component_id.into(),
+                        pool_added.token.clone(),
+                        CRYPTO_POOL_FACTORY.into(),
+                    ],
                     static_att: vec![
                         Attribute {
                             name: "pool_type".into(),
