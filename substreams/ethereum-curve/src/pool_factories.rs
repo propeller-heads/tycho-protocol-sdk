@@ -860,6 +860,7 @@ pub fn address_map(
                 abi::twocrypto_factory::events::TwocryptoPoolDeployed::match_and_decode(log)
             {
                 let id = hex::encode(&pool_added.pool);
+
                 Some((
                     ProtocolComponent {
                         id: id.clone(),
@@ -916,12 +917,12 @@ pub fn address_map(
                             },
                             Attribute {
                                 name: "stateless_contract_addr_1".into(),
-                                // Call math_implementation() on TWOCRYPTO_FACTORY
-                                value: format!(
-                                    "call:0x{}:math_implementation()",
-                                    hex::encode(TWOCRYPTO_FACTORY)
-                                )
-                                .into(),
+                                value: address_to_bytes_with_0x(
+                                    &pool_added
+                                        .math
+                                        .try_into()
+                                        .unwrap_or([1u8; 20]), // Unexpected issue marker
+                                ),
                                 change: ChangeType::Creation.into(),
                             },
                         ],
