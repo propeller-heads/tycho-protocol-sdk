@@ -27,6 +27,7 @@ fn get_pool_tokens(pool_address: &Vec<u8>, tokens_store: &StoreGetString) -> Opt
 ///  - If neither, it's likely an erroneous ETH transactions that many older pools don't reject.
 pub fn emit_eth_deltas(tx: &TransactionTrace, tokens_store: &StoreGetString) -> Vec<BalanceDelta> {
     tx.calls()
+        .filter(|call| !call.call.state_reverted)
         .flat_map(|call| {
             call.call
                 .balance_changes
