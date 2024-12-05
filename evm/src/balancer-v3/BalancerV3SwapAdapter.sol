@@ -45,12 +45,18 @@ contract BalancerV3SwapAdapter is ISwapAdapter {
         revert NotImplemented("BalancerV3SwapAdapter.getLimits");
     }
 
-    function getCapabilities(
-        bytes32 poolId,
-        address sellToken,
-        address buyToken
-    ) external returns (Capability[] memory capabilities) {
-        revert NotImplemented("BalancerV3SwapAdapter.getCapabilities");
+    /// @inheritdoc ISwapAdapter
+    function getCapabilities(bytes32, address, address)
+        external
+        pure
+        override
+        returns (Capability[] memory capabilities)
+    {
+        capabilities = new Capability[](4);
+        capabilities[0] = Capability.SellOrder;
+        capabilities[1] = Capability.BuyOrder;
+        capabilities[2] = Capability.PriceFunction;
+        capabilities[3] = Capability.HardLimits;
     }
 
     /// @inheritdoc ISwapAdapter
