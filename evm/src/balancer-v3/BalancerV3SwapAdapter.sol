@@ -5,7 +5,6 @@ import {ISwapAdapter} from "src/interfaces/ISwapAdapter.sol";
 import {IERC20, SafeERC20} from "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IERC4626} from "openzeppelin-contracts/contracts/interfaces/IERC4626.sol";
 
-
 contract BalancerV3SwapAdapter is ISwapAdapter {
     using SafeERC20 for IERC20;
 
@@ -54,10 +53,16 @@ contract BalancerV3SwapAdapter is ISwapAdapter {
         revert NotImplemented("BalancerV3SwapAdapter.getCapabilities");
     }
 
+    /// @inheritdoc ISwapAdapter
     function getTokens(
         bytes32 poolId
-    ) external returns (address[] memory tokens) {
-        revert NotImplemented("BalancerV3SwapAdapter.getTokens");
+    ) external view override returns (address[] memory tokens) {
+        address poolAddress = address(bytes20(poolId));
+        IERC20[] memory tokens_ = vault.getPoolTokens(poolAddress);
+
+        for(uint256 i = 0; i < tokens_.length; i++) {
+            tokens[i] = address(tokens_[i]);
+        }
     }
 
     function getPoolIds(
@@ -69,7 +74,6 @@ contract BalancerV3SwapAdapter is ISwapAdapter {
 }
 
 interface IVault {
-
     type PoolConfigBits is bytes32;
 
     enum SwapKind {
@@ -146,13 +150,12 @@ interface IVault {
             uint256 amountOutRaw
         );
 
-    function getPoolData(
-        address pool
-    ) external view returns (PoolData memory);
+    function getPoolData(address pool) external view returns (PoolData memory);
 
     function getPoolTokenInfo(
         address pool
-    ) external
+    )
+        external
         view
         returns (
             IERC20[] memory tokens,
@@ -160,6 +163,13 @@ interface IVault {
             uint256[] memory balancesRaw,
             uint256[] memory lastBalancesLiveScaled18
         );
+
+    function getPoolTokens(
+        address pool
+    )
+        external
+        view
+        returns (IERC20[] memory tokens);
 }
 
 interface IRateProvider {
