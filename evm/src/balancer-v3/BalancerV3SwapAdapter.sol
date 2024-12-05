@@ -69,9 +69,17 @@ contract BalancerV3SwapAdapter is ISwapAdapter {
 }
 
 interface IVault {
+
+    type PoolConfigBits is bytes32;
+
     enum SwapKind {
         EXACT_IN,
         EXACT_OUT
+    }
+
+    enum TokenType {
+        STANDARD,
+        WITH_RATE
     }
 
     enum WrappingDirection {
@@ -95,6 +103,22 @@ interface IVault {
         IERC4626 wrappedToken;
         uint256 amountGivenRaw;
         uint256 limitRaw;
+    }
+
+    struct PoolData {
+        PoolConfigBits poolConfigBits;
+        IERC20[] tokens;
+        TokenInfo[] tokenInfo;
+        uint256[] balancesRaw;
+        uint256[] balancesLiveScaled18;
+        uint256[] tokenRates;
+        uint256[] decimalScalingFactors;
+    }
+
+    struct TokenInfo {
+        TokenType tokenType;
+        IRateProvider rateProvider;
+        bool paysYieldFees;
     }
 
     function swap(
@@ -121,4 +145,27 @@ interface IVault {
             uint256 amountInRaw,
             uint256 amountOutRaw
         );
+
+    function getPoolData(
+        address pool
+    ) external view returns (PoolData memory);
+
+    function getPoolTokenInfo(
+        address pool
+    ) external
+        view
+        returns (
+            IERC20[] memory tokens,
+            TokenInfo[] memory tokenInfo,
+            uint256[] memory balancesRaw,
+            uint256[] memory lastBalancesLiveScaled18
+        );
+}
+
+interface IRateProvider {
+    /**
+     * @dev Returns an 18 decimal fixed point number that is the exchange rate of the token to some other underlying
+     * token. The meaning of this rate depends on the context.
+     */
+    function getRate() external view returns (uint256);
 }
