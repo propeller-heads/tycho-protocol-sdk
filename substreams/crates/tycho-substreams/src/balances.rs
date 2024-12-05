@@ -173,9 +173,9 @@ pub fn aggregate_balances_changes(
 /// Extracts balance deltas from a transaction trace based on a given address predicate.
 ///
 /// This function processes the logs within a transaction trace to identify ERC-20 token
-/// transfer/deposit events. It applies the given predicate to determine which addresses are of
-/// interest and extracts the balance changes (deltas) for those addresses. The balance deltas are
-/// then returned as a vector.
+/// transfer and weth specific events (Deposit and Withdrawal). It applies the given predicate to
+/// determine which addresses are of interest and extracts the balance changes (deltas) for those
+/// addresses. The balance deltas are then returned as a vector.
 ///
 /// # Arguments
 ///
@@ -234,6 +234,10 @@ pub fn extract_balance_deltas_from_tx<F: Fn(&[u8], &[u8]) -> bool>(
             } else if let Some(deposit) = abi::weth::events::Deposit::match_and_decode(log) {
                 if address_predicate(&log.address, &deposit.dst) {
                     create_balance_delta(&deposit.dst, deposit.wad);
+                }
+            } else if let Some(withdrawal) = abi::weth::events::Withdrawal::match_and_decode(log) {
+                if address_predicate(&log.address, &withdrawal.src) {
+                    create_balance_delta(&withdrawal.src, withdrawal.wad.neg());
                 }
             }
         });

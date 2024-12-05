@@ -36,13 +36,9 @@ pub fn emit_eth_deltas(tx: &TransactionTrace, tokens_store: &StoreGetString) -> 
                     if let Some(pool_tokens) =
                         get_pool_tokens(&balance_change.address, tokens_store)
                     {
-                        let token = if pool_tokens.contains(&hex::encode(ETH_ADDRESS)) {
-                            ETH_ADDRESS.to_vec()
-                        } else if pool_tokens.contains(&hex::encode(WETH_ADDRESS)) {
-                            WETH_ADDRESS.to_vec()
-                        } else {
-                            // The pool that was matched to the call doesn't contain either ETH
-                            //  or WETH so found eth balance changes are erroneous.
+                        if !pool_tokens.contains(&hex::encode(ETH_ADDRESS)) {
+                            // The pool that was matched to the call doesn't contain ETH so
+                            // found eth balance changes are not relevant.
                             return None;
                         };
 
@@ -69,7 +65,7 @@ pub fn emit_eth_deltas(tx: &TransactionTrace, tokens_store: &StoreGetString) -> 
                                 hash: tx.hash.clone(),
                                 index: tx.index.into(),
                             }),
-                            token,
+                            token: ETH_ADDRESS.to_vec(),
                             delta: delta.to_signed_bytes_be(),
                             component_id: hex::encode(balance_change.address.clone()).into(),
                         })
