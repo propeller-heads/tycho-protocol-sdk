@@ -36,7 +36,13 @@ interface ISwapAdapterTypes {
         HardLimits,
         // Indicates whether the pool's price function can be called with
         // amountIn=0 to return the current price (optional)
-        MarginalPrice
+        MarginalPrice,
+        // Support evaluating the price derivative function (optional)
+        Derivatives,
+        // Support evaluating the second price derivative function (optional)
+        SecondDerivatives,
+        // Support evaluating the price sample point function (optional)
+        SamplePoints
     }
 
     /// @dev Representation used for rational numbers such as prices.
