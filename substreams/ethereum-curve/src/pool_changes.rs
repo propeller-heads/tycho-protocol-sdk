@@ -5,7 +5,7 @@ use substreams::{
 use substreams_ethereum::pb::eth::v2::TransactionTrace;
 use tycho_substreams::prelude::*;
 
-use crate::consts::{ETH_ADDRESS, WETH_ADDRESS};
+use crate::consts::{ETH_ADDRESS};
 
 fn get_pool_tokens(pool_address: &Vec<u8>, tokens_store: &StoreGetString) -> Option<Vec<String>> {
     let pool_key = format!("pool:{}", hex::encode(pool_address));
