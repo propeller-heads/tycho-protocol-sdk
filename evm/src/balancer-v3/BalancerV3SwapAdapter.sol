@@ -13,9 +13,11 @@ contract BalancerV3SwapAdapter is ISwapAdapter {
     uint256 constant SWAP_DEADLINE_SEC = 1000;
 
     IVault immutable vault;
+    IRouter immutable router;
 
-    constructor(address payable vault_) {
+    constructor(address payable vault_, address _router) {
         vault = IVault(vault_);
+        router = IRouter(_router);
     }
 
     function price(
@@ -23,8 +25,20 @@ contract BalancerV3SwapAdapter is ISwapAdapter {
         address _sellToken,
         address _buyToken,
         uint256[] memory _specifiedAmounts
-    ) external view override returns (Fraction[] memory _prices) {
-        revert NotImplemented("BalancerV3SwapAdapter.price");
+    ) external override returns (Fraction[] memory _prices) {
+        address pool = address(bytes20(_poolId));
+
+        IERC20 sellToken = IERC20(_sellToken);
+        IERC20 buyToken = IERC20(_buyToken);
+
+        for (uint256 i = 0; i < _specifiedAmounts.length; i++) {
+            _prices[i] = getPriceAt(
+                pool,
+                sellToken,
+                buyToken,
+                _specifiedAmounts[i]
+            );
+        }
     }
 
     function swap(
@@ -37,21 +51,38 @@ contract BalancerV3SwapAdapter is ISwapAdapter {
         revert NotImplemented("BalancerV3SwapAdapter.swap");
     }
 
+    /// @inheritdoc ISwapAdapter
     function getLimits(
         bytes32 poolId,
         address sellToken,
         address buyToken
-    ) external returns (uint256[] memory limits) {
-        revert NotImplemented("BalancerV3SwapAdapter.getLimits");
+    ) external view override returns (uint256[] memory limits) {
+        limits = new uint256[](2);
+        address pool = address(bytes20(poolId));
+        (IERC20 sellTokenERC, IERC20 buyTokenERC) = (
+            IERC20(sellToken),
+            IERC20(buyToken)
+        );
+
+        (IERC20[] memory tokens, , uint256[] memory balancesRaw, ) = vault
+            .getPoolTokenInfo(pool);
+
+        for (uint256 i = 0; i < tokens.length; i++) {
+            if (tokens[i] == sellTokenERC) {
+                limits[0] = (balancesRaw[i] * RESERVE_LIMIT_FACTOR) / 10;
+            }
+            if (tokens[i] == buyTokenERC) {
+                limits[1] = (balancesRaw[i] * RESERVE_LIMIT_FACTOR) / 10;
+            }
+        }
     }
 
     /// @inheritdoc ISwapAdapter
-    function getCapabilities(bytes32, address, address)
-        external
-        pure
-        override
-        returns (Capability[] memory capabilities)
-    {
+    function getCapabilities(
+        bytes32,
+        address,
+        address
+    ) external pure override returns (Capability[] memory capabilities) {
         capabilities = new Capability[](4);
         capabilities[0] = Capability.SellOrder;
         capabilities[1] = Capability.BuyOrder;
@@ -66,16 +97,44 @@ contract BalancerV3SwapAdapter is ISwapAdapter {
         address poolAddress = address(bytes20(poolId));
         IERC20[] memory tokens_ = vault.getPoolTokens(poolAddress);
 
-        for(uint256 i = 0; i < tokens_.length; i++) {
+        for (uint256 i = 0; i < tokens_.length; i++) {
             tokens[i] = address(tokens_[i]);
         }
     }
 
     function getPoolIds(
-        uint256 offset,
-        uint256 limit
-    ) external returns (bytes32[] memory ids) {
+        uint256,
+        uint256
+    ) external pure returns (bytes32[] memory) {
         revert NotImplemented("BalancerV3SwapAdapter.getPoolIds");
+    }
+
+    /**
+     * @dev Returns the price of the swap
+     * @dev The price is not scaled by the token decimals
+     * @param pool The ID of the trading pool.
+     * @param sellToken The token being sold.
+     * @param buyToken The token being bought.
+     * @param specifiedAmount The amount to be traded.
+     */
+    function getPriceAt(
+        address pool,
+        IERC20 sellToken,
+        IERC20 buyToken,
+        uint256 specifiedAmount
+    ) internal returns (Fraction memory price) {
+        bytes memory userData; // empty bytes
+
+        uint256 amountOut = router.querySwapSingleTokenExactIn(
+            pool,
+            sellToken,
+            buyToken,
+            specifiedAmount,
+            msg.sender,
+            userData
+        );
+
+        price = Fraction(amountOut, specifiedAmount);
     }
 }
 
@@ -172,10 +231,7 @@ interface IVault {
 
     function getPoolTokens(
         address pool
-    )
-        external
-        view
-        returns (IERC20[] memory tokens);
+    ) external view returns (IERC20[] memory tokens);
 }
 
 interface IRateProvider {
@@ -184,4 +240,24 @@ interface IRateProvider {
      * token. The meaning of this rate depends on the context.
      */
     function getRate() external view returns (uint256);
+}
+
+interface IRouter {
+    function querySwapSingleTokenExactIn(
+        address pool,
+        IERC20 tokenIn,
+        IERC20 tokenOut,
+        uint256 exactAmountIn,
+        address sender,
+        bytes memory userData
+    ) external returns (uint256 amountCalculated);
+
+    function querySwapSingleTokenExactOut(
+        address pool,
+        IERC20 tokenIn,
+        IERC20 tokenOut,
+        uint256 exactAmountOut,
+        address sender,
+        bytes memory userData
+    ) external returns (uint256 amountCalculated);
 }
