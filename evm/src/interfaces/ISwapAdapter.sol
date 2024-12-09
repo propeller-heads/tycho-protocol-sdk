@@ -39,6 +39,50 @@ interface ISwapAdapter is ISwapAdapterTypes {
         uint256[] memory specifiedAmounts
     ) external returns (Fraction[] memory prices);
 
+    /// @notice Calculates pool prices derivatives for specified amounts
+    /// (optional).
+    /// @dev TODO
+    /// @param poolId The ID of the trading pool.
+    /// @param sellToken The token being sold.
+    /// @param buyToken The token being bought.
+    /// @param specifiedAmounts The specified amounts used for price
+    /// calculation.
+    /// @return prices array of prices as fractions corresponding to the
+    /// provided amounts.
+    function priceDerivative(
+        bytes32 poolId,
+        address sellToken,
+        address buyToken,
+        uint256[] memory specifiedAmounts
+    ) external returns (Fraction[] memory prices);
+
+    /// @notice Calculates second pool prices derivatives for specified amounts
+    /// (optional).
+    /// @dev TODO
+    /// @param poolId The ID of the trading pool.
+    /// @param sellToken The token being sold.
+    /// @param buyToken The token being bought.
+    /// @param specifiedAmounts The specified amounts used for price
+    /// calculation.
+    /// @return prices array of prices as fractions corresponding to the
+    /// provided amounts.
+    function priceSecondDerivative(
+        bytes32 poolId,
+        address sellToken,
+        address buyToken,
+        uint256[] memory specifiedAmounts
+    ) external returns (Fraction[] memory prices);
+
+    /// @notice Suggests sample points on the price and derivative functions.
+    /// @dev TODO
+    /// @param poolId The ID of the trading pool.
+    /// @param sellToken The token being sold.
+    /// @param buyToken The token being bought.
+    /// @return array of sample points
+    function samplePoints(bytes32 poolId, address sellToken, address buyToken)
+        external
+        returns (uint256[] memory points);
+
     /**
      * @notice Simulates swapping tokens on a given pool.
      * @dev This function should be state modifying, meaning it should actually
