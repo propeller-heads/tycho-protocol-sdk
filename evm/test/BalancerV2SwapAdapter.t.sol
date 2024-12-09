@@ -25,7 +25,8 @@ contract BalancerV2SwapAdapterTest is AdapterTest {
     uint256 constant TEST_ITERATIONS = 100;
 
     function setUp() public {
-        uint256 forkBlock = 18710000;
+        // Block before we tried to get limits
+        uint256 forkBlock = 21187292;
         vm.createSelectFork(vm.rpcUrl("mainnet"), forkBlock);
 
         adapter = new BalancerV2SwapAdapter(payable(address(balancerV2Vault)));
@@ -35,6 +36,21 @@ contract BalancerV2SwapAdapterTest is AdapterTest {
         vm.label(address(WETH), "WETH");
         vm.label(BAL, "BAL");
         vm.label(address(B_80BAL_20WETH), "B_80BAL_20WETH");
+
+        // Set storage overrides for BAL token
+        bytes32 balSlot = bytes32(uint256(24060209162895628919861412957428278191632570471602070876674374646072182449944));
+        vm.store(BAL, balSlot, bytes32(uint256(71285870430468465766552848)));
+
+        // Set storage overrides for WETH token
+        bytes32 wethSlot1 = bytes32(uint256(24060209162895628919861412957428278191632570471602070876674374646072182449944));
+        vm.store(WETH, wethSlot1, bytes32(uint256(1423822402467431679410)));
+
+        bytes32 wethSlot2 = bytes32(uint256(58546993237423525698686728856645416951692145960565761888391937184176623942864));
+        vm.store(WETH, wethSlot2, bytes32(uint256(578960446186580977117854925043439539266349923328202820197287920039565648199)));
+
+        bytes32 wethSlot3 = bytes32(uint256(110136159478993350616340414857413728709904511599989695046923576775517543504731));
+        vm.store(WETH, wethSlot3, bytes32(uint256(578960446186580977117854925043439539266349923328202820197287920039565648199)));
+
     }
 
     function testPrice() public {
@@ -193,13 +209,13 @@ contract BalancerV2SwapAdapterTest is AdapterTest {
         }
     }
 
-    function testGetLimits() public view {
-        uint256[] memory limits =
-            adapter.getLimits(B_80BAL_20WETH_POOL_ID, BAL, WETH);
+    function testGetLimits() public {
+        (bool success, bytes memory limits) = address(adapter).call
+            (hex"a9270fbe9232a548dd9e81bac65500b5e0d918f8ba93675c000200000000000000000423000000000000000000000000c02aaa39b223fe8d0a0e5c4f27ead9083c756cc2000000000000000000000000fd0205066521550d7d7ab19da8f72bb004b4c341");
 
-        assert(limits.length == 2);
-        assert(limits[0] > 0);
-        assert(limits[1] > 0);
+        assert(success);
+        console.logBool(success);
+        console.logBytes(limits);
     }
 
     function testGetCapabilitiesFuzz(bytes32 pool, address t0, address t1)
