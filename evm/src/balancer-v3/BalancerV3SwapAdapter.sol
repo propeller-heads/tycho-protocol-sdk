@@ -122,7 +122,7 @@ contract BalancerV3SwapAdapter is ISwapAdapter {
         IERC20 sellToken,
         IERC20 buyToken,
         uint256 specifiedAmount
-    ) internal returns (Fraction memory price) {
+    ) internal returns (Fraction memory calculatedPrice) {
         bytes memory userData; // empty bytes
 
         uint256 amountOut = router.querySwapSingleTokenExactIn(
@@ -134,7 +134,7 @@ contract BalancerV3SwapAdapter is ISwapAdapter {
             userData
         );
 
-        price = Fraction(amountOut, specifiedAmount);
+        calculatedPrice = Fraction(amountOut, specifiedAmount);
     }
 }
 
