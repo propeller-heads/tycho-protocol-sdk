@@ -19,10 +19,17 @@ contract BalancerV3SwapAdapter is ISwapAdapter {
     IVault immutable vault;
     IBatchRouter immutable router;
 
+    // ETH and Wrapped ETH addresses, using ETH as address(0)
+    address constant WETH_ADDRESS = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
+    address constant ETH_ADDRESS = address(0);
+
     constructor(address payable vault_, address _router) {
         vault = IVault(vault_);
         router = IBatchRouter(_router);
     }
+
+    /// @dev Enable ETH receiving
+    receive() external payable {}
 
     /// @inheritdoc ISwapAdapter
     function price(
@@ -62,19 +69,15 @@ contract BalancerV3SwapAdapter is ISwapAdapter {
 
         address pool = address(bytes20(poolId));
 
-        // transfer tokens from sender
-        IERC20(sellToken).safeTransferFrom(
-            msg.sender,
-            address(this),
-            specifiedAmount
-        );
-        IERC20(sellToken).safeIncreaseAllowance(
-            address(vault),
-            specifiedAmount
-        );
-
         // perform swap
-        if (side == OrderSide.Sell) {} else {}
+        if (side == OrderSide.Sell) {
+            trade.calculatedAmount = sellERC20(
+                pool,
+                sellToken,
+                buyToken,
+                specifiedAmount
+            );
+        } else {}
 
         uint256 gasBefore = gasleft();
         trade.gasUsed = gasBefore - gasleft();
@@ -153,6 +156,72 @@ contract BalancerV3SwapAdapter is ISwapAdapter {
         IERC20 buyToken,
         uint256 specifiedAmount
     ) internal returns (Fraction memory calculatedPrice) {
+        calculatedPrice = Fraction(
+            getAmountOut(pool, sellToken, buyToken, specifiedAmount),
+            specifiedAmount
+        );
+    }
+
+    /**
+     * @dev Returns the amount of sellToken tokens to spend to get 'specifiedAmount' buyToken tokens
+     * @param pool The address of the pool to trade in.
+     * @param sellToken The token being sold.
+     * @param buyToken The token being bought.
+     * @param specifiedAmount The amount to be traded.
+     * @return amountIn The amount of tokens to spend.
+     */
+    function getAmountIn(
+        address pool,
+        IERC20 sellToken,
+        IERC20 buyToken,
+        uint256 specifiedAmount
+    ) internal returns (uint256 amountIn) {
+        bytes memory userData; // empty bytes
+
+        IBatchRouter.SwapPathStep memory step = IBatchRouter.SwapPathStep({
+            pool: pool,
+            tokenOut: buyToken,
+            isBuffer: false
+        });
+        IBatchRouter.SwapPathStep[]
+            memory steps = new IBatchRouter.SwapPathStep[](1);
+        steps[0] = step;
+
+        IBatchRouter.SwapPathExactAmountOut memory path = IBatchRouter
+            .SwapPathExactAmountOut({
+                tokenIn: sellToken,
+                steps: steps,
+                maxAmountIn: type(uint256).max,
+                exactAmountOut: specifiedAmount
+            });
+
+        IBatchRouter.SwapPathExactAmountOut[]
+            memory paths = new IBatchRouter.SwapPathExactAmountOut[](1);
+        paths[0] = path;
+
+        (, , uint256[] memory amountsIn) = router.querySwapExactOut(
+            paths,
+            address(0),
+            userData
+        );
+
+        amountIn = amountsIn[0];
+    }
+
+    /**
+     * @dev Returns the amount of buyToken tokens received by spending 'specifiedAmount' sellToken tokens
+     * @param pool The address of the pool to trade in.
+     * @param sellToken The token being sold.
+     * @param buyToken The token being bought.
+     * @param specifiedAmount The amount to be traded.
+     * @return amountOut The amount of tokens to receive.
+     */
+    function getAmountOut(
+        address pool,
+        IERC20 sellToken,
+        IERC20 buyToken,
+        uint256 specifiedAmount
+    ) internal returns (uint256 amountOut) {
         bytes memory userData; // empty bytes
 
         IBatchRouter.SwapPathStep memory step = IBatchRouter.SwapPathStep({
@@ -182,28 +251,31 @@ contract BalancerV3SwapAdapter is ISwapAdapter {
             userData
         );
 
-        calculatedPrice = Fraction(amountsOut[0], specifiedAmount);
+        amountOut = amountsOut[0];
     }
 
     /**
-     * @dev Perform a sell order
+     * @dev Perform a sell order for ERC20 tokens
      * @param pool The address of the pool to trade in.
      * @param sellToken The token being sold.
      * @param buyToken The token being bought.
      * @param specifiedAmount The amount to be traded.
      * @return calculatedAmount The amount of tokens received.
      */
-    function sell(
+    function sellERC20(
         address pool,
-        IERC20 sellToken,
-        IERC20 buyToken,
+        address sellToken,
+        address buyToken,
         uint256 specifiedAmount
     ) internal returns (uint256 calculatedAmount) {
-        bytes memory userData; // empty bytes
+        // prepare constants
+        bytes memory userData;
+        bool isETH = sellToken == address(0);
+
         // prepare steps
         IBatchRouter.SwapPathStep memory step = IBatchRouter.SwapPathStep({
             pool: pool,
-            tokenOut: buyToken,
+            tokenOut: IERC20(buyToken),
             isBuffer: false
         });
         IBatchRouter.SwapPathStep[]
@@ -213,7 +285,7 @@ contract BalancerV3SwapAdapter is ISwapAdapter {
         // prepare params
         IBatchRouter.SwapPathExactAmountIn memory path = IBatchRouter
             .SwapPathExactAmountIn({
-                tokenIn: sellToken,
+                tokenIn: IERC20(sellToken),
                 steps: steps,
                 exactAmountIn: specifiedAmount,
                 minAmountOut: 1
@@ -222,13 +294,107 @@ contract BalancerV3SwapAdapter is ISwapAdapter {
             memory paths = new IBatchRouter.SwapPathExactAmountIn[](1);
         paths[0] = path;
 
-        // execute swap and return amount received
-        (, , uint256[] memory amountsOut) = router.swapExactIn(
-            paths,
-            type(uint256).max,
-            false,
-            userData
-        );
+        // execute swap
+        uint256[] memory amountsOut;
+        if (isETH) {
+            // Swap ETH
+            paths[0].tokenIn = IERC20(WETH_ADDRESS);
+            (, , amountsOut) = router.swapExactIn{value: specifiedAmount}(
+                paths,
+                type(uint256).max,
+                true,
+                userData
+            );
+        } else {
+            // Approve and Transfer ERC20 token
+            IERC20(sellToken).safeTransferFrom(
+                msg.sender,
+                address(this),
+                specifiedAmount
+            );
+            IERC20(sellToken).safeIncreaseAllowance(
+                address(router),
+                specifiedAmount
+            );
+
+            // Swap (incl. WETH)
+            (, , amountsOut) = router.swapExactIn(
+                paths,
+                type(uint256).max,
+                false,
+                userData
+            );
+        }
+
+        // return amount
+        calculatedAmount = amountsOut[0];
+    }
+
+    /**
+     * @dev Perform a sell order for ERC20 tokens
+     * @param pool The address of the pool to trade in.
+     * @param sellToken The token being sold.
+     * @param buyToken The token being bought.
+     * @param specifiedAmount The amount to be traded.
+     * @return calculatedAmount The amount of tokens received.
+     */
+    function buyERC20(
+        address pool,
+        address sellToken,
+        address buyToken,
+        uint256 specifiedAmount
+    ) internal returns (uint256 calculatedAmount) {
+        // prepare constants
+        bytes memory userData;
+        bool isETH = sellToken == address(0);
+
+        // prepare steps
+        IBatchRouter.SwapPathStep memory step = IBatchRouter.SwapPathStep({
+            pool: pool,
+            tokenOut: IERC20(buyToken),
+            isBuffer: false
+        });
+        IBatchRouter.SwapPathStep[]
+            memory steps = new IBatchRouter.SwapPathStep[](1);
+        steps[0] = step;
+
+        // prepare params
+        IBatchRouter.SwapPathExactAmountIn memory path = IBatchRouter
+            .SwapPathExactAmountIn({
+                tokenIn: IERC20(sellToken),
+                steps: steps,
+                exactAmountIn: specifiedAmount,
+                minAmountOut: 1
+            });
+        IBatchRouter.SwapPathExactAmountIn[]
+            memory paths = new IBatchRouter.SwapPathExactAmountIn[](1);
+        paths[0] = path;
+
+        // execute swap
+        uint256[] memory amountsOut;
+        if (isETH) {
+            // Swap ETH
+            paths[0].tokenIn = IERC20(WETH_ADDRESS);
+        } else {
+            // Approve and Transfer ERC20 token
+            IERC20(sellToken).safeTransferFrom(
+                msg.sender,
+                address(this),
+                specifiedAmount
+            );
+            IERC20(sellToken).safeIncreaseAllowance(
+                address(router),
+                specifiedAmount
+            );
+
+            // Swap (incl. WETH)
+            (, , amountsOut) = router.swapExactIn(
+                paths,
+                type(uint256).max,
+                false,
+                userData
+            );
+        }
 
         // return amount
         calculatedAmount = amountsOut[0];
@@ -391,7 +557,7 @@ interface IBatchRouter {
             uint256[] memory amountsIn
         );
 
-     function swapExactIn(
+    function swapExactIn(
         SwapPathExactAmountIn[] memory paths,
         uint256 deadline,
         bool wethIsEth,
@@ -399,12 +565,23 @@ interface IBatchRouter {
     )
         external
         payable
-        returns (uint256[] memory pathAmountsOut, address[] memory tokensOut, uint256[] memory amountsOut);
+        returns (
+            uint256[] memory pathAmountsOut,
+            address[] memory tokensOut,
+            uint256[] memory amountsOut
+        );
 
     function swapExactOut(
         SwapPathExactAmountOut[] memory paths,
         uint256 deadline,
         bool wethIsEth,
         bytes calldata userData
-    ) external payable returns (uint256[] memory pathAmountsIn, address[] memory tokensIn, uint256[] memory amountsIn);
+    )
+        external
+        payable
+        returns (
+            uint256[] memory pathAmountsIn,
+            address[] memory tokensIn,
+            uint256[] memory amountsIn
+        );
 }
