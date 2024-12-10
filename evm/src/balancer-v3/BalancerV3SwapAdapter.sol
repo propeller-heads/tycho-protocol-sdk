@@ -73,15 +73,15 @@ contract BalancerV3SwapAdapter is ISwapAdapter {
         if (side == OrderSide.Sell) {
             trade.calculatedAmount = sellERC20(
                 pool,
-                sellToken,
-                buyToken,
+                IERC20(sellToken),
+                IERC20(buyToken),
                 specifiedAmount
             );
         } else {
             trade.calculatedAmount = buyERC20(
                 pool,
-                sellToken,
-                buyToken,
+                IERC20(sellToken),
+                IERC20(buyToken),
                 specifiedAmount
             );
         }
@@ -271,18 +271,19 @@ contract BalancerV3SwapAdapter is ISwapAdapter {
      */
     function sellERC20(
         address pool,
-        address sellToken,
-        address buyToken,
+        IERC20 sellToken,
+        IERC20 buyToken,
         uint256 specifiedAmount
     ) internal returns (uint256 calculatedAmount) {
         // prepare constants
         bytes memory userData;
-        bool isETH = sellToken == address(0);
+        bool isETHSell = address(sellToken) == address(0);
+        bool isETHBuy = address(sellToken) == address(0);
 
         // prepare steps
         IBatchRouter.SwapPathStep memory step = IBatchRouter.SwapPathStep({
             pool: pool,
-            tokenOut: IERC20(buyToken),
+            tokenOut: buyToken,
             isBuffer: false
         });
         IBatchRouter.SwapPathStep[]
@@ -292,7 +293,7 @@ contract BalancerV3SwapAdapter is ISwapAdapter {
         // prepare params
         IBatchRouter.SwapPathExactAmountIn memory path = IBatchRouter
             .SwapPathExactAmountIn({
-                tokenIn: IERC20(sellToken),
+                tokenIn: sellToken,
                 steps: steps,
                 exactAmountIn: specifiedAmount,
                 minAmountOut: 1
@@ -301,37 +302,29 @@ contract BalancerV3SwapAdapter is ISwapAdapter {
             memory paths = new IBatchRouter.SwapPathExactAmountIn[](1);
         paths[0] = path;
 
-        // execute swap
+        // prepare swap
         uint256[] memory amountsOut;
-        if (isETH) {
-            // Swap ETH
+        if (isETHSell) {
             paths[0].tokenIn = IERC20(WETH_ADDRESS);
-            (, , amountsOut) = router.swapExactIn{value: specifiedAmount}(
-                paths,
-                type(uint256).max,
-                true,
-                userData
-            );
+        } else if (isETHBuy) {
+            paths[0].steps[0].tokenOut = IERC20(WETH_ADDRESS);
         } else {
             // Approve and Transfer ERC20 token
-            IERC20(sellToken).safeTransferFrom(
+            sellToken.safeTransferFrom(
                 msg.sender,
                 address(this),
                 specifiedAmount
             );
-            IERC20(sellToken).safeIncreaseAllowance(
-                address(router),
-                specifiedAmount
-            );
-
-            // Swap (incl. WETH)
-            (, , amountsOut) = router.swapExactIn(
-                paths,
-                type(uint256).max,
-                false,
-                userData
-            );
+            sellToken.safeIncreaseAllowance(address(router), specifiedAmount);
         }
+
+        // Swap (incl. WETH)
+        (, , amountsOut) = router.swapExactIn(
+            paths,
+            type(uint256).max,
+            isETHSell || isETHBuy,
+            userData
+        );
 
         // return amount
         calculatedAmount = amountsOut[0];
@@ -347,18 +340,19 @@ contract BalancerV3SwapAdapter is ISwapAdapter {
      */
     function buyERC20(
         address pool,
-        address sellToken,
-        address buyToken,
+        IERC20 sellToken,
+        IERC20 buyToken,
         uint256 specifiedAmount
     ) internal returns (uint256 calculatedAmount) {
         // prepare constants
         bytes memory userData;
-        bool isETH = sellToken == address(0);
+        bool isETHSell = address(sellToken) == address(0);
+        bool isETHBuy = address(sellToken) == address(0);
 
         // prepare steps
         IBatchRouter.SwapPathStep memory step = IBatchRouter.SwapPathStep({
             pool: pool,
-            tokenOut: IERC20(buyToken),
+            tokenOut: buyToken,
             isBuffer: false
         });
         IBatchRouter.SwapPathStep[]
@@ -368,7 +362,7 @@ contract BalancerV3SwapAdapter is ISwapAdapter {
         // prepare params
         IBatchRouter.SwapPathExactAmountIn memory path = IBatchRouter
             .SwapPathExactAmountIn({
-                tokenIn: IERC20(sellToken),
+                tokenIn: sellToken,
                 steps: steps,
                 exactAmountIn: specifiedAmount,
                 minAmountOut: 1
@@ -377,31 +371,39 @@ contract BalancerV3SwapAdapter is ISwapAdapter {
             memory paths = new IBatchRouter.SwapPathExactAmountIn[](1);
         paths[0] = path;
 
-        // execute swap
+        // prepare swap
         uint256[] memory amountsOut;
-        if (isETH) {
-            // Swap ETH
+        if (isETHSell) {
+            // Set token in as WETH
             paths[0].tokenIn = IERC20(WETH_ADDRESS);
+        } else if (isETHBuy) {
+            // Set token out as WETH
+            paths[0].steps[0].tokenOut = IERC20(WETH_ADDRESS);
         } else {
+            // Get amountIn
+            uint256 amountIn = getAmountIn(
+                pool,
+                sellToken,
+                buyToken,
+                specifiedAmount
+            );
+
             // Approve and Transfer ERC20 token
-            IERC20(sellToken).safeTransferFrom(
+            sellToken.safeTransferFrom(
                 msg.sender,
                 address(this),
                 specifiedAmount
             );
-            IERC20(sellToken).safeIncreaseAllowance(
-                address(router),
-                specifiedAmount
-            );
-
-            // Swap (incl. WETH)
-            (, , amountsOut) = router.swapExactIn(
-                paths,
-                type(uint256).max,
-                false,
-                userData
-            );
+            buyToken.safeIncreaseAllowance(address(router), specifiedAmount);
         }
+
+        // perform swap
+        (, , amountsOut) = router.swapExactIn(
+            paths,
+            type(uint256).max,
+            isETHSell || isETHBuy,
+            userData
+        );
 
         // return amount
         calculatedAmount = amountsOut[0];
