@@ -77,7 +77,14 @@ contract BalancerV3SwapAdapter is ISwapAdapter {
                 buyToken,
                 specifiedAmount
             );
-        } else {}
+        } else {
+            trade.calculatedAmount = buyERC20(
+                pool,
+                sellToken,
+                buyToken,
+                specifiedAmount
+            );
+        }
 
         uint256 gasBefore = gasleft();
         trade.gasUsed = gasBefore - gasleft();
