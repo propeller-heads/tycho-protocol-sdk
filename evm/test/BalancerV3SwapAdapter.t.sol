@@ -77,12 +77,12 @@ contract BalancerV3SwapAdapterTest is AdapterTest, ERC20 {
         assertGe(res.length, 4);
     }
 
-    function testGetTokens() public view {
+    function testGetTokensBalancerV3() public view {
         address[] memory tokens = adapter.getTokens(bytes32(bytes20(DAI_USDT_POOL_ADDRESS)));
         assertGe(tokens.length, 2);
     }
 
-    function testGetPoolIds() public {
+    function testGetPoolIdsBalancerV3() public {
         vm.expectRevert(
             abi.encodeWithSelector(
                 NotImplemented.selector,
