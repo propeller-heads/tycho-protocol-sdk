@@ -5,13 +5,17 @@ import {ISwapAdapter} from "src/interfaces/ISwapAdapter.sol";
 import {IERC20, SafeERC20} from "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IERC4626} from "openzeppelin-contracts/contracts/interfaces/IERC4626.sol";
 
+/**
+ * @title Balancer V3 Swap Adapter
+ */
 contract BalancerV3SwapAdapter is ISwapAdapter {
     using SafeERC20 for IERC20;
 
     // Balancer V3 constants
-    uint256 constant RESERVE_LIMIT_FACTOR = 10;
+    uint256 constant RESERVE_LIMIT_FACTOR = 3; // 0.3 as being divided by 10
     uint256 constant SWAP_DEADLINE_SEC = 1000;
 
+    // Balancer V3 contracts
     IVault immutable vault;
     IBatchRouter immutable router;
 
@@ -20,6 +24,7 @@ contract BalancerV3SwapAdapter is ISwapAdapter {
         router = IBatchRouter(_router);
     }
 
+    /// @inheritdoc ISwapAdapter
     function price(
         bytes32 _poolId,
         address _sellToken,
@@ -43,6 +48,7 @@ contract BalancerV3SwapAdapter is ISwapAdapter {
         }
     }
 
+    /// @inheritdoc ISwapAdapter
     function swap(
         bytes32 poolId,
         address sellToken,
@@ -50,7 +56,28 @@ contract BalancerV3SwapAdapter is ISwapAdapter {
         OrderSide side,
         uint256 specifiedAmount
     ) external override returns (Trade memory trade) {
-        revert NotImplemented("BalancerV3SwapAdapter.swap");
+        if (specifiedAmount == 0) {
+            return trade;
+        }
+
+        address pool = address(bytes20(poolId));
+
+        // transfer tokens from sender
+        IERC20(sellToken).safeTransferFrom(
+            msg.sender,
+            address(this),
+            specifiedAmount
+        );
+        IERC20(sellToken).safeIncreaseAllowance(
+            address(vault),
+            specifiedAmount
+        );
+
+        // perform swap
+        if (side == OrderSide.Sell) {} else {}
+
+        uint256 gasBefore = gasleft();
+        trade.gasUsed = gasBefore - gasleft();
     }
 
     /// @inheritdoc ISwapAdapter
@@ -149,12 +176,62 @@ contract BalancerV3SwapAdapter is ISwapAdapter {
             memory paths = new IBatchRouter.SwapPathExactAmountIn[](1);
         paths[0] = path;
 
-        (,, uint256[] memory amountsOut) = router.querySwapExactIn(paths, address(0), userData);
-
-        calculatedPrice = Fraction(
-            amountsOut[0],
-            specifiedAmount
+        (, , uint256[] memory amountsOut) = router.querySwapExactIn(
+            paths,
+            address(0),
+            userData
         );
+
+        calculatedPrice = Fraction(amountsOut[0], specifiedAmount);
+    }
+
+    /**
+     * @dev Perform a sell order
+     * @param pool The address of the pool to trade in.
+     * @param sellToken The token being sold.
+     * @param buyToken The token being bought.
+     * @param specifiedAmount The amount to be traded.
+     * @return calculatedAmount The amount of tokens received.
+     */
+    function sell(
+        address pool,
+        IERC20 sellToken,
+        IERC20 buyToken,
+        uint256 specifiedAmount
+    ) internal returns (uint256 calculatedAmount) {
+        bytes memory userData; // empty bytes
+        // prepare steps
+        IBatchRouter.SwapPathStep memory step = IBatchRouter.SwapPathStep({
+            pool: pool,
+            tokenOut: buyToken,
+            isBuffer: false
+        });
+        IBatchRouter.SwapPathStep[]
+            memory steps = new IBatchRouter.SwapPathStep[](1);
+        steps[0] = step;
+
+        // prepare params
+        IBatchRouter.SwapPathExactAmountIn memory path = IBatchRouter
+            .SwapPathExactAmountIn({
+                tokenIn: sellToken,
+                steps: steps,
+                exactAmountIn: specifiedAmount,
+                minAmountOut: 1
+            });
+        IBatchRouter.SwapPathExactAmountIn[]
+            memory paths = new IBatchRouter.SwapPathExactAmountIn[](1);
+        paths[0] = path;
+
+        // execute swap and return amount received
+        (, , uint256[] memory amountsOut) = router.swapExactIn(
+            paths,
+            type(uint256).max,
+            false,
+            userData
+        );
+
+        // return amount
+        calculatedAmount = amountsOut[0];
     }
 }
 
@@ -313,4 +390,21 @@ interface IBatchRouter {
             address[] memory tokensIn,
             uint256[] memory amountsIn
         );
+
+     function swapExactIn(
+        SwapPathExactAmountIn[] memory paths,
+        uint256 deadline,
+        bool wethIsEth,
+        bytes calldata userData
+    )
+        external
+        payable
+        returns (uint256[] memory pathAmountsOut, address[] memory tokensOut, uint256[] memory amountsOut);
+
+    function swapExactOut(
+        SwapPathExactAmountOut[] memory paths,
+        uint256 deadline,
+        bool wethIsEth,
+        bytes calldata userData
+    ) external payable returns (uint256[] memory pathAmountsIn, address[] memory tokensIn, uint256[] memory amountsIn);
 }
