@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-pragma solidity ^0.8.13;
+pragma solidity ^0.8.26;
 
 import {ISwapAdapter} from "src/interfaces/ISwapAdapter.sol";
 import {IERC20, SafeERC20} from "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -9,15 +9,15 @@ contract BalancerV3SwapAdapter is ISwapAdapter {
     using SafeERC20 for IERC20;
 
     // Balancer V3 constants
-    uint256 constant RESERVE_LIMIT_FACTOR = 3;
+    uint256 constant RESERVE_LIMIT_FACTOR = 10;
     uint256 constant SWAP_DEADLINE_SEC = 1000;
 
     IVault immutable vault;
-    IRouter immutable router;
+    IBatchRouter immutable router;
 
     constructor(address payable vault_, address _router) {
         vault = IVault(vault_);
-        router = IRouter(_router);
+        router = IBatchRouter(_router);
     }
 
     function price(
@@ -27,6 +27,8 @@ contract BalancerV3SwapAdapter is ISwapAdapter {
         uint256[] memory _specifiedAmounts
     ) external override returns (Fraction[] memory _prices) {
         address pool = address(bytes20(_poolId));
+
+        _prices = new Fraction[](_specifiedAmounts.length);
 
         IERC20 sellToken = IERC20(_sellToken);
         IERC20 buyToken = IERC20(_buyToken);
@@ -96,6 +98,7 @@ contract BalancerV3SwapAdapter is ISwapAdapter {
     ) external view override returns (address[] memory tokens) {
         address poolAddress = address(bytes20(poolId));
         IERC20[] memory tokens_ = vault.getPoolTokens(poolAddress);
+        tokens = new address[](tokens_.length);
 
         for (uint256 i = 0; i < tokens_.length; i++) {
             tokens[i] = address(tokens_[i]);
@@ -125,16 +128,33 @@ contract BalancerV3SwapAdapter is ISwapAdapter {
     ) internal returns (Fraction memory calculatedPrice) {
         bytes memory userData; // empty bytes
 
-        uint256 amountOut = router.querySwapSingleTokenExactIn(
-            pool,
-            sellToken,
-            buyToken,
-            specifiedAmount,
-            msg.sender,
-            userData
-        );
+        IBatchRouter.SwapPathStep memory step = IBatchRouter.SwapPathStep({
+            pool: pool,
+            tokenOut: buyToken,
+            isBuffer: false
+        });
+        IBatchRouter.SwapPathStep[]
+            memory steps = new IBatchRouter.SwapPathStep[](1);
+        steps[0] = step;
 
-        calculatedPrice = Fraction(amountOut, specifiedAmount);
+        IBatchRouter.SwapPathExactAmountIn memory path = IBatchRouter
+            .SwapPathExactAmountIn({
+                tokenIn: sellToken,
+                steps: steps,
+                exactAmountIn: specifiedAmount,
+                minAmountOut: 1
+            });
+
+        IBatchRouter.SwapPathExactAmountIn[]
+            memory paths = new IBatchRouter.SwapPathExactAmountIn[](1);
+        paths[0] = path;
+
+        (,, uint256[] memory amountsOut) = router.querySwapExactIn(paths, address(0), userData);
+
+        calculatedPrice = Fraction(
+            amountsOut[0],
+            specifiedAmount
+        );
     }
 }
 
@@ -242,22 +262,55 @@ interface IRateProvider {
     function getRate() external view returns (uint256);
 }
 
-interface IRouter {
-    function querySwapSingleTokenExactIn(
-        address pool,
-        IERC20 tokenIn,
-        IERC20 tokenOut,
-        uint256 exactAmountIn,
-        address sender,
-        bytes memory userData
-    ) external returns (uint256 amountCalculated);
+interface IBatchRouter {
+    struct SwapPathStep {
+        address pool;
+        IERC20 tokenOut;
+        // If true, the "pool" is an ERC4626 Buffer. Used to wrap/unwrap tokens if pool doesn't have enough liquidity.
+        bool isBuffer;
+    }
 
-    function querySwapSingleTokenExactOut(
-        address pool,
-        IERC20 tokenIn,
-        IERC20 tokenOut,
-        uint256 exactAmountOut,
+    struct SwapPathExactAmountIn {
+        IERC20 tokenIn;
+        // For each step:
+        // If tokenIn == pool, use removeLiquidity SINGLE_TOKEN_EXACT_IN.
+        // If tokenOut == pool, use addLiquidity UNBALANCED.
+        SwapPathStep[] steps;
+        uint256 exactAmountIn;
+        uint256 minAmountOut;
+    }
+
+    struct SwapPathExactAmountOut {
+        IERC20 tokenIn;
+        // for each step:
+        // If tokenIn == pool, use removeLiquidity SINGLE_TOKEN_EXACT_OUT.
+        // If tokenOut == pool, use addLiquidity SINGLE_TOKEN_EXACT_OUT.
+        SwapPathStep[] steps;
+        uint256 maxAmountIn;
+        uint256 exactAmountOut;
+    }
+
+    function querySwapExactIn(
+        SwapPathExactAmountIn[] memory paths,
         address sender,
-        bytes memory userData
-    ) external returns (uint256 amountCalculated);
+        bytes calldata userData
+    )
+        external
+        returns (
+            uint256[] memory pathAmountsOut,
+            address[] memory tokensOut,
+            uint256[] memory amountsOut
+        );
+
+    function querySwapExactOut(
+        SwapPathExactAmountOut[] memory paths,
+        address sender,
+        bytes calldata userData
+    )
+        external
+        returns (
+            uint256[] memory pathAmountsIn,
+            address[] memory tokensIn,
+            uint256[] memory amountsIn
+        );
 }
