@@ -49,7 +49,7 @@ contract BalancerV3SwapAdapter is ISwapAdapter {
         address buyToken,
         OrderSide side,
         uint256 specifiedAmount
-    ) external returns (Trade memory trade) {
+    ) external override returns (Trade memory trade) {
         revert NotImplemented("BalancerV3SwapAdapter.swap");
     }
 
@@ -108,7 +108,7 @@ contract BalancerV3SwapAdapter is ISwapAdapter {
     function getPoolIds(
         uint256,
         uint256
-    ) external pure returns (bytes32[] memory) {
+    ) external pure override returns (bytes32[] memory) {
         revert NotImplemented("BalancerV3SwapAdapter.getPoolIds");
     }
 
