@@ -306,8 +306,6 @@ contract BalancerV3SwapAdapter is ISwapAdapter {
         uint256[] memory amountsOut;
         if (isETHSell) {
             paths[0].tokenIn = IERC20(WETH_ADDRESS);
-        } else if (isETHBuy) {
-            paths[0].steps[0].tokenOut = IERC20(WETH_ADDRESS);
         } else {
             // Approve and Transfer ERC20 token
             sellToken.safeTransferFrom(
@@ -316,6 +314,11 @@ contract BalancerV3SwapAdapter is ISwapAdapter {
                 specifiedAmount
             );
             sellToken.safeIncreaseAllowance(address(router), specifiedAmount);
+
+            if (isETHBuy) {
+                // adjust parameters for ETH buy
+                paths[0].steps[0].tokenOut = IERC20(WETH_ADDRESS);
+            }
         }
 
         // Swap (incl. WETH)
@@ -376,9 +379,6 @@ contract BalancerV3SwapAdapter is ISwapAdapter {
         if (isETHSell) {
             // Set token in as WETH
             paths[0].tokenIn = IERC20(WETH_ADDRESS);
-        } else if (isETHBuy) {
-            // Set token out as WETH
-            paths[0].steps[0].tokenOut = IERC20(WETH_ADDRESS);
         } else {
             // Get amountIn
             uint256 amountIn = getAmountIn(
@@ -389,12 +389,12 @@ contract BalancerV3SwapAdapter is ISwapAdapter {
             );
 
             // Approve and Transfer ERC20 token
-            sellToken.safeTransferFrom(
-                msg.sender,
-                address(this),
-                specifiedAmount
-            );
-            buyToken.safeIncreaseAllowance(address(router), specifiedAmount);
+            sellToken.safeTransferFrom(msg.sender, address(this), amountIn);
+
+            if (isETHBuy) {
+                // adjust parameters for ETH buy
+                paths[0].steps[0].tokenOut = IERC20(WETH_ADDRESS);
+            }
         }
 
         // perform swap
