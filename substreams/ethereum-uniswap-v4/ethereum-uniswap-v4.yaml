@@ -1,0 +1,32 @@
+specVersion: v0.1.0
+package:
+  name: "ethereum_uniswap_v4"
+  version: v0.1.0
+
+protobuf:
+  files:
+    - tycho/evm/v1/entity.proto
+    - tycho/evm/v1/common.proto
+    - tycho/evm/v1/utils.proto
+    - uniswap.proto
+  importPaths:
+    - ../../proto
+    - ./proto
+
+binaries:
+  default:
+    type: wasm/rust-v1
+    file: ../target/wasm32-unknown-unknown/release/ethereum_uniswap_v4.wasm
+
+modules:
+  - name: map_pools_created
+    kind: map
+    initialBlock: 6894393
+    inputs:
+      - params: string
+      - source: sf.ethereum.type.v2.Block
+    output:
+      type: proto:tycho.evm.v1.BlockEntityChanges
+
+params:
+  map_pools_created: "8c4bcbe6b9ef47855f97e675296fa3f6fafa5f1a"
