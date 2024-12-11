@@ -1,167 +1,192 @@
 # Substreams Testing
 
-This package provides a comprehensive testing suite for Substreams modules. The testing suite is designed to facilitate
-end-to-end testing, ensuring that your Substreams modules function as expected.
+This package provides a comprehensive testing suite for Substreams modules. The testing suite is designed to facilitateend-to-end testing, ensuring that your Substreams modules function as expected.
 
 ## Overview
 
-The testing suite builds the `.spkg` for your Substreams module, indexes a specified block range, and verifies that the
-expected state has been correctly indexed in PostgreSQL.
-Additionally, it will also try to simulate some transactions using the `SwapAdapter` interface.
+The testing suite builds the `.spkg` for your Substreams module, indexes a specified block range, and verifies that the expected state has been correctly indexed in PostgreSQL. Additionally, it will simulate some transactions using the `SwapAdapter` interface.
 
 ## Prerequisites
 
-- Latest version of our `tycho_indexer`. Please contact us to obtain the latest version. Once acquired, place it in a directory that is included in your system’s PATH.
-- Access to PropellerHeads' private PyPI repository and login credentials. Please contact us.
-- Chainstack `RPC_URL` for the Ethereum mainnet. Please contact us to get it.
-- The `DOMAIN_OWNER` for PropellerHeads' AWS account. Please contact us to get it.
+To use this testing suite, ensure the following requirements are met:
 
-- A `STREAMINGFAST_KEY` and `SUBSTREAMS_API_TOKEN`, you'll need to sign up to [TheGraph Market](https://thegraph.market/dashboard) and create a new project.
+- Latest version of `tycho_indexer`, in a directory included in your system’s PATH.
+- Access to PropellerHeads' private PyPI repository and login credentials.
+- Chainstack `RPC_URL` for the Ethereum mainnet.
+- `DOMAIN_OWNER` for PropellerHeads' AWS account.
+- A `STREAMINGFAST_KEY` and `SUBSTREAMS_API_TOKEN`. Sign up at [The Graph Market](https://thegraph.market/dashboard) and create a project.
 - Docker installed on your machine.
-- [Conda](https://conda.io/projects/conda/en/latest/user-guide/install/index.html) installed on your machine.
-- [AWS cli](https://aws.amazon.com/cli/) installed on your machine.
+- [Conda](https://conda.io/projects/conda/en/latest/user-guide/install/index.html) installed.
+- [AWS CLI](https://aws.amazon.com/cli/) installed.
+<br/>
+> **Contact us** to get `tycho_indexer`, PropellerHeads' private PyPI repository access, Chainstack `RPC_URL`, and `DOMAIN_OWNER`, contact us.
 
-## First time `propeller-protocol-lib-testing` environment setup
+## Setting Up the Testing Environment
 
-Once satisfied all the [prerequisites](#prerequisites) you can continue with the setup.
+### First-Time Setup
 
-1. Head to `propeller-protocol-lib/testing` directory.
-2. Create a `.env` file and put the following variables inside:
+Follow these steps if this is your first time setting up the `propeller-protocol-lib-testing` environment:
+
+1. Navigate to the `propeller-protocol-lib/testing` directory.
+2. Create a `.env` file with the following variables:
     ```bash
-    export DOMAIN_OWNER=827659017777
-    export RPC_URL=https://ethereum-mainnet.core.chainstack.com/71bdd37d35f18d55fed5cc5d138a8fac
+    export DOMAIN_OWNER=
+    export RPC_URL=
     export STREAMINGFAST_KEY=
     export SUBSTREAMS_API_TOKEN=
     ```
-2. Run `source .env` to load the environment variables.
-3. Run:
+3. Load the environment variables:
+    ```bash
+    source .env
+    ```
+4. Generate and export the `CODEARTIFACT_AUTH_TOKEN`:
     ```bash
     CODEARTIFACT_AUTH_TOKEN=$(aws --region eu-central-1 codeartifact get-authorization-token --domain propeller --domain-owner "$DOMAIN_OWNER" --query authorizationToken --output text --duration 1800)
     PIP_INDEX_URL="https://aws:${CODEARTIFACT_AUTH_TOKEN}@propeller-${DOMAIN_OWNER}.d.codeartifact.eu-central-1.amazonaws.com/pypi/protosim/simple/"
     export PIP_INDEX_URL
     ```
-    > ❗️ **Important:** You’ll nedd to regenerate the `CODEARTIFACT_AUTH_TOKEN` every 12 hours.
-4. Run `source .env` again.
-5. Run `aws configure`, you'll be prompted to enter the following: 
-    - `key` (you should have received it from us).
-    - `secret` (you should have received it from us).
-    - `region`: `eu-central-1`.
-6. Run `aws codeartifact login --tool pip --repository protosim --domain propeller`
-7. Run `pip install --upgrade --force-reinstall protosim-py==<desired-version>` (ask us for the version you need).
-> ❗️ **Important:** If the desired version is not available tell us and we'll provide you with the file.
-8. If the desired version is not available tell us and we'll provide you with the file.
-    - After we have provided you with the file run `pip install --upgrade --force-reinstall <path-to-file>/<protosim_py-version>` 
-    - In case of tycho-indexer-client not found, run `pip install --upgrade tycho-indexer-client`
-9. Now follow the [new testing environment automated setup](#automated-propeller-protocol-lib-testing-environment-setup)
+    > ❗ **Note:** The `CODEARTIFACT_AUTH_TOKEN` expires every 12 hours and needs regeneration.
+5. Load the `.env` file again:
+    ```bash
+    source .env
+    ```
+6. Configure AWS CLI:
+    ```bash
+    aws configure
+    ```
+    - Enter your AWS key, secret, and region (`eu-central-1`).
+7. Authenticate and install dependencies:
+    ```bash
+    aws codeartifact login --tool pip --repository protosim --domain propeller
+    pip install --upgrade --force-reinstall protosim-py==<desired-version>
+    ```
+    - If the desired version is unavailable, contact us for the file, then run:
+      ```bash
+      pip install --upgrade --force-reinstall <path-to-file>/<protosim_py-version>
+      ```
+    - In case of missing dependencies like `tycho-indexer-client`, run:
+      ```bash
+      pip install --upgrade tycho-indexer-client
+      ```
+8. Proceed with the [automated setup](#automated-setup).
 
+### Automated Setup
 
-## Automated `propeller-protocol-lib-testing` environment setup
-You can follow this section anytime you want to setup the testing environment.
-If it's the first time you are setting up the repo, please follow the [first time setup](#first-time-propeller-protocol-lib-testing-environment-setup)
+> ❗ **Note:** If the automated setup fails, please follow the [manual setup](#manual-setup)
 
-1. Head to `propeller-protocol-lib/testing` directory.
-2. Run `source .env` to load the environment variables.
-3. Run `./setup_testing_env.sh` to setup the testing environment.
-4. Run `conda activate propeller-protocol-lib-testing` to activate the testing environment.
-5. Run `cd ..` to go back to the root directory.
-6. Run `python ./testing/src/runner/cli.py --package "<your-package-name>"` to run the integration tests.
-  - If you want to run the test and check vm-traces, run `python ./testing/src/runner/cli.py --package "<your-package-name>" --vm-traces`
-   If you want to run the test and debug, run `python ./testing/src/runner/cli.py --package "<your-package-name>" --tycho-logs`
+You can follow this section anytime you want to reinitialize the testing environment.
+If it's the first time you are setting up the repo, please follow instead the [first time setup](#first-time-setup).
+
+1. Navigate to the `propeller-protocol-lib/testing` directory.
+2. Load the environment variables:
+    ```bash
+    source .env
+    ```
+3. Run the setup script:
+    ```bash
+    ./setup_env.sh
+    ```
+4. Create python virtual environment for testing:
+    ```bash
+    conda activate propeller-protocol-lib-testing
+    ```
+5. Return to the root directory:
+    ```bash
+    cd ..
+    ```
+6. Run integration tests:
+    ```bash
+    python ./testing/src/runner/cli.py --package "<your-package-name>"
+    ```
+    - For VM traces:
+      ```bash
+      python ./testing/src/runner/cli.py --package "<your-package-name>" --vm-traces
+      ```
+    - For debugging:
+      ```bash
+      python ./testing/src/runner/cli.py --package "<your-package-name>" --tycho-logs
+      ```
 
 ## Test Configuration
 
 Tests are defined in a `yaml` file. A documented template can be found at
-`substreams/ethereum-template/integration_test.tycho.yaml`. The configuration file should include:
+`substreams/ethereum-template/integration_test.tycho.yaml`. 
+The configuration file should include:
 
 - The target Substreams config file.
 - The corresponding SwapAdapter and args to build it.
 - The expected protocol types.
 - The tests to be run.
 
-Each test will index all blocks between `start-block` and `stop-block`, verify that the indexed state matches the
-expected state and optionally simulate transactions using `SwapAdapter` interface.
+Each test will index all blocks between `start-block` and `stop-block`, verify that the indexed state matches the expected state and optionally simulate transactions using `SwapAdapter` interface.
 
-You will also need the VM Runtime file for the adapter contract.
-Our testing script should be able to build it using your test config.
-The script to generate this file manually is available under `evm/scripts/buildRuntime.sh`.
+### VM Runtime File
 
-## Setup testing environment
-
-### Step 1: Export Environment Variables
-
-**DOMAIN_OWNER**
-
-- **Description**: The domain owner identifier for Propellerhead's AWS account, used for authenticating on the private
-  PyPI repository.
-- **Example**: `export DOMAIN_OWNER=123456789`
-
-### Step 2: Create python virtual environment for testing
-
-Run setup env script. It will create a conda virtual env and install all dependencies.
-This script must be run from within the `propeller-protocol-lib/testing` directory.
-
-Please note that some dependencies require access to our private PyPI repository.
+A VM runtime file is required for the adapter contract. The testing script can build it using your test config, or you can generate it manually using the script located at:
 
 ```
-setup_env.sh
+evm/scripts/buildRuntime.sh
 ```
 
-## Running Tests
+## `setup_env.sh` Script Breakdown
 
-### Prerequisites
+The `setup_env.sh` script automates the environment initialization process. Below is a step-by-step breakdown of the script:
 
-This section requires a testing environment setup. If you don’t have it yet, please refer to the [setup testing
-environment section](#setup-testing-environment)
+1. **Environment Variables**
+   - Verifies and sources the `.env` file
+   - Exits if `.env` file is not found
 
-### Step 1: Export Environment Variables
+2. **Conda Environment Setup**
+   - Creates a new conda environment named `propeller-protocol-lib-testing`
+   - Uses Python 3.9 as the base interpreter
 
-Export the required environment variables for the execution. You can find the available environment variables in the
-`.env.default` file.
-Please create a `.env` file in the `testing` directory and set the required environment variables.
+3. **Dependencies Installation**
+   - Runs `pre_build.sh` script for initial setup
+   - Installs requirements from `requirements.txt`
+   - Installs specific version of `protosim_py` wheel file
+   - Installs `psycopg2-binary` for PostgreSQL connectivity
 
-#### Environment Variables
+4. **Docker Setup**
+   - Launches Docker Desktop if not running
+   - Waits for Docker to be fully operational (up to 10 retry attempts)
+   - Brings down any existing containers
+   - Starts the database container
 
-**RPC_URL**
+### Manual Setup
 
-- **Description**: The URL for the Ethereum RPC endpoint. This is used to fetch the storage data. The node needs to be
-  an archive node, and support [debug_storageRangeAt](https://www.quicknode.com/docs/ethereum/debug_storageRangeAt).
-- **Example**: `export RPC_URL="https://ethereum-mainnet.core.chainstack.com/123123123123"`
+For a manual setup without the `setup_env.sh` script, follow these steps:
 
-**SUBSTREAMS_API_TOKEN**
+1. Source your environment variables:
+   ```bash
+   source .env
+   ```
 
-- **Description**: The API token for accessing Substreams services. This token is required for authentication.
-- **Example**: `export SUBSTREAMS_API_TOKEN=eyJhbGci...`
+2. Create a new conda environment:
+   ```bash
+   conda create --name propeller-protocol-lib-testing python=3.9 -y
+   conda activate propeller-protocol-lib-testing
+   ```
 
-### Step 2: Run tests
+3. Install dependencies:
+   ```bash
+   source ./pre_build.sh
+   pip install -r requirements.txt
+   pip install --upgrade --force-reinstall "<path-to-file>/<protosim_py-version>"
+   pip install psycopg2-binary
+   ```
 
-Run local postgres database using docker compose
+4. Start Docker services:
+   ```bash
+   # Start Docker Desktop
+   open -a Docker
+   
+   # Wait for Docker to be ready
+   docker compose down
+   docker compose up -d db
+   ```
+5. Activate conda environment:
+   ```bash
+   conda activate propeller-protocol-lib-testing
+   ```
 
-```bash
-docker compose up -d db
-```
 
-Run tests for your package.
-
-```bash
-python ./testing/src/runner/cli.py --package "your-package-name"
-```
-
-#### Example
-
-If you want to run tests for `ethereum-balancer-v2`, use:
-
-```bash
-conda activate propeller-protocol-lib-testing
-export RPC_URL="https://ethereum-mainnet.core.chainstack.com/123123123123"
-export SUBSTREAMS_API_TOKEN=eyJhbGci...
-docker compose up -d db
-python ./testing/src/runner/cli.py --package "ethereum-balancer-v2"
-```
-
-#### Testing CLI args
-
-A list and description of all available CLI args can be found using:
-
-```
-python ./testing/src/runner/cli.py --help
-```
