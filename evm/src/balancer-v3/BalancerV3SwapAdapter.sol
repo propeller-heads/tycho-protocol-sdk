@@ -4,6 +4,7 @@ pragma solidity ^0.8.26;
 import {ISwapAdapter} from "src/interfaces/ISwapAdapter.sol";
 import {IERC20, SafeERC20} from "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IERC4626} from "openzeppelin-contracts/contracts/interfaces/IERC4626.sol";
+import {CustomBytesAppend} from "src/libraries/CustomBytesAppend.sol";
 
 /**
  * @title Balancer V3 Swap Adapter
@@ -67,24 +68,14 @@ contract BalancerV3SwapAdapter is ISwapAdapter {
             return trade;
         }
 
-        address pool = address(bytes20(poolId));
-
-        // perform swap
-        if (side == OrderSide.Sell) {
-            trade.calculatedAmount = sellERC20(
-                pool,
-                IERC20(sellToken),
-                IERC20(buyToken),
-                specifiedAmount
-            );
-        } else {
-            trade.calculatedAmount = buyERC20(
-                pool,
-                IERC20(sellToken),
-                IERC20(buyToken),
-                specifiedAmount
-            );
-        }
+        // perform swap (forward to middleware)
+        trade.calculatedAmount = swapMiddleware(
+            poolId,
+            sellToken,
+            buyToken,
+            side,
+            specifiedAmount
+        );
 
         uint256 gasBefore = gasleft();
         trade.gasUsed = gasBefore - gasleft();
@@ -147,6 +138,72 @@ contract BalancerV3SwapAdapter is ISwapAdapter {
         uint256
     ) external pure override returns (bytes32[] memory) {
         revert NotImplemented("BalancerV3SwapAdapter.getPoolIds");
+    }
+
+    /**
+     * @notice Middleware for swaps
+     */
+    function swapMiddleware(
+        bytes32 pool,
+        address sellToken,
+        address buyToken,
+        OrderSide side,
+        uint256 specifiedAmount
+    ) internal returns (uint256) {
+        if (isERC4626(sellToken) && isERC4626(buyToken)) {
+            // custom swap
+            if (CustomBytesAppend.hasPrefix(abi.encodePacked(pool))) {
+                address poolAddress = CustomBytesAppend.extractAddress(pool);
+                // perform custom swap (ERC20<->ERC20, with ERC4626 inputs)
+                if (side == OrderSide.Buy) {
+                    return
+                        buyCustomWrap(
+                            poolAddress,
+                            sellToken,
+                            buyToken,
+                            specifiedAmount
+                        );
+                } else {
+                    return
+                        sellCustomWrap(
+                            poolAddress,
+                            sellToken,
+                            buyToken,
+                            specifiedAmount
+                        );
+                }
+            }
+            // swap ERC4626<->ERC4626, fallback to next code block
+        } else {
+            address poolAddress = address(bytes20(pool));
+            if (isERC4626(sellToken) && !isERC4626(buyToken)) {
+                // perform swap: ERC4626(share)<->ERC20(token)
+                if (side == OrderSide.Buy) {} else {}
+            } else if (!isERC4626(sellToken) && isERC4626(buyToken)) {
+                // perform swap: ERC20(token)<->ERC4626(share)
+                if (side == OrderSide.Buy) {} else {}
+            }
+            // swap ERC20<->ERC20, fallback to next code block
+        }
+
+        // Fallback (used for ERC20<->ERC20 and ERC4626<->ERC4626 as inherits IERC20 logic)
+        if (side == OrderSide.Buy) {
+            return
+                buyERC20WithERC20(
+                    poolAddress,
+                    IERC20(sellToken),
+                    IERC20(buyToken),
+                    specifiedAmount
+                );
+        } else {
+            return
+                sellERC20ForERC20(
+                    poolAddress,
+                    IERC20(sellToken),
+                    IERC20(buyToken),
+                    specifiedAmount
+                );
+        }
     }
 
     /**
@@ -269,7 +326,7 @@ contract BalancerV3SwapAdapter is ISwapAdapter {
      * @param specifiedAmount The amount to be traded.
      * @return calculatedAmount The amount of tokens received.
      */
-    function sellERC20(
+    function sellERC20ForERC20(
         address pool,
         IERC20 sellToken,
         IERC20 buyToken,
@@ -340,7 +397,7 @@ contract BalancerV3SwapAdapter is ISwapAdapter {
      * @param specifiedAmount The amount to be traded.
      * @return calculatedAmount The amount of tokens received.
      */
-    function buyERC20(
+    function buyERC20WithERC20(
         address pool,
         IERC20 sellToken,
         IERC20 buyToken,
@@ -406,6 +463,131 @@ contract BalancerV3SwapAdapter is ISwapAdapter {
 
         // return amount
         calculatedAmount = amountsOut[0];
+    }
+
+    /**
+     * @notice Perform a custom sell with wrap/unwrap
+     * @dev
+     * - Does not support ETH(gas), use wrapped ETH instead
+     * - Using native vault's mint/redeem instead of BalancerV3's as it would use it when not enough liquidity
+     *   and would also require unnecessary additional complexity
+     * @param pool the ERC4626 pool containing sellToken.share() and buyToken.share()
+     * @param _sellToken ERC4626 token being sold, of which .asset() is the buyToken
+     * @param _buyToken ERC4626 token of which .asset() is the buyToken
+     * @param specifiedAmount The amount of _sellToken.asset() tokens spent
+     */
+    function sellCustomWrap(
+        address pool,
+        address _sellToken,
+        address _buyToken,
+        uint256 specifiedAmount
+    ) internal returns (uint256 calculatedAmount) {
+        // prepare tokens
+        IERC4626 sellToken = IERC4626(_sellToken);
+        IERC4626 buyToken = IERC4626(_buyToken);
+        IERC20 underlyingSellToken = IERC20(sellToken.asset());
+        IERC20 underlyingBuyToken = IERC20(buyToken.asset());
+
+        // transfer sellToken's asset to address(this)
+        underlyingSellToken.safeTransferFrom(
+            msg.sender,
+            address(this),
+            specifiedAmount
+        );
+
+        // buy sellToken shares (wrap)
+        uint256 shares = sellToken.deposit(specifiedAmount, address(this));
+
+        // perform swap: sellToken.shares() -> buyToken.shares()
+        uint256 amountOut = sellERC20ForERC20(
+            pool,
+            IERC20(address(sellToken)),
+            IERC20(address(buyToken)),
+            shares
+        );
+
+        // redeem buyToken shares and return the underlying received
+        calculatedAmount = buyToken.redeem(
+            amountOut,
+            address(msg.sender),
+            address(this)
+        );
+    }
+
+    /**
+     * @notice Perform a custom sell with wrap/unwrap
+     * @dev
+     * - Does not support ETH(gas), use wrapped ETH instead
+     * - Using native vault's mint/redeem instead of BalancerV3's as it would use it when not enough liquidity
+     *   and would also require unnecessary additional complexity
+     * @param pool the ERC4626 pool containing sellToken.share() and buyToken.share()
+     * @param _sellToken ERC4626 token being sold, of which .asset() is the buyToken
+     * @param _buyToken ERC4626 token of which .asset() is the buyToken
+     * @param specifiedAmount The amount of _buyToken.asset() tokens to receive
+     */
+    function buyCustomWrap(
+        address pool,
+        address _sellToken,
+        address _buyToken,
+        uint256 specifiedAmount
+    ) internal returns (uint256 calculatedAmount) {
+        // prepare tokens
+        IERC4626 sellToken = IERC4626(_sellToken);
+        IERC4626 buyToken = IERC4626(_buyToken);
+        IERC20 underlyingSellToken = IERC20(sellToken.asset());
+
+        // get the amount of buyToken.shares() required to redeem "specifiedAmount" buyToken.asset()
+        uint256 buyTokenSharesRequiredAmount = buyToken.previewWithdraw(
+            specifiedAmount
+        );
+
+        // get sellToken.shares() required to get buyToken.shares() via Balancer swap
+        uint256 sellTokenSharesRequiredAmount = getAmountIn(
+            pool,
+            IERC20(_sellToken),
+            IERC20(_buyToken),
+            buyTokenSharesRequiredAmount
+        );
+
+        // get sellToken.asset() required to get "sellTokenSharesRequiredAmount" sellToken.shares(), our final amount
+        calculatedAmount = sellToken.previewRedeem(
+            sellTokenSharesRequiredAmount
+        );
+
+        // transfer sellToken.asset() to address(this) and approve
+        underlyingSellToken.safeTransferFrom(
+            msg.sender,
+            address(this),
+            calculatedAmount
+        );
+        underlyingSellToken.safeIncreaseAllowance(
+            address(router),
+            sellTokenSharesRequiredAmount
+        );
+
+        // mint sellToken.shares()
+        sellToken.mint(sellTokenSharesRequiredAmount, address(this));
+
+        // perform the swap: sellToken.shares() -> buyToken.shares()
+        buyERC20WithERC20(
+            pool,
+            IERC20(_sellToken),
+            IERC20(_buyToken),
+            buyTokenSharesRequiredAmount
+        );
+
+        // unwrap buyToken.shares()
+        buyToken.redeem(specifiedAmount, address(msg.sender), address(this));
+    }
+
+    function isERC4626(address token) internal view returns (bool) {
+        try IERC4626(token).asset() {
+            // If the call to asset() succeeds, the token likely implements ERC4626
+            return true;
+        } catch {
+            // If the call fails, the token does not implement ERC4626
+            return false;
+        }
     }
 }
 
