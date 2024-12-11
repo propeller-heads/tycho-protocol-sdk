@@ -150,10 +150,11 @@ contract BalancerV3SwapAdapter is ISwapAdapter {
         OrderSide side,
         uint256 specifiedAmount
     ) internal returns (uint256) {
+        address poolAddress;
         if (isERC4626(sellToken) && isERC4626(buyToken)) {
             // custom swap
             if (CustomBytesAppend.hasPrefix(abi.encodePacked(pool))) {
-                address poolAddress = CustomBytesAppend.extractAddress(pool);
+                poolAddress = CustomBytesAppend.extractAddress(pool);
                 // perform custom swap (ERC20<->ERC20, with ERC4626 inputs)
                 if (side == OrderSide.Buy) {
                     return
@@ -175,7 +176,7 @@ contract BalancerV3SwapAdapter is ISwapAdapter {
             }
             // swap ERC4626<->ERC4626, fallback to next code block
         } else {
-            address poolAddress = address(bytes20(pool));
+            poolAddress = address(bytes20(pool));
             if (isERC4626(sellToken) && !isERC4626(buyToken)) {
                 // perform swap: ERC4626(share)<->ERC20(token)
                 if (side == OrderSide.Buy) {} else {}
@@ -187,6 +188,7 @@ contract BalancerV3SwapAdapter is ISwapAdapter {
         }
 
         // Fallback (used for ERC20<->ERC20 and ERC4626<->ERC4626 as inherits IERC20 logic)
+        poolAddress = address(bytes20(pool));
         if (side == OrderSide.Buy) {
             return
                 buyERC20WithERC20(
@@ -486,7 +488,6 @@ contract BalancerV3SwapAdapter is ISwapAdapter {
         IERC4626 sellToken = IERC4626(_sellToken);
         IERC4626 buyToken = IERC4626(_buyToken);
         IERC20 underlyingSellToken = IERC20(sellToken.asset());
-        IERC20 underlyingBuyToken = IERC20(buyToken.asset());
 
         // transfer sellToken's asset to address(this)
         underlyingSellToken.safeTransferFrom(
