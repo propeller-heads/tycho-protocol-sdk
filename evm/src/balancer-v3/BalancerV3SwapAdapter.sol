@@ -179,10 +179,42 @@ contract BalancerV3SwapAdapter is ISwapAdapter {
             poolAddress = address(bytes20(pool));
             if (isERC4626(sellToken) && !isERC4626(buyToken)) {
                 // perform swap: ERC4626(share)<->ERC20(token)
-                if (side == OrderSide.Buy) {} else {}
+                // if (side == OrderSide.Buy) {
+                //     return
+                //         sellERC4626ForERC20(
+                //             poolAddress,
+                //             sellToken,
+                //             buyToken,
+                //             specifiedAmount
+                //         );
+                // } else {
+                //     return
+                //         buyERC4626WithERC20(
+                //             poolAddress,
+                //             sellToken,
+                //             buyToken,
+                //             specifiedAmount
+                //         );
+                // }
             } else if (!isERC4626(sellToken) && isERC4626(buyToken)) {
                 // perform swap: ERC20(token)<->ERC4626(share)
-                if (side == OrderSide.Buy) {} else {}
+                // if (side == OrderSide.Buy) {
+                //     return
+                //         sellERC20ForERC4626(
+                //             poolAddress,
+                //             sellToken,
+                //             buyToken,
+                //             specifiedAmount
+                //         );
+                // } else {
+                //     return
+                //         sellERC4626ForERC20(
+                //             poolAddress,
+                //             sellToken,
+                //             buyToken,
+                //             specifiedAmount
+                //         );
+                // }
             }
             // swap ERC20<->ERC20, fallback to next code block
         }
@@ -195,7 +227,8 @@ contract BalancerV3SwapAdapter is ISwapAdapter {
                     poolAddress,
                     IERC20(sellToken),
                     IERC20(buyToken),
-                    specifiedAmount
+                    specifiedAmount,
+                    true
                 );
         } else {
             return
@@ -203,7 +236,8 @@ contract BalancerV3SwapAdapter is ISwapAdapter {
                     poolAddress,
                     IERC20(sellToken),
                     IERC20(buyToken),
-                    specifiedAmount
+                    specifiedAmount,
+                    true
                 );
         }
     }
@@ -326,13 +360,15 @@ contract BalancerV3SwapAdapter is ISwapAdapter {
      * @param sellToken The token being sold.
      * @param buyToken The token being bought.
      * @param specifiedAmount The amount to be traded.
+     * @param performTransfer Whether to perform a transfer to msg.sender or not(keeping tokens in the contract)
      * @return calculatedAmount The amount of tokens received.
      */
     function sellERC20ForERC20(
         address pool,
         IERC20 sellToken,
         IERC20 buyToken,
-        uint256 specifiedAmount
+        uint256 specifiedAmount,
+        bool performTransfer
     ) internal returns (uint256 calculatedAmount) {
         // prepare constants
         bytes memory userData;
@@ -387,6 +423,16 @@ contract BalancerV3SwapAdapter is ISwapAdapter {
             userData
         );
 
+        // transfer if required
+        if (performTransfer) {
+            if (isETHBuy) {
+                (bool sent,) = payable(msg.sender).call{value: amountsOut[0]}("");
+                require(sent, "Failed to transfer ETH");
+            } else {
+                buyToken.safeTransfer(msg.sender, amountsOut[0]);
+            }
+        }
+
         // return amount
         calculatedAmount = amountsOut[0];
     }
@@ -397,13 +443,15 @@ contract BalancerV3SwapAdapter is ISwapAdapter {
      * @param sellToken The token being sold.
      * @param buyToken The token being bought.
      * @param specifiedAmount The amount to be traded.
+     * @param performTransfer Whether to perform a transfer to msg.sender or not(keeping tokens in the contract)
      * @return calculatedAmount The amount of tokens received.
      */
     function buyERC20WithERC20(
         address pool,
         IERC20 sellToken,
         IERC20 buyToken,
-        uint256 specifiedAmount
+        uint256 specifiedAmount,
+        bool performTransfer
     ) internal returns (uint256 calculatedAmount) {
         // prepare constants
         bytes memory userData;
@@ -421,19 +469,19 @@ contract BalancerV3SwapAdapter is ISwapAdapter {
         steps[0] = step;
 
         // prepare params
-        IBatchRouter.SwapPathExactAmountIn memory path = IBatchRouter
-            .SwapPathExactAmountIn({
+        IBatchRouter.SwapPathExactAmountOut memory path = IBatchRouter
+            .SwapPathExactAmountOut({
                 tokenIn: sellToken,
                 steps: steps,
-                exactAmountIn: specifiedAmount,
-                minAmountOut: 1
+                maxAmountIn: type(uint256).max,
+                exactAmountOut: specifiedAmount
             });
-        IBatchRouter.SwapPathExactAmountIn[]
-            memory paths = new IBatchRouter.SwapPathExactAmountIn[](1);
+        IBatchRouter.SwapPathExactAmountOut[]
+            memory paths = new IBatchRouter.SwapPathExactAmountOut[](1);
         paths[0] = path;
 
         // prepare swap
-        uint256[] memory amountsOut;
+        uint256[] memory amountsIn;
         if (isETHSell) {
             // Set token in as WETH
             paths[0].tokenIn = IERC20(WETH_ADDRESS);
@@ -456,15 +504,25 @@ contract BalancerV3SwapAdapter is ISwapAdapter {
         }
 
         // perform swap
-        (, , amountsOut) = router.swapExactIn(
+        (, , amountsIn) = router.swapExactOut(
             paths,
             type(uint256).max,
             isETHSell || isETHBuy,
             userData
         );
 
+        // transfer if required
+        if (performTransfer) {
+            if (isETHBuy) {
+                (bool sent,) = payable(msg.sender).call{value: specifiedAmount}("");
+                require(sent, "Failed to transfer ETH");
+            } else {
+                buyToken.safeTransfer(msg.sender, specifiedAmount);
+            }
+        }
+
         // return amount
-        calculatedAmount = amountsOut[0];
+        calculatedAmount = amountsIn[0];
     }
 
     /**
@@ -504,7 +562,8 @@ contract BalancerV3SwapAdapter is ISwapAdapter {
             pool,
             IERC20(address(sellToken)),
             IERC20(address(buyToken)),
-            shares
+            shares,
+            false
         );
 
         // redeem buyToken shares and return the underlying received
@@ -574,7 +633,8 @@ contract BalancerV3SwapAdapter is ISwapAdapter {
             pool,
             IERC20(_sellToken),
             IERC20(_buyToken),
-            buyTokenSharesRequiredAmount
+            buyTokenSharesRequiredAmount,
+            false
         );
 
         // unwrap buyToken.shares()
