@@ -179,23 +179,23 @@ contract BalancerV3SwapAdapter is ISwapAdapter {
             poolAddress = address(bytes20(pool));
             if (isERC4626(sellToken) && !isERC4626(buyToken)) {
                 // perform swap: ERC4626(share)<->ERC20(token)
-                // if (side == OrderSide.Buy) {
-                //     return
-                //         sellERC4626ForERC20(
-                //             poolAddress,
-                //             sellToken,
-                //             buyToken,
-                //             specifiedAmount
-                //         );
-                // } else {
-                //     return
-                //         buyERC4626WithERC20(
-                //             poolAddress,
-                //             sellToken,
-                //             buyToken,
-                //             specifiedAmount
-                //         );
-                // }
+                if (side == OrderSide.Buy) {
+                    return
+                        sellERC4626ForERC20(
+                            poolAddress,
+                            sellToken,
+                            buyToken,
+                            specifiedAmount
+                        );
+                } else {
+                    return
+                        buyERC4626WithERC20(
+                            poolAddress,
+                            sellToken,
+                            buyToken,
+                            specifiedAmount
+                        );
+                }
             } else if (!isERC4626(sellToken) && isERC4626(buyToken)) {
                 // perform swap: ERC20(token)<->ERC4626(share)
                 // if (side == OrderSide.Buy) {
@@ -639,6 +639,38 @@ contract BalancerV3SwapAdapter is ISwapAdapter {
 
         // unwrap buyToken.shares()
         buyToken.redeem(specifiedAmount, address(msg.sender), address(this));
+    }
+
+    /**
+     * @dev Perform a sell order for ERC4626 tokens
+     * @param pool The pool containing sellToken.asset() and buyToken
+     * @param sellToken ERC4626 token being sold(by unwrapping to sellToken.asset())
+     * @param buyToken ERC20 token being bought
+     * @param amount The amount of sellToken(ERC4626) tokens to sell
+     */
+    function sellERC4626ForERC20(
+        address pool,
+        address sellToken,
+        address buyToken,
+        uint256 amount
+    ) internal returns (uint256 calculatedAmount) {
+        
+    }
+
+    /**
+     * @dev Perform a sell order for ERC4626 tokens
+     * @param pool The pool containing sellToken.share() and buyToken
+     * @param sellToken ERC4626 token being sold, of which .asset() is the sellToken
+     * @param buyToken ERC20 token being bought
+     * @param amount The amount of buyToken to buy
+     */
+    function buyERC4626WithERC20(
+        address pool,
+        address sellToken,
+        address buyToken,
+        uint256 amount
+    ) internal returns (uint256 calculatedAmount) {
+        
     }
 
     function isERC4626(address token) internal view returns (bool) {
