@@ -6,18 +6,25 @@ library CustomBytesAppend {
     string private constant CUSTOM = "_CUSTOM_";
 
     /**
-     * @dev Extracts an address from a bytes32 input, assuming it is either prepended or appended with `_CUSTOM_`.
-     * @param input The bytes32 input containing the address and custom prefix/suffix.
+     * @dev Extracts an address from a bytes32 input, assuming it is either
+     * prepended or appended with `_CUSTOM_`.
+     * @param input The bytes32 input containing the address and custom
+     * prefix/suffix.
      * @return extractedAddress The extracted address.
      */
-    function extractAddress(bytes32 input) public pure returns (address extractedAddress) {
+    function extractAddress(bytes32 input)
+        public
+        pure
+        returns (address extractedAddress)
+    {
         // Convert the bytes32 input into a dynamic bytes array for manipulation
         bytes memory inputBytes = abi.encodePacked(input);
 
         // Check if the bytes contain the custom prefix
         if (hasPrefix(inputBytes)) {
             // If prefixed, extract the 20 bytes after the prefix as the address
-            extractedAddress = bytesToAddress(slice(inputBytes, bytes(CUSTOM).length, 20));
+            extractedAddress =
+                bytesToAddress(slice(inputBytes, bytes(CUSTOM).length, 20));
         }
         // Check if the bytes contain the custom suffix
         else if (hasSuffix(inputBytes)) {
@@ -35,8 +42,10 @@ library CustomBytesAppend {
      * @return True if the prefix matches, false otherwise.
      */
     function hasPrefix(bytes memory data) internal pure returns (bool) {
-        // Compare the first bytes of the input with the prefix using keccak256 for hashing
-        return keccak256(slice(data, 0, bytes(CUSTOM).length)) == keccak256(bytes(CUSTOM));
+        // Compare the first bytes of the input with the prefix using keccak256
+        // for hashing
+        return keccak256(slice(data, 0, bytes(CUSTOM).length))
+            == keccak256(bytes(CUSTOM));
     }
 
     /**
@@ -45,8 +54,13 @@ library CustomBytesAppend {
      * @return True if the suffix matches, false otherwise.
      */
     function hasSuffix(bytes memory data) internal pure returns (bool) {
-        // Compare the last bytes of the input with the suffix using keccak256 for hashing
-        return keccak256(slice(data, data.length - bytes(CUSTOM).length, bytes(CUSTOM).length)) == keccak256(bytes(CUSTOM));
+        // Compare the last bytes of the input with the suffix using keccak256
+        // for hashing
+        return keccak256(
+            slice(
+                data, data.length - bytes(CUSTOM).length, bytes(CUSTOM).length
+            )
+        ) == keccak256(bytes(CUSTOM));
     }
 
     /**
@@ -56,7 +70,11 @@ library CustomBytesAppend {
      * @param length The length of the slice.
      * @return The sliced bytes array.
      */
-    function slice(bytes memory data, uint256 start, uint256 length) internal pure returns (bytes memory) {
+    function slice(bytes memory data, uint256 start, uint256 length)
+        internal
+        pure
+        returns (bytes memory)
+    {
         // Ensure the slice operation does not exceed the bounds of the array
         require(data.length >= start + length, "Invalid slice");
 
@@ -73,8 +91,13 @@ library CustomBytesAppend {
      * @param data The bytes array (must be 20 bytes long).
      * @return addr The converted address.
      */
-    function bytesToAddress(bytes memory data) internal pure returns (address addr) {
-        // Ensure the input length is exactly 20 bytes (size of an Ethereum address)
+    function bytesToAddress(bytes memory data)
+        internal
+        pure
+        returns (address addr)
+    {
+        // Ensure the input length is exactly 20 bytes (size of an Ethereum
+        // address)
         require(data.length == 20, "Invalid address length");
 
         // Use inline assembly to efficiently convert the bytes to an address

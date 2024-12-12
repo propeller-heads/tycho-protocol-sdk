@@ -3,8 +3,12 @@ pragma solidity ^0.8.26;
 
 import {ISwapAdapter} from "src/interfaces/ISwapAdapter.sol";
 import {CustomBytesAppend} from "src/libraries/CustomBytesAppend.sol";
-import {IERC20, SafeERC20} from "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
-import {IERC4626} from "openzeppelin-contracts/contracts/interfaces/IERC4626.sol";
+import {
+    IERC20,
+    SafeERC20
+} from "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
+import {IERC4626} from
+    "openzeppelin-contracts/contracts/interfaces/IERC4626.sol";
 
 interface IVault {
     type PoolConfigBits is bytes32;
@@ -58,9 +62,7 @@ interface IVault {
         bool paysYieldFees;
     }
 
-    function swap(
-        VaultSwapParams memory vaultSwapParams
-    )
+    function swap(VaultSwapParams memory vaultSwapParams)
         external
         returns (
             uint256 amountCalculatedRaw,
@@ -68,14 +70,12 @@ interface IVault {
             uint256 amountOutRaw
         );
 
-    function getPoolTokenCountAndIndexOfToken(
-        address pool,
-        IERC20 token
-    ) external view returns (uint256 tokenCount, uint256 index);
+    function getPoolTokenCountAndIndexOfToken(address pool, IERC20 token)
+        external
+        view
+        returns (uint256 tokenCount, uint256 index);
 
-    function erc4626BufferWrapOrUnwrap(
-        BufferWrapOrUnwrapParams memory params
-    )
+    function erc4626BufferWrapOrUnwrap(BufferWrapOrUnwrapParams memory params)
         external
         returns (
             uint256 amountCalculatedRaw,
@@ -83,11 +83,12 @@ interface IVault {
             uint256 amountOutRaw
         );
 
-    function getPoolData(address pool) external view returns (PoolData memory);
+    function getPoolData(address pool)
+        external
+        view
+        returns (PoolData memory);
 
-    function getPoolTokenInfo(
-        address pool
-    )
+    function getPoolTokenInfo(address pool)
         external
         view
         returns (
@@ -97,14 +98,16 @@ interface IVault {
             uint256[] memory lastBalancesLiveScaled18
         );
 
-    function getPoolTokens(
-        address pool
-    ) external view returns (IERC20[] memory tokens);
+    function getPoolTokens(address pool)
+        external
+        view
+        returns (IERC20[] memory tokens);
 }
 
 interface IRateProvider {
     /**
-     * @dev Returns an 18 decimal fixed point number that is the exchange rate of the token to some other underlying
+     * @dev Returns an 18 decimal fixed point number that is the exchange rate
+     * of the token to some other underlying
      * token. The meaning of this rate depends on the context.
      */
     function getRate() external view returns (uint256);
@@ -114,7 +117,8 @@ interface IBatchRouter {
     struct SwapPathStep {
         address pool;
         IERC20 tokenOut;
-        // If true, the "pool" is an ERC4626 Buffer. Used to wrap/unwrap tokens if pool doesn't have enough liquidity.
+        // If true, the "pool" is an ERC4626 Buffer. Used to wrap/unwrap tokens
+        // if pool doesn't have enough liquidity.
         bool isBuffer;
     }
 

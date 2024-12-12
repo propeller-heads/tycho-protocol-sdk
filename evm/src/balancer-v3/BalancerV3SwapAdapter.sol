@@ -7,7 +7,6 @@ import "./lib/BalancerSwapHelpers.sol";
  * @title Balancer V3 Swap Adapter
  */
 contract BalancerV3SwapAdapter is BalancerSwapHelpers {
-
     constructor(address payable vault_, address _router) {
         vault = IVault(vault_);
         router = IBatchRouter(_router);
@@ -23,20 +22,11 @@ contract BalancerV3SwapAdapter is BalancerSwapHelpers {
         address _buyToken,
         uint256[] memory _specifiedAmounts
     ) external override returns (Fraction[] memory _prices) {
-        address pool = address(bytes20(_poolId));
-
         _prices = new Fraction[](_specifiedAmounts.length);
 
-        IERC20 sellToken = IERC20(_sellToken);
-        IERC20 buyToken = IERC20(_buyToken);
-
         for (uint256 i = 0; i < _specifiedAmounts.length; i++) {
-            _prices[i] = getPriceAt(
-                pool,
-                sellToken,
-                buyToken,
-                _specifiedAmounts[i]
-            );
+            _prices[i] =
+                getPriceAt(_poolId, _sellToken, _buyToken, _specifiedAmounts[i]);
         }
     }
 
@@ -53,33 +43,27 @@ contract BalancerV3SwapAdapter is BalancerSwapHelpers {
         }
 
         // perform swap (forward to middleware)
-        trade.calculatedAmount = swapMiddleware(
-            poolId,
-            sellToken,
-            buyToken,
-            side,
-            specifiedAmount
-        );
+        trade.calculatedAmount =
+            swapMiddleware(poolId, sellToken, buyToken, side, specifiedAmount);
 
         uint256 gasBefore = gasleft();
         trade.gasUsed = gasBefore - gasleft();
     }
 
     /// @inheritdoc ISwapAdapter
-    function getLimits(
-        bytes32 poolId,
-        address sellToken,
-        address buyToken
-    ) external view override returns (uint256[] memory limits) {
+    function getLimits(bytes32 poolId, address sellToken, address buyToken)
+        external
+        view
+        override
+        returns (uint256[] memory limits)
+    {
         limits = new uint256[](2);
         address pool = address(bytes20(poolId));
-        (IERC20 sellTokenERC, IERC20 buyTokenERC) = (
-            IERC20(sellToken),
-            IERC20(buyToken)
-        );
+        (IERC20 sellTokenERC, IERC20 buyTokenERC) =
+            (IERC20(sellToken), IERC20(buyToken));
 
-        (IERC20[] memory tokens, , uint256[] memory balancesRaw, ) = vault
-            .getPoolTokenInfo(pool);
+        (IERC20[] memory tokens,, uint256[] memory balancesRaw,) =
+            vault.getPoolTokenInfo(pool);
 
         for (uint256 i = 0; i < tokens.length; i++) {
             if (tokens[i] == sellTokenERC) {
@@ -92,11 +76,12 @@ contract BalancerV3SwapAdapter is BalancerSwapHelpers {
     }
 
     /// @inheritdoc ISwapAdapter
-    function getCapabilities(
-        bytes32,
-        address,
-        address
-    ) external pure override returns (Capability[] memory capabilities) {
+    function getCapabilities(bytes32, address, address)
+        external
+        pure
+        override
+        returns (Capability[] memory capabilities)
+    {
         capabilities = new Capability[](4);
         capabilities[0] = Capability.SellOrder;
         capabilities[1] = Capability.BuyOrder;
@@ -105,9 +90,12 @@ contract BalancerV3SwapAdapter is BalancerSwapHelpers {
     }
 
     /// @inheritdoc ISwapAdapter
-    function getTokens(
-        bytes32 poolId
-    ) external view override returns (address[] memory tokens) {
+    function getTokens(bytes32 poolId)
+        external
+        view
+        override
+        returns (address[] memory tokens)
+    {
         address poolAddress = address(bytes20(poolId));
         IERC20[] memory tokens_ = vault.getPoolTokens(poolAddress);
         tokens = new address[](tokens_.length);
@@ -117,10 +105,12 @@ contract BalancerV3SwapAdapter is BalancerSwapHelpers {
         }
     }
 
-    function getPoolIds(
-        uint256,
-        uint256
-    ) external pure override returns (bytes32[] memory) {
+    function getPoolIds(uint256, uint256)
+        external
+        pure
+        override
+        returns (bytes32[] memory)
+    {
         revert NotImplemented("BalancerV3SwapAdapter.getPoolIds");
     }
 
@@ -133,16 +123,14 @@ contract BalancerV3SwapAdapter is BalancerSwapHelpers {
      * @param specifiedAmount The amount to be traded.
      */
     function getPriceAt(
-        address pool,
-        IERC20 sellToken,
-        IERC20 buyToken,
+        bytes32 pool,
+        address sellToken,
+        address buyToken,
         uint256 specifiedAmount
     ) internal returns (Fraction memory calculatedPrice) {
         calculatedPrice = Fraction(
-            getAmountOut(pool, sellToken, buyToken, specifiedAmount),
+            getAmountOutMiddleware(pool, sellToken, buyToken, specifiedAmount),
             specifiedAmount
         );
     }
-
 }
-

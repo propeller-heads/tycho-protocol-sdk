@@ -2,7 +2,12 @@
 pragma solidity ^0.8.26;
 
 import "./AdapterTest.sol";
-import {BalancerV3SwapAdapter, IERC20, IVault, IBatchRouter} from "src/balancer-v3/BalancerV3SwapAdapter.sol";
+import {
+    BalancerV3SwapAdapter,
+    IERC20,
+    IVault,
+    IBatchRouter
+} from "src/balancer-v3/BalancerV3SwapAdapter.sol";
 import {ERC20} from "openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
 
 import {FractionMath} from "src/libraries/FractionMath.sol";
@@ -11,6 +16,7 @@ import "forge-std/Test.sol";
 contract BalancerV3SwapAdapterTest is AdapterTest, ERC20 {
     error NotStaticCall();
     error VaultQueriesDisabled();
+
     using FractionMath for Fraction;
 
     IVault constant balancerV3Vault =
@@ -26,17 +32,14 @@ contract BalancerV3SwapAdapterTest is AdapterTest, ERC20 {
 
     uint256 constant TEST_ITERATIONS = 100;
 
-    constructor() ERC20("", "") {
-        
-    }
+    constructor() ERC20("", "") {}
 
     function setUp() public {
         uint256 forkBlock = 7249768;
         vm.createSelectFork(vm.rpcUrl("sepolia"), forkBlock);
 
         adapter = new BalancerV3SwapAdapter(
-            payable(address(balancerV3Vault)),
-            address(router)
+            payable(address(balancerV3Vault)), address(router)
         );
 
         vm.label(address(balancerV3Vault), "BalancerV3Vault");
@@ -58,8 +61,7 @@ contract BalancerV3SwapAdapterTest is AdapterTest, ERC20 {
         amounts[1] = amount1;
 
         __prankStaticCall();
-        Fraction[] memory prices =
-            adapter.price(pool, USDT, DAI, amounts);
+        Fraction[] memory prices = adapter.price(pool, USDT, DAI, amounts);
 
         for (uint256 i = 0; i < prices.length; i++) {
             assertGt(prices[i].numerator, 0);
@@ -67,33 +69,33 @@ contract BalancerV3SwapAdapterTest is AdapterTest, ERC20 {
         }
     }
 
-    function testGetCapabilitiesBalancerV3(
-        bytes32 pool,
-        address t0,
-        address t1
-    ) public view {
+    function testGetCapabilitiesBalancerV3(bytes32 pool, address t0, address t1)
+        public
+        view
+    {
         Capability[] memory res = adapter.getCapabilities(pool, t0, t1);
 
         assertGe(res.length, 4);
     }
 
     function testGetTokensBalancerV3() public view {
-        address[] memory tokens = adapter.getTokens(bytes32(bytes20(DAI_USDT_POOL_ADDRESS)));
+        address[] memory tokens =
+            adapter.getTokens(bytes32(bytes20(DAI_USDT_POOL_ADDRESS)));
         assertGe(tokens.length, 2);
     }
 
     function testGetPoolIdsBalancerV3() public {
         vm.expectRevert(
             abi.encodeWithSelector(
-                NotImplemented.selector,
-                "BalancerV3SwapAdapter.getPoolIds"
+                NotImplemented.selector, "BalancerV3SwapAdapter.getPoolIds"
             )
         );
         adapter.getPoolIds(100, 200);
     }
 
     function __prankStaticCall() internal {
-        // Prank address 0x0 for both msg.sender and tx.origin (to identify as a staticcall).
+        // Prank address 0x0 for both msg.sender and tx.origin (to identify as a
+        // staticcall).
         vm.prank(address(0), address(0));
     }
 }
