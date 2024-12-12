@@ -14,9 +14,9 @@ use crate::{
     models::{InterimContractChange, TransactionChanges},
     prelude::TransactionChangesBuilder,
 };
-use substreams_ethereum::pb::{
-    eth,
-    eth::v2::{block::DetailLevel, CallType, TransactionTrace},
+use substreams_ethereum::pb::eth::{
+    self,
+    v2::{block::DetailLevel, CallType, TransactionTrace},
 };
 
 /// Extracts and aggregates contract changes from a block.
@@ -130,6 +130,7 @@ fn extract_contract_changes_generic<
             storage_changes.sort_unstable_by_key(|change| change.ordinal);
             balance_changes.sort_unstable_by_key(|change| change.ordinal);
             code_changes.sort_unstable_by_key(|change| change.ordinal);
+            substreams::log::info!("balance changes {:?}", balance_changes);
 
             storage_changes
                 .iter()
@@ -172,6 +173,10 @@ fn extract_contract_changes_generic<
                     let contract_change = changed_contracts
                         .entry(code_change.address.clone())
                         .or_insert_with(|| {
+                            substreams::log::info!(
+                                "setting code address 0x{}",
+                                hex::encode(&code_change.address)
+                            );
                             InterimContractChange::new(
                                 &code_change.address,
                                 created_accounts.contains_key(&code_change.address),
