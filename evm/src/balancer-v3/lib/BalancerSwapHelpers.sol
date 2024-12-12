@@ -103,7 +103,8 @@ abstract contract BalancerSwapHelpers is ISwapAdapter {
 
         // Fallback (used for ERC20<->ERC20 and ERC4626<->ERC4626 as inherits
         // IERC20 logic)
-        return getAmountOut(poolAddress, sellToken, buyToken, specifiedAmount);
+        poolAddress = address(bytes20(pool));
+        return getAmountOut(poolAddress, IERC20(sellToken), IERC20(buyToken), specifiedAmount);
     }
 
     /**
@@ -117,35 +118,38 @@ abstract contract BalancerSwapHelpers is ISwapAdapter {
      */
     function getAmountOut(
         address pool,
-        address sellToken,
-        address buyToken,
+        IERC20 sellToken,
+        IERC20 buyToken,
         uint256 specifiedAmount
     ) internal returns (uint256 amountOut) {
         bytes memory userData; // empty bytes
 
         IBatchRouter.SwapPathStep memory step = IBatchRouter.SwapPathStep({
             pool: pool,
-            tokenOut: IERC20(buyToken),
+            tokenOut: buyToken,
             isBuffer: false
         });
-        IBatchRouter.SwapPathStep[] memory steps =
-            new IBatchRouter.SwapPathStep[](1);
+        IBatchRouter.SwapPathStep[]
+            memory steps = new IBatchRouter.SwapPathStep[](1);
         steps[0] = step;
 
         IBatchRouter.SwapPathExactAmountIn memory path = IBatchRouter
             .SwapPathExactAmountIn({
-            tokenIn: IERC20(sellToken),
-            steps: steps,
-            exactAmountIn: specifiedAmount,
-            minAmountOut: 1
-        });
+                tokenIn: sellToken,
+                steps: steps,
+                exactAmountIn: specifiedAmount,
+                minAmountOut: 1
+            });
 
-        IBatchRouter.SwapPathExactAmountIn[] memory paths =
-            new IBatchRouter.SwapPathExactAmountIn[](1);
+        IBatchRouter.SwapPathExactAmountIn[]
+            memory paths = new IBatchRouter.SwapPathExactAmountIn[](1);
         paths[0] = path;
 
-        (,, uint256[] memory amountsOut) =
-            router.querySwapExactIn(paths, address(0), userData);
+        (, , uint256[] memory amountsOut) = router.querySwapExactIn(
+            paths,
+            address(0),
+            userData
+        );
 
         amountOut = amountsOut[0];
     }
@@ -331,7 +335,7 @@ abstract contract BalancerSwapHelpers is ISwapAdapter {
         uint256 shares = sellToken.previewDeposit(specifiedAmount);
 
         // perform swap: sellToken.shares() -> buyToken.shares()
-        uint256 amountOut = getAmountOut(pool, _sellToken, _buyToken, shares);
+        uint256 amountOut = getAmountOut(pool, IERC20(_sellToken), IERC20(_buyToken), shares);
 
         // redeem buyToken shares and return the underlying received
         calculatedAmount = buyToken.previewRedeem(amountOut);
