@@ -85,29 +85,29 @@ abstract contract BalancerSwapHelpers is
             if (isERC4626(sellToken) && !isERC4626(buyToken)) {
                 // perform swap: ERC4626(share)->ERC20(token)
                 if (side == OrderSide.Buy) {
-                    return sellERC4626ForERC20(
+                    return buyERC20WithERC4626(
                         poolAddress, sellToken, buyToken, specifiedAmount
                     );
                 } else {
-                    return buyERC20WithERC4626(
+                    return sellERC4626ForERC20(
                         poolAddress, sellToken, buyToken, specifiedAmount
                     );
                 }
             } else if (!isERC4626(sellToken) && isERC4626(buyToken)) {
                 // perform swap: ERC20(token)->ERC4626(share)
-                // if (side == OrderSide.Buy) {
-                //     return sellERC20ForERC4626(
-                //         poolAddress, sellToken, buyToken, specifiedAmount
-                //     );
-                // } else {
-                //     // return
-                //     //     sellERC4626ForERC20(
-                //     //         poolAddress,
-                //     //         sellToken,
-                //     //         buyToken,
-                //     //         specifiedAmount
-                //     //     );
-                // }
+                if (side == OrderSide.Buy) {
+                    return buyERC4626WithERC20(
+                        poolAddress, sellToken, buyToken, specifiedAmount
+                    );
+                } else {
+                    return
+                        sellERC20ForERC4626(
+                            poolAddress,
+                            sellToken,
+                            buyToken,
+                            specifiedAmount
+                        );
+                }
             }
             // swap ERC20<->ERC20, fallback to next code block
         }
