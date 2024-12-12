@@ -28,21 +28,20 @@ abstract contract BalancerSwapHelpers is ISwapAdapter {
      * @param path The path to get amountIn for
      * @return amountIn The amount of tokens to spend.
      */
-    function getAmountIn(
-        IBatchRouter.SwapPathExactAmountOut memory path
-    ) internal returns (uint256 amountIn) {
+    function getAmountIn(IBatchRouter.SwapPathExactAmountOut memory path)
+        internal
+        returns (uint256 amountIn)
+    {
         bytes memory userData; // empty bytes
 
-        IBatchRouter.SwapPathExactAmountOut[]
-            memory paths = new IBatchRouter.SwapPathExactAmountOut[](1);
+        IBatchRouter.SwapPathExactAmountOut[] memory paths =
+            new IBatchRouter.SwapPathExactAmountOut[](1);
         paths[0] = path;
 
-        (, , uint256[] memory amountsIn) = router.querySwapExactOut(
-            paths,
-            address(0),
-            userData
-        );
+        (,, uint256[] memory amountsIn) =
+            router.querySwapExactOut(paths, address(0), userData);
 
+        // return
         amountIn = amountsIn[0];
     }
 
@@ -56,23 +55,16 @@ abstract contract BalancerSwapHelpers is ISwapAdapter {
         if (isERC4626(sellToken) && isERC4626(buyToken)) {
             if (CustomBytesAppend.hasPrefix(abi.encodePacked(pool))) {
                 poolAddress = CustomBytesAppend.extractAddress(pool);
-                return
-                    getAmountOutCustomWrap(
-                        poolAddress,
-                        sellToken,
-                        buyToken,
-                        specifiedAmount
-                    );
+                return getAmountOutCustomWrap(
+                    poolAddress, sellToken, buyToken, specifiedAmount
+                );
             }
         } else {
+            poolAddress = address(bytes20(pool));
             if (isERC4626(sellToken) && !isERC4626(buyToken)) {
-                // return
-                //     getAmountOutERC4626ForERC20(
-                //         pool,
-                //         sellToken,
-                //         buyToken,
-                //         specifiedAmount
-                //     );
+                return getAmountOutERC4626ForERC20(
+                    poolAddress, sellToken, buyToken, specifiedAmount
+                );
             } else if (!isERC4626(sellToken) && isERC4626(buyToken)) {
                 // return
                 //     getAmountOutERC20ForERC4626(
@@ -84,19 +76,13 @@ abstract contract BalancerSwapHelpers is ISwapAdapter {
             }
         }
 
-        // Fallback (used for ERC20<->ERC20 and ERC4626<->ERC4626 as inherits
-        // IERC20 logic)
-        poolAddress = address(bytes20(pool));
-        (
-            IBatchRouter.SwapPathExactAmountIn memory sellPath,
-
-        ) = createERC20Path(
-                poolAddress,
-                IERC20(sellToken),
-                IERC20(buyToken),
-                specifiedAmount,
-                false
-            );
+        (IBatchRouter.SwapPathExactAmountIn memory sellPath,) = createERC20Path(
+            poolAddress,
+            IERC20(sellToken),
+            IERC20(buyToken),
+            specifiedAmount,
+            false
+        );
         return getAmountOut(sellPath);
     }
 
@@ -105,20 +91,18 @@ abstract contract BalancerSwapHelpers is ISwapAdapter {
      * @param path The path of the trade.
      * @return amountOut The amount of tokens to receive.
      */
-    function getAmountOut(
-        IBatchRouter.SwapPathExactAmountIn memory path
-    ) internal returns (uint256 amountOut) {
+    function getAmountOut(IBatchRouter.SwapPathExactAmountIn memory path)
+        internal
+        returns (uint256 amountOut)
+    {
         bytes memory userData; // empty bytes
 
-        IBatchRouter.SwapPathExactAmountIn[]
-            memory paths = new IBatchRouter.SwapPathExactAmountIn[](1);
+        IBatchRouter.SwapPathExactAmountIn[] memory paths =
+            new IBatchRouter.SwapPathExactAmountIn[](1);
         paths[0] = path;
 
-        (, , uint256[] memory amountsOut) = router.querySwapExactIn(
-            paths,
-            address(0),
-            userData
-        );
+        (,, uint256[] memory amountsOut) =
+            router.querySwapExactIn(paths, address(this), userData);
 
         amountOut = amountsOut[0];
     }
@@ -146,12 +130,10 @@ abstract contract BalancerSwapHelpers is ISwapAdapter {
         bool isETHBuy = address(sellToken) == address(0);
 
         // prepare path
-        (
-            IBatchRouter.SwapPathExactAmountIn memory sellPath,
-
-        ) = createERC20Path(pool, sellToken, buyToken, specifiedAmount, false);
-        IBatchRouter.SwapPathExactAmountIn[]
-            memory paths = new IBatchRouter.SwapPathExactAmountIn[](1);
+        (IBatchRouter.SwapPathExactAmountIn memory sellPath,) =
+            createERC20Path(pool, sellToken, buyToken, specifiedAmount, false);
+        IBatchRouter.SwapPathExactAmountIn[] memory paths =
+            new IBatchRouter.SwapPathExactAmountIn[](1);
         paths[0] = sellPath;
 
         // prepare swap
@@ -165,27 +147,21 @@ abstract contract BalancerSwapHelpers is ISwapAdapter {
             }
             // Approve and Transfer ERC20 token
             sellToken.safeTransferFrom(
-                msg.sender,
-                address(this),
-                specifiedAmount
+                msg.sender, address(this), specifiedAmount
             );
             sellToken.safeIncreaseAllowance(address(router), specifiedAmount);
         }
 
         // Swap (incl. WETH)
-        (, , amountsOut) = router.swapExactIn(
-            paths,
-            type(uint256).max,
-            isETHSell || isETHBuy,
-            userData
+        (,, amountsOut) = router.swapExactIn(
+            paths, type(uint256).max, isETHSell || isETHBuy, userData
         );
 
         // transfer if required
         if (performTransfer) {
             if (isETHBuy) {
-                (bool sent, ) = payable(msg.sender).call{value: amountsOut[0]}(
-                    ""
-                );
+                (bool sent,) =
+                    payable(msg.sender).call{value: amountsOut[0]}("");
                 require(sent, "Failed to transfer ETH");
             } else {
                 buyToken.safeTransfer(msg.sender, amountsOut[0]);
@@ -219,12 +195,10 @@ abstract contract BalancerSwapHelpers is ISwapAdapter {
         bool isETHBuy = address(sellToken) == address(0);
 
         // prepare path
-        (
-            ,
-            IBatchRouter.SwapPathExactAmountOut memory buyPath
-        ) = createERC20Path(pool, sellToken, buyToken, specifiedAmount, false);
-        IBatchRouter.SwapPathExactAmountOut[]
-            memory paths = new IBatchRouter.SwapPathExactAmountOut[](1);
+        (, IBatchRouter.SwapPathExactAmountOut memory buyPath) =
+            createERC20Path(pool, sellToken, buyToken, specifiedAmount, false);
+        IBatchRouter.SwapPathExactAmountOut[] memory paths =
+            new IBatchRouter.SwapPathExactAmountOut[](1);
         paths[0] = buyPath;
 
         // prepare swap
@@ -246,19 +220,15 @@ abstract contract BalancerSwapHelpers is ISwapAdapter {
         }
 
         // perform swap
-        (, , amountsIn) = router.swapExactOut(
-            paths,
-            type(uint256).max,
-            isETHSell || isETHBuy,
-            userData
+        (,, amountsIn) = router.swapExactOut(
+            paths, type(uint256).max, isETHSell || isETHBuy, userData
         );
 
         // transfer if required
         if (performTransfer) {
             if (isETHBuy) {
-                (bool sent, ) = payable(msg.sender).call{
-                    value: specifiedAmount
-                }("");
+                (bool sent,) =
+                    payable(msg.sender).call{value: specifiedAmount}("");
                 require(sent, "Failed to transfer ETH");
             } else {
                 buyToken.safeTransfer(msg.sender, specifiedAmount);
@@ -279,34 +249,31 @@ abstract contract BalancerSwapHelpers is ISwapAdapter {
         uint256 specifiedAmount
     ) internal returns (uint256 calculatedAmount) {
         // WRAP: sellToken.asset() -> sellToken.shares()
-        (
-            IBatchRouter.SwapPathExactAmountIn memory sellPathWrap,
-
-        ) = createWrapOrUnwrapPath(_sellToken, specifiedAmount, IVault.WrappingDirection.WRAP, true);
+        (IBatchRouter.SwapPathExactAmountIn memory sellPathWrap,) =
+        createWrapOrUnwrapPath(
+            _sellToken, specifiedAmount, IVault.WrappingDirection.WRAP, true
+        );
         uint256 amountOutAfterWrap = getAmountOut(sellPathWrap);
 
         // SWAP: sellToken.shares() -> buyToken.shares()
-        (
-            IBatchRouter.SwapPathExactAmountIn memory sellPathSharesSwap,
-        ) = createERC20Path(
-                pool,
-                IERC20(_sellToken),
-                IERC20(_buyToken),
-                amountOutAfterWrap,
-                false
-            );
+        (IBatchRouter.SwapPathExactAmountIn memory sellPathSharesSwap,) =
+        createERC20Path(
+            pool,
+            IERC20(_sellToken),
+            IERC20(_buyToken),
+            amountOutAfterWrap,
+            false
+        );
         uint256 amountOutAfterSharesSwap = getAmountOut(sellPathSharesSwap);
 
         // UNWRAP: buyToken.shares() -> buyToken.asset()
-        (
-            IBatchRouter.SwapPathExactAmountIn memory lastUnwrapPath,
-
-        ) = createWrapOrUnwrapPath(
-                _buyToken,
-                amountOutAfterSharesSwap,
-                IVault.WrappingDirection.UNWRAP,
-                false
-            );
+        (IBatchRouter.SwapPathExactAmountIn memory lastUnwrapPath,) =
+        createWrapOrUnwrapPath(
+            _buyToken,
+            amountOutAfterSharesSwap,
+            IVault.WrappingDirection.UNWRAP,
+            false
+        );
         calculatedAmount = getAmountOut(lastUnwrapPath);
     }
 
@@ -333,38 +300,31 @@ abstract contract BalancerSwapHelpers is ISwapAdapter {
         bytes memory userData;
 
         // a. WRAP: sellToken.asset() -> sellToken.shares()
-        (
-            IBatchRouter.SwapPathExactAmountIn memory pathA,
-
-        ) = createWrapOrUnwrapPath(_sellToken, specifiedAmount, IVault.WrappingDirection.WRAP, true);
-        IBatchRouter.SwapPathExactAmountIn[] memory pathsA = new IBatchRouter.SwapPathExactAmountIn[](1);
+        (IBatchRouter.SwapPathExactAmountIn memory pathA,) =
+        createWrapOrUnwrapPath(
+            _sellToken, specifiedAmount, IVault.WrappingDirection.WRAP, true
+        );
+        IBatchRouter.SwapPathExactAmountIn[] memory pathsA =
+            new IBatchRouter.SwapPathExactAmountIn[](1);
         pathsA[0] = pathA;
-        (, , uint256[] memory amountsOutA) = router.swapExactIn(pathsA, type(uint256).max, false, userData);
+        (,, uint256[] memory amountsOutA) =
+            router.swapExactIn(pathsA, type(uint256).max, false, userData);
 
         // b. SWAP: sellToken.shares() -> buyToken.shares()
-        (
-            IBatchRouter.SwapPathExactAmountIn memory pathB,
-        ) = createERC20Path(
-                pool,
-                IERC20(_sellToken),
-                IERC20(_buyToken),
-                amountsOutA[0],
-                false
-            );
-        IBatchRouter.SwapPathExactAmountIn[] memory pathsB = new IBatchRouter.SwapPathExactAmountIn[](1);
+        (IBatchRouter.SwapPathExactAmountIn memory pathB,) = createERC20Path(
+            pool, IERC20(_sellToken), IERC20(_buyToken), amountsOutA[0], false
+        );
+        IBatchRouter.SwapPathExactAmountIn[] memory pathsB =
+            new IBatchRouter.SwapPathExactAmountIn[](1);
         pathsB[0] = pathB;
-        (, , uint256[] memory amountsOutB) = router.swapExactIn(pathsB, type(uint256).max, false, userData);
+        (,, uint256[] memory amountsOutB) =
+            router.swapExactIn(pathsB, type(uint256).max, false, userData);
 
         // c. UNWRAP: buyToken.shares() -> buyToken.asset()
-        (
-            IBatchRouter.SwapPathExactAmountIn memory pathC,
-
-        ) = createWrapOrUnwrapPath(
-                _buyToken,
-                amountsOutB[0],
-                IVault.WrappingDirection.UNWRAP,
-                false
-            );
+        (IBatchRouter.SwapPathExactAmountIn memory pathC,) =
+        createWrapOrUnwrapPath(
+            _buyToken, amountsOutB[0], IVault.WrappingDirection.UNWRAP, false
+        );
         calculatedAmount = getAmountOut(pathC);
     }
 
@@ -392,48 +352,60 @@ abstract contract BalancerSwapHelpers is ISwapAdapter {
         IERC20 underlyingSellToken = IERC20(IERC4626(_sellToken).asset());
         bytes memory userData; // empty bytes
 
-        /************
+        /**
+         *
          * CALCULATE
-        *************/
+         *
+         */
         // a. UNWRAP (final step): buyToken.shares() -> BUY buyToken.asset()
         (, IBatchRouter.SwapPathExactAmountOut memory buyPathUnwrap) =
-            createWrapOrUnwrapPath(_buyToken, specifiedAmount, IVault.WrappingDirection.UNWRAP, true);
+        createWrapOrUnwrapPath(
+            _buyToken, specifiedAmount, IVault.WrappingDirection.UNWRAP, true
+        );
         uint256 amountInUnwrap = getAmountIn(buyPathUnwrap);
-        IBatchRouter.SwapPathExactAmountOut[] memory pathsA = new IBatchRouter.SwapPathExactAmountOut[](1);
+        IBatchRouter.SwapPathExactAmountOut[] memory pathsA =
+            new IBatchRouter.SwapPathExactAmountOut[](1);
         pathsA[0] = buyPathUnwrap;
 
         // b. SWAP: sellToken.shares() -> BUY buyToken.shares()
         (, IBatchRouter.SwapPathExactAmountOut memory buyPathSwap) =
-        createERC20Path(pool, IERC20(_sellToken), underlyingSellToken, amountInUnwrap, true);
+        createERC20Path(
+            pool, IERC20(_sellToken), underlyingSellToken, amountInUnwrap, true
+        );
         uint256 amountInSwap = getAmountIn(buyPathSwap);
-        IBatchRouter.SwapPathExactAmountOut[] memory pathsB = new IBatchRouter.SwapPathExactAmountOut[](1);
+        IBatchRouter.SwapPathExactAmountOut[] memory pathsB =
+            new IBatchRouter.SwapPathExactAmountOut[](1);
         pathsB[0] = buyPathSwap;
 
         // c. WRAP: sellToken.asset() -> sellToken.shares() - Our final amount
         (, IBatchRouter.SwapPathExactAmountOut memory buyPathFinal) =
-            createWrapOrUnwrapPath(_sellToken, amountInSwap, IVault.WrappingDirection.WRAP, true);
-        IBatchRouter.SwapPathExactAmountOut[] memory pathsC = new IBatchRouter.SwapPathExactAmountOut[](1);
+        createWrapOrUnwrapPath(
+            _sellToken, amountInSwap, IVault.WrappingDirection.WRAP, true
+        );
+        IBatchRouter.SwapPathExactAmountOut[] memory pathsC =
+            new IBatchRouter.SwapPathExactAmountOut[](1);
         pathsC[0] = buyPathFinal;
 
         // Get amountIn (final)
         calculatedAmount = getAmountIn(buyPathFinal);
 
-        /************
+        /**
+         *
          * TRANSFER
-        *************/
+         *
+         */
         underlyingSellToken.safeTransferFrom(
-            msg.sender,
-            address(this),
-            calculatedAmount
+            msg.sender, address(this), calculatedAmount
         );
         underlyingSellToken.safeIncreaseAllowance(
-            address(router),
-            calculatedAmount
+            address(router), calculatedAmount
         );
 
-        /************
+        /**
+         *
          * EXECUTE
-        *************/
+         *
+         */
         // c. WRAP: sellToken.asset() -> sellToken.shares()
         router.swapExactOut(pathsC, type(uint256).max, false, userData);
 
@@ -460,29 +432,63 @@ abstract contract BalancerSwapHelpers is ISwapAdapter {
     ) internal returns (uint256 calculatedAmount) {
         IERC4626 sellTokenShare = IERC4626(_sellToken);
         IERC20 underlyingSellToken = IERC20(sellTokenShare.asset());
+        bytes memory userData;
 
         // transfer sellToken.share() to address(this)
         IERC20(sellTokenShare).safeTransferFrom(
-            msg.sender,
-            address(this),
-            specifiedAmount
+            msg.sender, address(this), specifiedAmount
         );
 
-        // redeem sellToken.shares() to underlying
-        uint256 availableAmount = sellTokenShare.redeem(
-            specifiedAmount,
-            address(this),
-            address(this)
+        // unwrap sellToken.shares() to sellToken.asset()
+        (IBatchRouter.SwapPathExactAmountIn memory sellPathWrap,) =
+        createWrapOrUnwrapPath(
+            _sellToken, specifiedAmount, IVault.WrappingDirection.WRAP, false
         );
+        IBatchRouter.SwapPathExactAmountIn[] memory paths =
+            new IBatchRouter.SwapPathExactAmountIn[](1);
+        paths[0] = sellPathWrap;
+        (,, uint256[] memory availableAmounts) =
+            router.swapExactIn(paths, type(uint256).max, false, userData);
 
         // perform swap: sellToken.asset() -> buyToken
         calculatedAmount = sellERC20ForERC20(
             pool,
             underlyingSellToken,
             IERC20(buyToken),
-            availableAmount,
+            availableAmounts[0],
             true
         );
+    }
+
+    /**
+     * @dev Perform a sell order for ERC4626 tokens
+     * @param pool The pool containing sellToken.asset() and buyToken
+     * @param _sellToken ERC4626 token being sold(by unwrapping to
+     * sellToken.asset())
+     * @param buyToken ERC20 token being bought
+     * @param specifiedAmount The amount of sellToken(ERC4626) tokens to sell
+     */
+    function getAmountOutERC4626ForERC20(
+        address pool,
+        address _sellToken,
+        address buyToken,
+        uint256 specifiedAmount
+    ) internal returns (uint256 calculatedAmount) {
+        IERC4626 sellTokenShare = IERC4626(_sellToken);
+        IERC20 underlyingSellToken = IERC20(sellTokenShare.asset());
+
+        // a. sellToken.shares() to sellToken.asset()
+        (IBatchRouter.SwapPathExactAmountIn memory pathA,) =
+        createWrapOrUnwrapPath(
+            _sellToken, specifiedAmount, IVault.WrappingDirection.WRAP, false
+        );
+        uint256 availableAmount = getAmountOut(pathA);
+
+        // b. sellToken.asset() -> buyToken
+        (IBatchRouter.SwapPathExactAmountIn memory pathB,) = createERC20Path(
+            pool, underlyingSellToken, IERC20(buyToken), availableAmount, false
+        );
+        calculatedAmount = getAmountOut(pathB);
     }
 
     /**
@@ -499,11 +505,31 @@ abstract contract BalancerSwapHelpers is ISwapAdapter {
         address buyToken,
         uint256 amount
     ) internal returns (uint256 calculatedAmount) {
-        // prepare path
-        // (
-        //     ,
-        //     IBatchRouter.SwapPathExactAmountOut memory buyPath
-        // ) =
+        bytes memory userData; // empty bytes
+
+        // a. SWAP: sellToken.asset() -> buyToken.asset()
+        (, IBatchRouter.SwapPathExactAmountOut memory pathA) = createERC20Path(
+            pool, IERC20(sellToken), IERC20(buyToken), amount, true
+        );
+        IBatchRouter.SwapPathExactAmountOut[] memory pathsA =
+            new IBatchRouter.SwapPathExactAmountOut[](1);
+        pathsA[0] = pathA;
+        (,, uint256[] memory amountsInSwap) =
+            router.swapExactOut(pathsA, type(uint256).max, false, userData);
+
+        // b. UNWRAP: sellToken.shares() -> sellToken.asset()
+        (, IBatchRouter.SwapPathExactAmountOut memory pathB) =
+        createWrapOrUnwrapPath(
+            sellToken, amountsInSwap[0], IVault.WrappingDirection.UNWRAP, true
+        );
+        IBatchRouter.SwapPathExactAmountOut[] memory pathsB =
+            new IBatchRouter.SwapPathExactAmountOut[](1);
+        pathsB[0] = pathB;
+        (,, uint256[] memory amountsInUnwrap) =
+            router.swapExactOut(pathsB, type(uint256).max, false, userData);
+
+        // return
+        calculatedAmount = amountsInUnwrap[0];
     }
 
     /**
@@ -523,21 +549,13 @@ abstract contract BalancerSwapHelpers is ISwapAdapter {
                 poolAddress = CustomBytesAppend.extractAddress(pool);
                 // perform custom swap (ERC20<->ERC20, with ERC4626 inputs)
                 if (side == OrderSide.Buy) {
-                    return
-                        buyCustomWrap(
-                            poolAddress,
-                            sellToken,
-                            buyToken,
-                            specifiedAmount
-                        );
+                    return buyCustomWrap(
+                        poolAddress, sellToken, buyToken, specifiedAmount
+                    );
                 } else {
-                    return
-                        sellCustomWrap(
-                            poolAddress,
-                            sellToken,
-                            buyToken,
-                            specifiedAmount
-                        );
+                    return sellCustomWrap(
+                        poolAddress, sellToken, buyToken, specifiedAmount
+                    );
                 }
             }
             // swap ERC4626<->ERC4626, fallback to next code block
@@ -546,21 +564,13 @@ abstract contract BalancerSwapHelpers is ISwapAdapter {
             if (isERC4626(sellToken) && !isERC4626(buyToken)) {
                 // perform swap: ERC4626(share)<->ERC20(token)
                 if (side == OrderSide.Buy) {
-                    return
-                        sellERC4626ForERC20(
-                            poolAddress,
-                            sellToken,
-                            buyToken,
-                            specifiedAmount
-                        );
+                    return sellERC4626ForERC20(
+                        poolAddress, sellToken, buyToken, specifiedAmount
+                    );
                 } else {
-                    return
-                        buyERC20WithERC4626(
-                            poolAddress,
-                            sellToken,
-                            buyToken,
-                            specifiedAmount
-                        );
+                    return buyERC20WithERC4626(
+                        poolAddress, sellToken, buyToken, specifiedAmount
+                    );
                 }
             } else if (!isERC4626(sellToken) && isERC4626(buyToken)) {
                 // perform swap: ERC20(token)<->ERC4626(share)
@@ -589,23 +599,21 @@ abstract contract BalancerSwapHelpers is ISwapAdapter {
         // IERC20 logic)
         poolAddress = address(bytes20(pool));
         if (side == OrderSide.Buy) {
-            return
-                buyERC20WithERC20(
-                    poolAddress,
-                    IERC20(sellToken),
-                    IERC20(buyToken),
-                    specifiedAmount,
-                    true
-                );
+            return buyERC20WithERC20(
+                poolAddress,
+                IERC20(sellToken),
+                IERC20(buyToken),
+                specifiedAmount,
+                true
+            );
         } else {
-            return
-                sellERC20ForERC20(
-                    poolAddress,
-                    IERC20(sellToken),
-                    IERC20(buyToken),
-                    specifiedAmount,
-                    true
-                );
+            return sellERC20ForERC20(
+                poolAddress,
+                IERC20(sellToken),
+                IERC20(buyToken),
+                specifiedAmount,
+                true
+            );
         }
     }
 
@@ -621,7 +629,8 @@ abstract contract BalancerSwapHelpers is ISwapAdapter {
     }
 
     /**
-     * @notice Create a wrap or unwrap path in BalancerV3 router using buffer pools
+     * @notice Create a wrap or unwrap path in BalancerV3 router using buffer
+     * pools
      * @param token (ERC4626) token to Wrap or Unwrap
      * @param amount Amount to buy if isBuy, amount to sell else
      * @param direction Wrap or Unwrap
@@ -647,8 +656,8 @@ abstract contract BalancerSwapHelpers is ISwapAdapter {
                 : IERC20(token),
             isBuffer: true
         });
-        IBatchRouter.SwapPathStep[]
-            memory steps = new IBatchRouter.SwapPathStep[](1);
+        IBatchRouter.SwapPathStep[] memory steps =
+            new IBatchRouter.SwapPathStep[](1);
         steps[0] = step;
 
         if (isBuy) {
@@ -699,8 +708,8 @@ abstract contract BalancerSwapHelpers is ISwapAdapter {
             tokenOut: buyToken,
             isBuffer: false
         });
-        IBatchRouter.SwapPathStep[]
-            memory steps = new IBatchRouter.SwapPathStep[](1);
+        IBatchRouter.SwapPathStep[] memory steps =
+            new IBatchRouter.SwapPathStep[](1);
         steps[0] = step;
 
         if (isBuy) {
