@@ -7,9 +7,10 @@ import "./lib/BalancerSwapHelpers.sol";
  * @title Balancer V3 Swap Adapter
  */
 contract BalancerV3SwapAdapter is BalancerSwapHelpers {
-    constructor(address payable vault_, address _router) {
+    constructor(address payable vault_, address _router, address _permit2) {
         vault = IVault(vault_);
         router = IBatchRouter(_router);
+        permit2 = _permit2;
     }
 
     /// @dev Enable ETH receiving

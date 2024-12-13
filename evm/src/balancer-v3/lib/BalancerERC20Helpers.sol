@@ -69,7 +69,7 @@ abstract contract BalancerERC20Helpers is BalancerStorage {
         // prepare constants
         bytes memory userData;
         bool isETHSell = address(sellToken) == address(0);
-        bool isETHBuy = address(sellToken) == address(0);
+        bool isETHBuy = address(buyToken) == address(0);
 
         // prepare path
         (IBatchRouter.SwapPathExactAmountIn memory sellPath,) =
@@ -91,7 +91,14 @@ abstract contract BalancerERC20Helpers is BalancerStorage {
             sellToken.safeTransferFrom(
                 msg.sender, address(this), specifiedAmount
             );
-            sellToken.safeIncreaseAllowance(address(router), specifiedAmount);
+            sellToken.safeIncreaseAllowance(address(router), type(uint256).max);
+            sellToken.safeIncreaseAllowance(permit2, type(uint256).max);
+            IPermit2(permit2).approve(
+                address(sellToken),
+                address(router),
+                type(uint160).max,
+                type(uint48).max
+            );
         }
 
         // Swap (incl. WETH)
@@ -134,7 +141,7 @@ abstract contract BalancerERC20Helpers is BalancerStorage {
         // prepare constants
         bytes memory userData;
         bool isETHSell = address(sellToken) == address(0);
-        bool isETHBuy = address(sellToken) == address(0);
+        bool isETHBuy = address(buyToken) == address(0);
 
         // prepare path
         (, IBatchRouter.SwapPathExactAmountOut memory buyPath) =
@@ -224,7 +231,7 @@ abstract contract BalancerERC20Helpers is BalancerStorage {
                 tokenIn: sellToken,
                 steps: steps,
                 exactAmountIn: specifiedAmount,
-                minAmountOut: 1
+                minAmountOut: 0
             });
         }
     }

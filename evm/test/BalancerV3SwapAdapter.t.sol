@@ -2,22 +2,29 @@
 pragma solidity ^0.8.26;
 
 import "./AdapterTest.sol";
+import {BalancerV3Errors} from "src/balancer-v3/lib/BalancerV3Errors.sol";
 import {
     BalancerV3SwapAdapter,
     IERC20,
     IVault,
-    IBatchRouter
+    IBatchRouter,
+    IERC4626
 } from "src/balancer-v3/BalancerV3SwapAdapter.sol";
 import {ERC20} from "openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
 
 import {FractionMath} from "src/libraries/FractionMath.sol";
 import "forge-std/Test.sol";
 
-contract BalancerV3SwapAdapterTest is AdapterTest, ERC20 {
-    error NotStaticCall();
-    error VaultQueriesDisabled();
+contract BalancerV3SwapAdapterTest is AdapterTest, ERC20, BalancerV3Errors {
+    /// @notice Thrown when too many nonces are invalidated.
+    error ExcessiveInvalidation();
 
     using FractionMath for Fraction;
+
+    // minimum amounts from balancer
+    uint256 _MINIMUM_TRADE_AMOUNT = (1000000) * 2; // balancer's minimum * 2
+        // because this value also applies to out tokens and is used in checks
+    uint256 _MINIMUM_WRAP_AMOUNT = 10001;
 
     IVault constant balancerV3Vault =
         IVault(payable(0xBC582d2628FcD404254a1e12CB714967Ce428915));
@@ -39,7 +46,9 @@ contract BalancerV3SwapAdapterTest is AdapterTest, ERC20 {
         vm.createSelectFork(vm.rpcUrl("sepolia"), forkBlock);
 
         adapter = new BalancerV3SwapAdapter(
-            payable(address(balancerV3Vault)), address(router)
+            payable(address(balancerV3Vault)),
+            address(router),
+            0x000000000022D473030F116dDEE9F6B43aC78BA3
         );
 
         vm.label(address(balancerV3Vault), "BalancerV3Vault");
@@ -67,6 +76,40 @@ contract BalancerV3SwapAdapterTest is AdapterTest, ERC20 {
             assertGt(prices[i].numerator, 0);
             assertGt(prices[i].denominator, 0);
         }
+    }
+
+    function testSwapFuzzBalancerV3_ERC20_ERC20(
+        uint256 specifiedAmount,
+        bool isBuy
+    ) public {
+        OrderSide side = OrderSide.Sell;
+        bytes32 pool = bytes32(bytes20(DAI_USDT_POOL_ADDRESS));
+        uint256[] memory limits = adapter.getLimits(pool, USDT, DAI);
+
+        if (side == OrderSide.Buy) {
+            vm.assume(
+                specifiedAmount < limits[1]
+                    && specifiedAmount > _MINIMUM_TRADE_AMOUNT
+            );
+
+            deal(DAI, address(this), type(uint256).max);
+            IERC20(DAI).approve(address(adapter), type(uint256).max);
+        } else {
+            vm.assume(
+                specifiedAmount < limits[0]
+                    && specifiedAmount > _MINIMUM_TRADE_AMOUNT
+            );
+
+            deal(DAI, address(this), specifiedAmount);
+            IERC20(DAI).approve(address(adapter), specifiedAmount);
+        }
+
+        uint256 bal0 = IERC20(DAI).balanceOf(address(this));
+        uint256 bal1 = IERC20(USDT).balanceOf(address(this));
+
+        uint256[] memory amounts = new uint256[](1);
+        amounts[0] = specifiedAmount;
+        adapter.swap(pool, DAI, USDT, side, specifiedAmount);
     }
 
     function testGetCapabilitiesBalancerV3(bytes32 pool, address t0, address t1)

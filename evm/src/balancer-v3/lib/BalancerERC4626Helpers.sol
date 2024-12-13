@@ -28,9 +28,6 @@ abstract contract BalancerERC4626Helpers is BalancerCustomWrapHelpers {
         IERC20(sellTokenShare).safeTransferFrom(
             msg.sender, address(this), specifiedAmount
         );
-        IERC20(sellTokenShare).safeIncreaseAllowance(
-            address(router), specifiedAmount
-        );
 
         // unwrap sellToken.shares() to sellToken.asset()
         (IBatchRouter.SwapPathExactAmountIn memory sellPathWrap,) =
@@ -43,6 +40,15 @@ abstract contract BalancerERC4626Helpers is BalancerCustomWrapHelpers {
         IERC20(sellTokenShare).safeIncreaseAllowance(
             address(router), type(uint256).max
         );
+
+        IERC20(sellTokenShare).safeIncreaseAllowance(permit2, type(uint256).max);
+        IPermit2(permit2).approve(
+            address(sellTokenShare),
+            address(router),
+            type(uint160).max,
+            type(uint48).max
+        );
+
         (,, uint256[] memory availableAmounts) =
             router.swapExactIn(paths, type(uint256).max, false, userData);
 
@@ -120,6 +126,13 @@ abstract contract BalancerERC4626Helpers is BalancerCustomWrapHelpers {
         underlyingSellToken.safeIncreaseAllowance(
             address(router), type(uint256).max
         );
+        underlyingSellToken.safeIncreaseAllowance(permit2, type(uint256).max);
+        IPermit2(permit2).approve(
+            address(underlyingSellToken),
+            address(router),
+            type(uint160).max,
+            type(uint48).max
+        );
 
         // b. UNWRAP: sellToken.shares() -> sellToken.asset()
         (, IBatchRouter.SwapPathExactAmountOut memory pathB) =
@@ -129,9 +142,15 @@ abstract contract BalancerERC4626Helpers is BalancerCustomWrapHelpers {
         IBatchRouter.SwapPathExactAmountOut[] memory pathsB =
             new IBatchRouter.SwapPathExactAmountOut[](1);
         pathsB[0] = pathB;
+
         IERC20(_sellToken).safeIncreaseAllowance(
             address(router), type(uint256).max
         );
+        IERC20(_sellToken).safeIncreaseAllowance(permit2, type(uint256).max);
+        IPermit2(permit2).approve(
+            _sellToken, address(router), type(uint160).max, type(uint48).max
+        );
+
         calculatedAmount = getAmountIn(pathB);
 
         /**
@@ -178,6 +197,11 @@ abstract contract BalancerERC4626Helpers is BalancerCustomWrapHelpers {
         IERC20(sellToken).safeIncreaseAllowance(
             address(router), type(uint256).max
         );
+        IERC20(sellToken).safeIncreaseAllowance(permit2, type(uint256).max);
+        IPermit2(permit2).approve(
+            sellToken, address(router), type(uint160).max, type(uint48).max
+        );
+
         (,, uint256[] memory amountsInSwap) =
             router.swapExactIn(pathsA, type(uint256).max, false, userData);
 
@@ -186,7 +210,16 @@ abstract contract BalancerERC4626Helpers is BalancerCustomWrapHelpers {
         createWrapOrUnwrapPath(
             buyToken, amountsInSwap[0], IVault.WrappingDirection.WRAP, true
         );
+
         buyTokenAsset.safeIncreaseAllowance(address(router), type(uint256).max);
+        buyTokenAsset.safeIncreaseAllowance(permit2, type(uint256).max);
+        IPermit2(permit2).approve(
+            address(buyTokenAsset),
+            address(router),
+            type(uint160).max,
+            type(uint48).max
+        );
+
         IBatchRouter.SwapPathExactAmountIn[] memory pathsB =
             new IBatchRouter.SwapPathExactAmountIn[](1);
         pathsB[0] = pathB;
@@ -251,7 +284,17 @@ abstract contract BalancerERC4626Helpers is BalancerCustomWrapHelpers {
         IBatchRouter.SwapPathExactAmountOut[] memory pathsA =
             new IBatchRouter.SwapPathExactAmountOut[](1);
         pathsA[0] = pathA;
+
         buyTokenAsset.safeIncreaseAllowance(address(router), type(uint256).max);
+        buyTokenAsset.safeIncreaseAllowance(address(router), type(uint256).max);
+        buyTokenAsset.safeIncreaseAllowance(permit2, type(uint256).max);
+        IPermit2(permit2).approve(
+            address(buyTokenAsset),
+            address(router),
+            type(uint160).max,
+            type(uint48).max
+        );
+
         (,, uint256[] memory amountsA) =
             router.querySwapExactOut(pathsA, msg.sender, userData);
 
@@ -261,6 +304,10 @@ abstract contract BalancerERC4626Helpers is BalancerCustomWrapHelpers {
         );
         IERC20(sellToken).safeIncreaseAllowance(
             address(router), type(uint256).max
+        );
+        IERC20(sellToken).safeIncreaseAllowance(permit2, type(uint256).max);
+        IPermit2(permit2).approve(
+            sellToken, address(router), type(uint160).max, type(uint48).max
         );
         IBatchRouter.SwapPathExactAmountOut[] memory pathsB =
             new IBatchRouter.SwapPathExactAmountOut[](1);
