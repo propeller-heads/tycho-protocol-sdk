@@ -301,4 +301,29 @@ abstract contract BalancerCustomWrapHelpers is BalancerERC20Helpers {
             });
         }
     }
+
+    function getLimitsCustomWrap(
+        bytes32 poolId,
+        address sellToken,
+        address buyToken
+    ) internal view returns (uint256[] memory limits) {
+        limits = new uint256[](2);
+        address pool = CustomBytesAppend.extractAddress(poolId);
+
+        // get underlying tokens
+        IERC20 underlyingSellToken = IERC20(IERC4626(sellToken).asset());
+        IERC20 underlyingBuyToken = IERC20(IERC4626(buyToken).asset());
+
+        (IERC20[] memory tokens,, uint256[] memory balancesRaw,) =
+            vault.getPoolTokenInfo(pool);
+
+        for (uint256 i = 0; i < tokens.length; i++) {
+            if (tokens[i] == underlyingSellToken) {
+                limits[0] = (balancesRaw[i] * RESERVE_LIMIT_FACTOR) / 10;
+            }
+            if (tokens[i] == underlyingBuyToken) {
+                limits[1] = (balancesRaw[i] * RESERVE_LIMIT_FACTOR) / 10;
+            }
+        }
+    }
 }

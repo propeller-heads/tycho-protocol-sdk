@@ -64,6 +64,7 @@ abstract contract BalancerSwapHelpers is
         uint256 specifiedAmount
     ) internal returns (uint256) {
         address poolAddress;
+
         if (isERC4626(sellToken) && isERC4626(buyToken)) {
             // custom swap
             if (CustomBytesAppend.hasPrefix(abi.encodePacked(pool))) {

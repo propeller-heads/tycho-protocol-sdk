@@ -122,7 +122,7 @@ abstract contract BalancerERC20Helpers is BalancerStorage {
     }
 
     /**
-     * @dev Perform a sell order for ERC20 tokens
+     * @dev Perform a buy order for ERC20 tokens
      * @param pool The address of the pool to trade in.
      * @param sellToken The token being sold.
      * @param buyToken The token being bought.
@@ -142,10 +142,11 @@ abstract contract BalancerERC20Helpers is BalancerStorage {
         bytes memory userData;
         bool isETHSell = address(sellToken) == address(0);
         bool isETHBuy = address(buyToken) == address(0);
+        uint256 msgSenderBalance = isETHSell ? address(msg.sender).balance : sellToken.balanceOf(msg.sender);
 
         // prepare path
         (, IBatchRouter.SwapPathExactAmountOut memory buyPath) =
-            createERC20Path(pool, sellToken, buyToken, specifiedAmount, false);
+            createERC20Path(pool, sellToken, buyToken, specifiedAmount, true);
         IBatchRouter.SwapPathExactAmountOut[] memory paths =
             new IBatchRouter.SwapPathExactAmountOut[](1);
         paths[0] = buyPath;
@@ -161,11 +162,18 @@ abstract contract BalancerERC20Helpers is BalancerStorage {
                 paths[0].steps[0].tokenOut = IERC20(WETH_ADDRESS);
             }
 
-            // Get amountIn
-            uint256 amountIn = getAmountIn(paths[0]);
-
             // Approve and Transfer ERC20 token
-            sellToken.safeTransferFrom(msg.sender, address(this), amountIn);
+            sellToken.safeTransferFrom(
+                msg.sender, address(this), msgSenderBalance
+            );
+            sellToken.safeIncreaseAllowance(address(router), type(uint256).max);
+            sellToken.safeIncreaseAllowance(permit2, type(uint256).max);
+            IPermit2(permit2).approve(
+                address(sellToken),
+                address(router),
+                type(uint160).max,
+                type(uint48).max
+            );
         }
 
         // perform swap
@@ -186,6 +194,15 @@ abstract contract BalancerERC20Helpers is BalancerStorage {
 
         // return amount
         calculatedAmount = amountsIn[0];
+
+        // re-transfer back funds to msg.sender
+        if(isETHSell) {
+            (bool sent2,) = payable(msg.sender).call{value: msgSenderBalance - amountsIn[0]}("");
+            require(sent2, "Failed to transfer ETH(2)");
+        }
+        else {
+            sellToken.safeTransfer(msg.sender, msgSenderBalance - amountsIn[0]);
+        }
     }
 
     /**
@@ -233,6 +250,29 @@ abstract contract BalancerERC20Helpers is BalancerStorage {
                 exactAmountIn: specifiedAmount,
                 minAmountOut: 0
             });
+        }
+    }
+
+    function getLimitsERC20(bytes32 poolId, address sellToken, address buyToken)
+        internal
+        view
+        returns (uint256[] memory limits)
+    {
+        limits = new uint256[](2);
+        address pool = address(bytes20(poolId));
+
+        (IERC20[] memory tokens,, uint256[] memory balancesRaw,) =
+            vault.getPoolTokenInfo(pool);
+        (IERC20 sellTokenERC, IERC20 buyTokenERC) =
+            (IERC20(sellToken), IERC20(buyToken));
+        // ERC4626-ERC4626, ERC20-ERC20
+        for (uint256 i = 0; i < tokens.length; i++) {
+            if (tokens[i] == sellTokenERC) {
+                limits[0] = (balancesRaw[i] * RESERVE_LIMIT_FACTOR) / 10;
+            }
+            if (tokens[i] == buyTokenERC) {
+                limits[1] = (balancesRaw[i] * RESERVE_LIMIT_FACTOR) / 10;
+            }
         }
     }
 }

@@ -332,4 +332,65 @@ abstract contract BalancerERC4626Helpers is BalancerCustomWrapHelpers {
         // return
         calculatedAmount = amountsB[0];
     }
+
+    function getLimitsERC4626ToERC20(
+        bytes32 poolId,
+        address sellToken,
+        address buyToken
+    ) internal view returns (uint256[] memory limits) {
+        limits = new uint256[](2);
+        address pool = address(bytes20(poolId));
+
+        (IERC20[] memory tokens,, uint256[] memory balancesRaw,) =
+            vault.getPoolTokenInfo(pool);
+
+        IERC20 underlyingSellToken = IERC20(IERC4626(sellToken).asset());
+        IERC20 buyTokenERC = IERC20(buyToken);
+
+        for (uint256 i = 0; i < tokens.length; i++) {
+            if (tokens[i] == underlyingSellToken) {
+                /**
+                 * @dev Using IERC4626(sellToken).totalSupply() as getAmountIn
+                 * is
+                 * not possible since this limit will also
+                 * be used for non-static calls
+                 */
+                limits[0] = (
+                    IERC4626(sellToken).totalSupply() * RESERVE_LIMIT_FACTOR
+                ) / 10;
+            }
+            if (tokens[i] == buyTokenERC) {
+                limits[1] = (balancesRaw[i] * RESERVE_LIMIT_FACTOR) / 10;
+            }
+        }
+    }
+
+    function getLimitsERC20ToERC4626(
+        bytes32 poolId,
+        address sellToken,
+        address buyToken
+    ) internal view returns (uint256[] memory limits) {
+        address pool = address(bytes20(poolId));
+        (IERC20[] memory tokens,, uint256[] memory balancesRaw,) =
+            vault.getPoolTokenInfo(pool);
+
+        IERC20 underlyingBuyToken = IERC20(IERC4626(sellToken).asset());
+        IERC20 sellTokenERC = IERC20(sellToken);
+
+        for (uint256 i = 0; i < tokens.length; i++) {
+            if (tokens[i] == underlyingBuyToken) {
+                /**
+                 * @dev Using IERC4626(buyToken).totalSupply() as getAmountIn is
+                 * not possible since this limit will also
+                 * be used for non-static calls
+                 */
+                limits[1] = (
+                    IERC4626(buyToken).totalSupply() * RESERVE_LIMIT_FACTOR
+                ) / 10;
+            }
+            if (tokens[i] == sellTokenERC) {
+                limits[0] = (balancesRaw[i] * RESERVE_LIMIT_FACTOR) / 10;
+            }
+        }
+    }
 }

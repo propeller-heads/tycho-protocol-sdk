@@ -8,7 +8,7 @@ import "./BalancerInterfaces.sol";
  */
 abstract contract BalancerStorage {
     // Balancer V3 constants
-    uint256 constant RESERVE_LIMIT_FACTOR = 3; // 0.3 as being divided by 10
+    uint256 constant RESERVE_LIMIT_FACTOR = 7; // 70% as being divided by 10
     uint256 constant SWAP_DEADLINE_SEC = 1000;
 
     // Balancer V3 contracts
