@@ -3,7 +3,14 @@ pragma solidity ^0.8.26;
 
 import "./AdapterTest.sol";
 import {BalancerV3Errors} from "src/balancer-v3/lib/BalancerV3Errors.sol";
-import {BalancerV3SwapAdapter, IERC20, IVault, IBatchRouter, IERC4626, IPermit2} from "src/balancer-v3/BalancerV3SwapAdapter.sol";
+import {
+    BalancerV3SwapAdapter,
+    IERC20,
+    IVault,
+    IBatchRouter,
+    IERC4626,
+    IPermit2
+} from "src/balancer-v3/BalancerV3SwapAdapter.sol";
 import {ERC20} from "openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
 
 import {FractionMath} from "src/libraries/FractionMath.sol";
@@ -60,9 +67,7 @@ contract BalancerV3SwapAdapterTest is AdapterTest, ERC20, BalancerV3Errors {
         vm.createSelectFork(vm.rpcUrl("sepolia"), forkBlock);
 
         adapter = new BalancerV3SwapAdapter(
-            payable(address(balancerV3Vault)),
-            address(router),
-            permit2
+            payable(address(balancerV3Vault)), address(router), permit2
         );
 
         vm.label(address(balancerV3Vault), "BalancerV3Vault");
@@ -105,13 +110,13 @@ contract BalancerV3SwapAdapterTest is AdapterTest, ERC20, BalancerV3Errors {
 
         if (isBuy) {
             vm.assume(
-                specifiedAmount < limits[1] &&
-                    specifiedAmount > _MINIMUM_TRADE_AMOUNT
+                specifiedAmount < limits[1]
+                    && specifiedAmount > _MINIMUM_TRADE_AMOUNT
             );
         } else {
             vm.assume(
-                specifiedAmount < limits[0] &&
-                    specifiedAmount > _MINIMUM_TRADE_AMOUNT
+                specifiedAmount < limits[0]
+                    && specifiedAmount > _MINIMUM_TRADE_AMOUNT
             );
         }
 
@@ -123,18 +128,12 @@ contract BalancerV3SwapAdapterTest is AdapterTest, ERC20, BalancerV3Errors {
 
         uint256[] memory amounts = new uint256[](1);
         amounts[0] = specifiedAmount;
-        Trade memory trade = adapter.swap(
-            pool,
-            token0,
-            token1,
-            side,
-            specifiedAmount
-        );
+        Trade memory trade =
+            adapter.swap(pool, token0, token1, side, specifiedAmount);
 
         if (isBuy) {
             assertEq(
-                specifiedAmount,
-                IERC20(token1).balanceOf(address(this)) - bal1
+                specifiedAmount, IERC20(token1).balanceOf(address(this)) - bal1
             );
             assertEq(
                 trade.calculatedAmount,
@@ -142,8 +141,7 @@ contract BalancerV3SwapAdapterTest is AdapterTest, ERC20, BalancerV3Errors {
             );
         } else {
             assertEq(
-                specifiedAmount,
-                bal0 - IERC20(token0).balanceOf(address(this))
+                specifiedAmount, bal0 - IERC20(token0).balanceOf(address(this))
             );
             assertEq(
                 trade.calculatedAmount,
@@ -152,9 +150,9 @@ contract BalancerV3SwapAdapterTest is AdapterTest, ERC20, BalancerV3Errors {
         }
     }
 
-    function testSwapFuzzBalancerV3_ERC4626_ERC4626(
-        uint256 specifiedAmount
-    ) public {
+    function testSwapFuzzBalancerV3_ERC4626_ERC4626(uint256 specifiedAmount)
+        public
+    {
         address token0 = ERC4626_TOKEN_0;
         address token1 = ERC4626_TOKEN_1;
 
@@ -163,8 +161,8 @@ contract BalancerV3SwapAdapterTest is AdapterTest, ERC20, BalancerV3Errors {
         uint256[] memory limits = adapter.getLimits(pool, token0, token1);
 
         vm.assume(
-            specifiedAmount < limits[0] &&
-                specifiedAmount > _MINIMUM_TRADE_AMOUNT
+            specifiedAmount < limits[0]
+                && specifiedAmount > _MINIMUM_TRADE_AMOUNT
         );
 
         deal(token0, address(this), specifiedAmount);
@@ -175,16 +173,10 @@ contract BalancerV3SwapAdapterTest is AdapterTest, ERC20, BalancerV3Errors {
 
         uint256[] memory amounts = new uint256[](1);
         amounts[0] = specifiedAmount;
-        Trade memory trade = adapter.swap(
-            pool,
-            token0,
-            USDT,
-            side,
-            specifiedAmount
-        );
+        Trade memory trade =
+            adapter.swap(pool, token0, USDT, side, specifiedAmount);
         assertEq(
-            specifiedAmount,
-            bal0 - IERC20(token1).balanceOf(address(this))
+            specifiedAmount, bal0 - IERC20(token1).balanceOf(address(this))
         );
         assertEq(
             trade.calculatedAmount,
@@ -192,9 +184,9 @@ contract BalancerV3SwapAdapterTest is AdapterTest, ERC20, BalancerV3Errors {
         );
     }
 
-    function testSwapFuzzBalancerV3_ERC4626_ERC20(
-        uint256 specifiedAmount
-    ) public {
+    function testSwapFuzzBalancerV3_ERC4626_ERC20(uint256 specifiedAmount)
+        public
+    {
         address token0 = ERC4626_TOKEN_0;
         address token1 = ERC4626_TOKEN_1_UNDERLYING;
 
@@ -203,8 +195,8 @@ contract BalancerV3SwapAdapterTest is AdapterTest, ERC20, BalancerV3Errors {
         uint256[] memory limits = adapter.getLimits(pool, token0, token1);
 
         vm.assume(
-            specifiedAmount < limits[0] &&
-                specifiedAmount > _MINIMUM_TRADE_AMOUNT
+            specifiedAmount < limits[0]
+                && specifiedAmount > _MINIMUM_TRADE_AMOUNT
         );
 
         deal(token0, address(this), specifiedAmount);
@@ -215,16 +207,10 @@ contract BalancerV3SwapAdapterTest is AdapterTest, ERC20, BalancerV3Errors {
 
         uint256[] memory amounts = new uint256[](1);
         amounts[0] = specifiedAmount;
-        Trade memory trade = adapter.swap(
-            pool,
-            token0,
-            USDT,
-            side,
-            specifiedAmount
-        );
+        Trade memory trade =
+            adapter.swap(pool, token0, USDT, side, specifiedAmount);
         assertEq(
-            specifiedAmount,
-            bal0 - IERC20(token0).balanceOf(address(this))
+            specifiedAmount, bal0 - IERC20(token0).balanceOf(address(this))
         );
         assertEq(
             trade.calculatedAmount,
@@ -232,9 +218,9 @@ contract BalancerV3SwapAdapterTest is AdapterTest, ERC20, BalancerV3Errors {
         );
     }
 
-    function testSwapFuzzBalancerV3_ERC20_ERC4626(
-        uint256 specifiedAmount
-    ) public {
+    function testSwapFuzzBalancerV3_ERC20_ERC4626(uint256 specifiedAmount)
+        public
+    {
         address token0 = ERC4626_TOKEN_1_UNDERLYING;
         address token1 = ERC4626_TOKEN_0;
 
@@ -243,8 +229,8 @@ contract BalancerV3SwapAdapterTest is AdapterTest, ERC20, BalancerV3Errors {
         uint256[] memory limits = adapter.getLimits(pool, token0, token1);
 
         vm.assume(
-            specifiedAmount < limits[0] &&
-                specifiedAmount > _MINIMUM_TRADE_AMOUNT
+            specifiedAmount < limits[0]
+                && specifiedAmount > _MINIMUM_TRADE_AMOUNT
         );
 
         deal(token0, address(this), specifiedAmount);
@@ -255,16 +241,10 @@ contract BalancerV3SwapAdapterTest is AdapterTest, ERC20, BalancerV3Errors {
 
         uint256[] memory amounts = new uint256[](1);
         amounts[0] = specifiedAmount;
-        Trade memory trade = adapter.swap(
-            pool,
-            token0,
-            USDT,
-            side,
-            specifiedAmount
-        );
+        Trade memory trade =
+            adapter.swap(pool, token0, USDT, side, specifiedAmount);
         assertEq(
-            specifiedAmount,
-            bal0 - IERC20(token0).balanceOf(address(this))
+            specifiedAmount, bal0 - IERC20(token0).balanceOf(address(this))
         );
         assertEq(
             trade.calculatedAmount,
@@ -272,28 +252,25 @@ contract BalancerV3SwapAdapterTest is AdapterTest, ERC20, BalancerV3Errors {
         );
     }
 
-    function testGetCapabilitiesBalancerV3(
-        bytes32 pool,
-        address t0,
-        address t1
-    ) public view {
+    function testGetCapabilitiesBalancerV3(bytes32 pool, address t0, address t1)
+        public
+        view
+    {
         Capability[] memory res = adapter.getCapabilities(pool, t0, t1);
 
         assertGe(res.length, 4);
     }
 
     function testGetTokensBalancerV3() public view {
-        address[] memory tokens = adapter.getTokens(
-            bytes32(bytes20(DAI_USDT_POOL_ADDRESS))
-        );
+        address[] memory tokens =
+            adapter.getTokens(bytes32(bytes20(DAI_USDT_POOL_ADDRESS)));
         assertGe(tokens.length, 2);
     }
 
     function testGetPoolIdsBalancerV3() public {
         vm.expectRevert(
             abi.encodeWithSelector(
-                NotImplemented.selector,
-                "BalancerV3SwapAdapter.getPoolIds"
+                NotImplemented.selector, "BalancerV3SwapAdapter.getPoolIds"
             )
         );
         adapter.getPoolIds(100, 200);

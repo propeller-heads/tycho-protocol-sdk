@@ -72,7 +72,7 @@ abstract contract BalancerERC20Helpers is BalancerStorage {
         bool isETHBuy = address(buyToken) == address(0);
 
         // prepare path
-        (IBatchRouter.SwapPathExactAmountIn memory sellPath,) =
+        (IBatchRouter.SwapPathExactAmountIn memory sellPath,,) =
             createERC20Path(pool, sellToken, buyToken, specifiedAmount, false);
         IBatchRouter.SwapPathExactAmountIn[] memory paths =
             new IBatchRouter.SwapPathExactAmountIn[](1);
@@ -91,8 +91,8 @@ abstract contract BalancerERC20Helpers is BalancerStorage {
             sellToken.safeTransferFrom(
                 msg.sender, address(this), specifiedAmount
             );
-            sellToken.safeIncreaseAllowance(address(router), type(uint256).max);
-            sellToken.safeIncreaseAllowance(permit2, type(uint256).max);
+
+            sellToken.safeIncreaseAllowance(permit2, specifiedAmount);
             IPermit2(permit2).approve(
                 address(sellToken),
                 address(router),
@@ -142,10 +142,12 @@ abstract contract BalancerERC20Helpers is BalancerStorage {
         bytes memory userData;
         bool isETHSell = address(sellToken) == address(0);
         bool isETHBuy = address(buyToken) == address(0);
-        uint256 msgSenderBalance = isETHSell ? address(msg.sender).balance : sellToken.balanceOf(msg.sender);
+        uint256 msgSenderBalance = isETHSell
+            ? address(msg.sender).balance
+            : sellToken.balanceOf(msg.sender);
 
         // prepare path
-        (, IBatchRouter.SwapPathExactAmountOut memory buyPath) =
+        (, IBatchRouter.SwapPathExactAmountOut memory buyPath,) =
             createERC20Path(pool, sellToken, buyToken, specifiedAmount, true);
         IBatchRouter.SwapPathExactAmountOut[] memory paths =
             new IBatchRouter.SwapPathExactAmountOut[](1);
@@ -196,11 +198,12 @@ abstract contract BalancerERC20Helpers is BalancerStorage {
         calculatedAmount = amountsIn[0];
 
         // re-transfer back funds to msg.sender
-        if(isETHSell) {
-            (bool sent2,) = payable(msg.sender).call{value: msgSenderBalance - amountsIn[0]}("");
+        if (isETHSell) {
+            (bool sent2,) = payable(msg.sender).call{
+                value: msgSenderBalance - amountsIn[0]
+            }("");
             require(sent2, "Failed to transfer ETH(2)");
-        }
-        else {
+        } else {
             sellToken.safeTransfer(msg.sender, msgSenderBalance - amountsIn[0]);
         }
     }
@@ -223,11 +226,12 @@ abstract contract BalancerERC20Helpers is BalancerStorage {
         pure
         returns (
             IBatchRouter.SwapPathExactAmountIn memory sellPath,
-            IBatchRouter.SwapPathExactAmountOut memory buyPath
+            IBatchRouter.SwapPathExactAmountOut memory buyPath,
+            IBatchRouter.SwapPathStep memory step
         )
     {
         // prepare steps
-        IBatchRouter.SwapPathStep memory step = IBatchRouter.SwapPathStep({
+        step = IBatchRouter.SwapPathStep({
             pool: pool,
             tokenOut: buyToken,
             isBuffer: false
