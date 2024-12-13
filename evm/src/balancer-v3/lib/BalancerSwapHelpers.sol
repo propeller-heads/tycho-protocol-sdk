@@ -18,16 +18,22 @@ abstract contract BalancerSwapHelpers is
         address buyToken,
         uint256 specifiedAmount
     ) internal returns (uint256 amountOut) {
-        address poolAddress;
-        if (isERC4626(sellToken) && isERC4626(buyToken)) {
-            if (CustomBytesAppend.hasPrefix(abi.encodePacked(pool))) {
-                poolAddress = CustomBytesAppend.extractAddress(pool);
-                return getAmountOutCustomWrap(
-                    poolAddress, sellToken, buyToken, specifiedAmount
-                );
-            }
+        address poolAddress = address(bytes20(pool));
+
+        (CUSTOM_WRAP_KIND kind, address sellTokenOutput, address buyTokenOutput)
+        = getCustomWrap(sellToken, buyToken, poolAddress);
+
+        if (kind != CUSTOM_WRAP_KIND.NONE) {
+            return getAmountOutCustomWrap(
+                poolAddress,
+                sellToken,
+                buyToken,
+                specifiedAmount,
+                kind,
+                sellTokenOutput,
+                buyTokenOutput
+            );
         } else {
-            poolAddress = address(bytes20(pool));
             if (isERC4626(sellToken) && !isERC4626(buyToken)) {
                 return getAmountOutERC4626ForERC20(
                     poolAddress, sellToken, buyToken, specifiedAmount
