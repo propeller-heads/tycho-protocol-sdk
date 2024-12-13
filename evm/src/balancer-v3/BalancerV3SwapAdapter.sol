@@ -54,30 +54,11 @@ contract BalancerV3SwapAdapter is BalancerSwapHelpers {
     /// @inheritdoc ISwapAdapter
     function getLimits(bytes32 poolId, address sellToken, address buyToken)
         external
+        view
         override
         returns (uint256[] memory limits)
     {
-        limits = new uint256[](2);
-
-        // custom wrap
-        if (
-            isERC4626(sellToken) && isERC4626(buyToken)
-                && CustomBytesAppend.hasPrefix(abi.encodePacked(poolId))
-        ) {
-            return getLimitsCustomWrap(poolId, sellToken, buyToken);
-        }
-
-        // ERC4626<->ERC20
-        if (isERC4626(sellToken) && !isERC4626(buyToken)) {
-            return getLimitsERC4626ToERC20(poolId, sellToken, buyToken);
-        }
-
-        // ERC20->ERC4626
-        if (!isERC4626(sellToken) && isERC4626(buyToken)) {
-            return getLimitsERC20ToERC4626(poolId, sellToken, buyToken);
-        }
-
-        return getLimitsERC20(poolId, sellToken, buyToken);
+        limits = getLimitsMiddleware(poolId, sellToken, buyToken);
     }
 
     /// @inheritdoc ISwapAdapter
