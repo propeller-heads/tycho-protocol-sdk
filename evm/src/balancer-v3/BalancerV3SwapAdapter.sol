@@ -53,18 +53,107 @@ contract BalancerV3SwapAdapter is BalancerSwapHelpers {
     /// @inheritdoc ISwapAdapter
     function getLimits(bytes32 poolId, address sellToken, address buyToken)
         external
-        view
         override
         returns (uint256[] memory limits)
     {
         limits = new uint256[](2);
-        address pool = address(bytes20(poolId));
-        (IERC20 sellTokenERC, IERC20 buyTokenERC) =
-            (IERC20(sellToken), IERC20(buyToken));
+        address pool;
+        IERC20[] memory tokens;
+        uint256[] memory balancesRaw;
+        IERC20 sellTokenERC;
+        IERC20 buyTokenERC;
 
-        (IERC20[] memory tokens,, uint256[] memory balancesRaw,) =
-            vault.getPoolTokenInfo(pool);
+        // custom wrap
+        if (
+            isERC4626(sellToken) && isERC4626(buyToken)
+                && CustomBytesAppend.hasPrefix(abi.encodePacked(poolId))
+        ) {
+            pool = CustomBytesAppend.extractAddress(poolId);
 
+            // get underlying tokens
+            IERC20 underlyingSellToken = IERC20(IERC4626(sellToken).asset());
+            IERC20 underlyingBuyToken = IERC20(IERC4626(buyToken).asset());
+
+            (tokens,, balancesRaw,) = vault.getPoolTokenInfo(pool);
+
+            for (uint256 i = 0; i < tokens.length; i++) {
+                if (tokens[i] == underlyingSellToken) {
+                    limits[0] = (balancesRaw[i] * RESERVE_LIMIT_FACTOR) / 10;
+                }
+                if (tokens[i] == underlyingBuyToken) {
+                    limits[1] = (balancesRaw[i] * RESERVE_LIMIT_FACTOR) / 10;
+                }
+            }
+
+            return limits;
+        }
+
+        // ERC4626<->ERC20
+        if (isERC4626(sellToken) && !isERC4626(buyToken)) {
+            pool = address(bytes20(poolId));
+            (tokens,, balancesRaw,) = vault.getPoolTokenInfo(pool);
+
+            IERC20 underlyingSellToken = IERC20(IERC4626(sellToken).asset());
+            buyTokenERC = IERC20(buyToken);
+
+            for (uint256 i = 0; i < tokens.length; i++) {
+                if (tokens[i] == underlyingSellToken) {
+                    uint256 underlyingLimit =
+                        (balancesRaw[i] * RESERVE_LIMIT_FACTOR) / 10;
+
+                    (, IBatchRouter.SwapPathExactAmountOut memory path) =
+                    createWrapOrUnwrapPath(
+                        sellToken,
+                        underlyingLimit,
+                        IVault.WrappingDirection.UNWRAP,
+                        true
+                    );
+
+                    limits[0] = (getAmountIn(path) * RESERVE_LIMIT_FACTOR) / 10;
+                }
+                if (tokens[i] == buyTokenERC) {
+                    limits[1] = (balancesRaw[i] * RESERVE_LIMIT_FACTOR) / 10;
+                }
+            }
+
+            return limits;
+        }
+
+        // ERC20->ERC4626
+        if (!isERC4626(sellToken) && isERC4626(buyToken)) {
+            pool = address(bytes20(poolId));
+            (tokens,, balancesRaw,) = vault.getPoolTokenInfo(pool);
+
+            IERC20 underlyingBuyToken = IERC20(IERC4626(sellToken).asset());
+            sellTokenERC = IERC20(sellToken);
+
+            for (uint256 i = 0; i < tokens.length; i++) {
+                if (tokens[i] == underlyingBuyToken) {
+                    uint256 underlyingLimit =
+                        (balancesRaw[i] * RESERVE_LIMIT_FACTOR) / 10;
+
+                    (, IBatchRouter.SwapPathExactAmountOut memory path) =
+                    createWrapOrUnwrapPath(
+                        buyToken,
+                        underlyingLimit,
+                        IVault.WrappingDirection.WRAP,
+                        true
+                    );
+
+                    limits[1] = (getAmountIn(path) * RESERVE_LIMIT_FACTOR) / 10;
+                }
+                if (tokens[i] == sellTokenERC) {
+                    limits[0] = (balancesRaw[i] * RESERVE_LIMIT_FACTOR) / 10;
+                }
+            }
+
+            return limits;
+        }
+
+        pool = address(bytes20(poolId));
+        (tokens,, balancesRaw,) = vault.getPoolTokenInfo(pool);
+        (sellTokenERC, buyTokenERC) = (IERC20(sellToken), IERC20(buyToken));
+        // ERC4626-ERC4626, ERC20-ERC20
         for (uint256 i = 0; i < tokens.length; i++) {
             if (tokens[i] == sellTokenERC) {
                 limits[0] = (balancesRaw[i] * RESERVE_LIMIT_FACTOR) / 10;

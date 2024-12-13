@@ -112,7 +112,9 @@ abstract contract BalancerCustomWrapHelpers is BalancerERC20Helpers {
         calculatedAmount = amountsOutC[0];
 
         // transfer
-        IERC20(IERC4626(_buyToken).asset()).safeTransfer(msg.sender, calculatedAmount);
+        IERC20(IERC4626(_buyToken).asset()).safeTransfer(
+            msg.sender, calculatedAmount
+        );
     }
 
     /**
@@ -210,7 +212,9 @@ abstract contract BalancerCustomWrapHelpers is BalancerERC20Helpers {
         router.swapExactOut(pathsA, type(uint256).max, false, userData);
 
         // transfer
-        IERC20(IERC4626(_buyToken).asset()).safeTransfer(msg.sender, specifiedAmount);
+        IERC20(IERC4626(_buyToken).asset()).safeTransfer(
+            msg.sender, specifiedAmount
+        );
     }
 
     /**

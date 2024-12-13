@@ -8,7 +8,7 @@ abstract contract BalancerERC4626Helpers is BalancerCustomWrapHelpers {
 
     /**
      * @dev Sell an ERC4626 token for an ERC20 token
-     * @param pool The pool containing sellToken.asset() and buyToken
+     * @param pool the ERC4626.asset()->ERC20 pool
      * @param _sellToken ERC4626 token being sold(by unwrapping to
      * sellToken.asset())
      * @param buyToken ERC20 token being bought
@@ -58,7 +58,7 @@ abstract contract BalancerERC4626Helpers is BalancerCustomWrapHelpers {
 
     /**
      * @dev Perform a sell order for ERC4626 tokens
-     * @param pool The pool containing sellToken.asset() and buyToken
+     * @param pool the ERC4626.asset()->ERC20 pool
      * @param _sellToken ERC4626 token being sold(by unwrapping to
      * sellToken.asset())
      * @param buyToken ERC20 token being bought
@@ -89,7 +89,7 @@ abstract contract BalancerERC4626Helpers is BalancerCustomWrapHelpers {
 
     /**
      * @dev Buy an ERC20 token with an ERC4626 token
-     * @param pool The pool containing sellToken.share() and buyToken
+     * @param pool the ERC4626.asset()->ERC20 pool
      * @param _sellToken ERC4626 token being sold, of which .asset() is the
      * sellToken
      * @param buyToken ERC20 token being bought
@@ -117,7 +117,9 @@ abstract contract BalancerERC4626Helpers is BalancerCustomWrapHelpers {
         IBatchRouter.SwapPathExactAmountOut[] memory pathsA =
             new IBatchRouter.SwapPathExactAmountOut[](1);
         pathsA[0] = pathA;
-        underlyingSellToken.safeIncreaseAllowance(address(router), type(uint256).max);
+        underlyingSellToken.safeIncreaseAllowance(
+            address(router), type(uint256).max
+        );
 
         // b. UNWRAP: sellToken.shares() -> sellToken.asset()
         (, IBatchRouter.SwapPathExactAmountOut memory pathB) =
@@ -154,6 +156,9 @@ abstract contract BalancerERC4626Helpers is BalancerCustomWrapHelpers {
         IERC20(buyToken).safeTransfer(msg.sender, specifiedAmount);
     }
 
+    /**
+     * @param pool the ERC20->ERC4626.asset() pool
+     */
     function sellERC20ForERC4626(
         address pool,
         address sellToken,
@@ -164,12 +169,8 @@ abstract contract BalancerERC4626Helpers is BalancerCustomWrapHelpers {
         IERC20 buyTokenAsset = IERC20(IERC4626(buyToken).asset());
 
         // a. SWAP: sellToken.asset() -> buyToken.asset()
-        (IBatchRouter.SwapPathExactAmountIn memory pathA, ) = createERC20Path(
-            pool,
-            IERC20(sellToken),
-            buyTokenAsset,
-            specifiedAmount,
-            false
+        (IBatchRouter.SwapPathExactAmountIn memory pathA,) = createERC20Path(
+            pool, IERC20(sellToken), buyTokenAsset, specifiedAmount, false
         );
         IBatchRouter.SwapPathExactAmountIn[] memory pathsA =
             new IBatchRouter.SwapPathExactAmountIn[](1);
@@ -181,13 +182,11 @@ abstract contract BalancerERC4626Helpers is BalancerCustomWrapHelpers {
             router.swapExactIn(pathsA, type(uint256).max, false, userData);
 
         // b. WRAP: buyToken.asset() -> buyToken.share()
-        (IBatchRouter.SwapPathExactAmountIn memory pathB, ) =
+        (IBatchRouter.SwapPathExactAmountIn memory pathB,) =
         createWrapOrUnwrapPath(
             buyToken, amountsInSwap[0], IVault.WrappingDirection.WRAP, true
         );
-        buyTokenAsset.safeIncreaseAllowance(
-            address(router), type(uint256).max
-        );
+        buyTokenAsset.safeIncreaseAllowance(address(router), type(uint256).max);
         IBatchRouter.SwapPathExactAmountIn[] memory pathsB =
             new IBatchRouter.SwapPathExactAmountIn[](1);
         pathsB[0] = pathB;
@@ -202,6 +201,9 @@ abstract contract BalancerERC4626Helpers is BalancerCustomWrapHelpers {
         calculatedAmount = amountsOutUnwrap[0];
     }
 
+    /**
+     * @param pool the ERC20->ERC4626.asset() pool
+     */
     function getAmountOutERC20ForERC4626(
         address pool,
         address sellToken,
@@ -224,6 +226,9 @@ abstract contract BalancerERC4626Helpers is BalancerCustomWrapHelpers {
         calculatedAmount = getAmountOut(pathB);
     }
 
+    /**
+     * @param pool the ERC20->ERC4626.asset() pool
+     */
     function buyERC4626WithERC20(
         address pool,
         address sellToken,
@@ -239,24 +244,19 @@ abstract contract BalancerERC4626Helpers is BalancerCustomWrapHelpers {
          *
          */
         // a. WRAP (final step): buyToken.asset() -> buyToken.share
-        (, IBatchRouter.SwapPathExactAmountOut memory pathA) = createWrapOrUnwrapPath(
-            buyToken,
-            specifiedAmount,
-            IVault.WrappingDirection.WRAP,
-            true
+        (, IBatchRouter.SwapPathExactAmountOut memory pathA) =
+        createWrapOrUnwrapPath(
+            buyToken, specifiedAmount, IVault.WrappingDirection.WRAP, true
         );
         IBatchRouter.SwapPathExactAmountOut[] memory pathsA =
             new IBatchRouter.SwapPathExactAmountOut[](1);
         pathsA[0] = pathA;
-        buyTokenAsset.safeIncreaseAllowance(
-            address(router), type(uint256).max
-        );
+        buyTokenAsset.safeIncreaseAllowance(address(router), type(uint256).max);
         (,, uint256[] memory amountsA) =
             router.querySwapExactOut(pathsA, msg.sender, userData);
 
         // b. SWAP: sellToken.asset() -> buyToken.asset()
-        (, IBatchRouter.SwapPathExactAmountOut memory pathB) =
-        createERC20Path(
+        (, IBatchRouter.SwapPathExactAmountOut memory pathB) = createERC20Path(
             pool, IERC20(sellToken), buyTokenAsset, amountsA[0], true
         );
         IERC20(sellToken).safeIncreaseAllowance(

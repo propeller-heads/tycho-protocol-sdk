@@ -100,13 +100,9 @@ abstract contract BalancerSwapHelpers is
                         poolAddress, sellToken, buyToken, specifiedAmount
                     );
                 } else {
-                    return
-                        sellERC20ForERC4626(
-                            poolAddress,
-                            sellToken,
-                            buyToken,
-                            specifiedAmount
-                        );
+                    return sellERC20ForERC4626(
+                        poolAddress, sellToken, buyToken, specifiedAmount
+                    );
                 }
             }
             // swap ERC20<->ERC20, fallback to next code block
