@@ -199,24 +199,26 @@ abstract contract BalancerSwapHelpers is
         limits = new uint256[](2);
 
         // custom wrap
-        if (
-            isERC4626(sellToken) && isERC4626(buyToken)
-                && CustomBytesAppend.hasPrefix(abi.encodePacked(poolId))
-        ) {
-            return getLimitsCustomWrap(poolId, sellToken, buyToken);
-        }
+        (CUSTOM_WRAP_KIND kind,
+            address sellTokenOutput,
+            address buyTokenOutput) = getCustomWrap(sellToken, buyToken, address(bytes20(poolId)));
 
-        // ERC4626<->ERC20
-        if (isERC4626(sellToken) && !isERC4626(buyToken)) {
-            return getLimitsERC4626ToERC20(poolId, sellToken, buyToken);
+        if(kind != CUSTOM_WRAP_KIND.NONE) {
+            return getLimitsCustomWrap(poolId, sellToken, buyToken, kind, sellTokenOutput, buyTokenOutput);
         }
+        else {
+            // ERC4626<->ERC20
+            if (isERC4626(sellToken) && !isERC4626(buyToken)) {
+                return getLimitsERC4626ToERC20(poolId, sellToken, buyToken);
+            }
 
-        // ERC20->ERC4626
-        if (!isERC4626(sellToken) && isERC4626(buyToken)) {
-            return getLimitsERC20ToERC4626(poolId, sellToken, buyToken);
+            // ERC20->ERC4626
+            if (!isERC4626(sellToken) && isERC4626(buyToken)) {
+                return getLimitsERC20ToERC4626(poolId, sellToken, buyToken);
+            }
+
+            // fallback: ERC20<->ERC20, ERC4626<->ERC4626
+            return getLimitsERC20(poolId, sellToken, buyToken);
         }
-
-        // fallback: ERC20<->ERC20, ERC4626<->ERC4626
-        return getLimitsERC20(poolId, sellToken, buyToken);
     }
 }
