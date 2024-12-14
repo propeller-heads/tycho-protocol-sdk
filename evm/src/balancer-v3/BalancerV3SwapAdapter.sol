@@ -5,6 +5,21 @@ import "./lib/BalancerSwapHelpers.sol";
 
 /**
  * @title Balancer V3 Swap Adapter
+ * @dev Supports:
+ * Direct Swaps:
+ * - ETH<->ERC20
+ * - ERC20<->ERC20
+ * - ERC4626<->ERC4626
+ * 
+ * 2 steps:
+ * - ERC20->(ERC4626->ERC4626)
+ * - (ERC20->ERC20)->ERC4626
+ * - (ERC4626->ERC20)->ERC20
+ * - (ERC4626->ERC4626)->ERC20
+ * 
+ * 3 steps:
+ * - ERC20->(ERC4626->ERC4626)->ERC20
+ * - ERC4626->(ERC20->ERC20)->ERC4626
  */
 contract BalancerV3SwapAdapter is BalancerSwapHelpers {
     constructor(address payable vault_, address _router, address _permit2) {

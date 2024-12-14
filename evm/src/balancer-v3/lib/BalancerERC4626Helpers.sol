@@ -6,13 +6,6 @@ import "./BalancerCustomWrapHelpers.sol";
 abstract contract BalancerERC4626Helpers is BalancerCustomWrapHelpers {
     using SafeERC20 for IERC20;
 
-    enum ERC4626_SWAP_TYPE {
-        ERC20_SWAP, // ERC20->ERC20->ERC4626
-        ERC20_WRAP, // ERC20->ERC4626->ERC4626
-        ERC4626_UNWRAP, // ERC4626->ERC20->ERC20
-        ERC4626_SWAP // ERC4626->ERC4626->ERC20
-    }
-
     function getERC4626PathType(
         address pool,
         address sellToken,
