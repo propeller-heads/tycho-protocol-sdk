@@ -27,7 +27,6 @@ abstract contract BalancerSwapHelpers is
             return getAmountOutCustomWrap(
                 poolAddress,
                 sellToken,
-                buyToken,
                 specifiedAmount,
                 kind,
                 sellTokenOutput,

@@ -185,7 +185,6 @@ abstract contract BalancerCustomWrapHelpers is BalancerERC20Helpers {
     function getAmountOutCustomWrap(
         address pool,
         address _sellToken,
-        address _buyToken,
         uint256 specifiedAmount,
         CUSTOM_WRAP_KIND kind,
         address sellTokenOutput,
@@ -200,6 +199,10 @@ abstract contract BalancerCustomWrapHelpers is BalancerERC20Helpers {
             sellTokenOutput,
             buyTokenOutput
         );
+        
+        (,, uint256[] memory amountsOut) = router.querySwapExactIn(paths, address(0), bytes(""));
+
+        calculatedAmount = amountsOut[0];
     }
 
     /**
