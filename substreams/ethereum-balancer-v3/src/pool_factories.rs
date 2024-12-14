@@ -7,10 +7,10 @@ use abi::{
         events::PoolCreated as WeightedPoolCreated, functions::Create as WeightedPoolCreate,
     },
 };
-use substreams::hex;
+use substreams::{hex, log};
 use substreams_ethereum::{
-    pb::eth::v2::{Call, Log, TransactionTrace},
     Event, Function,
+    pb::eth::v2::{Call, Log, TransactionTrace},
 };
 use tycho_substreams::{attributes::json_serialize_bigint_list, prelude::*};
 
@@ -34,6 +34,8 @@ pub fn address_map(
                 .map(|t| t.0)
                 .collect::<Vec<_>>();
 
+            log::info!("weighted pool created: {:?}", pool);
+
             Some(
                 ProtocolComponent::new(
                     &format!("0x{}", hex::encode(pool.to_owned())),
@@ -53,7 +55,7 @@ pub fn address_map(
                 .as_swap_type("balancer_v3_pool", ImplementationType::Vm),
             )
         }
-        hex!("DB8d758BCb971e482B2C45f7F8a7740283A1bd3A") => {
+        hex!("B9d01CA61b9C181dA1051bFDd28e1097e920AB14") => {
             let StablePoolCreate { tokens: token_config, swap_fee_percentage, .. } =
                 StablePoolCreate::match_and_decode(call)?;
             let StablePoolCreated { pool } = StablePoolCreated::match_and_decode(log)?;
@@ -61,6 +63,8 @@ pub fn address_map(
                 .into_iter()
                 .map(|t| t.0)
                 .collect::<Vec<_>>();
+
+            log::info!("stable pool created: {:?}", pool);
 
             Some(
                 ProtocolComponent::new(
@@ -75,7 +79,7 @@ pub fn address_map(
                     ("fee", &swap_fee_percentage.to_signed_bytes_be()),
                     ("manual_updates", &[1u8]),
                 ])
-                .as_swap_type("balancer_v2_pool", ImplementationType::Vm),
+                .as_swap_type("balancer_v3_pool", ImplementationType::Vm),
             )
         }
         _ => None,

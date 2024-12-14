@@ -71,7 +71,7 @@ pub fn map_relative_balances(
 ///  store key to ensure that there's a unique balance being tallied for each.
 #[substreams::handlers::store]
 pub fn store_balances(deltas: BlockBalanceDeltas, store: StoreAddBigInt) {
-    tycho_substreams::balances::store_balance_changes(deltas, store);
+    // tycho_substreams::balances::store_balance_changes(deltas, store);
 }
 
 /// This is the main map that handles most of the indexing of this substream.
