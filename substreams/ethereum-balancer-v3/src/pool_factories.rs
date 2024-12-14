@@ -3,6 +3,7 @@ use abi::{
     stable_pool_factory_contract::{
         events::PoolCreated as StablePoolCreated, functions::Create as StablePoolCreate,
     },
+    vault_contract::events::LiquidityAddedToBuffer,
     weigthed_pool_factory_contract::{
         events::PoolCreated as WeightedPoolCreated, functions::Create as WeightedPoolCreate,
     },
@@ -12,7 +13,10 @@ use substreams_ethereum::{
     Event, Function,
     pb::eth::v2::{Call, Log, TransactionTrace},
 };
-use tycho_substreams::{attributes::json_serialize_bigint_list, prelude::*};
+use tycho_substreams::{
+    abi::erc20::events::Transfer as ERC20Transfer, attributes::json_serialize_bigint_list,
+    prelude::*,
+};
 
 pub fn address_map(
     pool_factory_address: &[u8],
@@ -84,4 +88,34 @@ pub fn address_map(
         }
         _ => None,
     }
+}
+
+pub fn map_buffer_components(log: &Log, tx: &TransactionTrace) -> Option<ProtocolComponent> {
+    LiquidityAddedToBuffer::match_and_decode(log).map(
+        |LiquidityAddedToBuffer { wrapped_token,.. }| {
+            let underlying_token = tx
+                .logs_with_calls()
+                .find_map(|(l, _)| {
+                    ERC20Transfer::match_and_decode(l).and_then(|transfer| {
+                        if transfer.to == VAULT_ADDRESS {
+                            Some(l.address.to_owned())
+                        } else {
+                            None
+                        }
+                    })
+                })
+                .expect("There should always be a transfer to the vault for both wrapped and underlying token");
+
+            log::info!("mapping buffer components: {:?}", wrapped_token);
+
+            ProtocolComponent::new(
+                &format!("0x{}", hex::encode(wrapped_token.to_owned())),
+                &(tx.into()),
+            )
+            .with_tokens(&[wrapped_token.as_slice(), underlying_token.as_slice()])
+            .with_contracts(&[VAULT_ADDRESS])
+            .with_attributes(&[("pool_type", "Buffer".as_bytes())])
+            .as_swap_type("balancer_v3_pool", ImplementationType::Vm)
+        },
+    )
 }

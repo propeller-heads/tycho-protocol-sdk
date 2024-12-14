@@ -1,18 +1,27 @@
-use crate::pool_factories;
+use crate::{
+    abi,
+    abi::vault_contract::events::{
+        LiquidityAdded, LiquidityAddedToBuffer, LiquidityRemoved, Swap, Unwrap, Wrap,
+    },
+    pool_factories,
+};
 use anyhow::Result;
 use itertools::Itertools;
 use std::collections::HashMap;
 use substreams::{
-    hex,
+    hex, log,
     pb::substreams::StoreDeltas,
-    store::{StoreAddBigInt, StoreGet, StoreGetString, StoreNew, StoreSet, StoreSetString},
+    store::{
+        StoreAddBigInt, StoreGet, StoreGetString, StoreNew, StoreSet, StoreSetIfNotExists,
+        StoreSetIfNotExistsString, StoreSetString,
+    },
 };
-use substreams_ethereum::pb::eth;
+use substreams_ethereum::{Event, pb::eth};
 use tycho_substreams::{
     balances::aggregate_balances_changes, contract::extract_contract_changes_builder, prelude::*,
 };
 
-pub const VAULT_ADDRESS: &[u8] = &hex!("BA12222222228d8Ba445958a75a0704d566BF2C8");
+pub const VAULT_ADDRESS: &[u8] = &hex!("bA1333333333a1BA1108E8412f11850A5C319bA9");
 
 #[substreams::handlers::map]
 pub fn map_components(block: eth::v2::Block) -> Result<BlockTransactionProtocolComponents> {
@@ -31,6 +40,7 @@ pub fn map_components(block: eth::v2::Block) -> Result<BlockTransactionProtocolC
                             call.call,
                             tx,
                         )
+                        .or_else(|| pool_factories::map_buffer_components(log, tx))
                     })
                     .collect::<Vec<_>>();
 
@@ -46,14 +56,16 @@ pub fn map_components(block: eth::v2::Block) -> Result<BlockTransactionProtocolC
 
 /// Simply stores the `ProtocolComponent`s with the pool address as the key and the pool id as value
 #[substreams::handlers::store]
-pub fn store_components(map: BlockTransactionProtocolComponents, store: StoreSetString) {
+pub fn store_components(map: BlockTransactionProtocolComponents, store: StoreSetIfNotExistsString) {
     map.tx_components
         .into_iter()
         .for_each(|tx_pc| {
             tx_pc
                 .components
                 .into_iter()
-                .for_each(|pc| store.set(0, format!("pool:{0}", &pc.id[..42]), &pc.id))
+                .for_each(|pc| {
+                    store.set_if_not_exists(0, format!("pool:{0}", &pc.id[..42]), &pc.id)
+                })
         });
 }
 
@@ -61,17 +73,74 @@ pub fn store_components(map: BlockTransactionProtocolComponents, store: StoreSet
 /// map and a  store to be able to tally up final balances for tokens in a pool.
 #[substreams::handlers::map]
 pub fn map_relative_balances(
-    _block: eth::v2::Block,
-    _store: StoreGetString,
+    block: eth::v2::Block,
+    store: StoreGetString,
 ) -> Result<BlockBalanceDeltas, anyhow::Error> {
-    Ok(BlockBalanceDeltas::default())
+    let balance_deltas = block
+        .logs()
+        .filter(|log| log.address() == VAULT_ADDRESS)
+        .flat_map(|vault_log| {
+            let mut deltas = Vec::new();
+
+            if let Some(Swap { pool, token_in, token_out, amount_in, amount_out, .. }) =
+                Swap::match_and_decode(vault_log.log)
+            {
+                let component_id = format!("0x{}", hex::encode(pool));
+                log::info!(
+                    "swap at component id: {:?} with key: {:?}",
+                    component_id,
+                    format!("pool:{}", &component_id)
+                );
+
+                if store
+                    .get_last(format!("pool:{}", &component_id))
+                    .is_some()
+                {
+                    deltas.extend_from_slice(&[
+                        BalanceDelta {
+                            ord: vault_log.ordinal(),
+                            tx: Some(vault_log.receipt.transaction.into()),
+                            token: token_in.to_vec(),
+                            delta: amount_in.to_signed_bytes_be(),
+                            component_id: component_id.as_bytes().to_vec(),
+                        },
+                        BalanceDelta {
+                            ord: vault_log.ordinal(),
+                            tx: Some(vault_log.receipt.transaction.into()),
+                            token: token_out.to_vec(),
+                            delta: amount_out.neg().to_signed_bytes_be(),
+                            component_id: component_id.as_bytes().to_vec(),
+                        },
+                    ]);
+                }
+            }
+            if let Some(LiquidityAddedToBuffer {
+                wrapped_token,
+                amount_underlying,
+                amount_wrapped,
+                ..
+            }) = LiquidityAddedToBuffer::match_and_decode(vault_log.log)
+            {
+                let component_id = format!("0x{}", hex::encode(wrapped_token));
+                log::info!(
+                    "buffer liquidity added at component id: {:?} with key: {:?}",
+                    component_id,
+                    format!("pool:{}", &component_id)
+                );
+            }
+
+            deltas
+        })
+        .collect::<Vec<_>>();
+
+    Ok(BlockBalanceDeltas { balance_deltas })
 }
 
 /// It's significant to include both the `pool_id` and the `token_id` for each balance delta as the
 ///  store key to ensure that there's a unique balance being tallied for each.
 #[substreams::handlers::store]
 pub fn store_balances(deltas: BlockBalanceDeltas, store: StoreAddBigInt) {
-    // tycho_substreams::balances::store_balance_changes(deltas, store);
+    tycho_substreams::balances::store_balance_changes(deltas, store);
 }
 
 /// This is the main map that handles most of the indexing of this substream.
