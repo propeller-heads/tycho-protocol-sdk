@@ -200,11 +200,11 @@ abstract contract BalancerERC20Helpers is BalancerStorage {
         // re-transfer back funds to msg.sender
         if (isETHSell) {
             (bool sent2,) = payable(msg.sender).call{
-                value: msgSenderBalance - amountsIn[0]
+                value: msgSenderBalance - calculatedAmount
             }("");
             require(sent2, "Failed to transfer ETH(2)");
         } else {
-            sellToken.safeTransfer(msg.sender, msgSenderBalance - amountsIn[0]);
+            sellToken.safeTransfer(msg.sender, msgSenderBalance - calculatedAmount);
         }
     }
 
