@@ -1,25 +1,38 @@
-# Balancer Substream
+# balancer_v3 Substreams modules
 
-## Open tasks
+This package was initialized via `substreams init`, using the `evm-events-calls` template.
 
-### Missing rate provider state
+## Usage
 
-Any pool that does use rate providers, is currently not supported by tycho since we do
-not witness the contract creation of rate providers and thus can't provide the required
-contract state.
+```bash
+substreams build
+substreams auth
+substreams gui       			  # Get streaming!
+substreams registry login         # Login to substreams.dev
+substreams registry publish       # Publish your Substreams to substreams.dev
+```
 
-This is planned to be resolved with the dynamic contract indexing module.
+## Modules
 
-## Static Attributes
+All of these modules produce data filtered by these contracts:
+- _vault_ at **0xba1333333333a1ba1108e8412f11850a5c319ba9**
+- _stable_pool_factory_ at **0xb9d01ca61b9c181da1051bfdd28e1097e920ab14**
+- _weigthed_pool_factory_ at **0x201efd508c8dfe9de1a13c2452863a78cb2a86cc**
+- stable_pool contracts created from _stable_pool_factory_
+- weighted_pool contracts created from _weigthed_pool_factory_
+### `map_events_calls`
 
-| name               | type  | description                                                                                             |
-|--------------------|-------|---------------------------------------------------------------------------------------------------------|
-| pool_type          | str   | A unique identifier per pool type. Set depending on the factory                                         |
-| normalized weights | json  | The normalised weights of a weighted pool.                                                              |
-| pool_id            | str   | A hex encoded balancer pool id.                                                                         |
-| rate_providers     | json  | A list of rate provider addresses.                                                                      |
-| bpt                | bytes | The balancer lp token, set if the pool support entering and exiting lp postions via the swap interface. |
-| main_token         | bytes | The main token address for a linear pool                                                                |
-| wrapped_token      | bytes | The wrapped token address for a linear pool                                                             |
-| fee                | int   | The fee charged by the pool set at deployment time                                                      |
-| upper_target       | int   | The upper target for a linear pool                                                                      |
+This module gets you events _and_ calls
+
+
+### `map_events`
+
+This module gets you only events that matched.
+
+
+
+### `map_calls`
+
+This module gets you only calls that matched.
+
+

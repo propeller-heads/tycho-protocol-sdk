@@ -1,44 +1,48 @@
-use anyhow::Result;
-use std::{fs, io::Write};
+use anyhow::{Ok, Result};
+use regex::Regex;
 use substreams_ethereum::Abigen;
+use std::fs;
 
-fn main() -> Result<()> {
-    let abi_folder = "abi";
-    let output_folder = "src/abi";
+fn main() -> Result<(), anyhow::Error> {
+    let file_names = [
+        "abi/vault_contract.abi.json",
+        "abi/stable_pool_factory_contract.abi.json",
+        "abi/weigthed_pool_factory_contract.abi.json",
+        "abi/stable_pool_contract.abi.json",
+        "abi/weighted_pool_contract.abi.json",
+    ];
+    let file_output_names = [
+        "src/abi/vault_contract.rs",
+        "src/abi/stable_pool_factory_contract.rs",
+        "src/abi/weigthed_pool_factory_contract.rs",
+        "src/abi/stable_pool_contract.rs",
+        "src/abi/weighted_pool_contract.rs",
+    ];
 
-    let files = fs::read_dir(abi_folder)?;
-    let mut mod_rs_content = String::new();
-    mod_rs_content.push_str("#![allow(clippy::all)]\n");
+    let mut i = 0;
+    for f in file_names {
+        let contents = fs::read_to_string(f)
+            .expect("Should have been able to read the file");
 
-    for file in files {
-        let file = file?;
-        let file_name = file.file_name();
-        let file_name = file_name.to_string_lossy();
+        // sanitize fields and attributes starting with an underscore
+        let regex = Regex::new(r#"("\w+"\s?:\s?")_(\w+")"#).unwrap();
+        let sanitized_abi_file = regex.replace_all(contents.as_str(), "${1}u_${2}");
 
-        if !file_name.ends_with(".json") {
-            continue;
-        }
+        // sanitize fields and attributes with multiple consecutive underscores
+        let re = Regex::new(r"_+").unwrap();
 
-        let contract_name = file_name.split('.').next().unwrap();
+        let re_sanitized_abi_file = re.replace_all(&sanitized_abi_file, |caps: &regex::Captures| {
+                let count = caps[0].len();
+                let replacement = format!("{}_", "_u".repeat(count - 1));
+                replacement
+        });
 
-        let input_path = format!("{}/{}", abi_folder, file_name);
-        let output_path = format!("{}/{}.rs", output_folder, contract_name);
-
-        mod_rs_content.push_str(&format!("pub mod {};\n", contract_name));
-
-        if std::path::Path::new(&output_path).exists() {
-            continue;
-        }
-
-        Abigen::new(contract_name, &input_path)?
+        Abigen::from_bytes("Contract", re_sanitized_abi_file.as_bytes())?
             .generate()?
-            .write_to_file(&output_path)?;
+            .write_to_file(file_output_names[i])?;
+
+        i = i+1;
     }
-
-    let mod_rs_path = format!("{}/mod.rs", output_folder);
-    let mut mod_rs_file = fs::File::create(mod_rs_path)?;
-
-    mod_rs_file.write_all(mod_rs_content.as_bytes())?;
 
     Ok(())
 }

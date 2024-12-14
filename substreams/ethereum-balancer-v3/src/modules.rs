@@ -1,4 +1,4 @@
-use crate::{abi, pool_factories};
+use crate::pool_factories;
 use anyhow::Result;
 use itertools::Itertools;
 use std::collections::HashMap;
@@ -7,7 +7,7 @@ use substreams::{
     pb::substreams::StoreDeltas,
     store::{StoreAddBigInt, StoreGet, StoreGetString, StoreNew, StoreSet, StoreSetString},
 };
-use substreams_ethereum::{pb::eth, Event};
+use substreams_ethereum::pb::eth;
 use tycho_substreams::{
     balances::aggregate_balances_changes, contract::extract_contract_changes_builder, prelude::*,
 };
@@ -61,86 +61,10 @@ pub fn store_components(map: BlockTransactionProtocolComponents, store: StoreSet
 /// map and a  store to be able to tally up final balances for tokens in a pool.
 #[substreams::handlers::map]
 pub fn map_relative_balances(
-    block: eth::v2::Block,
-    store: StoreGetString,
+    _block: eth::v2::Block,
+    _store: StoreGetString,
 ) -> Result<BlockBalanceDeltas, anyhow::Error> {
-    let balance_deltas = block
-        .logs()
-        .filter(|log| log.address() == VAULT_ADDRESS)
-        .flat_map(|vault_log| {
-            let mut deltas = Vec::new();
-
-            if let Some(ev) =
-                abi::vault::events::PoolBalanceChanged::match_and_decode(vault_log.log)
-            {
-                let component_id = format!("0x{}", hex::encode(ev.pool_id));
-
-                if store
-                    .get_last(format!("pool:{}", &component_id[..42]))
-                    .is_some()
-                {
-                    for (token, delta) in ev
-                        .tokens
-                        .iter()
-                        .zip(ev.deltas.iter())
-                        .filter(|(token, _)| **token != hex::decode(&component_id[2..42]).unwrap())
-                    {
-                        deltas.push(BalanceDelta {
-                            ord: vault_log.ordinal(),
-                            tx: Some(vault_log.receipt.transaction.into()),
-                            token: token.to_vec(),
-                            delta: delta.to_signed_bytes_be(),
-                            component_id: component_id.as_bytes().to_vec(),
-                        });
-                    }
-                }
-            } else if let Some(ev) = abi::vault::events::Swap::match_and_decode(vault_log.log) {
-                let component_id = format!("0x{}", hex::encode(ev.pool_id));
-
-                if store
-                    .get_last(format!("pool:{}", &component_id[..42]))
-                    .is_some()
-                {
-                    deltas.extend_from_slice(&[
-                        BalanceDelta {
-                            ord: vault_log.ordinal(),
-                            tx: Some(vault_log.receipt.transaction.into()),
-                            token: ev.token_in.to_vec(),
-                            delta: ev.amount_in.to_signed_bytes_be(),
-                            component_id: component_id.as_bytes().to_vec(),
-                        },
-                        BalanceDelta {
-                            ord: vault_log.ordinal(),
-                            tx: Some(vault_log.receipt.transaction.into()),
-                            token: ev.token_out.to_vec(),
-                            delta: ev.amount_out.neg().to_signed_bytes_be(),
-                            component_id: component_id.as_bytes().to_vec(),
-                        },
-                    ]);
-                }
-            } else if let Some(ev) =
-                abi::vault::events::PoolBalanceManaged::match_and_decode(vault_log.log)
-            {
-                let component_id = format!("0x{}", hex::encode(ev.pool_id));
-                if store
-                    .get_last(format!("pool:{}", &component_id[..42]))
-                    .is_some()
-                {
-                    deltas.extend_from_slice(&[BalanceDelta {
-                        ord: vault_log.ordinal(),
-                        tx: Some(vault_log.receipt.transaction.into()),
-                        token: ev.token.to_vec(),
-                        delta: ev.cash_delta.to_signed_bytes_be(),
-                        component_id: component_id.as_bytes().to_vec(),
-                    }]);
-                }
-            }
-
-            deltas
-        })
-        .collect::<Vec<_>>();
-
-    Ok(BlockBalanceDeltas { balance_deltas })
+    Ok(BlockBalanceDeltas::default())
 }
 
 /// It's significant to include both the `pool_id` and the `token_id` for each balance delta as the
@@ -253,7 +177,7 @@ pub fn map_protocol_changes(
                         let id = components_store
                             .get_last(format!("pool:0x{}", hex::encode(address)))
                             .unwrap(); // Shouldn't happen because we filter by known components in
-                                       // `extract_contract_changes_builder`
+                        // `extract_contract_changes_builder`
                         change.mark_component_as_updated(&id);
                     }
                 })
