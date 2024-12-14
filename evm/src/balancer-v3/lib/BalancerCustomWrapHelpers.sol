@@ -235,7 +235,12 @@ abstract contract BalancerCustomWrapHelpers is BalancerERC20Helpers {
     ) internal returns (uint256 calculatedAmount) {
         IERC20 sellToken = IERC20(_sellToken);
 
-        // approve
+        // approve and transfer
+        IERC20(sellToken).safeTransferFrom(
+            msg.sender,
+            address(this),
+            specifiedAmount
+        );
         sellToken.safeIncreaseAllowance(permit2, specifiedAmount);
         IPermit2(permit2).approve(
             address(sellToken),
@@ -280,7 +285,15 @@ abstract contract BalancerCustomWrapHelpers is BalancerERC20Helpers {
             new IBatchRouter.SwapPathStep[](3);
         IERC20 sellToken = IERC20(_sellToken);
 
-        // approve
+        // get balance of sender
+        uint256 initialSenderBalance = IERC20(sellToken).balanceOf(msg.sender);
+
+        // approve and transfer
+        IERC20(sellToken).safeTransferFrom(
+            msg.sender,
+            address(this),
+            initialSenderBalance
+        );
         sellToken.safeIncreaseAllowance(permit2, type(uint256).max);
         IPermit2(permit2).approve(
             address(sellToken),
@@ -376,6 +389,13 @@ abstract contract BalancerCustomWrapHelpers is BalancerERC20Helpers {
 
             IERC20(_buyToken).safeTransfer(msg.sender, specifiedAmount);
         }
+
+        // transfer back sellToken to sender
+        IERC20(sellToken).safeTransferFrom(
+            address(this),
+            msg.sender,
+            initialSenderBalance - calculatedAmount
+        );
     }
 
     /**
