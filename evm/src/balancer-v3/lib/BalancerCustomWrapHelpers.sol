@@ -237,9 +237,7 @@ abstract contract BalancerCustomWrapHelpers is BalancerERC20Helpers {
 
         // approve and transfer
         IERC20(sellToken).safeTransferFrom(
-            msg.sender,
-            address(this),
-            specifiedAmount
+            msg.sender, address(this), specifiedAmount
         );
         sellToken.safeIncreaseAllowance(permit2, specifiedAmount);
         IPermit2(permit2).approve(
@@ -290,9 +288,7 @@ abstract contract BalancerCustomWrapHelpers is BalancerERC20Helpers {
 
         // approve and transfer
         IERC20(sellToken).safeTransferFrom(
-            msg.sender,
-            address(this),
-            initialSenderBalance
+            msg.sender, address(this), initialSenderBalance
         );
         sellToken.safeIncreaseAllowance(permit2, type(uint256).max);
         IPermit2(permit2).approve(
@@ -392,9 +388,7 @@ abstract contract BalancerCustomWrapHelpers is BalancerERC20Helpers {
 
         // transfer back sellToken to sender
         IERC20(sellToken).safeTransferFrom(
-            address(this),
-            msg.sender,
-            initialSenderBalance - calculatedAmount
+            address(this), msg.sender, initialSenderBalance - calculatedAmount
         );
     }
 
@@ -455,25 +449,51 @@ abstract contract BalancerCustomWrapHelpers is BalancerERC20Helpers {
     function getLimitsCustomWrap(
         bytes32 poolId,
         address sellToken,
-        address buyToken
+        address buyToken,
+        CUSTOM_WRAP_KIND kind,
+        address sellTokenOutput,
+        address buyTokenOutput
     ) internal view returns (uint256[] memory limits) {
         limits = new uint256[](2);
-        address pool = CustomBytesAppend.extractAddress(poolId);
-
-        // get underlying tokens
-        IERC20 underlyingSellToken = IERC20(IERC4626(sellToken).asset());
-        IERC20 underlyingBuyToken = IERC20(IERC4626(buyToken).asset());
+        address pool = address(bytes20(poolId));
 
         (IERC20[] memory tokens,, uint256[] memory balancesRaw,) =
             vault.getPoolTokenInfo(pool);
 
+        if (kind == CUSTOM_WRAP_KIND.ERC20_TO_ERC20) {
+            // pool contains sellToken.share() and buyToken.share()
+            for (uint256 i = 0; i < tokens.length; i++) {
+                address token = address(tokens[i]);
+
+                if (token == sellTokenOutput) {
+                    limits[0] = IERC4626(sellTokenOutput).previewRedeem(
+                        (balancesRaw[i] * RESERVE_LIMIT_FACTOR) / 10
+                    );
+                } else if (token == buyTokenOutput) {
+                    limits[1] = IERC4626(buyTokenOutput).previewRedeem(
+                        (balancesRaw[i] * RESERVE_LIMIT_FACTOR) / 10
+                    );
+                }
+            }
+
+            return limits;
+        }
+
+        // pool contains sellToken.asset() and buyToken.asset()
+        IERC20 underlyingSellToken = IERC20(IERC4626(sellToken).asset());
+        IERC20 underlyingBuyToken = IERC20(IERC4626(buyToken).asset());
         for (uint256 i = 0; i < tokens.length; i++) {
             if (tokens[i] == underlyingSellToken) {
-                limits[0] = (balancesRaw[i] * RESERVE_LIMIT_FACTOR) / 10;
+                limits[0] = IERC4626(sellToken).previewDeposit(
+                    (balancesRaw[i] * RESERVE_LIMIT_FACTOR) / 10
+                );
             }
             if (tokens[i] == underlyingBuyToken) {
-                limits[1] = (balancesRaw[i] * RESERVE_LIMIT_FACTOR) / 10;
+                limits[1] = IERC4626(buyToken).previewDeposit(
+                    (balancesRaw[i] * RESERVE_LIMIT_FACTOR) / 10
+                );
             }
         }
+        return limits;
     }
 }

@@ -199,24 +199,46 @@ abstract contract BalancerSwapHelpers is
         limits = new uint256[](2);
 
         // custom wrap
-        if (
-            isERC4626(sellToken) && isERC4626(buyToken)
-                && CustomBytesAppend.hasPrefix(abi.encodePacked(poolId))
-        ) {
-            return getLimitsCustomWrap(poolId, sellToken, buyToken);
-        }
+        (
+            CUSTOM_WRAP_KIND customWrapKind,
+            address sellTokenOutput,
+            address buyTokenOutput
+        ) = getCustomWrap(sellToken, buyToken, address(bytes20(poolId)));
 
-        // ERC4626<->ERC20
-        if (isERC4626(sellToken) && !isERC4626(buyToken)) {
-            return getLimitsERC4626ToERC20(poolId, sellToken, buyToken);
-        }
+        if (customWrapKind != CUSTOM_WRAP_KIND.NONE) {
+            return getLimitsCustomWrap(
+                poolId,
+                sellToken,
+                buyToken,
+                customWrapKind,
+                sellTokenOutput,
+                buyTokenOutput
+            );
+        } else {
+            // ERC4626<->ERC20
+            if (isERC4626(sellToken) && !isERC4626(buyToken)) {
+                (ERC4626_SWAP_TYPE kind, address outputAddress) =
+                getERC4626PathType(
+                    address(bytes20(poolId)), sellToken, buyToken
+                );
+                return getLimitsERC4626ToERC20(
+                    poolId, sellToken, buyToken, kind, outputAddress
+                );
+            }
 
-        // ERC20->ERC4626
-        if (!isERC4626(sellToken) && isERC4626(buyToken)) {
-            return getLimitsERC20ToERC4626(poolId, sellToken, buyToken);
-        }
+            // ERC20->ERC4626
+            if (!isERC4626(sellToken) && isERC4626(buyToken)) {
+                (ERC4626_SWAP_TYPE kind, address outputAddress) =
+                getERC4626PathType(
+                    address(bytes20(poolId)), sellToken, buyToken
+                );
+                return getLimitsERC20ToERC4626(
+                    poolId, sellToken, buyToken, kind, outputAddress
+                );
+            }
 
-        // fallback: ERC20<->ERC20, ERC4626<->ERC4626
-        return getLimitsERC20(poolId, sellToken, buyToken);
+            // fallback: ERC20<->ERC20, ERC4626<->ERC4626
+            return getLimitsERC20(poolId, sellToken, buyToken);
+        }
     }
 }
