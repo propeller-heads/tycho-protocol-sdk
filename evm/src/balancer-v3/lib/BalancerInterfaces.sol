@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 pragma solidity ^0.8.26;
 
-import {ISwapAdapter} from "src/interfaces/ISwapAdapter.sol";
-import {CustomBytesAppend} from "src/libraries/CustomBytesAppend.sol";
+import {ISwapAdapter} from "../../interfaces/ISwapAdapter.sol";
+import {CustomBytesAppend} from "../../libraries/CustomBytesAppend.sol";
 import {
     IERC20,
     SafeERC20
-} from "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
+} from "../../../lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IERC4626} from
-    "openzeppelin-contracts/contracts/interfaces/IERC4626.sol";
+    "../../../lib/openzeppelin-contracts/contracts/interfaces/IERC4626.sol";
 
 interface IVault {
     type PoolConfigBits is bytes32;
