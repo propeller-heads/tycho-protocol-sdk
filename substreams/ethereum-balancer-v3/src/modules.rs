@@ -1,7 +1,5 @@
 use crate::{
-    abi::vault_contract::events::{
-        LiquidityAdded, LiquidityAddedToBuffer, LiquidityRemoved, LiquidityRemovedFromBuffer, Swap,
-    },
+    abi::vault_contract::events::{LiquidityAdded, LiquidityRemoved, Swap},
     pool_factories,
 };
 use anyhow::Result;
@@ -113,6 +111,36 @@ pub fn map_relative_balances(
                     ]);
                 }
             }
+            if let Some(LiquidityAdded { pool, amounts_added_raw, .. }) =
+                LiquidityAdded::match_and_decode(vault_log.log)
+            {
+                let component_id = format!("0x{}", hex::encode(pool));
+                if let Some(component) = store.get_last(format!("pool:{}", &component_id)) {
+                    if component.tokens.len() != amounts_added_raw.len() {
+                        panic!(
+                            "liquidity added to pool with different number of tokens than expected"
+                        );
+                    }
+                    log::info!(
+                        "liquidity added at component id: {:?} with key: {:?} with tokens: {:?}",
+                        component_id,
+                        format!("pool:{}", &component_id),
+                        component.tokens
+                    );
+                    let deltas_from_added_liquidity = amounts_added_raw
+                        .into_iter()
+                        .zip(component.tokens.iter())
+                        .map(|(amount, token)| BalanceDelta {
+                            ord: vault_log.ordinal(),
+                            tx: Some(vault_log.receipt.transaction.into()),
+                            token: token.to_vec(),
+                            delta: amount.to_signed_bytes_be(),
+                            component_id: component_id.as_bytes().to_vec(),
+                        })
+                        .collect::<Vec<_>>();
+                    deltas.extend_from_slice(&deltas_from_added_liquidity);
+                }
+            }
             if let Some(LiquidityRemoved { pool, amounts_removed_raw, .. }) =
                 LiquidityRemoved::match_and_decode(vault_log.log)
             {
@@ -142,6 +170,7 @@ pub fn map_relative_balances(
                     deltas.extend_from_slice(&deltas_from_removed_liquidity);
                 }
             }
+
             deltas
         })
         .collect::<Vec<_>>();
