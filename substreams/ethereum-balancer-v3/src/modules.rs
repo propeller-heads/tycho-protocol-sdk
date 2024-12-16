@@ -185,6 +185,64 @@ pub fn map_relative_balances(
                     ]);
                 }
             }
+            if let Some(LiquidityAdded { pool, amounts_added_raw, .. }) =
+                LiquidityAdded::match_and_decode(vault_log.log)
+            {
+                let component_id = format!("0x{}", hex::encode(pool));
+                log::info!(
+                    "liquidity added at component id: {:?} with key: {:?}",
+                    component_id,
+                    format!("pool:{}", &component_id)
+                );
+                if let Some(component) = store.get_last(format!("pool:{}", &component_id)) {
+                    if component.tokens.len() != amounts_added_raw.len() {
+                        panic!(
+                            "liquidity added to pool with different number of tokens than expected"
+                        );
+                    }
+                    let deltas_from_added_liquidity = amounts_added_raw
+                        .iter()
+                        .zip(component.tokens.iter())
+                        .map(|(amount, token)| BalanceDelta {
+                            ord: vault_log.ordinal(),
+                            tx: Some(vault_log.receipt.transaction.into()),
+                            token: token.to_vec(),
+                            delta: amount.to_signed_bytes_be(),
+                            component_id: component_id.as_bytes().to_vec(),
+                        })
+                        .collect::<Vec<_>>();
+                    deltas.extend_from_slice(&deltas_from_added_liquidity);
+                }
+            }
+            if let Some(LiquidityRemoved { pool, amounts_removed_raw, .. }) =
+                LiquidityRemoved::match_and_decode(vault_log.log)
+            {
+                let component_id = format!("0x{}", hex::encode(pool));
+                log::info!(
+                    "liquidity removed at component id: {:?} with key: {:?}",
+                    component_id,
+                    format!("pool:{}", &component_id)
+                );
+                if let Some(component) = store.get_last(format!("pool:{}", &component_id)) {
+                    if component.tokens.len() != amounts_removed_raw.len() {
+                        panic!(
+                            "liquidity removed from pool with different number of tokens than expected"
+                        );
+                    }
+                    let deltas_from_removed_liquidity = amounts_removed_raw
+                        .iter()
+                        .zip(component.tokens.iter())
+                        .map(|(amount, token)| BalanceDelta {
+                            ord: vault_log.ordinal(),
+                            tx: Some(vault_log.receipt.transaction.into()),
+                            token: token.to_vec(),
+                            delta: amount.neg().to_signed_bytes_be(),
+                            component_id: component_id.as_bytes().to_vec(),
+                        })
+                        .collect::<Vec<_>>();
+                    deltas.extend_from_slice(&deltas_from_removed_liquidity);
+                }
+            }
 
             deltas
         })
@@ -280,7 +338,7 @@ pub fn map_protocol_changes(
         &block,
         |addr| {
             components_store
-                .get_last(format!("pool:0x{0}", hex::encode(addr)))
+                .get_last(format!("pool:0x{}", hex::encode(addr)))
                 .is_some() ||
                 addr.eq(VAULT_ADDRESS)
         },
