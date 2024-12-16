@@ -39,7 +39,6 @@ pub fn map_components(block: eth::v2::Block) -> Result<BlockTransactionProtocolC
                             call.call,
                             tx,
                         )
-                        .or_else(|| pool_factories::map_buffer_components(log, tx))
                     })
                     .collect::<Vec<_>>();
 
@@ -112,106 +111,6 @@ pub fn map_relative_balances(
                             component_id: component_id.as_bytes().to_vec(),
                         },
                     ]);
-                }
-            }
-            if let Some(LiquidityAddedToBuffer {
-                wrapped_token,
-                amount_underlying,
-                amount_wrapped,
-                ..
-            }) = LiquidityAddedToBuffer::match_and_decode(vault_log.log)
-            {
-                let component_id = format!("0x{}", hex::encode(wrapped_token));
-                log::info!(
-                    "buffer liquidity added at component id: {:?} with key: {:?}",
-                    component_id,
-                    format!("pool:{}", &component_id)
-                );
-                if let Some(component) = store.get_last(format!("pool:{}", &component_id)) {
-                    let underlying_token = component.tokens[0].to_owned();
-                    let wrapped_token = component.tokens[1].to_owned();
-                    deltas.extend_from_slice(&[
-                        BalanceDelta {
-                            ord: vault_log.ordinal(),
-                            tx: Some(vault_log.receipt.transaction.into()),
-                            token: wrapped_token.to_vec(),
-                            delta: amount_wrapped.to_signed_bytes_be(),
-                            component_id: component_id.as_bytes().to_vec(),
-                        },
-                        BalanceDelta {
-                            ord: vault_log.ordinal(),
-                            tx: Some(vault_log.receipt.transaction.into()),
-                            token: underlying_token.to_vec(),
-                            delta: amount_underlying.to_signed_bytes_be(),
-                            component_id: component_id.as_bytes().to_vec(),
-                        },
-                    ]);
-                }
-            }
-            if let Some(LiquidityRemovedFromBuffer {
-                wrapped_token,
-                amount_underlying,
-                amount_wrapped,
-                ..
-            }) = LiquidityRemovedFromBuffer::match_and_decode(vault_log.log)
-            {
-                let component_id = format!("0x{}", hex::encode(wrapped_token));
-                log::info!(
-                    "buffer liquidity removed at component id: {:?} with key: {:?}",
-                    component_id,
-                    format!("pool:{}", &component_id)
-                );
-                if let Some(component) = store.get_last(format!("pool:{}", &component_id)) {
-                    let underlying_token = component.tokens[0].to_owned();
-                    let wrapped_token = component.tokens[1].to_owned();
-                    deltas.extend_from_slice(&[
-                        BalanceDelta {
-                            ord: vault_log.ordinal(),
-                            tx: Some(vault_log.receipt.transaction.into()),
-                            token: wrapped_token.to_vec(),
-                            delta: amount_wrapped
-                                .neg()
-                                .to_signed_bytes_be(),
-                            component_id: component_id.as_bytes().to_vec(),
-                        },
-                        BalanceDelta {
-                            ord: vault_log.ordinal(),
-                            tx: Some(vault_log.receipt.transaction.into()),
-                            token: underlying_token.to_vec(),
-                            delta: amount_underlying.to_signed_bytes_be(),
-                            component_id: component_id.as_bytes().to_vec(),
-                        },
-                    ]);
-                }
-            }
-            if let Some(LiquidityAdded { pool, amounts_added_raw, .. }) =
-                LiquidityAdded::match_and_decode(vault_log.log)
-            {
-                let component_id = format!("0x{}", hex::encode(pool));
-                if let Some(component) = store.get_last(format!("pool:{}", &component_id)) {
-                    if component.tokens.len() != amounts_added_raw.len() {
-                        panic!(
-                            "liquidity added to pool with different number of tokens than expected"
-                        );
-                    }
-                    log::info!(
-                        "liquidity added at component id: {:?} with key: {:?} with tokens: {:?}",
-                        component_id,
-                        format!("pool:{}", &component_id),
-                        component.tokens
-                    );
-                    let deltas_from_added_liquidity = amounts_added_raw
-                        .into_iter()
-                        .zip(component.tokens.iter())
-                        .map(|(amount, token)| BalanceDelta {
-                            ord: vault_log.ordinal(),
-                            tx: Some(vault_log.receipt.transaction.into()),
-                            token: token.to_vec(),
-                            delta: amount.to_signed_bytes_be(),
-                            component_id: component_id.as_bytes().to_vec(),
-                        })
-                        .collect::<Vec<_>>();
-                    deltas.extend_from_slice(&deltas_from_added_liquidity);
                 }
             }
             if let Some(LiquidityRemoved { pool, amounts_removed_raw, .. }) =
