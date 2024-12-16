@@ -189,19 +189,20 @@ pub fn map_relative_balances(
                 LiquidityAdded::match_and_decode(vault_log.log)
             {
                 let component_id = format!("0x{}", hex::encode(pool));
-                log::info!(
-                    "liquidity added at component id: {:?} with key: {:?}",
-                    component_id,
-                    format!("pool:{}", &component_id)
-                );
                 if let Some(component) = store.get_last(format!("pool:{}", &component_id)) {
                     if component.tokens.len() != amounts_added_raw.len() {
                         panic!(
                             "liquidity added to pool with different number of tokens than expected"
                         );
                     }
+                    log::info!(
+                        "liquidity added at component id: {:?} with key: {:?} with tokens: {:?}",
+                        component_id,
+                        format!("pool:{}", &component_id),
+                        component.tokens
+                    );
                     let deltas_from_added_liquidity = amounts_added_raw
-                        .iter()
+                        .into_iter()
                         .zip(component.tokens.iter())
                         .map(|(amount, token)| BalanceDelta {
                             ord: vault_log.ordinal(),
@@ -230,7 +231,7 @@ pub fn map_relative_balances(
                         );
                     }
                     let deltas_from_removed_liquidity = amounts_removed_raw
-                        .iter()
+                        .into_iter()
                         .zip(component.tokens.iter())
                         .map(|(amount, token)| BalanceDelta {
                             ord: vault_log.ordinal(),
@@ -241,6 +242,62 @@ pub fn map_relative_balances(
                         })
                         .collect::<Vec<_>>();
                     deltas.extend_from_slice(&deltas_from_removed_liquidity);
+                }
+            }
+            if let Some(Wrap { wrapped_token, deposited_underlying, minted_shares, .. }) = Wrap::match_and_decode(vault_log.log) {
+                let component_id = format!("0x{}", hex::encode(wrapped_token));
+                log::info!(
+                    "wrap at component id: {:?} with key: {:?}",
+                    component_id,
+                    format!("pool:{}", &component_id)
+                );
+                if let Some(component) = store.get_last(format!("pool:{}", &component_id)) {
+                    let underlying_token = component.tokens[0].to_owned();
+                    let wrapped_token = component.tokens[1].to_owned();
+                    deltas.extend_from_slice(&[
+                        BalanceDelta {
+                            ord: vault_log.ordinal(),
+                            tx: Some(vault_log.receipt.transaction.into()),
+                            token: wrapped_token.to_vec(),
+                            delta: minted_shares.to_signed_bytes_be(),
+                            component_id: component_id.as_bytes().to_vec(),
+                        },
+                        BalanceDelta {
+                            ord: vault_log.ordinal(),
+                            tx: Some(vault_log.receipt.transaction.into()),
+                            token: underlying_token.to_vec(),
+                            delta: deposited_underlying.to_signed_bytes_be(),
+                            component_id: component_id.as_bytes().to_vec(),
+                        },
+                    ]);
+                }
+            }
+            if let Some(Unwrap { wrapped_token, burned_shares, withdrawn_underlying, .. }) = Unwrap::match_and_decode(vault_log.log) {
+                let component_id = format!("0x{}", hex::encode(wrapped_token));
+                log::info!(
+                    "unwrap at component id: {:?} with key: {:?}",
+                    component_id,
+                    format!("pool:{}", &component_id)
+                );
+                if let Some(component) = store.get_last(format!("pool:{}", &component_id)) {
+                    let underlying_token = component.tokens[0].to_owned();
+                    let wrapped_token = component.tokens[1].to_owned();
+                    deltas.extend_from_slice(&[
+                        BalanceDelta {
+                            ord: vault_log.ordinal(),
+                            tx: Some(vault_log.receipt.transaction.into()),
+                            token: underlying_token.to_vec(),
+                            delta: withdrawn_underlying.neg().to_signed_bytes_be(),
+                            component_id: component_id.as_bytes().to_vec(),
+                        },
+                        BalanceDelta {
+                            ord: vault_log.ordinal(),
+                            tx: Some(vault_log.receipt.transaction.into()),
+                            token: wrapped_token.to_vec(),
+                            delta: burned_shares.neg().to_signed_bytes_be(),
+                            component_id: component_id.as_bytes().to_vec(),
+                        },
+                    ]);
                 }
             }
 
