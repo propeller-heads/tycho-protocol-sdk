@@ -14,9 +14,12 @@ import {
 import {ERC20} from "openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
 
 import {FractionMath} from "src/libraries/FractionMath.sol";
-import "forge-std/Test.sol";
 
-contract BalancerV3SwapAdapterTest is AdapterTest, ERC20, BalancerV3Errors {
+contract BalancerV3SwapAdapterSepoliaTest is
+    AdapterTest,
+    ERC20,
+    BalancerV3Errors
+{
     /// @notice Thrown when too many nonces are invalidated.
     error ExcessiveInvalidation();
 

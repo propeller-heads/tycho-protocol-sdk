@@ -6,7 +6,8 @@ import {CustomBytesAppend} from "../../libraries/CustomBytesAppend.sol";
 import {
     IERC20,
     SafeERC20
-} from "../../../lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
+} from
+    "../../../lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IERC4626} from
     "../../../lib/openzeppelin-contracts/contracts/interfaces/IERC4626.sol";
 

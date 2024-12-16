@@ -14,23 +14,47 @@ abstract contract BalancerERC4626Helpers is BalancerCustomWrapHelpers {
         IERC20[] memory tokens = vault.getPoolTokens(pool);
 
         if (!isERC4626(sellToken) && isERC4626(buyToken)) {
+            // look for sellToken or buy token (initial)
             for (uint256 i = 0; i < tokens.length; i++) {
                 address token = address(tokens[i]);
 
                 if (isERC4626(token)) {
                     if (IERC4626(token).asset() == sellToken) {
-                        // Path is e.g. dai-sDAI-sBTC, wrap DAI to sDAI, swap
-                        // sDAI to sBTC
+                        // Path is e.g. DAI-sDAI-sBTC, wrap DAI to sDAI, swap
+                        // sDAI to sBTC, pool: sDAI-sBTC
                         outputAddress = token; // share of sellToken
                         kind = ERC4626_SWAP_TYPE.ERC20_WRAP;
                         break;
                     }
                 } else {
                     if (token == IERC4626(buyToken).asset()) {
-                        // Path is e.g. dai-BTC-sBTC, swap dai to BTC, wrap BTC
-                        // to sBTC
+                        // Path is e.g. DAI-BTC-sBTC, swap dai to BTC, wrap BTC
+                        // to sBTC, pool: DAI-BTC
                         outputAddress = token; // asset of buyToken
                         kind = ERC4626_SWAP_TYPE.ERC20_SWAP;
+                        break;
+                    }
+                }
+            }
+
+            // deep check for direct swaps
+            if (kind == ERC4626_SWAP_TYPE.NONE) {
+                return (kind, outputAddress);
+            }
+            for (uint256 i = 0; i < tokens.length; i++) {
+                address token = address(tokens[i]);
+
+                if (kind == ERC4626_SWAP_TYPE.ERC20_WRAP) {
+                    // if this is direct and not custom, pool WILL contain dai
+                    if (token == sellToken) {
+                        kind = ERC4626_SWAP_TYPE.NONE;
+                        break;
+                    }
+                } else {
+                    if (token == buyToken) {
+                        // if this is direct and not custom, pool WILL contain
+                        // sBTC
+                        kind = ERC4626_SWAP_TYPE.NONE;
                         break;
                     }
                 }
@@ -42,7 +66,7 @@ abstract contract BalancerERC4626Helpers is BalancerCustomWrapHelpers {
                 if (isERC4626(token)) {
                     if (IERC4626(token).asset() == buyToken) {
                         // Path is e.g. sDAI-sBTC-BTC, swap sDAI to sBTC, unwrap
-                        // sBTC to BTC
+                        // sBTC to BTC, pool: sDAI-sBTC if not direct
                         outputAddress = token; // buyToken.share()
                         kind = ERC4626_SWAP_TYPE.ERC4626_UNWRAP;
                         break;
@@ -50,9 +74,31 @@ abstract contract BalancerERC4626Helpers is BalancerCustomWrapHelpers {
                 } else {
                     if (token == buyToken) {
                         // Path is e.g. sDAI-DAI-BTC, unwrap sDAI to DAI, swap
-                        // DAI to BTC
+                        // DAI to BTC, pool: DAI-BTC if not direct
                         outputAddress = token; // buyToken, unused
-                        kind = ERC4626_SWAP_TYPE.ERC20_SWAP;
+                        kind = ERC4626_SWAP_TYPE.ERC4626_SWAP;
+                        break;
+                    }
+                }
+            }
+
+            // deep check for direct swaps
+            if (kind == ERC4626_SWAP_TYPE.NONE) {
+                return (kind, outputAddress);
+            }
+            for (uint256 i = 0; i < tokens.length; i++) {
+                address token = address(tokens[i]);
+
+                if (kind == ERC4626_SWAP_TYPE.ERC4626_UNWRAP) {
+                    // if this is direct and not custom, pool WILL contain BTC
+                    if (token == buyToken) {
+                        kind = ERC4626_SWAP_TYPE.NONE;
+                        break;
+                    }
+                } else {
+                    // if this is direct and not custom, pool WILL contain sDAI
+                    if (token == sellToken) {
+                        kind = ERC4626_SWAP_TYPE.NONE;
                         break;
                     }
                 }
@@ -92,6 +138,7 @@ abstract contract BalancerERC4626Helpers is BalancerCustomWrapHelpers {
                 IVault.WrappingDirection.UNWRAP,
                 false
             );
+
             steps[0] = step0;
 
             // swap sellToken.asset() to buyToken
@@ -557,7 +604,7 @@ abstract contract BalancerERC4626Helpers is BalancerCustomWrapHelpers {
                 if (token == outputTokenAddress) {
                     uint256 buyTokenAssetLimit =
                         (balancesRaw[i] * RESERVE_LIMIT_FACTOR) / 10; // BTC balance
-                        // in pool
+                    // in pool
                     limits[1] = IERC4626(outputTokenAddress).previewDeposit(
                         buyTokenAssetLimit
                     ); // limits[1] is shares obtainable by depositing

@@ -36,31 +36,29 @@ abstract contract BalancerSwapHelpers is
                 buyTokenOutput
             );
         } else {
-            if (
-                (isERC4626(sellToken) && !isERC4626(buyToken))
-                    || (!isERC4626(sellToken) && isERC4626(buyToken))
-            ) {
+            if (isERC4626(sellToken) || !isERC4626(buyToken)) {
                 (ERC4626_SWAP_TYPE kind, address outputAddress) =
                     getERC4626PathType(poolAddress, sellToken, buyToken);
-
-                if (isERC4626(sellToken) && !isERC4626(buyToken)) {
-                    return getAmountOutERC4626ForERC20(
-                        poolAddress,
-                        sellToken,
-                        buyToken,
-                        specifiedAmount,
-                        kind,
-                        outputAddress
-                    );
-                } else {
-                    return getAmountOutERC20ForERC4626(
-                        poolAddress,
-                        sellToken,
-                        buyToken,
-                        specifiedAmount,
-                        kind,
-                        outputAddress
-                    );
+                if (kind != ERC4626_SWAP_TYPE.NONE) {
+                    if (isERC4626(sellToken) && !isERC4626(buyToken)) {
+                        return getAmountOutERC4626ForERC20(
+                            poolAddress,
+                            sellToken,
+                            buyToken,
+                            specifiedAmount,
+                            kind,
+                            outputAddress
+                        );
+                    } else {
+                        return getAmountOutERC20ForERC4626(
+                            poolAddress,
+                            sellToken,
+                            buyToken,
+                            specifiedAmount,
+                            kind,
+                            outputAddress
+                        );
+                    }
                 }
             }
         }
@@ -116,54 +114,52 @@ abstract contract BalancerSwapHelpers is
                 );
             }
         } else {
-            if (
-                (isERC4626(sellToken) && !isERC4626(buyToken))
-                    || (!isERC4626(sellToken) && isERC4626(buyToken))
-            ) {
+            if (isERC4626(sellToken) || !isERC4626(buyToken)) {
                 (ERC4626_SWAP_TYPE kind, address outputAddress) =
                     getERC4626PathType(poolAddress, sellToken, buyToken);
-
-                if (isERC4626(sellToken) && !isERC4626(buyToken)) {
-                    // perform swap: ERC4626(share)->ERC20(token)
-                    if (side == OrderSide.Sell) {
-                        return sellERC4626ForERC20(
-                            poolAddress,
-                            sellToken,
-                            buyToken,
-                            specifiedAmount,
-                            kind,
-                            outputAddress
-                        );
-                    } else {
-                        return buyERC20WithERC4626(
-                            poolAddress,
-                            sellToken,
-                            buyToken,
-                            specifiedAmount,
-                            kind,
-                            outputAddress
-                        );
-                    }
-                } else if (!isERC4626(sellToken) && isERC4626(buyToken)) {
-                    // perform swap: ERC20(token)->ERC4626(share)
-                    if (side == OrderSide.Sell) {
-                        return sellERC20ForERC4626(
-                            poolAddress,
-                            sellToken,
-                            buyToken,
-                            specifiedAmount,
-                            kind,
-                            outputAddress
-                        );
-                    } else {
-                        buyERC4626WithERC20(
-                            poolAddress,
-                            sellToken,
-                            buyToken,
-                            specifiedAmount,
-                            kind,
-                            outputAddress
-                        );
+                if (kind != ERC4626_SWAP_TYPE.NONE) {
+                    if (isERC4626(sellToken) && !isERC4626(buyToken)) {
+                        // perform swap: ERC4626(share)->ERC20(token)
+                        if (side == OrderSide.Sell) {
+                            return sellERC4626ForERC20(
+                                poolAddress,
+                                sellToken,
+                                buyToken,
+                                specifiedAmount,
+                                kind,
+                                outputAddress
+                            );
+                        } else {
+                            return buyERC20WithERC4626(
+                                poolAddress,
+                                sellToken,
+                                buyToken,
+                                specifiedAmount,
+                                kind,
+                                outputAddress
+                            );
+                        }
+                    } else if (!isERC4626(sellToken) && isERC4626(buyToken)) {
+                        // perform swap: ERC20(token)->ERC4626(share)
+                        if (side == OrderSide.Sell) {
+                            return sellERC20ForERC4626(
+                                poolAddress,
+                                sellToken,
+                                buyToken,
+                                specifiedAmount,
+                                kind,
+                                outputAddress
+                            );
+                        } else {
+                            buyERC4626WithERC20(
+                                poolAddress,
+                                sellToken,
+                                buyToken,
+                                specifiedAmount,
+                                kind,
+                                outputAddress
+                            );
+                        }
                     }
                 }
             }
@@ -215,26 +211,26 @@ abstract contract BalancerSwapHelpers is
                 buyTokenOutput
             );
         } else {
-            // ERC4626<->ERC20
-            if (isERC4626(sellToken) && !isERC4626(buyToken)) {
+            if (isERC4626(sellToken) || isERC4626(buyToken)) {
                 (ERC4626_SWAP_TYPE kind, address outputAddress) =
                 getERC4626PathType(
                     address(bytes20(poolId)), sellToken, buyToken
                 );
-                return getLimitsERC4626ToERC20(
-                    poolId, sellToken, buyToken, kind, outputAddress
-                );
-            }
+                if (kind != ERC4626_SWAP_TYPE.NONE) {
+                    // ERC4626<->ERC20
+                    if (isERC4626(sellToken) && !isERC4626(buyToken)) {
+                        return getLimitsERC4626ToERC20(
+                            poolId, sellToken, buyToken, kind, outputAddress
+                        );
+                    }
 
-            // ERC20->ERC4626
-            if (!isERC4626(sellToken) && isERC4626(buyToken)) {
-                (ERC4626_SWAP_TYPE kind, address outputAddress) =
-                getERC4626PathType(
-                    address(bytes20(poolId)), sellToken, buyToken
-                );
-                return getLimitsERC20ToERC4626(
-                    poolId, sellToken, buyToken, kind, outputAddress
-                );
+                    // ERC20->ERC4626
+                    if (!isERC4626(sellToken) && isERC4626(buyToken)) {
+                        return getLimitsERC20ToERC4626(
+                            poolId, sellToken, buyToken, kind, outputAddress
+                        );
+                    }
+                }
             }
 
             // fallback: ERC20<->ERC20, ERC4626<->ERC4626

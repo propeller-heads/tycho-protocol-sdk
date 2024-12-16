@@ -254,7 +254,7 @@ abstract contract BalancerERC20Helpers is BalancerStorage {
                 tokenIn: sellToken,
                 steps: steps,
                 exactAmountIn: specifiedAmount,
-                minAmountOut: 0
+                minAmountOut: 1
             });
         }
     }

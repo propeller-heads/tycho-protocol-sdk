@@ -14,7 +14,6 @@ import {
 import {ERC20} from "openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
 
 import {FractionMath} from "src/libraries/FractionMath.sol";
-import "forge-std/Test.sol";
 
 contract BalancerV3SwapAdapterTest is AdapterTest, ERC20, BalancerV3Errors {
     /// @notice Thrown when too many nonces are invalidated.
@@ -35,10 +34,10 @@ contract BalancerV3SwapAdapterTest is AdapterTest, ERC20, BalancerV3Errors {
     address constant permit2 = 0x000000000022D473030F116dDEE9F6B43aC78BA3;
 
     // ERC20
-    address constant USDC_USDT_POOL_ADDRESS =
-        0x89BB794097234E5E930446C0CeC0ea66b35D7570;
-    address constant USDC = 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48;
-    address constant USDT = 0xdAC17F958D2ee523a2206206994597C13D831ec7;
+    address constant ERC20_POOL_ADDRESS =
+        0x4AB7aB316D43345009B2140e0580B072eEc7DF16;
+    address constant ERC20_TOKEN_0 = 0x0bfc9d54Fc184518A81162F8fB99c2eACa081202;
+    address constant ERC20_TOKEN_1 = 0xA35b1B31Ce002FBF2058D22F30f95D405200A15b;
 
     address constant waEthUSDT = 0x7Bc3485026Ac48b6cf9BaF0A377477Fff5703Af8;
     address constant waEthUSDC = 0xD4fa2D31b7968E448877f69A96DE69f5de8cD23E;
@@ -47,7 +46,6 @@ contract BalancerV3SwapAdapterTest is AdapterTest, ERC20, BalancerV3Errors {
     address constant GOETH_USDC_POOL_ADDRESS =
         0xf91c11BA4220b7a72E1dc5E92f2b48D3fdF62726;
     address constant GOETH = 0x440017A1b021006d556d7fc06A54c32E42Eb745B;
-    
 
     uint256 constant TEST_ITERATIONS = 100;
 
@@ -63,71 +61,95 @@ contract BalancerV3SwapAdapterTest is AdapterTest, ERC20, BalancerV3Errors {
 
         vm.label(address(balancerV3Vault), "BalancerV3Vault");
         vm.label(address(router), "BalancerV3BatchRouter");
-        vm.label(USDC, "USDC");
-        vm.label(USDT, "USDT");
         vm.label(address(adapter), "BalancerV3SwapAdapter");
+        vm.label(ERC20_TOKEN_0, "ERC20_TOKEN_0");
+        vm.label(ERC20_TOKEN_1, "ERC20_TOKEN_1");
+        vm.label(ERC20_POOL_ADDRESS, "ERC20_POOL_ADDRESS");
+        vm.label(waEthUSDT, "waEthUSDT");
+        vm.label(waEthUSDC, "waEthUSDC");
+        vm.label(GOETH_USDC_POOL_ADDRESS, "GOETH_USDC_POOL_ADDRESS");
+        vm.label(GOETH, "GOETH");
+        vm.label(permit2, "Permit2");
     }
 
-    function testGetLimitsBalancerV3() public view {
-        bytes32 pool = bytes32(bytes20(USDC_USDT_POOL_ADDRESS));
-        uint256[] memory limits = adapter.getLimits(pool, USDT, USDC);
-        console.log("limit USDT: ", limits[0]);
-        console.log("limit USDC: ", limits[1]);
+    function testPriceFuzzBalancerV3(uint256 amount0, uint256 amount1) public {
+        address token0 = ERC20_TOKEN_0;
+        address token1 = ERC20_TOKEN_1;
+
+        bytes32 pool = bytes32(bytes20(ERC20_POOL_ADDRESS));
+        uint256[] memory limits = adapter.getLimits(pool, token0, token1);
+
+        vm.assume(amount0 < limits[0] && amount0 > _MINIMUM_TRADE_AMOUNT);
+        vm.assume(amount1 < limits[1] && amount1 > _MINIMUM_TRADE_AMOUNT);
+
+        uint256[] memory amounts = new uint256[](2);
+        amounts[0] = amount0;
+        amounts[1] = amount1;
+
+        __prankStaticCall();
+        Fraction[] memory prices = adapter.price(pool, token0, token1, amounts);
+
+        for (uint256 i = 0; i < prices.length; i++) {
+            assertGt(prices[i].numerator, 0);
+            assertGt(prices[i].denominator, 0);
+        }
     }
 
-    function testSwapSellUsdcForGoeth() public {
-        bytes32 pool = bytes32(bytes20(GOETH_USDC_POOL_ADDRESS));
-        // uint256[] memory limits = adapter.getLimits(pool, USDT, USDC);
+    function testSwapFuzzBalancerV3_ERC20_ERC20(uint256 specifiedAmount, bool isBuy)
+        public
+    {
+        address token0 = ERC20_TOKEN_0;
+        address token1 = ERC20_TOKEN_1;
 
-        OrderSide side = OrderSide.Sell;
-        uint256 specifiedAmount = 10000000;
+        OrderSide side = isBuy ? OrderSide.Buy : OrderSide.Sell;
+        bytes32 pool = bytes32(bytes20(ERC20_POOL_ADDRESS));
+        uint256[] memory limits = adapter.getLimits(pool, token0, token1);
 
-        deal(USDC, address(this), specifiedAmount);
-        IERC20(USDC).approve(address(adapter), type(uint256).max);
+        if (side == OrderSide.Buy) {
+            vm.assume(
+                specifiedAmount < limits[1]
+                    && specifiedAmount > _MINIMUM_TRADE_AMOUNT
+            );
+        } else {
+            vm.assume(
+                specifiedAmount < limits[0]
+                    && specifiedAmount > _MINIMUM_TRADE_AMOUNT
+            );
+        }
 
-        uint256 balBeforeUSDC = IERC20(USDC).balanceOf(address(this));
-        uint256 balBeforeGOETH = IERC20(GOETH).balanceOf(address(this));
+        deal(token0, address(this), type(uint256).max);
+        IERC20(token0).approve(address(adapter), type(uint256).max);
 
-        Trade memory trade = adapter.swap(pool, USDC, GOETH, side, specifiedAmount);
+        uint256 bal0 = IERC20(token0).balanceOf(address(this));
+        uint256 bal1 = IERC20(token1).balanceOf(address(this));
 
-        uint256 balAfterUSDC = IERC20(USDC).balanceOf(address(this));
-        uint256 balAfterGOETH = IERC20(USDT).balanceOf(address(this));
+        uint256[] memory amounts = new uint256[](1);
+        amounts[0] = specifiedAmount;
+        Trade memory trade =
+            adapter.swap(pool, token0, token1, side, specifiedAmount);
 
-        // assertEq(balBeforeUSDC - balAfterUSDC, specifiedAmount);
-        // assertEq(balBeforeGOETH + trade.calculatedAmount, balAfterGOETH);
+        if (side == OrderSide.Buy) {
+            assertEq(
+                specifiedAmount, IERC20(token1).balanceOf(address(this)) - bal1
+            );
+            assertEq(
+                trade.calculatedAmount,
+                bal0 - IERC20(token0).balanceOf(address(this))
+            );
+        } else {
+            assertEq(
+                specifiedAmount, bal0 - IERC20(token0).balanceOf(address(this))
+            );
+            assertEq(
+                trade.calculatedAmount,
+                IERC20(token1).balanceOf(address(this)) - bal1
+            );
+        }
     }
 
-    function testSwapSellUsdcForUsdt() public {
-        bytes32 pool = bytes32(bytes20(USDC_USDT_POOL_ADDRESS));
-        // uint256[] memory limits = adapter.getLimits(pool, USDT, USDC);
-
-        OrderSide side = OrderSide.Sell;
-        uint256 specifiedAmount = 1000*1e6;
-
-        deal(USDC, address(this), specifiedAmount);
-        IERC20(USDC).approve(address(adapter), type(uint256).max);
-
-        uint256 balBeforeUSDC = IERC20(USDC).balanceOf(address(this));
-        uint256 balBeforeUSDT = IERC20(USDT).balanceOf(address(this));
-
-        Trade memory trade = adapter.swap(pool, USDC, USDT, side, specifiedAmount);
-
-        uint256 balAfterUSDC = IERC20(USDC).balanceOf(address(this));
-        uint256 balAfterUSDT = IERC20(USDT).balanceOf(address(this));
-
-        assertEq(balBeforeUSDC - balAfterUSDC, specifiedAmount);
-        assertEq(balBeforeUSDT + trade.calculatedAmount, balAfterUSDT);
-    }
-
-    function testSwapSellUsdtForUsdc() public {
-        bytes32 pool = bytes32(bytes20(USDC_USDT_POOL_ADDRESS));
-
-        OrderSide side = OrderSide.Sell;
-        uint256 specifiedAmount = 10000000;
-
-        deal(USDT, address(this), type(uint256).max);
-        IERC20(USDT).approve(address(adapter), specifiedAmount);
-
-        adapter.swap(pool, USDT, USDC, side, specifiedAmount);
+    function __prankStaticCall() internal {
+        // Prank address 0x0 for both msg.sender and tx.origin (to identify as a
+        // staticcall).
+        vm.prank(address(0), address(0));
     }
 }
