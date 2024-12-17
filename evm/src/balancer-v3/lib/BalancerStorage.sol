@@ -34,10 +34,9 @@ abstract contract BalancerStorage {
 
     enum ERC4626_SWAP_TYPE {
         NONE,
-        ERC20_SWAP, // ERC20->ERC20->ERC4626
-        ERC20_WRAP, // ERC20->ERC4626->ERC4626
-        ERC4626_UNWRAP, // ERC4626->ERC20->ERC20
-        ERC4626_SWAP // ERC4626->ERC4626->ERC20
-
+        SWAP_WRAP,
+        SWAP_UNWRAP,
+        WRAP_SWAP,
+        UNWRAP_SWAP
     }
 }

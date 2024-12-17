@@ -10,12 +10,18 @@ import "./lib/BalancerSwapHelpers.sol";
  * - ETH<->ERC20
  * - ERC20<->ERC20
  * - ERC4626<->ERC4626
+ * - ERC4626<->ERC20
  *
  * 2 steps:
- * - ERC20->(ERC4626->ERC4626)
- * - (ERC20->ERC20)->ERC4626
- * - (ERC4626->ERC20)->ERC20
- * - (ERC4626->ERC4626)->ERC20
+ * - (ERC20->ERC20)->ERC4626: swap, wrap
+ * - ERC20->(ERC4626->ERC4626): wrap, swap_0
+ * - ERC4626->(ERC20->ERC20): unwrap, swap
+ * - (ERC4626->ERC4626)->ERC20: swap, unwrap_0
+ *
+ * - (ERC20->ERC4626)->ERC20; swap, unwrap_1
+ * - ERC20->(ERC4626->ERC20); wrap, swap_1
+ * - (ERC4626->ERC20)->ERC4626: swap, wrap
+ * - ERC4626->(ERC20->ERC4626): unwrap, swap
  *
  * 3 steps:
  * - ERC20->(ERC4626->ERC4626)->ERC20
@@ -72,7 +78,6 @@ contract BalancerV3SwapAdapter is BalancerSwapHelpers {
     /// @inheritdoc ISwapAdapter
     function getLimits(bytes32 poolId, address sellToken, address buyToken)
         external
-        view
         override
         returns (uint256[] memory limits)
     {

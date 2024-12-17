@@ -8,10 +8,7 @@ import "./BalancerERC4626Helpers.sol";
  * @dev A wrapped library containing swap functions, helpers and storage for the
  * Balancer V3 Swap Adapter contract
  */
-abstract contract BalancerSwapHelpers is
-    BalancerERC4626Helpers,
-    ISwapAdapter
-{
+abstract contract BalancerSwapHelpers is BalancerERC4626Helpers, ISwapAdapter {
     function getAmountOutMiddleware(
         bytes32 pool,
         address sellToken,
@@ -20,58 +17,56 @@ abstract contract BalancerSwapHelpers is
     ) internal returns (uint256 amountOut) {
         address poolAddress = address(bytes20(pool));
 
-        (
-            CUSTOM_WRAP_KIND kindWrap,
-            address sellTokenOutput,
-            address buyTokenOutput
-        ) = getCustomWrap(sellToken, buyToken, poolAddress);
+        // getTokens() -> [token0, token1] -> if([sellToken,buyToken) in [token0, token1]) -> direct
+        IERC20[] memory tokens = vault.getPoolTokens(poolAddress);
 
-        if (kindWrap != CUSTOM_WRAP_KIND.NONE) {
-            return getAmountOutCustomWrap(
-                poolAddress,
-                sellToken,
-                buyToken,
-                specifiedAmount,
-                kindWrap,
-                sellTokenOutput,
-                buyTokenOutput
-            );
-        } else {
-            if (isERC4626(sellToken) || !isERC4626(buyToken)) {
-                (ERC4626_SWAP_TYPE kind, address outputAddress) =
-                    getERC4626PathType(poolAddress, sellToken, buyToken);
-                if (kind != ERC4626_SWAP_TYPE.NONE) {
-                    if (isERC4626(sellToken) && !isERC4626(buyToken)) {
-                        return getAmountOutERC4626ForERC20(
-                            poolAddress,
-                            sellToken,
-                            buyToken,
-                            specifiedAmount,
-                            kind,
-                            outputAddress
-                        );
-                    } else {
-                        return getAmountOutERC20ForERC4626(
-                            poolAddress,
-                            sellToken,
-                            buyToken,
-                            specifiedAmount,
-                            kind,
-                            outputAddress
-                        );
-                    }
-                }
+        bool sellTokenFound;
+        bool buyTokenFound;
+        for (uint256 i = 0; i < tokens.length; i++) {
+            address token = address(tokens[i]);
+            if (token == sellToken) {
+                sellTokenFound = true;
+            } else if (token == buyToken) {
+                buyTokenFound = true;
             }
         }
 
-        (IBatchRouter.SwapPathExactAmountIn memory sellPath,,) = createERC20Path(
-            poolAddress,
-            IERC20(sellToken),
-            IERC20(buyToken),
-            specifiedAmount,
-            false
-        );
-        return getAmountOut(sellPath);
+        if (!sellTokenFound || !buyTokenFound) {
+            (
+                CUSTOM_WRAP_KIND kindWrap,
+                address sellTokenOutput,
+                address buyTokenOutput
+            ) = getCustomWrap(sellToken, buyToken, poolAddress); 
+
+            if (kindWrap != CUSTOM_WRAP_KIND.NONE) {
+                return
+                getAmountOutCustomWrap(poolAddress, sellToken, buyToken, specifiedAmount, kindWrap, sellTokenOutput, buyTokenOutput);
+            }
+            else {
+                (
+                        ERC4626_SWAP_TYPE kind,
+                        address outputAddress
+                    ) = getERC4626PathType(poolAddress, sellToken, buyToken, sellTokenFound, buyTokenFound);
+
+                    if (kind != ERC4626_SWAP_TYPE.NONE) {
+                        return getAmountOutERC4626AndERC20(poolAddress, sellToken, buyToken, specifiedAmount, kind, outputAddress);
+                    }
+            }
+        }
+
+            // fallback: ERC20<->ERC20, ERC4626<->ERC4626
+            (
+            IBatchRouter.SwapPathExactAmountIn memory sellPath,
+            ,
+
+        ) = createERC20Path(
+                poolAddress,
+                IERC20(sellToken),
+                IERC20(buyToken),
+                specifiedAmount,
+                false
+            );
+            return getAmountOut(sellPath);
     }
 
     /**
@@ -86,107 +81,84 @@ abstract contract BalancerSwapHelpers is
     ) internal returns (uint256) {
         address poolAddress = address(bytes20(pool));
 
-        (
-            CUSTOM_WRAP_KIND kindWrap,
-            address sellTokenOutput,
-            address buyTokenOutput
-        ) = getCustomWrap(sellToken, buyToken, poolAddress);
+        // getTokens() -> [token0, token1] -> if([sellToken,buyToken) in [token0, token1]) -> direct
+        IERC20[] memory tokens = vault.getPoolTokens(poolAddress);
 
-        if (kindWrap != CUSTOM_WRAP_KIND.NONE) {
-            if (side == OrderSide.Sell) {
-                return sellCustomWrap(
-                    poolAddress,
-                    sellToken,
-                    buyToken,
-                    specifiedAmount,
-                    kindWrap,
-                    sellTokenOutput,
-                    buyTokenOutput
-                );
-            } else {
-                return buyCustomWrap(
-                    poolAddress,
-                    sellToken,
-                    buyToken,
-                    specifiedAmount,
-                    kindWrap,
-                    sellTokenOutput,
-                    buyTokenOutput
-                );
+        bool sellTokenFound;
+        bool buyTokenFound;
+        for (uint256 i = 0; i < tokens.length; i++) {
+            address token = address(tokens[i]);
+            if (token == sellToken) {
+                sellTokenFound = true;
+            } else if (token == buyToken) {
+                buyTokenFound = true;
             }
-        } else {
-            if (isERC4626(sellToken) || isERC4626(buyToken)) {
+        }
 
-                (ERC4626_SWAP_TYPE kind, address outputAddress) =
-                    getERC4626PathType(poolAddress, sellToken, buyToken);
+        if (!sellTokenFound || !buyTokenFound) {
+            (
+                CUSTOM_WRAP_KIND kindWrap,
+                address sellTokenOutput,
+                address buyTokenOutput
+            ) = getCustomWrap(sellToken, buyToken, poolAddress);
 
-                if (kind != ERC4626_SWAP_TYPE.NONE) {
-                    if (isERC4626(sellToken) && !isERC4626(buyToken)) {
-                        // perform swap: ERC4626(share)->ERC20(token)
-                        if (side == OrderSide.Sell) {
-                            return sellERC4626ForERC20(
-                                poolAddress,
-                                sellToken,
-                                buyToken,
-                                specifiedAmount,
-                                kind,
-                                outputAddress
-                            );
-                        } else {
-                            return buyERC20WithERC4626(
-                                poolAddress,
-                                sellToken,
-                                buyToken,
-                                specifiedAmount,
-                                kind,
-                                outputAddress
-                            );
-                        }
-                    } else if (!isERC4626(sellToken) && isERC4626(buyToken)) {
-                        // perform swap: ERC20(token)->ERC4626(share)
-                        if (side == OrderSide.Sell) {
-                            return sellERC20ForERC4626(
-                                poolAddress,
-                                sellToken,
-                                buyToken,
-                                specifiedAmount,
-                                kind,
-                                outputAddress
-                            );
-                        } else {
-                            buyERC4626WithERC20(
-                                poolAddress,
-                                sellToken,
-                                buyToken,
-                                specifiedAmount,
-                                kind,
-                                outputAddress
-                            );
-                        }
-                    }
+            if (kindWrap != CUSTOM_WRAP_KIND.NONE) {
+                if (side == OrderSide.Sell) {
+                    return
+                        sellCustomWrap(
+                            poolAddress,
+                            sellToken,
+                            buyToken,
+                            specifiedAmount,
+                            kindWrap,
+                            sellTokenOutput,
+                            buyTokenOutput
+                        );
+                } else {
+                    return
+                        buyCustomWrap(
+                            poolAddress,
+                            sellToken,
+                            buyToken,
+                            specifiedAmount,
+                            kindWrap,
+                            sellTokenOutput,
+                            buyTokenOutput
+                        );
                 }
+            } else {
+                    (
+                        ERC4626_SWAP_TYPE kind,
+                        address outputAddress
+                    ) = getERC4626PathType(poolAddress, sellToken, buyToken, sellTokenFound, buyTokenFound);
+
+                    if (kind != ERC4626_SWAP_TYPE.NONE) {
+                        return swapERC4626AndERC20(poolAddress, sellToken, buyToken, specifiedAmount, kind, outputAddress, side == OrderSide.Buy);
+                    }
+                // swap ERC20<->ERC20, fallback to next code block
             }
-            // swap ERC20<->ERC20, fallback to next code block
         }
 
         // Fallback (used for ERC20<->ERC20 and ERC4626<->ERC4626 as inherits
         // IERC20 logic)
         if (side == OrderSide.Buy) {
-            return buyERC20WithERC20(
-                poolAddress,
-                IERC20(sellToken),
-                IERC20(buyToken),
-                specifiedAmount,
-                true
-            );
+            return
+                buyERC20WithERC20(
+                    poolAddress,
+                    IERC20(sellToken),
+                    IERC20(buyToken),
+                    specifiedAmount,
+                    true
+                );
         } else {
-            return sellERC20ForERC20(
-                poolAddress,
-                IERC20(sellToken),
-                IERC20(buyToken),
-                specifiedAmount,
-                true
-            );
+            return
+                sellERC20ForERC20(
+                    poolAddress,
+                    IERC20(sellToken),
+                    IERC20(buyToken),
+                    specifiedAmount,
+                    true
+                );
         }
     }
 
@@ -194,50 +166,54 @@ abstract contract BalancerSwapHelpers is
         bytes32 poolId,
         address sellToken,
         address buyToken
-    ) internal view returns (uint256[] memory limits) {
-        limits = new uint256[](2);
+    ) internal returns (uint256[] memory limits) {
+        address poolAddress = address(bytes20(poolId));
 
-        // custom wrap
-        (
-            CUSTOM_WRAP_KIND customWrapKind,
-            address sellTokenOutput,
-            address buyTokenOutput
-        ) = getCustomWrap(sellToken, buyToken, address(bytes20(poolId)));
+        // getTokens() -> [token0, token1] -> if([sellToken,buyToken) in [token0, token1]) -> direct
+        IERC20[] memory tokens = vault.getPoolTokens(poolAddress);
 
-        if (customWrapKind != CUSTOM_WRAP_KIND.NONE) {
-            return getLimitsCustomWrap(
-                poolId,
-                sellToken,
-                buyToken,
-                customWrapKind,
-                sellTokenOutput,
-                buyTokenOutput
-            );
-        } else {
-            if (isERC4626(sellToken) || isERC4626(buyToken)) {
-                (ERC4626_SWAP_TYPE kind, address outputAddress) =
-                getERC4626PathType(
-                    address(bytes20(poolId)), sellToken, buyToken
-                );
-                if (kind != ERC4626_SWAP_TYPE.NONE) {
-                    // ERC4626<->ERC20
-                    if (isERC4626(sellToken) && !isERC4626(buyToken)) {
-                        return getLimitsERC4626ToERC20(
-                            poolId, sellToken, kind, outputAddress
-                        );
-                    }
-
-                    // ERC20->ERC4626
-                    if (!isERC4626(sellToken) && isERC4626(buyToken)) {
-                        return getLimitsERC20ToERC4626(
-                            poolId, sellToken, buyToken, kind, outputAddress
-                        );
-                    }
-                }
+        bool sellTokenFound;
+        bool buyTokenFound;
+        for (uint256 i = 0; i < tokens.length; i++) {
+            address token = address(tokens[i]);
+            if (token == sellToken) {
+                sellTokenFound = true;
+            } else if (token == buyToken) {
+                buyTokenFound = true;
             }
+        }
+
+        if (!sellTokenFound || !buyTokenFound) {
+            (
+                CUSTOM_WRAP_KIND kindWrap,
+                address sellTokenOutput,
+                address buyTokenOutput
+            ) = getCustomWrap(sellToken, buyToken, poolAddress); 
+
+            if (kindWrap != CUSTOM_WRAP_KIND.NONE) {
+                return
+                getLimitsCustomWrap(
+                    poolId,
+                    sellToken,
+                    buyToken,
+                    kindWrap,
+                    sellTokenOutput,
+                    buyTokenOutput
+                );
+            }
+            else {
+                (
+                        ERC4626_SWAP_TYPE kind,
+                        address outputAddress
+                    ) = getERC4626PathType(poolAddress, sellToken, buyToken, sellTokenFound, buyTokenFound);
+
+                    if (kind != ERC4626_SWAP_TYPE.NONE) {
+                        return getLimitsERC4626AndERC20(poolId, sellToken, buyToken, kind, outputAddress);
+                    }
+            }
+        }
 
             // fallback: ERC20<->ERC20, ERC4626<->ERC4626
             return getLimitsERC20(poolId, sellToken, buyToken);
-        }
     }
 }
