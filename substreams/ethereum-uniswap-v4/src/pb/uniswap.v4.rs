@@ -32,6 +32,58 @@ pub struct Transaction {
     #[prost(uint64, tag="4")]
     pub index: u64,
 }
+/// A change to a pool's tick.
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct TickDelta {
+    /// The address of the pool.
+    #[prost(bytes="vec", tag="1")]
+    pub pool_address: ::prost::alloc::vec::Vec<u8>,
+    /// The index of the tick.
+    #[prost(int32, tag="2")]
+    pub tick_index: i32,
+    /// The liquidity net delta of this tick. Bigint encoded as signed little endian bytes.
+    #[prost(bytes="vec", tag="3")]
+    pub liquidity_net_delta: ::prost::alloc::vec::Vec<u8>,
+    /// Used to determine the order of the balance changes. Necessary for the balance store.
+    #[prost(uint64, tag="4")]
+    pub ordinal: u64,
+    #[prost(message, optional, tag="5")]
+    pub transaction: ::core::option::Option<Transaction>,
+}
+/// A group of TickDelta
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct TickDeltas {
+    #[prost(message, repeated, tag="1")]
+    pub deltas: ::prost::alloc::vec::Vec<TickDelta>,
+}
+/// A change to a pool's liquidity.
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct LiquidityChange {
+    /// The address of the pool.
+    #[prost(bytes="vec", tag="1")]
+    pub pool_address: ::prost::alloc::vec::Vec<u8>,
+    /// The liquidity changed amount. Bigint encoded as signed little endian bytes.
+    #[prost(bytes="vec", tag="2")]
+    pub value: ::prost::alloc::vec::Vec<u8>,
+    /// The type of update, can be absolute or delta.
+    #[prost(enumeration="LiquidityChangeType", tag="3")]
+    pub change_type: i32,
+    /// Used to determine the order of the balance changes. Necessary for the balance store.
+    #[prost(uint64, tag="4")]
+    pub ordinal: u64,
+    #[prost(message, optional, tag="5")]
+    pub transaction: ::core::option::Option<Transaction>,
+}
+/// A group of LiquidityChange
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct LiquidityChanges {
+    #[prost(message, repeated, tag="1")]
+    pub changes: ::prost::alloc::vec::Vec<LiquidityChange>,
+}
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Events {
@@ -144,6 +196,32 @@ pub mod events {
             Donate(Donate),
             #[prost(message, tag="5")]
             ProtocolFeeUpdated(ProtocolFeeUpdated),
+        }
+    }
+}
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum LiquidityChangeType {
+    Delta = 0,
+    Absolute = 1,
+}
+impl LiquidityChangeType {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            LiquidityChangeType::Delta => "DELTA",
+            LiquidityChangeType::Absolute => "ABSOLUTE",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "DELTA" => Some(Self::Delta),
+            "ABSOLUTE" => Some(Self::Absolute),
+            _ => None,
         }
     }
 }

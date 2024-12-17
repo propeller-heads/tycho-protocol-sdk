@@ -3,7 +3,7 @@ syntax = "proto3";
 package uniswap.v4;
 
 message Pool {
-//  // The pool address.
+  //  // The pool address.
   bytes id = 1;
   // The token0 address.
   bytes currency0 = 2;
@@ -25,6 +25,47 @@ message Transaction {
   uint64 index = 4;
 }
 
+// A change to a pool's tick.
+message TickDelta {
+  // The address of the pool.
+  bytes pool_address = 1;
+  // The index of the tick.
+  int32 tick_index = 2;
+  // The liquidity net delta of this tick. Bigint encoded as signed little endian bytes.
+  bytes liquidity_net_delta = 3;
+  // Used to determine the order of the balance changes. Necessary for the balance store.
+  uint64 ordinal = 4;
+  Transaction transaction = 5;
+}
+
+// A group of TickDelta
+message TickDeltas {
+  repeated TickDelta deltas = 1;
+}
+
+// A change to a pool's liquidity.
+message LiquidityChange {
+  // The address of the pool.
+  bytes pool_address = 1;
+  // The liquidity changed amount. Bigint encoded as signed little endian bytes.
+  bytes value = 2;
+  // The type of update, can be absolute or delta.
+  LiquidityChangeType change_type = 3;
+  // Used to determine the order of the balance changes. Necessary for the balance store.
+  uint64 ordinal = 4;
+  Transaction transaction = 5;
+}
+
+// A group of LiquidityChange
+message LiquidityChanges {
+  repeated LiquidityChange changes = 1;
+}
+
+
+enum LiquidityChangeType {
+  DELTA = 0;
+  ABSOLUTE = 1;
+}
 
 message Events {
   repeated PoolEvent pool_events = 3;
