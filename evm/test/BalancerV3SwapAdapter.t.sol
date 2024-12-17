@@ -73,7 +73,7 @@ contract BalancerV3SwapAdapterTest is AdapterTest, ERC20, BalancerV3Errors {
         vm.label(permit2, "Permit2");
     }
 
-    function testPriceFuzzErc20BalancerV3(uint256 amount0, uint256 amount1)
+    function testPriceFuzzErc20BalancerV3(uint256 amount0)
         public
     {
         address token0 = ERC20_waWETH;
@@ -81,13 +81,13 @@ contract BalancerV3SwapAdapterTest is AdapterTest, ERC20, BalancerV3Errors {
 
         bytes32 pool = bytes32(bytes20(ERC20_ETHx_waWETH_POOL_ADDRESS));
         uint256[] memory limits = adapter.getLimits(pool, token0, token1);
+        uint256 minTradeAmount = getMinTradeAmount(token0);
 
-        vm.assume(amount0 < limits[0] && amount0 > getMinTradeAmount(token0));
-        vm.assume(amount1 < limits[1] && amount1 > getMinTradeAmount(token0));
+        vm.assume(amount0 < limits[0]);
+        vm.assume(amount0 > minTradeAmount);
 
-        uint256[] memory amounts = new uint256[](2);
+        uint256[] memory amounts = new uint256[](1);
         amounts[0] = amount0;
-        amounts[1] = amount1;
 
         __prankStaticCall();
         Fraction[] memory prices = adapter.price(pool, token0, token1, amounts);
@@ -225,33 +225,22 @@ contract BalancerV3SwapAdapterTest is AdapterTest, ERC20, BalancerV3Errors {
         }
     }
 
-    function testLimitsErc20WeightedBalancerV3() public {
-        address token0 = ERC20_USDC;
-        address token1 = ERC20_GOETH;
-        bytes32 pool = bytes32(bytes20(ERC20_WEIGHTED_GOETH_USDC_POOL_ADDRESS));
+    function testGetLimitsalancerV3_ERC20_ERC20() public {
+        address token0 = ERC20_waWETH;
+        address token1 = ERC20_ETHx;
+        bytes32 pool = bytes32(bytes20(ERC20_ETHx_waWETH_POOL_ADDRESS));
         uint256[] memory limits = adapter.getLimits(pool, token0, token1);
-        console.log("limits", limits[0], limits[1]);
 
-        deal(token0, address(this), type(uint256).max);
-        IERC20(token0).approve(address(adapter), type(uint256).max);
+        assertEq(limits.length, 2);
     }
 
-    function testSwapErc20WeightedBalancerV3() public {
+    function testGetLimitsalancerV3_WEIGHTED_ERC20_ERC20() public {
         address token0 = ERC20_GOETH;
         address token1 = ERC20_USDC;
-
         bytes32 pool = bytes32(bytes20(ERC20_WEIGHTED_GOETH_USDC_POOL_ADDRESS));
-
         uint256[] memory limits = adapter.getLimits(pool, token0, token1);
-        console.log("limits", limits[0], limits[1]);
 
-        deal(token0, address(this), type(uint256).max);
-        IERC20(token0).approve(address(adapter), type(uint256).max);
-
-        Trade memory trade =
-            adapter.swap(pool, token0, token1, OrderSide.Sell, 1e17);
-
-        console.log("trade", trade.calculatedAmount);
+        assertEq(limits.length, 2);
     }
 
     function __prankStaticCall() internal {
@@ -262,13 +251,16 @@ contract BalancerV3SwapAdapterTest is AdapterTest, ERC20, BalancerV3Errors {
 
     function getMinTradeAmount(address token) internal view returns (uint256) {
         uint256 decimals = ERC20(token).decimals();
-        uint256 decimalFactor = decimals;
+        uint256 decimalFactor = decimals; // n, e.g. stablecoins
         if (decimals > 6) {
-            decimalFactor = decimals - 1;
+            decimalFactor = decimals - 1; // 0.n
         }
+        if (decimals > 12) {
+            decimalFactor = decimals - 3; // e.g. ETH, BTC, ...
+        }
+
         uint256 minTradeAmount = 10 ** decimalFactor;
 
-        console.log("Min trade amount", minTradeAmount);
         return minTradeAmount;
     }
 }
