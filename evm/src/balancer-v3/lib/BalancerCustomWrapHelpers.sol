@@ -46,10 +46,10 @@ abstract contract BalancerCustomWrapHelpers is BalancerERC20Helpers {
                 }
 
                 if (token == sellTokenAsset) {
-                    sellTokenOutput = address(tokens[i]); // asset
+                    sellTokenOutput = token; // asset
                 }
                 if (token == buyTokenAsset) {
-                    buyTokenOutput = address(tokens[i]); // asset
+                    buyTokenOutput = token; // asset
                 }
             }
 
@@ -71,10 +71,10 @@ abstract contract BalancerCustomWrapHelpers is BalancerERC20Helpers {
                     }
 
                     if (IERC4626(token).asset() == sellToken) {
-                        sellTokenOutput = address(tokens[i]); // share
+                        sellTokenOutput = token; // share
                     }
                     if (IERC4626(token).asset() == buyToken) {
-                        buyTokenOutput = address(tokens[i]); // share
+                        buyTokenOutput = token; // share
                     }
                 }
             }
@@ -91,6 +91,7 @@ abstract contract BalancerCustomWrapHelpers is BalancerERC20Helpers {
     function prepareSellCustomWrap(
         address pool,
         address _sellToken,
+        address buyToken,
         uint256 specifiedAmount,
         CUSTOM_WRAP_KIND kind,
         address sellTokenOutput,
@@ -106,7 +107,7 @@ abstract contract BalancerCustomWrapHelpers is BalancerERC20Helpers {
         if (kind == CUSTOM_WRAP_KIND.ERC20_TO_ERC20) {
             // Step 1: sellToken.asset() -> sellToken.shares()
             (,, IBatchRouter.SwapPathStep memory step0) = createWrapOrUnwrapPath(
-                _sellToken,
+                sellTokenOutput,
                 specifiedAmount,
                 IVault.WrappingDirection.WRAP,
                 false
@@ -137,7 +138,7 @@ abstract contract BalancerCustomWrapHelpers is BalancerERC20Helpers {
                 tokenIn: IERC20(_sellToken),
                 steps: steps,
                 exactAmountIn: specifiedAmount,
-                minAmountOut: type(uint256).max
+                minAmountOut: 1
             });
         } else {
             // ERC4626_TO_ERC4626
@@ -162,7 +163,7 @@ abstract contract BalancerCustomWrapHelpers is BalancerERC20Helpers {
 
             // Step 3: buyToken.asset() -> buyToken.shares()
             (,, IBatchRouter.SwapPathStep memory step2) = createWrapOrUnwrapPath(
-                buyTokenOutput,
+                buyToken,
                 specifiedAmount,
                 IVault.WrappingDirection.WRAP,
                 false
@@ -174,7 +175,7 @@ abstract contract BalancerCustomWrapHelpers is BalancerERC20Helpers {
                 tokenIn: IERC20(_sellToken),
                 steps: steps,
                 exactAmountIn: specifiedAmount,
-                minAmountOut: type(uint256).max
+                minAmountOut: 1
             });
         }
     }
@@ -185,6 +186,7 @@ abstract contract BalancerCustomWrapHelpers is BalancerERC20Helpers {
     function getAmountOutCustomWrap(
         address pool,
         address _sellToken,
+        address buyToken,
         uint256 specifiedAmount,
         CUSTOM_WRAP_KIND kind,
         address sellTokenOutput,
@@ -194,6 +196,7 @@ abstract contract BalancerCustomWrapHelpers is BalancerERC20Helpers {
         prepareSellCustomWrap(
             pool,
             _sellToken,
+            buyToken,
             specifiedAmount,
             kind,
             sellTokenOutput,
@@ -251,6 +254,7 @@ abstract contract BalancerCustomWrapHelpers is BalancerERC20Helpers {
         prepareSellCustomWrap(
             pool,
             _sellToken,
+            _buyToken,
             specifiedAmount,
             kind,
             sellTokenOutput,

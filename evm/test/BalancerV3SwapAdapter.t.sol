@@ -32,13 +32,13 @@ contract BalancerV3SwapAdapterTest is AdapterTest, ERC20, BalancerV3Errors {
         IBatchRouter(0x136f1EFcC3f8f88516B9E94110D56FDBfB1778d1); // Batch router
     address constant permit2 = 0x000000000022D473030F116dDEE9F6B43aC78BA3;
 
-    // ERC20
+    // ERC20: ERC20-ERC20 direct
     address constant ERC20_ETHx_waWETH_POOL_ADDRESS =
         0x4AB7aB316D43345009B2140e0580B072eEc7DF16;
     address constant ERC20_waWETH = 0x0bfc9d54Fc184518A81162F8fB99c2eACa081202;
     address constant ERC20_ETHx = 0xA35b1B31Ce002FBF2058D22F30f95D405200A15b;
 
-    // ERC20
+    // ERC20: ERC4626-ERC20 direct
     address constant ERC20_WEIGHTED_GOETH_USDC_POOL_ADDRESS =
         0xf91c11BA4220b7a72E1dc5E92f2b48D3fdF62726;
     address constant ERC20_GOETH = 0x440017A1b021006d556d7fc06A54c32E42Eb745B;

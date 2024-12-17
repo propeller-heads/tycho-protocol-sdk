@@ -59,7 +59,7 @@ abstract contract BalancerERC4626Helpers is BalancerCustomWrapHelpers {
                     }
                 }
             }
-        } else {
+        } else if(isERC4626(sellToken) && !isERC4626(buyToken)){
             for (uint256 i = 0; i < tokens.length; i++) {
                 address token = address(tokens[i]);
 
@@ -104,6 +104,7 @@ abstract contract BalancerERC4626Helpers is BalancerCustomWrapHelpers {
                 }
             }
         }
+
     }
 
     function prepareERC4626ForERC20SellOrBuy(
@@ -176,7 +177,7 @@ abstract contract BalancerERC4626Helpers is BalancerCustomWrapHelpers {
                 tokenIn: IERC20(_sellToken),
                 steps: steps,
                 exactAmountIn: specifiedAmount,
-                minAmountOut: type(uint256).max
+                minAmountOut: 1
             });
         } else {
             buyPath[0] = IBatchRouter.SwapPathExactAmountOut({
@@ -258,7 +259,7 @@ abstract contract BalancerERC4626Helpers is BalancerCustomWrapHelpers {
                 tokenIn: IERC20(_sellToken),
                 steps: steps,
                 exactAmountIn: specifiedAmount,
-                minAmountOut: type(uint256).max
+                minAmountOut: 1
             });
         }
     }

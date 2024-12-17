@@ -62,6 +62,9 @@ contract BalancerV3SwapAdapter is BalancerSwapHelpers {
         trade.calculatedAmount =
             swapMiddleware(poolId, sellToken, buyToken, side, specifiedAmount);
 
+        // as post-trade price cannot be calculated in an external call, we return the trade price here
+        trade.price = Fraction(trade.calculatedAmount, specifiedAmount);
+
         uint256 gasBefore = gasleft();
         trade.gasUsed = gasBefore - gasleft();
     }

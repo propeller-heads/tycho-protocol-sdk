@@ -30,6 +30,7 @@ abstract contract BalancerSwapHelpers is
             return getAmountOutCustomWrap(
                 poolAddress,
                 sellToken,
+                buyToken,
                 specifiedAmount,
                 kindWrap,
                 sellTokenOutput,
@@ -114,9 +115,11 @@ abstract contract BalancerSwapHelpers is
                 );
             }
         } else {
-            if (isERC4626(sellToken) || !isERC4626(buyToken)) {
+            if (isERC4626(sellToken) || isERC4626(buyToken)) {
+
                 (ERC4626_SWAP_TYPE kind, address outputAddress) =
                     getERC4626PathType(poolAddress, sellToken, buyToken);
+
                 if (kind != ERC4626_SWAP_TYPE.NONE) {
                     if (isERC4626(sellToken) && !isERC4626(buyToken)) {
                         // perform swap: ERC4626(share)->ERC20(token)
