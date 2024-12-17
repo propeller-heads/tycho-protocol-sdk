@@ -21,6 +21,8 @@ hex.workspace = true
 tiny-keccak = "2.0"
 substreams-entity-change = "2.0.0"
 itertools = "0.13.0"
+uniswap-v3-sdk = { version = "2.9.1", features = ["extensions", "std"] }
+alloy-primitives = "0.8.15"
 [target.wasm32-unknown-unknown.dependencies]
 getrandom = { version = "0.2", features = ["custom"] }
 
