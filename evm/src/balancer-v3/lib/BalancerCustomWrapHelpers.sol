@@ -163,10 +163,7 @@ abstract contract BalancerCustomWrapHelpers is BalancerERC20Helpers {
 
             // Step 3: buyToken.asset() -> buyToken.shares()
             (,, IBatchRouter.SwapPathStep memory step2) = createWrapOrUnwrapPath(
-                buyToken,
-                specifiedAmount,
-                IVault.WrappingDirection.WRAP,
-                false
+                buyToken, specifiedAmount, IVault.WrappingDirection.WRAP, false
             );
             steps[2] = step2;
 

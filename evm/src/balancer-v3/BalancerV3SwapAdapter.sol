@@ -13,15 +13,17 @@ import "./lib/BalancerSwapHelpers.sol";
  * - ERC4626<->ERC20
  *
  * 2 steps:
- * - (ERC20->ERC20)->ERC4626: swap, wrap
- * - ERC20->(ERC4626->ERC4626): wrap, swap_0
- * - ERC4626->(ERC20->ERC20): unwrap, swap
- * - (ERC4626->ERC4626)->ERC20: swap, unwrap_0
+ * - (ERC20->ERC20)->ERC4626: swap, wrap_0
+ * - (ERC4626->ERC20)->ERC4626: swap, wrap_1
  *
+ * - (ERC4626->ERC4626)->ERC20: swap, unwrap_0
  * - (ERC20->ERC4626)->ERC20; swap, unwrap_1
+ *
+ * - ERC20->(ERC4626->ERC4626): wrap, swap_0
  * - ERC20->(ERC4626->ERC20); wrap, swap_1
- * - (ERC4626->ERC20)->ERC4626: swap, wrap
- * - ERC4626->(ERC20->ERC4626): unwrap, swap
+ *
+ * - ERC4626->(ERC20->ERC20): unwrap, swap_0
+ * - ERC4626->(ERC20->ERC4626): unwrap, swap_1
  *
  * 3 steps:
  * - ERC20->(ERC4626->ERC4626)->ERC20
@@ -68,7 +70,8 @@ contract BalancerV3SwapAdapter is BalancerSwapHelpers {
         trade.calculatedAmount =
             swapMiddleware(poolId, sellToken, buyToken, side, specifiedAmount);
 
-        // as post-trade price cannot be calculated in an external call, we return the trade price here
+        // as post-trade price cannot be calculated in an external call, we
+        // return the trade price here
         trade.price = Fraction(trade.calculatedAmount, specifiedAmount);
 
         uint256 gasBefore = gasleft();
@@ -78,6 +81,7 @@ contract BalancerV3SwapAdapter is BalancerSwapHelpers {
     /// @inheritdoc ISwapAdapter
     function getLimits(bytes32 poolId, address sellToken, address buyToken)
         external
+        view
         override
         returns (uint256[] memory limits)
     {

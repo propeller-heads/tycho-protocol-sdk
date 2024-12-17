@@ -73,9 +73,7 @@ contract BalancerV3SwapAdapterTest is AdapterTest, ERC20, BalancerV3Errors {
         vm.label(permit2, "Permit2");
     }
 
-    function testPriceFuzzErc20BalancerV3(uint256 amount0)
-        public
-    {
+    function testPriceFuzzErc20BalancerV3(uint256 amount0) public {
         address token0 = ERC20_waWETH;
         address token1 = ERC20_ETHx;
 
