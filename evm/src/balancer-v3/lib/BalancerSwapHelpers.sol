@@ -2,7 +2,6 @@
 pragma solidity ^0.8.26;
 
 import "./BalancerERC4626Helpers.sol";
-import "forge-std/Test.sol";
 
 /**
  * @title Balancer V3 Swap Helpers
@@ -28,7 +27,6 @@ abstract contract BalancerSwapHelpers is
         ) = getCustomWrap(sellToken, buyToken, poolAddress);
 
         if (kindWrap != CUSTOM_WRAP_KIND.NONE) {
-            console.log("JUMP 1");
             return getAmountOutCustomWrap(
                 poolAddress,
                 sellToken,
@@ -39,13 +37,10 @@ abstract contract BalancerSwapHelpers is
             );
         } else {
             if (isERC4626(sellToken) || !isERC4626(buyToken)) {
-                console.log("JUMP 2");
                 (ERC4626_SWAP_TYPE kind, address outputAddress) =
                     getERC4626PathType(poolAddress, sellToken, buyToken);
                 if (kind != ERC4626_SWAP_TYPE.NONE) {
-                    console.log("JUMP 3");
                     if (isERC4626(sellToken) && !isERC4626(buyToken)) {
-                        console.log("JUMP 4");
                         return getAmountOutERC4626ForERC20(
                             poolAddress,
                             sellToken,
@@ -55,7 +50,6 @@ abstract contract BalancerSwapHelpers is
                             outputAddress
                         );
                     } else {
-                        console.log("JUMP 5");
                         return getAmountOutERC20ForERC4626(
                             poolAddress,
                             sellToken,
@@ -69,7 +63,6 @@ abstract contract BalancerSwapHelpers is
             }
         }
 
-        console.log("JUMP 6");
         (IBatchRouter.SwapPathExactAmountIn memory sellPath,,) = createERC20Path(
             poolAddress,
             IERC20(sellToken),
@@ -227,7 +220,7 @@ abstract contract BalancerSwapHelpers is
                     // ERC4626<->ERC20
                     if (isERC4626(sellToken) && !isERC4626(buyToken)) {
                         return getLimitsERC4626ToERC20(
-                            poolId, sellToken, buyToken, kind, outputAddress
+                            poolId, sellToken, kind, outputAddress
                         );
                     }
 

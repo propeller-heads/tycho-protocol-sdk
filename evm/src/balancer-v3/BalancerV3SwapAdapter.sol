@@ -98,7 +98,8 @@ contract BalancerV3SwapAdapter is BalancerSwapHelpers {
         returns (address[] memory tokens)
     {
         address poolAddress = address(bytes20(poolId));
-        // Is accessing to vault to get the tokens of a pool / Here could be where it was reverting the test
+        // Is accessing to vault to get the tokens of a pool / Here could be
+        // where it was reverting the test
         IERC20[] memory tokens_ = vault.getPoolTokens(poolAddress);
         tokens = new address[](tokens_.length);
 

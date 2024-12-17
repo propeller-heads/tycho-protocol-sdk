@@ -525,7 +525,6 @@ abstract contract BalancerERC4626Helpers is BalancerCustomWrapHelpers {
     function getLimitsERC4626ToERC20(
         bytes32 poolId,
         address sellToken,
-        address buyToken,
         ERC4626_SWAP_TYPE kind,
         address outputTokenAddress
     ) internal view returns (uint256[] memory limits) {
