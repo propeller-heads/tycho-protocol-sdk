@@ -7,6 +7,9 @@ abstract contract BalancerCustomWrapHelpers is BalancerERC20Helpers {
     using SafeERC20 for IERC20;
 
     function isERC4626(address token) internal view returns (bool) {
+        if (token == address(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2)) {
+            return false;
+        }
         try IERC4626(token).asset() {
             try IERC4626(token).maxRedeem(msg.sender) {
                 return true;

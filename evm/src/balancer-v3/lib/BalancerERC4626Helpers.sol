@@ -2,6 +2,7 @@
 pragma solidity ^0.8.26;
 
 import "./BalancerCustomWrapHelpers.sol";
+import "forge-std/Test.sol";
 
 abstract contract BalancerERC4626Helpers is BalancerCustomWrapHelpers {
     using SafeERC20 for IERC20;
@@ -144,6 +145,7 @@ abstract contract BalancerERC4626Helpers is BalancerCustomWrapHelpers {
             );
         } else if (kind == ERC4626_SWAP_TYPE.WRAP_SWAP) {
             // input is ERC20, output is ERC4626
+            console.log("Is WRAP_SWAP");
             steps = new IBatchRouter.SwapPathStep[](2);
 
             // wrap: sellToken.shares() -> sellToken.asset()
@@ -153,7 +155,7 @@ abstract contract BalancerERC4626Helpers is BalancerCustomWrapHelpers {
                 IVault.WrappingDirection.WRAP,
                 false
             );
-
+            console.log("JUMP 1: WRAP_SWAP");
             // swap: sellToken.asset() -> buyToken
             (,, steps[1]) = createERC20Path(
                 pool,
@@ -186,6 +188,7 @@ abstract contract BalancerERC4626Helpers is BalancerCustomWrapHelpers {
         }
 
         if (isBuy) {
+            buyPath = new IBatchRouter.SwapPathExactAmountOut[](1);
             buyPath[0] = IBatchRouter.SwapPathExactAmountOut({
                 tokenIn: IERC20(sellToken),
                 steps: steps,
@@ -193,6 +196,7 @@ abstract contract BalancerERC4626Helpers is BalancerCustomWrapHelpers {
                 exactAmountOut: specifiedAmount
             });
         } else {
+            sellPath = new IBatchRouter.SwapPathExactAmountIn[](1);
             sellPath[0] = IBatchRouter.SwapPathExactAmountIn({
                 tokenIn: IERC20(sellToken),
                 steps: steps,
@@ -290,6 +294,7 @@ abstract contract BalancerERC4626Helpers is BalancerCustomWrapHelpers {
         ERC4626_SWAP_TYPE kind,
         address outputAddress
     ) internal returns (uint256 calculatedAmount) {
+        console.log("JUMP 0");
         (IBatchRouter.SwapPathExactAmountIn[] memory paths,) =
         prepareERC4626SellOrBuy(
             pool,
@@ -300,9 +305,10 @@ abstract contract BalancerERC4626Helpers is BalancerCustomWrapHelpers {
             outputAddress,
             false
         );
+        console.log("JUMP 1");
         (,, uint256[] memory amountsOut) =
             router.querySwapExactIn(paths, address(0), bytes(""));
-
+        console.log("JUMP 2");
         calculatedAmount = amountsOut[0];
     }
 

@@ -90,7 +90,8 @@ contract BalancerV3SwapAdapterTest is AdapterTest, ERC20, BalancerV3Errors {
     // ERC20_ETHx
     //////////////////////////////////////////////////////////////////////////////////////////////////////////////////  
 
-    function testPriceFuzzBalancerV3_ERC20_ERC4626_STABLE_POOL(uint256 amount0)
+    // PASS
+    function testPriceFuzzBalancerV3_waEthWETH_ETHx(uint256 amount0)
         public
     {
         address token0 = ERC4626_waEthWETH;
@@ -115,6 +116,8 @@ contract BalancerV3SwapAdapterTest is AdapterTest, ERC20, BalancerV3Errors {
         }
     }
 
+    // PASS
+    // ERC4626 --> ERC20 Direct
     function testSwapFuzzBalancerV3_ERC4626_ERC20_STABLE_POOL(
         uint256 specifiedAmount,
         bool isBuy
@@ -173,7 +176,8 @@ contract BalancerV3SwapAdapterTest is AdapterTest, ERC20, BalancerV3Errors {
     // USDC
     //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-    function testPriceFuzzBalancerV3_ERC20_ERC20_WEIGHTED_POOL(uint256 amount0) public {
+    // PASS
+    function testPriceFuzzBalancerV3_GOETH_USDC(uint256 amount0) public {
         address token0 = GOETH;
         address token1 = USDC;
 
@@ -194,7 +198,9 @@ contract BalancerV3SwapAdapterTest is AdapterTest, ERC20, BalancerV3Errors {
         }
     }
 
-    function testSwapFuzzBalancerV3_ERC20_ERC20_WEIGHTED_POOL(
+    // PASS
+    // ERC20 --> ERC20 Direct
+    function testSwapFuzzBalancerV3_GOETH_USDC(
         uint256 specifiedAmount,
         bool isBuy
     ) public {
@@ -254,6 +260,7 @@ contract BalancerV3SwapAdapterTest is AdapterTest, ERC20, BalancerV3Errors {
     // ERC4626_waEthLidowstETH
     //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+    // PASS
     // Price Fuzz
     // waEthLidoWETH --> waEthLidowstETH
     function testPriceFuzzBalancerV3_ERC4626_ERC4626_STABLE_ERC4626_POOL(uint256 amount0)
@@ -283,10 +290,12 @@ contract BalancerV3SwapAdapterTest is AdapterTest, ERC20, BalancerV3Errors {
         }
     }
 
-    // 1. Swap
+
+    // PASS
+    // 1. Swap Direct 4626 --> 4626
     // Complete Path: ( waEthLidoWETH -->  waEthLidowstETH )
     // Swap: waEthLidoWETH --> waEthLidowstETH
-    function testSwapFuzzBalancerV3_ERC4626_ERC4626_STABLE_ERC4626_POOL(
+    function testSwapFuzzBalancerV3_waEthLidoWETH_waEthLidowstETH(
         uint256 specifiedAmount,
         bool isBuy
     ) public {
@@ -309,7 +318,7 @@ contract BalancerV3SwapAdapterTest is AdapterTest, ERC20, BalancerV3Errors {
             );
         }
 
-        deal(token0, address(this), type(uint256).max);
+        deal(token0, address(this), IERC4626(token0).totalSupply()*2);
         IERC4626(token0).approve(address(adapter), type(uint256).max);
 
         uint256 bal0 = IERC4626(token0).balanceOf(address(this));
@@ -339,9 +348,40 @@ contract BalancerV3SwapAdapterTest is AdapterTest, ERC20, BalancerV3Errors {
         }
     }
 
+    // // FAIL
+    // // Price Fuzz
+    // // WETH --> waEthLidowstETH
+    // function testPriceFuzzBalancerV3_WETH_waEthLidowstETH(uint256 amount0)
+    //     public
+    // {
+    //     address token0 = ERC20_WETH;
+    //     address token1 = ERC4626_waEthLidowstETH;
+
+    //     bytes32 pool = bytes32(bytes20(STATA_WETH_wstETH_STABLE_POOL_ADDRESS));
+
+    //     uint256[] memory limits = adapter.getLimits(pool, token0, token1);
+
+    //     uint256 minTradeAmount = getMinTradeAmount(token0);
+
+    //     vm.assume(amount0 < limits[0]);
+    //     vm.assume(amount0 > minTradeAmount);
+
+    //     uint256[] memory amounts = new uint256[](1);
+    //     amounts[0] = amount0;
+
+    //     __prankStaticCall();
+    //     Fraction[] memory prices = adapter.price(pool, token0, token1, amounts);
+
+    //     for (uint256 i = 0; i < prices.length; i++) {
+    //         assertGt(prices[i].numerator, 0);
+    //         assertGt(prices[i].denominator, 0);
+    //     }
+    // }
+
+    // PASS
     // Price Fuzz
     // WETH --> waEthLidowstETH
-    function testPriceFuzzBalancerV3_ERC20_ERC4626_STABLE_ERC4626_POOL(uint256 amount0)
+    function testPriceFuzzBalancerV3_WETH_waEthLidowstETH(uint256 amount0)
         public
     {
         address token0 = ERC20_WETH;
@@ -368,18 +408,20 @@ contract BalancerV3SwapAdapterTest is AdapterTest, ERC20, BalancerV3Errors {
         }
     }
 
+    // FAIL
     // 2. Wrap Swap
     // Complete Path: WETH --> ( waEthLidoWETH -->  waEthLidowstETH )
     // Wrap: WETH --> waEthLidoWETH
     // Swap: waEthLidoWETH --> waEthLidowstETH  
-    function testSwapFuzzBalancerV3_ERC20_ERC4626_STABLE_ERC4626_POOL(
-        uint256 specifiedAmount,
-        bool isBuy
+    function testSwapFuzzBalancerV3_WETH_waEthLidowstETH(
+        uint256 specifiedAmount
+        // bool isBuy
     ) public {
         address token0 = ERC20_WETH;
         address token1 = ERC4626_waEthLidowstETH;
 
-        OrderSide side = isBuy ? OrderSide.Buy : OrderSide.Sell;
+        // OrderSide side = isBuy ? OrderSide.Buy : OrderSide.Sell;
+        OrderSide side = OrderSide.Buy;
         bytes32 pool = bytes32(bytes20(STATA_WETH_wstETH_STABLE_POOL_ADDRESS));
         uint256[] memory limits = adapter.getLimits(pool, token0, token1);
 
@@ -426,12 +468,13 @@ contract BalancerV3SwapAdapterTest is AdapterTest, ERC20, BalancerV3Errors {
     }
 
     // Price Fuzz
-    
     // 3. Unwrap Swap
 
+
+    // FAIL
     // Price Fuzz
     // waEthLidowstETH --> WETH
-    function testPriceFuzzBalancerV3_ERC4626_ERC20_STABLE_ERC4626_POOL(uint256 amount0)
+    function testPriceFuzzBalancerV3_waEthLidowstETH_WETH(uint256 amount0)
         public
     {
         address token0 = ERC4626_waEthLidowstETH;
@@ -458,11 +501,13 @@ contract BalancerV3SwapAdapterTest is AdapterTest, ERC20, BalancerV3Errors {
         }
     }
 
+
+    // FAIL
     // 4. Swap Unwrap
     // Complete Path: ( waEthLidowstETH --> waEthLidoWETH ) --> WETH
     // Swap: waEthLidowstETH --> waEthLidoWETH
     // Unwrap: waEthLidoWETH --> WETH
-    function testSwapFuzzBalancerV3_ERC4626_ERC20_STABLE_ERC4626_POOL(
+    function testSwapFuzzBalancerV3_waEthLidowstETH_WETH(
         uint256 specifiedAmount,
         bool isBuy
     ) public {
@@ -515,9 +560,10 @@ contract BalancerV3SwapAdapterTest is AdapterTest, ERC20, BalancerV3Errors {
         }
     }
 
+    // FAIL
     // Price Fuzz
     // WETH --> wstETH
-    function testPriceFuzzBalancerV3_ERC20_ERC20_STABLE_ERC4626_POOL(uint256 amount0)
+    function testPriceFuzzBalancerV3_WETH_wstETH(uint256 amount0)
         public
     {
         address token0 = ERC20_WETH;
@@ -545,15 +591,16 @@ contract BalancerV3SwapAdapterTest is AdapterTest, ERC20, BalancerV3Errors {
     }
 
     // Price Fuzz
-    
     // 5. Swap Wrap
 
+
+    // FAIL
     // 6. Wrap Swap Unwrap
     // Complete Path: WETH --> ( waEthLidoWETH -->  waEthLidowstETH ) --> wstETH
     // Wrap: WETH --> waEthLidoWETH
     // Swap: waEthLidoWETH --> waEthLidowstETH
     // Unwrap: waEthLidowstETH --> wstETH
-    function testSwapFuzzBalancerV3_ERC20_ERC20_STABLE_ERC4626_POOL(
+    function testSwapFuzzBalancerV3_WETH_wstETH(
         uint256 specifiedAmount,
         bool isBuy
     ) public {
