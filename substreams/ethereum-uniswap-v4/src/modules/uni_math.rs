@@ -199,7 +199,7 @@ fn get_amount_0_delta_signed(
     let mask = if sign { 0u128 } else { u128::MAX };
 
     // Get absolute value of liquidity using XOR and addition
-    let liquidity = (mask ^ mask.wrapping_add_signed(liquidity)) as u128;
+    let liquidity = mask ^ mask.wrapping_add_signed(liquidity);
 
     // Convert mask to BigInt (all 1s or all 0s)
     let mask = if sign { BigInt::from(0) } else { -BigInt::from(1) };
@@ -281,7 +281,7 @@ fn get_amount_1_delta_signed(
     let mask = if sign { 0u128 } else { u128::MAX };
 
     // Get absolute value of liquidity using XOR and addition
-    let liquidity = (mask ^ mask.wrapping_add_signed(liquidity)) as u128;
+    let liquidity = mask ^ mask.wrapping_add_signed(liquidity);
 
     // Convert mask to BigInt (all 1s or all 0s)
     let mask = if sign { BigInt::from(0) } else { -BigInt::from(1) };
