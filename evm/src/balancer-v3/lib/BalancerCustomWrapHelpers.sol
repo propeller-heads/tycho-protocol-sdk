@@ -35,6 +35,7 @@ abstract contract BalancerCustomWrapHelpers is BalancerERC20Helpers {
         IERC20[] memory tokens = vault.getPoolTokens(pool);
 
         if (isERC4626(sellToken) && isERC4626(buyToken)) {
+            // 4626-(20-20)-4626
             address sellTokenAsset = IERC4626(sellToken).asset();
             address buyTokenAsset = IERC4626(buyToken).asset();
 
@@ -56,11 +57,11 @@ abstract contract BalancerCustomWrapHelpers is BalancerERC20Helpers {
                 }
             }
 
-            if (sellTokenOutput == address(0) || buyTokenOutput == address(0)) {
-                kind = CUSTOM_WRAP_KIND.NONE;
-            } else {
-                kind = CUSTOM_WRAP_KIND.ERC4626_TO_ERC4626;
-            }
+            require(
+                sellTokenOutput != address(0) && buyTokenOutput != address(0),
+                "CUSTOM_WRAP(4626-4626): Invalid Pool"
+            );
+            kind = CUSTOM_WRAP_KIND.ERC4626_TO_ERC4626;
         } else if (!isERC4626(sellToken) && !isERC4626(buyToken)) {
             for (uint256 i = 0; i < tokens.length; i++) {
                 address token = address(tokens[i]);
@@ -81,13 +82,14 @@ abstract contract BalancerCustomWrapHelpers is BalancerERC20Helpers {
                     }
                 }
             }
-            if (sellTokenOutput == address(0) || buyTokenOutput == address(0)) {
-                kind = CUSTOM_WRAP_KIND.NONE;
-            } else {
-                kind = CUSTOM_WRAP_KIND.ERC20_TO_ERC20;
-            }
+
+            require(
+                sellTokenOutput != address(0) && buyTokenOutput != address(0),
+                "CUSTOM_WRAP(4626-4626): Invalid Pool"
+            );
+            kind = CUSTOM_WRAP_KIND.ERC20_TO_ERC20;
         } else {
-            kind = CUSTOM_WRAP_KIND.NONE;
+            revert("CUSTOM_WRAP: Invalid tokens");
         }
     }
 
