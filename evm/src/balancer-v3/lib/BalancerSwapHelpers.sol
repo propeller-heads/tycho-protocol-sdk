@@ -26,12 +26,18 @@ abstract contract BalancerSwapHelpers is
 
         bool sellTokenFound;
         bool buyTokenFound;
-        for (uint256 i = 0; i < tokens.length; i++) {
-            address token = address(tokens[i]);
-            if (token == sellToken) {
-                sellTokenFound = true;
-            } else if (token == buyToken) {
-                buyTokenFound = true;
+        if(sellToken == address(0) || buyToken == address(0)) {
+            sellTokenFound = true;
+            buyTokenFound = true;
+        }
+        else {
+            for (uint256 i = 0; i < tokens.length; i++) {
+                address token = address(tokens[i]);
+                if (token == sellToken) {
+                    sellTokenFound = true;
+                } else if (token == buyToken) {
+                    buyTokenFound = true;
+                }
             }
         }
 
@@ -44,7 +50,7 @@ abstract contract BalancerSwapHelpers is
                 IERC20(buyToken),
                 specifiedAmount,
                 false,
-                sellToken == address(0)
+                sellToken == address(0) || buyToken == address(0)
             );
             return getAmountOut(sellPath);
         } else if (!sellTokenFound && !buyTokenFound) {
@@ -100,12 +106,18 @@ abstract contract BalancerSwapHelpers is
 
         bool sellTokenFound;
         bool buyTokenFound;
-        for (uint256 i = 0; i < tokens.length; i++) {
-            address token = address(tokens[i]);
-            if (token == sellToken) {
-                sellTokenFound = true;
-            } else if (token == buyToken) {
-                buyTokenFound = true;
+        if(sellToken == address(0) || buyToken == address(0)) {
+            sellTokenFound = true;
+            buyTokenFound = true;
+        }
+        else {
+            for (uint256 i = 0; i < tokens.length; i++) {
+                address token = address(tokens[i]);
+                if (token == sellToken) {
+                    sellTokenFound = true;
+                } else if (token == buyToken) {
+                    buyTokenFound = true;
+                }
             }
         }
 
@@ -191,12 +203,18 @@ abstract contract BalancerSwapHelpers is
 
         bool sellTokenFound;
         bool buyTokenFound;
-        for (uint256 i = 0; i < tokens.length; i++) {
-            address token = address(tokens[i]);
-            if (token == sellToken) {
-                sellTokenFound = true;
-            } else if (token == buyToken) {
-                buyTokenFound = true;
+        if(sellToken == address(0) || buyToken == address(0)) {
+            sellTokenFound = true;
+            buyTokenFound = true;
+        }
+        else {
+            for (uint256 i = 0; i < tokens.length; i++) {
+                address token = address(tokens[i]);
+                if (token == sellToken) {
+                    sellTokenFound = true;
+                } else if (token == buyToken) {
+                    buyTokenFound = true;
+                }
             }
         }
 
