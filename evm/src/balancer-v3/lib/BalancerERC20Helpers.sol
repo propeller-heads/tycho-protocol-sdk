@@ -226,7 +226,7 @@ abstract contract BalancerERC20Helpers is BalancerStorage {
         bool isETH
     )
         internal
-        pure
+        view
         returns (
             IBatchRouter.SwapPathExactAmountIn memory sellPath,
             IBatchRouter.SwapPathExactAmountOut memory buyPath,
