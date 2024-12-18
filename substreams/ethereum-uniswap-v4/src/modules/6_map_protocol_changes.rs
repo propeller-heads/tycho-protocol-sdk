@@ -193,10 +193,10 @@ fn event_to_attributes_updates(event: PoolEvent) -> Vec<(Transaction, PoolAddres
         ],
         pool_event::Type::ProtocolFeeUpdated(sfp) => {
             // Mask to extract the lower 12 bits (0xFFF corresponds to 12 bits set to 1)
-            let lower_12_bits = (sfp.protocol_fee & 0xFFF) as u16;
+            let lower_12_bits = sfp.protocol_fee & 0xFFF;
 
             // Shift right by 12 bits and mask again to get the next 12 bits
-            let upper_12_bits = ((sfp.protocol_fee >> 12) & 0xFFF) as u16;
+            let upper_12_bits = (sfp.protocol_fee >> 12) & 0xFFF;
 
             vec![
                 (

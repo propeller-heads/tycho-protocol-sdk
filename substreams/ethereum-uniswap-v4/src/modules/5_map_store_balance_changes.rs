@@ -119,6 +119,8 @@ fn get_amount_delta(
     let liquidity_delta: i128 = liquidity_delta
         .parse()
         .expect(" Failed to parse liquidity delta");
+    let current_tick =
+        TryInto::<i32>::try_into(current_tick).expect("Failed to convert current tick to i32");
 
     let (amount0, amount1) =
         calculate_token_amounts(current_tick, tick_lower, tick_upper, liquidity_delta)
