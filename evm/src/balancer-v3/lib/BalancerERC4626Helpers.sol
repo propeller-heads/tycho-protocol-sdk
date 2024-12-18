@@ -10,15 +10,34 @@ abstract contract BalancerERC4626Helpers is BalancerCustomWrapHelpers {
         address pool,
         address sellToken,
         address buyToken,
-        bool sellTokenFound,
-        bool buyTokenFound // cannot be true if sellToken is
+        bool sellTokenFound
     ) internal view returns (ERC4626_SWAP_TYPE kind, address outputAddress) {
         IERC20[] memory tokens = vault.getPoolTokens(pool);
 
-        if (!isERC4626(sellToken) && isERC4626(buyToken)) {
-            if (sellTokenFound) {
+        if (sellTokenFound) {
+            // SWAP_WRAP and SWAP_UNWRAP
+            bool isERC4626BuyToken = isERC4626(buyToken);
+
+            if (isERC4626BuyToken) {
                 kind = ERC4626_SWAP_TYPE.SWAP_WRAP;
-            } else if (buyTokenFound) {
+            } else {
+                for (uint256 i = 0; i < tokens.length; i++) {
+                    address token = address(tokens[i]);
+                    if (isERC4626(token) && IERC4626(token).asset() == buyToken)
+                    {
+                        outputAddress = token; // buyToken share
+                        break;
+                    }
+                }
+                require(outputAddress != address(0), "Token not found in pool");
+                kind = ERC4626_SWAP_TYPE.SWAP_UNWRAP;
+            }
+        } else {
+            bool isERC4626SellToken = isERC4626(sellToken);
+
+            if (isERC4626SellToken) {
+                kind = ERC4626_SWAP_TYPE.UNWRAP_SWAP;
+            } else {
                 for (uint256 i = 0; i < tokens.length; i++) {
                     address token = address(tokens[i]);
                     if (
@@ -30,55 +49,6 @@ abstract contract BalancerERC4626Helpers is BalancerCustomWrapHelpers {
                 }
                 require(outputAddress != address(0), "Token not found in pool");
                 kind = ERC4626_SWAP_TYPE.WRAP_SWAP;
-            }
-        } else if (isERC4626(sellToken) && !isERC4626(buyToken)) {
-            if (sellTokenFound) {
-                for (uint256 i = 0; i < tokens.length; i++) {
-                    address token = address(tokens[i]);
-                    if (isERC4626(token) && IERC4626(token).asset() == buyToken)
-                    {
-                        outputAddress = token; // buyToken share
-                        break;
-                    }
-                }
-                require(outputAddress != address(0), "Token not found in pool");
-                kind = ERC4626_SWAP_TYPE.SWAP_UNWRAP;
-            } else if (buyTokenFound) {
-                // output address is unused the UNWRAP action just takes
-                // sellToken which is indeed a share
-                kind = ERC4626_SWAP_TYPE.UNWRAP_SWAP;
-            }
-        } else if (!isERC4626(buyToken) && !isERC4626(sellToken)) {
-            if (sellTokenFound) {
-                for (uint256 i = 0; i < tokens.length; i++) {
-                    address token = address(tokens[i]);
-                    if (isERC4626(token) && IERC4626(token).asset() == buyToken)
-                    {
-                        outputAddress = token; // buyToken share
-                        break;
-                    }
-                }
-                require(outputAddress != address(0), "Token not found in pool");
-                kind = ERC4626_SWAP_TYPE.SWAP_UNWRAP;
-            } else if (buyTokenFound) {
-                for (uint256 i = 0; i < tokens.length; i++) {
-                    address token = address(tokens[i]);
-                    if (
-                        isERC4626(token) && IERC4626(token).asset() == sellToken
-                    ) {
-                        outputAddress = token; // sellToken share
-                        break;
-                    }
-                }
-                require(outputAddress != address(0), "Token not found in pool");
-                kind = ERC4626_SWAP_TYPE.WRAP_SWAP;
-            }
-        } else if (isERC4626(buyToken) && isERC4626(sellToken)) {
-            if (sellTokenFound) {
-                outputAddress = IERC4626(buyToken).asset(); // buy token asset
-                kind = ERC4626_SWAP_TYPE.SWAP_WRAP;
-            } else if (buyTokenFound) {
-                kind = ERC4626_SWAP_TYPE.UNWRAP_SWAP;
             }
         }
     }
@@ -276,8 +246,7 @@ abstract contract BalancerERC4626Helpers is BalancerCustomWrapHelpers {
 
             // transfer back sellToken to sender
             IERC20(sellToken).safeTransfer(
-                msg.sender,
-                initialSenderBalance - calculatedAmount
+                msg.sender, initialSenderBalance - calculatedAmount
             );
         }
     }
