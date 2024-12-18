@@ -275,8 +275,7 @@ abstract contract BalancerERC4626Helpers is BalancerCustomWrapHelpers {
             IERC20(buyToken).safeTransfer(msg.sender, specifiedAmount);
 
             // transfer back sellToken to sender
-            IERC20(sellToken).safeTransferFrom(
-                address(this),
+            IERC20(sellToken).safeTransfer(
                 msg.sender,
                 initialSenderBalance - calculatedAmount
             );

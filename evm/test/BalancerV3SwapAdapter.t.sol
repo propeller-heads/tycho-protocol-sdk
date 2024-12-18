@@ -479,7 +479,7 @@ contract BalancerV3SwapAdapterTest is AdapterTest, ERC20, BalancerV3Errors {
     // Price Fuzz
     // 3. Unwrap Swap
 
-    // FAIL
+    // PASS
     // Price Fuzz
     // waEthLidowstETH --> WETH
     function testPriceFuzzBalancerV3_waEthLidowstETH_WETH(uint256 amount0)
@@ -567,7 +567,7 @@ contract BalancerV3SwapAdapterTest is AdapterTest, ERC20, BalancerV3Errors {
         }
     }
 
-    // FAIL
+    // PASS
     // Price Fuzz
     // WETH --> wstETH
     function testPriceFuzzBalancerV3_WETH_wstETH(uint256 amount0) public {
@@ -595,10 +595,7 @@ contract BalancerV3SwapAdapterTest is AdapterTest, ERC20, BalancerV3Errors {
         }
     }
 
-    // Price Fuzz
-    // 5. Swap Wrap
-
-    // FAIL
+    // PASS
     // 6. Wrap Swap Unwrap
     // Complete Path: WETH --> ( waEthLidoWETH -->  waEthLidowstETH ) --> wstETH
     // Wrap: WETH --> waEthLidoWETH
@@ -627,7 +624,7 @@ contract BalancerV3SwapAdapterTest is AdapterTest, ERC20, BalancerV3Errors {
             );
         }
 
-        deal(token0, address(this), type(uint256).max);
+        deal(token0, address(this), IERC20(token0).totalSupply() * 2);
         IERC20(token0).approve(address(adapter), type(uint256).max);
 
         uint256 bal0 = IERC20(token0).balanceOf(address(this));
