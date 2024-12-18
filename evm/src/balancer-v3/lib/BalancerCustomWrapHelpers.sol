@@ -120,6 +120,7 @@ abstract contract BalancerCustomWrapHelpers is BalancerERC20Helpers {
                 IERC20(sellTokenOutput),
                 IERC20(buyTokenOutput),
                 specifiedAmount,
+                false,
                 false
             );
             steps[1] = step1;
@@ -157,6 +158,7 @@ abstract contract BalancerCustomWrapHelpers is BalancerERC20Helpers {
                 IERC20(sellTokenOutput),
                 IERC20(buyTokenOutput),
                 specifiedAmount,
+                false,
                 false
             );
             steps[1] = step1;
@@ -315,7 +317,8 @@ abstract contract BalancerCustomWrapHelpers is BalancerERC20Helpers {
                 IERC4626(sellTokenOutput),
                 IERC4626(buyTokenOutput),
                 specifiedAmount,
-                true
+                true,
+                false
             );
             steps[1] = step1;
 
@@ -360,7 +363,8 @@ abstract contract BalancerCustomWrapHelpers is BalancerERC20Helpers {
                 IERC20(sellTokenOutput),
                 IERC20(buyTokenOutput),
                 specifiedAmount,
-                true
+                true,
+                false
             );
             steps[1] = step1;
 

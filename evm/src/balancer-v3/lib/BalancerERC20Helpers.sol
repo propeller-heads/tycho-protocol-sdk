@@ -73,7 +73,7 @@ abstract contract BalancerERC20Helpers is BalancerStorage {
 
         // prepare path
         (IBatchRouter.SwapPathExactAmountIn memory sellPath,,) =
-            createERC20Path(pool, sellToken, buyToken, specifiedAmount, false);
+            createERC20Path(pool, sellToken, buyToken, specifiedAmount, false, isETHSell);
         IBatchRouter.SwapPathExactAmountIn[] memory paths =
             new IBatchRouter.SwapPathExactAmountIn[](1);
         paths[0] = sellPath;
@@ -148,7 +148,7 @@ abstract contract BalancerERC20Helpers is BalancerStorage {
 
         // prepare path
         (, IBatchRouter.SwapPathExactAmountOut memory buyPath,) =
-            createERC20Path(pool, sellToken, buyToken, specifiedAmount, true);
+            createERC20Path(pool, sellToken, buyToken, specifiedAmount, true, isETHSell);
         IBatchRouter.SwapPathExactAmountOut[] memory paths =
             new IBatchRouter.SwapPathExactAmountOut[](1);
         paths[0] = buyPath;
@@ -222,7 +222,8 @@ abstract contract BalancerERC20Helpers is BalancerStorage {
         IERC20 sellToken,
         IERC20 buyToken,
         uint256 specifiedAmount,
-        bool isBuy
+        bool isBuy,
+        bool isETH
     )
         internal
         pure
@@ -232,6 +233,11 @@ abstract contract BalancerERC20Helpers is BalancerStorage {
             IBatchRouter.SwapPathStep memory step
         )
     {
+        uint256 maxAmountIn_ = address(msg.sender).balance;
+        if(!isETH) {
+            maxAmountIn_ = IERC20(sellToken).balanceOf(msg.sender);
+        }
+
         // prepare steps
         step = IBatchRouter.SwapPathStep({
             pool: pool,
@@ -246,7 +252,7 @@ abstract contract BalancerERC20Helpers is BalancerStorage {
             buyPath = IBatchRouter.SwapPathExactAmountOut({
                 tokenIn: sellToken,
                 steps: steps,
-                maxAmountIn: type(uint256).max,
+                maxAmountIn: maxAmountIn_,
                 exactAmountOut: specifiedAmount
             });
         } else {

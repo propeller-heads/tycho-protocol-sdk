@@ -112,6 +112,7 @@ abstract contract BalancerERC4626Helpers is BalancerCustomWrapHelpers {
                 IERC20(sellToken),
                 IERC20(IERC4626(buyToken).asset()),
                 specifiedAmount,
+                false,
                 false
             );
 
@@ -130,6 +131,7 @@ abstract contract BalancerERC4626Helpers is BalancerCustomWrapHelpers {
                 IERC20(sellToken),
                 IERC20(outputAddress),
                 specifiedAmount,
+                false,
                 false
             );
 
@@ -158,6 +160,7 @@ abstract contract BalancerERC4626Helpers is BalancerCustomWrapHelpers {
                 IERC20(outputAddress),
                 IERC20(buyToken),
                 specifiedAmount,
+                false,
                 false
             );
         } else if (kind == ERC4626_SWAP_TYPE.UNWRAP_SWAP) {
@@ -177,6 +180,7 @@ abstract contract BalancerERC4626Helpers is BalancerCustomWrapHelpers {
                 IERC20(sellToken),
                 IERC20(buyToken),
                 specifiedAmount,
+                false,
                 false
             );
         }

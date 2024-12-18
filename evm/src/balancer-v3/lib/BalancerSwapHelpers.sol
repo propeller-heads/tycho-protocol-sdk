@@ -81,7 +81,8 @@ abstract contract BalancerSwapHelpers is
             IERC20(sellToken),
             IERC20(buyToken),
             specifiedAmount,
-            false
+            false,
+            sellToken == address(0)
         );
         return getAmountOut(sellPath);
     }
