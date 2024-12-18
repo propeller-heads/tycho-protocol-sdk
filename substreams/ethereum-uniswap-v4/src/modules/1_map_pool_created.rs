@@ -48,10 +48,13 @@ fn get_new_pools(
                         change: ChangeType::Creation.into(),
                     },
                     Attribute {
-                        name: "sqrt_price_x96".to_string(),
-                        value: event
-                            .sqrt_price_x96
-                            .to_signed_bytes_be(),
+                        name: "protocol_fees/zero2one".to_string(),
+                        value: BigInt::from(0).to_signed_bytes_be(),
+                        change: ChangeType::Creation.into(),
+                    },
+                    Attribute {
+                        name: "protocol_fees/one2zero".to_string(),
+                        value: BigInt::from(0).to_signed_bytes_be(),
                         change: ChangeType::Creation.into(),
                     },
                 ],
@@ -89,7 +92,7 @@ fn get_new_pools(
                     },
                 ],
                 change: i32::from(ChangeType::Creation),
-                protocol_type: Option::from(ProtocolType {
+                protocol_type: Some(ProtocolType {
                     name: "uniswap_v4_pool".to_string(),
                     financial_type: FinancialType::Swap.into(),
                     attribute_schema: vec![],
