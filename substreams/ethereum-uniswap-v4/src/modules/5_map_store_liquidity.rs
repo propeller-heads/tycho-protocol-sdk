@@ -1,8 +1,6 @@
 use std::str::FromStr;
 
-use substreams::store::{
-    StoreGet, StoreGetInt64, StoreSetSum, StoreSetSumBigInt,
-};
+use substreams::store::{StoreGet, StoreGetInt64, StoreSetSum, StoreSetSumBigInt};
 
 use crate::pb::uniswap::v4::{
     events::{pool_event, PoolEvent},
@@ -98,15 +96,5 @@ impl PoolEvent {
             self.r#type.as_ref().unwrap(),
             pool_event::Type::ModifyLiquidity(_) | pool_event::Type::Swap(_)
         )
-    }
-}
-
-fn event_to_current_tick(event: PoolEvent) -> Option<(String, u64, i32)> {
-    match event.r#type.as_ref().unwrap() {
-        pool_event::Type::Initialize(initialize) => {
-            Some((event.pool_id, event.log_ordinal, initialize.tick))
-        }
-        pool_event::Type::Swap(swap) => Some((event.pool_id, event.log_ordinal, swap.tick)),
-        _ => None,
     }
 }
