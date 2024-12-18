@@ -32,20 +32,20 @@ contract BalancerV3SwapAdapterTest is AdapterTest, ERC20, BalancerV3Errors {
         IBatchRouter(0x136f1EFcC3f8f88516B9E94110D56FDBfB1778d1); // Batch router
     address constant permit2 = 0x000000000022D473030F116dDEE9F6B43aC78BA3;
 
-    // ERC20 - ERC4626 - Stable Pool
+    // ETHx waWETH - Stable Pool
     address constant ERC20_ETHx_waWETH_POOL_ADDRESS =
         0x4AB7aB316D43345009B2140e0580B072eEc7DF16;
     address constant ERC4626_waEthWETH = 0x0bfc9d54Fc184518A81162F8fB99c2eACa081202;
     address constant ERC20_ETHx = 0xA35b1B31Ce002FBF2058D22F30f95D405200A15b;
 
-    // ERC20 - ERC20 - Weighted Pool
-    address constant ERC20_WEIGHTED_GOETH_USDC_POOL_ADDRESS =
+    // 50USDC-50@G - Weighted Pool
+    address constant GOETH_USDC_WEIGHTED_POOL_ADDRESS =
         0xf91c11BA4220b7a72E1dc5E92f2b48D3fdF62726;
-    address constant ERC20_GOETH = 0x440017A1b021006d556d7fc06A54c32E42Eb745B;
-    address constant ERC20_USDC = 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48;
+    address constant GOETH = 0x440017A1b021006d556d7fc06A54c32E42Eb745B;
+    address constant USDC = 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48;
 
-    // ERC4626 - ERC4626 - Stable Pool
-    address constant ERC4626_STABLE_WETH_wstETH_POOL_ADDRESS = 0xc4Ce391d82D164c166dF9c8336DDF84206b2F812;
+    // Aave Lido wETH-wstETH - Stable Pool
+    address constant STATA_WETH_wstETH_STABLE_POOL_ADDRESS = 0xc4Ce391d82D164c166dF9c8336DDF84206b2F812;
     address constant ERC20_WETH = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
     address constant ERC20_wstETH = 0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0;
     address constant ERC4626_waEthLidoWETH = 0x0FE906e030a44eF24CA8c7dC7B7c53A6C4F00ce9;
@@ -72,12 +72,12 @@ contract BalancerV3SwapAdapterTest is AdapterTest, ERC20, BalancerV3Errors {
             ERC20_ETHx_waWETH_POOL_ADDRESS, "ERC20_ETHx_waWETH_POOL_ADDRESS"
         );
         vm.label(
-            ERC20_WEIGHTED_GOETH_USDC_POOL_ADDRESS,
-            "ERC20_WEIGHTED_GOETH_USDC_POOL_ADDRESS"
+            GOETH_USDC_WEIGHTED_POOL_ADDRESS,
+            "GOETH_USDC_WEIGHTED_POOL_ADDRESS"
         );
-        vm.label(ERC20_GOETH, "ERC20_GOETH");
-        vm.label(ERC20_USDC, "ERC20_USDC");
-        vm.label(ERC4626_STABLE_WETH_wstETH_POOL_ADDRESS, "ERC4626_STABLE_WETH_wstETH_POOL_ADDRESS");
+        vm.label(GOETH, "GOETH");
+        vm.label(USDC, "USDC");
+        vm.label(STATA_WETH_wstETH_STABLE_POOL_ADDRESS, "STATA_WETH_wstETH_STABLE_POOL_ADDRESS");
         vm.label(ERC20_WETH, "ERC20_WETH");
         vm.label(ERC20_wstETH, "ERC20_wstETH");
         vm.label(ERC4626_waEthLidoWETH, "ERC4626_waEthLidoWETH");
@@ -169,15 +169,15 @@ contract BalancerV3SwapAdapterTest is AdapterTest, ERC20, BalancerV3Errors {
     }
 
     ///////////////////////////////////////// ERC20_WEIGHTED_GOETH_USDC_POOL /////////////////////////////////////////
-    // ERC20_GOETH
-    // ERC20_USDC
+    // GOETH
+    // USDC
     //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
     function testPriceFuzzBalancerV3_ERC20_ERC20_WEIGHTED_POOL(uint256 amount0) public {
-        address token0 = ERC20_GOETH;
-        address token1 = ERC20_USDC;
+        address token0 = GOETH;
+        address token1 = USDC;
 
-        bytes32 pool = bytes32(bytes20(ERC20_WEIGHTED_GOETH_USDC_POOL_ADDRESS));
+        bytes32 pool = bytes32(bytes20(GOETH_USDC_WEIGHTED_POOL_ADDRESS));
         uint256[] memory limits = adapter.getLimits(pool, token0, token1);
 
         vm.assume(amount0 < limits[0] && amount0 > getMinTradeAmount(token0));
@@ -198,11 +198,11 @@ contract BalancerV3SwapAdapterTest is AdapterTest, ERC20, BalancerV3Errors {
         uint256 specifiedAmount,
         bool isBuy
     ) public {
-        address token0 = ERC20_GOETH;
-        address token1 = ERC20_USDC;
+        address token0 = GOETH;
+        address token1 = USDC;
 
         OrderSide side = isBuy ? OrderSide.Buy : OrderSide.Sell;
-        bytes32 pool = bytes32(bytes20(ERC20_WEIGHTED_GOETH_USDC_POOL_ADDRESS));
+        bytes32 pool = bytes32(bytes20(GOETH_USDC_WEIGHTED_POOL_ADDRESS));
         uint256[] memory limits = adapter.getLimits(pool, token0, token1);
 
         if (side == OrderSide.Buy) {
@@ -262,7 +262,7 @@ contract BalancerV3SwapAdapterTest is AdapterTest, ERC20, BalancerV3Errors {
         address token0 = ERC4626_waEthLidoWETH;
         address token1 = ERC4626_waEthLidowstETH;
 
-        bytes32 pool = bytes32(bytes20(ERC4626_STABLE_WETH_wstETH_POOL_ADDRESS));
+        bytes32 pool = bytes32(bytes20(STATA_WETH_wstETH_STABLE_POOL_ADDRESS));
 
         uint256[] memory limits = adapter.getLimits(pool, token0, token1);
 
@@ -294,7 +294,7 @@ contract BalancerV3SwapAdapterTest is AdapterTest, ERC20, BalancerV3Errors {
         address token1 = ERC4626_waEthLidowstETH;
 
         OrderSide side = isBuy ? OrderSide.Buy : OrderSide.Sell;
-        bytes32 pool = bytes32(bytes20(ERC4626_STABLE_WETH_wstETH_POOL_ADDRESS));
+        bytes32 pool = bytes32(bytes20(STATA_WETH_wstETH_STABLE_POOL_ADDRESS));
         uint256[] memory limits = adapter.getLimits(pool, token0, token1);
 
         if (side == OrderSide.Buy) {
@@ -347,7 +347,7 @@ contract BalancerV3SwapAdapterTest is AdapterTest, ERC20, BalancerV3Errors {
         address token0 = ERC20_WETH;
         address token1 = ERC4626_waEthLidowstETH;
 
-        bytes32 pool = bytes32(bytes20(ERC4626_STABLE_WETH_wstETH_POOL_ADDRESS));
+        bytes32 pool = bytes32(bytes20(STATA_WETH_wstETH_STABLE_POOL_ADDRESS));
 
         uint256[] memory limits = adapter.getLimits(pool, token0, token1);
 
@@ -380,7 +380,7 @@ contract BalancerV3SwapAdapterTest is AdapterTest, ERC20, BalancerV3Errors {
         address token1 = ERC4626_waEthLidowstETH;
 
         OrderSide side = isBuy ? OrderSide.Buy : OrderSide.Sell;
-        bytes32 pool = bytes32(bytes20(ERC4626_STABLE_WETH_wstETH_POOL_ADDRESS));
+        bytes32 pool = bytes32(bytes20(STATA_WETH_wstETH_STABLE_POOL_ADDRESS));
         uint256[] memory limits = adapter.getLimits(pool, token0, token1);
 
         if (side == OrderSide.Buy) {
@@ -437,7 +437,7 @@ contract BalancerV3SwapAdapterTest is AdapterTest, ERC20, BalancerV3Errors {
         address token0 = ERC4626_waEthLidowstETH;
         address token1 = ERC20_WETH;
 
-        bytes32 pool = bytes32(bytes20(ERC4626_STABLE_WETH_wstETH_POOL_ADDRESS));
+        bytes32 pool = bytes32(bytes20(STATA_WETH_wstETH_STABLE_POOL_ADDRESS));
 
         uint256[] memory limits = adapter.getLimits(pool, token0, token1);
 
@@ -470,7 +470,7 @@ contract BalancerV3SwapAdapterTest is AdapterTest, ERC20, BalancerV3Errors {
         address token1 = ERC20_WETH;
 
         OrderSide side = isBuy ? OrderSide.Buy : OrderSide.Sell;
-        bytes32 pool = bytes32(bytes20(ERC4626_STABLE_WETH_wstETH_POOL_ADDRESS));
+        bytes32 pool = bytes32(bytes20(STATA_WETH_wstETH_STABLE_POOL_ADDRESS));
         uint256[] memory limits = adapter.getLimits(pool, token0, token1);
 
         if (side == OrderSide.Buy) {
@@ -523,7 +523,7 @@ contract BalancerV3SwapAdapterTest is AdapterTest, ERC20, BalancerV3Errors {
         address token0 = ERC20_WETH;
         address token1 = ERC20_wstETH;
 
-        bytes32 pool = bytes32(bytes20(ERC4626_STABLE_WETH_wstETH_POOL_ADDRESS));
+        bytes32 pool = bytes32(bytes20(STATA_WETH_wstETH_STABLE_POOL_ADDRESS));
 
         uint256[] memory limits = adapter.getLimits(pool, token0, token1);
 
@@ -561,7 +561,7 @@ contract BalancerV3SwapAdapterTest is AdapterTest, ERC20, BalancerV3Errors {
         address token1 = ERC20_wstETH;
 
         OrderSide side = isBuy ? OrderSide.Buy : OrderSide.Sell;
-        bytes32 pool = bytes32(bytes20(ERC4626_STABLE_WETH_wstETH_POOL_ADDRESS));
+        bytes32 pool = bytes32(bytes20(STATA_WETH_wstETH_STABLE_POOL_ADDRESS));
         uint256[] memory limits = adapter.getLimits(pool, token0, token1);
 
         if (side == OrderSide.Buy) {
@@ -609,7 +609,7 @@ contract BalancerV3SwapAdapterTest is AdapterTest, ERC20, BalancerV3Errors {
 
     // Price Fuzz
     
-    // 7. unwrap swap wrap
+    // 7. Unwrap Swap Wrap
 
 
     function __prankStaticCall() internal {
