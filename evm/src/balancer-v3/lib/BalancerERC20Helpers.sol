@@ -73,7 +73,7 @@ abstract contract BalancerERC20Helpers is BalancerStorage {
 
         // prepare path
         (IBatchRouter.SwapPathExactAmountIn memory sellPath,,) = createERC20Path(
-            pool, sellToken, buyToken, specifiedAmount, false, isETHSell
+            pool, sellToken, buyToken, specifiedAmount, false, isETHSell || isETHBuy
         );
         IBatchRouter.SwapPathExactAmountIn[] memory paths =
             new IBatchRouter.SwapPathExactAmountIn[](1);
