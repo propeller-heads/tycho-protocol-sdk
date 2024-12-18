@@ -389,8 +389,13 @@ contract BalancerV3SwapAdapterTest is AdapterTest, ERC20, BalancerV3Errors {
 
         uint256[] memory amounts = new uint256[](1);
         amounts[0] = specifiedAmount;
-        Trade memory trade =
-            adapter.swap(pool, token0, token1, side, specifiedAmount);
+        Trade memory trade = adapter.swap{value: isBuy ? trade.calculatedAmount : specifiedAmount}(
+            pool, 
+            token0,
+            token1,
+            side,
+            specifiedAmount
+        );
 
         if (side == OrderSide.Buy) {
             assertEq(
@@ -412,6 +417,85 @@ contract BalancerV3SwapAdapterTest is AdapterTest, ERC20, BalancerV3Errors {
         }
     }
 
+    ///////////////////////////////////////// ( ETHx --> waEthWETH) --> WETH --> ETH  SWAP_UNWRAP_UNWRAP
+    //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    function testPriceFuzzBalancerV3_ERC20_ERC4626_ERC20_ETH_SWAP_UNWRAP_UNWRAP(uint256 amount0) public {
+        address token0 = ERC20_ETHx;
+        address token1 = ETH;
+
+        bytes32 pool = bytes32(bytes20(ERC4626_ERC20_ETHx_waWETH_STABLE_POOL));
+        uint256[] memory limits = adapter.getLimits(pool, token0, token1);
+        uint256 minTradeAmount = getMinTradeAmount(token0);
+
+        vm.assume(amount0 < limits[0]);
+        vm.assume(amount0 > minTradeAmount);
+
+        uint256[] memory amounts = new uint256[](1);
+        amounts[0] = amount0;
+
+        __prankStaticCall();
+        Fraction[] memory prices = adapter.price(pool, token0, token1, amounts);
+
+        for (uint256 i = 0; i < prices.length; i++) {
+            assertGt(prices[i].numerator, 0);
+            assertGt(prices[i].denominator, 0);
+        }
+    }
+
+    function testSwapFuzzBalancerV3_ERC20_ERC4626_ERC20_ETH_SWAP_UNWRAP_UNWRAP(
+        uint256 specifiedAmount,
+        bool isBuy
+    ) public {
+        address token0 = ERC20_ETHx;
+        address token1 = ETH;
+
+        OrderSide side = isBuy ? OrderSide.Buy : OrderSide.Sell;
+        bytes32 pool = bytes32(bytes20(ERC4626_ERC20_ETHx_waWETH_STABLE_POOL));
+        uint256[] memory limits = adapter.getLimits(pool, token0, token1);
+
+        if (side == OrderSide.Buy) {
+            vm.assume(
+                specifiedAmount < limits[1]
+                    && specifiedAmount > getMinTradeAmount(token1)
+            );
+        } else {
+            vm.assume(
+                specifiedAmount < limits[0]
+                    && specifiedAmount > getMinTradeAmount(token0)
+            );
+        }
+
+        deal(token0, address(this), IERC20(token0).totalSupply() * 2);
+        IERC20(token0).approve(address(adapter), type(uint256).max);
+
+        uint256 bal0 = IERC20(token0).balanceOf(address(this));
+        uint256 bal1 = address(this).balance;
+
+        uint256[] memory amounts = new uint256[](1);
+        amounts[0] = specifiedAmount;
+        Trade memory trade =
+            adapter.swap(pool, token0, token1, side, specifiedAmount);
+
+        if (side == OrderSide.Buy) {
+            assertEq(
+                specifiedAmount, address(this).balance - bal1
+            );
+            assertEq(
+                trade.calculatedAmount,
+                bal0 - IERC20(token0).balanceOf(address(this))
+            );
+        } else {
+            assertEq(
+                specifiedAmount,
+                bal0 - IERC20(token0).balanceOf(address(this))
+            );
+            assertEq(
+                trade.calculatedAmount,
+                address(this).balance - bal1
+            );
+        }
+    }
 
     ///////////////////////////////////////// ERC20-->(ERC4626 --> ERC4626) WRAP_SWAP
     //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -631,7 +715,7 @@ contract BalancerV3SwapAdapterTest is AdapterTest, ERC20, BalancerV3Errors {
             );
         }
 
-        deal(token0, address(this), type(uint256).max);
+        deal(token0, address(this), IERC20(token0).totalSupply() * 2);
         IERC20(token0).approve(address(adapter), type(uint256).max);
 
         uint256 bal0 = IERC20(token0).balanceOf(address(this));
