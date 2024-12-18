@@ -190,10 +190,12 @@ abstract contract BalancerERC20Helpers is BalancerStorage {
 
         // perform swap
         if(isETHSell) {
-            
+            (,, amountsIn) = router.swapExactOut{value: msgSenderBalance}(
+                paths, type(uint256).max, isETHSell || isETHBuy, userData
+            );          
         }
         else {
-            (,, amountsIn) = router.swapExactOut{value: msgSenderBalance}(
+            (,, amountsIn) = router.swapExactOut(
                 paths, type(uint256).max, isETHSell || isETHBuy, userData
             );
         }
