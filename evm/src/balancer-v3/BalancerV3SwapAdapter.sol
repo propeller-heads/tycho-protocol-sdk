@@ -30,10 +30,16 @@ import "./lib/BalancerSwapHelpers.sol";
  * - ERC4626->(ERC20->ERC20)->ERC4626
  */
 contract BalancerV3SwapAdapter is BalancerSwapHelpers {
-    constructor(address payable vault_, address _router, address _permit2) {
+    constructor(
+        address payable vault_,
+        address _router,
+        address _permit2,
+        address _WETH_ADDRESS
+    ) {
         vault = IVault(vault_);
         router = IBatchRouter(_router);
         permit2 = _permit2;
+        WETH_ADDRESS = _WETH_ADDRESS;
     }
 
     /// @dev Enable ETH receiving

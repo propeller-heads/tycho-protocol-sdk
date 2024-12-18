@@ -16,7 +16,7 @@ abstract contract BalancerStorage {
     IBatchRouter immutable router;
 
     // ETH and Wrapped ETH addresses, using ETH as address(0)
-    address constant WETH_ADDRESS = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
+    address immutable WETH_ADDRESS;
     address constant ETH_ADDRESS = address(0);
 
     // permit2 address

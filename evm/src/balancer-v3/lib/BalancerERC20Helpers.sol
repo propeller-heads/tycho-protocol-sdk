@@ -72,8 +72,9 @@ abstract contract BalancerERC20Helpers is BalancerStorage {
         bool isETHBuy = address(buyToken) == address(0);
 
         // prepare path
-        (IBatchRouter.SwapPathExactAmountIn memory sellPath,,) =
-            createERC20Path(pool, sellToken, buyToken, specifiedAmount, false, isETHSell);
+        (IBatchRouter.SwapPathExactAmountIn memory sellPath,,) = createERC20Path(
+            pool, sellToken, buyToken, specifiedAmount, false, isETHSell
+        );
         IBatchRouter.SwapPathExactAmountIn[] memory paths =
             new IBatchRouter.SwapPathExactAmountIn[](1);
         paths[0] = sellPath;
@@ -148,7 +149,9 @@ abstract contract BalancerERC20Helpers is BalancerStorage {
 
         // prepare path
         (, IBatchRouter.SwapPathExactAmountOut memory buyPath,) =
-            createERC20Path(pool, sellToken, buyToken, specifiedAmount, true, isETHSell);
+        createERC20Path(
+            pool, sellToken, buyToken, specifiedAmount, true, isETHSell
+        );
         IBatchRouter.SwapPathExactAmountOut[] memory paths =
             new IBatchRouter.SwapPathExactAmountOut[](1);
         paths[0] = buyPath;
@@ -234,7 +237,7 @@ abstract contract BalancerERC20Helpers is BalancerStorage {
         )
     {
         uint256 maxAmountIn_ = address(msg.sender).balance;
-        if(!isETH) {
+        if (!isETH) {
             maxAmountIn_ = IERC20(sellToken).balanceOf(msg.sender);
         }
 

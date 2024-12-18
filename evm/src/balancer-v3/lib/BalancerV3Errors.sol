@@ -553,4 +553,109 @@ interface BalancerV3Errors {
     error SwapDeadline();
     error InsufficientEth();
     error InvalidAmount(uint256 maxAmount);
+
+    /**
+     * @notice Error raised when the protocol swap fee percentage exceeds the
+     * maximum allowed value.
+     * @dev Note that this is checked for both the global and pool-specific
+     * protocol swap fee percentages.
+     */
+    error ProtocolSwapFeePercentageTooHigh();
+
+    /**
+     * @notice Error raised when the protocol yield fee percentage exceeds the
+     * maximum allowed value.
+     * @dev Note that this is checked for both the global and pool-specific
+     * protocol yield fee percentages.
+     */
+    error ProtocolYieldFeePercentageTooHigh();
+
+    /**
+     * @notice Error raised if there is no pool creator on a withdrawal attempt
+     * from the given pool.
+     * @param pool The pool with no creator
+     */
+    error PoolCreatorNotRegistered(address pool);
+
+    /**
+     * @notice Error raised if the wrong account attempts to withdraw pool
+     * creator fees.
+     * @param caller The account attempting to withdraw pool creator fees
+     * @param pool The pool the caller tried to withdraw from
+     */
+    error CallerIsNotPoolCreator(address caller, address pool);
+
+    /// @notice Error raised when the pool creator swap or yield fee percentage
+    /// exceeds the maximum allowed value.
+    error PoolCreatorFeePercentageTooHigh();
+
+    error AssetBoundsExceeded();
+
+    /// @notice The amplification factor is below the minimum of the range (1 -
+    /// 5000).
+    error AmplificationFactorTooLow();
+
+    /// @notice The amplification factor is above the maximum of the range (1 -
+    /// 5000).
+    error AmplificationFactorTooHigh();
+
+    /// @notice The amplification change duration is too short.
+    error AmpUpdateDurationTooShort();
+
+    /// @notice The amplification change rate is too fast.
+    error AmpUpdateRateTooFast();
+
+    /// @notice Amplification update operations must be done one at a time.
+    error AmpUpdateAlreadyStarted();
+    error StandardPoolWithCreator();
+
+    /// @notice Indicates that one of the pool tokens' weight is below the
+    /// minimum allowed.
+    error MinWeight();
+
+    /// @notice Indicates that the sum of the pool tokens' weights is not
+    /// FixedPoint.ONE.
+    error NormalizedWeightInvariant();
+    error WeightedPoolBptRateUnsupported();
+    /// @notice Arrays passed to a function and intended to be parallel have
+    /// different lengths.
+    error InputLengthMismatch();
+
+    /**
+     * @notice More than one non-zero value was given for a single token
+     * operation.
+     * @dev Input arrays for single token add/remove liquidity operations are
+     * expected to have only one non-zero value,
+     * corresponding to the token being added or removed. This error results if
+     * there are multiple non-zero entries.
+     */
+    error MultipleNonZeroInputs();
+
+    /**
+     * @notice No valid input was given for a single token operation.
+     * @dev Input arrays for single token add/remove liquidity operations are
+     * expected to have one non-zero value,
+     * corresponding to the token being added or removed. This error results if
+     * all entries are zero.
+     */
+    error AllZeroInputs();
+
+    /**
+     * @notice The tokens supplied to an array argument were not sorted in
+     * numerical order.
+     * @dev Tokens are not sorted by address on registration. This is an
+     * optimization so that off-chain processes can
+     * predict the token order without having to query the Vault. (It is also
+     * legacy v2 behavior.)
+     */
+    error TokensNotSorted();
+    error ExcessiveInvalidation();
+
+    error PoolAddressMismatch(address pool);
+
+    error StaticATokenInvalidZeroShares();
+
+    error OnlyPauseGuardian(address caller);
+
+    error SafeCastOverflowedUintDowncast(uint8 bits, uint256 value);
 }

@@ -7,7 +7,7 @@ abstract contract BalancerCustomWrapHelpers is BalancerERC20Helpers {
     using SafeERC20 for IERC20;
 
     function isERC4626(address token) internal view returns (bool) {
-        if (token == address(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2)) {
+        if (token == WETH_ADDRESS) {
             return false;
         }
         try IERC4626(token).asset() {
@@ -339,7 +339,7 @@ abstract contract BalancerCustomWrapHelpers is BalancerERC20Helpers {
             paths[0] = IBatchRouter.SwapPathExactAmountOut({
                 tokenIn: IERC20(_sellToken),
                 steps: steps,
-                maxAmountIn: type(uint256).max,
+                maxAmountIn: initialSenderBalance,
                 exactAmountOut: specifiedAmount
             });
 
@@ -382,7 +382,7 @@ abstract contract BalancerCustomWrapHelpers is BalancerERC20Helpers {
             paths[0] = IBatchRouter.SwapPathExactAmountOut({
                 tokenIn: IERC20(_sellToken),
                 steps: steps,
-                maxAmountIn: type(uint256).max,
+                maxAmountIn: initialSenderBalance,
                 exactAmountOut: specifiedAmount
             });
 
@@ -439,7 +439,9 @@ abstract contract BalancerCustomWrapHelpers is BalancerERC20Helpers {
                     ? IERC20(token)
                     : IERC20(IERC4626(token).asset()),
                 steps: steps,
-                maxAmountIn: type(uint256).max,
+                maxAmountIn: direction == IVault.WrappingDirection.UNWRAP
+                    ? IERC20(token).balanceOf(address(this))
+                    : IERC20(IERC4626(token).asset()).balanceOf(address(this)),
                 exactAmountOut: amount
             });
         } else {
