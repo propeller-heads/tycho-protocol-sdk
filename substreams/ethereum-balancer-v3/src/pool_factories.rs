@@ -9,8 +9,8 @@ use abi::{
 };
 use substreams::hex;
 use substreams_ethereum::{
-    Event, Function,
     pb::eth::v2::{Call, Log, TransactionTrace},
+    Event, Function,
 };
 use tycho_substreams::{attributes::json_serialize_bigint_list, prelude::*};
 
