@@ -1,6 +1,5 @@
 use num_bigint::BigInt;
-use std::{error::Error, fmt, ops::Shr};
-
+use std::ops::Shr;
 /// Calculates the amounts of token0 and token1 for a given position
 ///
 /// Source: https://github.com/Uniswap/v4-core/blob/main/src/libraries/Pool.sol
@@ -19,7 +18,7 @@ pub fn calculate_token_amounts(
     tick_lower: i32,
     tick_upper: i32,
     liquidity_delta: i128,
-) -> Result<(BigInt, BigInt), Box<dyn Error>> {
+) -> Result<(BigInt, BigInt), String> {
     let sqrt_price_x96: BigInt = get_sqrt_ratio_at_tick(current_tick)?;
     let sqrt_price_lower_x96: BigInt = get_sqrt_ratio_at_tick(tick_lower)?;
     let sqrt_price_upper_x96: BigInt = get_sqrt_ratio_at_tick(tick_upper)?;
@@ -55,33 +54,14 @@ pub fn calculate_token_amounts(
 
 const MAX_TICK: i32 = 887272;
 
-#[derive(Debug)]
-pub enum MathError {
-    InvalidTick(i32),
-    InvalidPrice,
-}
-
-// Implement Display trait
-impl fmt::Display for MathError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            MathError::InvalidTick(tick) => write!(f, "Invalid tick value: {}", tick),
-            MathError::InvalidPrice => write!(f, "Invalid price"),
-        }
-    }
-}
-
-// Implement Error trait
-impl Error for MathError {}
-
 /// Returns the sqrt ratio as a Q64.96 for the given tick. The sqrt ratio is computed as
 /// sqrt(1.0001)^tick
 /// Adapted from: https://github.com/shuhuiluo/uniswap-v3-sdk-rs/blob/v2.9.1/src/utils/tick_math.rs#L57
-fn get_sqrt_ratio_at_tick(tick: i32) -> Result<BigInt, MathError> {
+fn get_sqrt_ratio_at_tick(tick: i32) -> Result<BigInt, String> {
     let abs_tick = tick.abs();
 
     if abs_tick > MAX_TICK {
-        return Err(MathError::InvalidTick(tick));
+        return Err("Tick out of bounds".to_string());
     }
 
     // Initialize ratio with either 2^128 / sqrt(1.0001) or 2^128
@@ -193,7 +173,7 @@ fn get_amount_0_delta_signed(
     sqrt_ratio_a_x96: BigInt,
     sqrt_ratio_b_x96: BigInt,
     liquidity: i128,
-) -> Result<BigInt, MathError> {
+) -> Result<BigInt, String> {
     let sign = !liquidity.is_negative();
     // Create mask for negative numbers
     let mask = if sign { 0u128 } else { u128::MAX };
@@ -230,7 +210,7 @@ fn get_amount_0_delta(
     sqrt_ratio_b_x96: BigInt,
     liquidity: u128,
     round_up: bool,
-) -> Result<BigInt, MathError> {
+) -> Result<BigInt, String> {
     let (sqrt_ratio_a_x96, sqrt_ratio_b_x96) = if sqrt_ratio_a_x96 < sqrt_ratio_b_x96 {
         (sqrt_ratio_a_x96, sqrt_ratio_b_x96)
     } else {
@@ -238,7 +218,7 @@ fn get_amount_0_delta(
     };
 
     if sqrt_ratio_a_x96 == BigInt::from(0) {
-        return Err(MathError::InvalidPrice);
+        return Err("Price cannot be zero".to_string());
     }
 
     let numerator_1 = BigInt::from(liquidity) << 96;
@@ -274,7 +254,7 @@ fn get_amount_1_delta_signed(
     sqrt_ratio_a_x96: BigInt,
     sqrt_ratio_b_x96: BigInt,
     liquidity: i128,
-) -> Result<BigInt, MathError> {
+) -> Result<BigInt, String> {
     let sign = !liquidity.is_negative();
 
     // Create mask for negative numbers
@@ -311,7 +291,7 @@ fn get_amount_1_delta(
     sqrt_ratio_b_x96: BigInt,
     liquidity: u128,
     round_up: bool,
-) -> Result<BigInt, MathError> {
+) -> Result<BigInt, String> {
     let (sqrt_ratio_a_x96, sqrt_ratio_b_x96) = if sqrt_ratio_a_x96 < sqrt_ratio_b_x96 {
         (sqrt_ratio_a_x96, sqrt_ratio_b_x96)
     } else {
@@ -460,7 +440,8 @@ mod tests {
         let tick_lower = -887270;
         let tick_upper = 887270;
         let liquidity_delta = 2779504125;
-        let (amount0, amount1) = calculate_token_amounts(current_tick, tick_lower, tick_upper, liquidity_delta).unwrap();
+        let (amount0, amount1) =
+            calculate_token_amounts(current_tick, tick_lower, tick_upper, liquidity_delta).unwrap();
         assert_eq!(amount0, BigInt::from(2779504125_u128));
         assert_eq!(amount1, BigInt::from(2779504125_u128));
     }

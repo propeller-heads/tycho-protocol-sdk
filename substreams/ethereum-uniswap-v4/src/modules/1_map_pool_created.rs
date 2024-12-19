@@ -88,7 +88,7 @@ fn get_new_pools(
                         change: ChangeType::Creation.into(),
                     },
                     Attribute {
-                        name: "pool_address".to_string(),
+                        name: "pool_id".to_string(),
                         value: event.id.to_vec(),
                         change: ChangeType::Creation.into(),
                     },
@@ -111,12 +111,22 @@ fn get_new_pools(
                 BalanceChange {
                     token: event.currency0,
                     balance: BigInt::from(0).to_signed_bytes_be(),
-                    component_id: event.id.to_vec().to_hex().as_bytes().to_vec(),
+                    component_id: event
+                        .id
+                        .to_vec()
+                        .to_hex()
+                        .as_bytes()
+                        .to_vec(),
                 },
                 BalanceChange {
                     token: event.currency1,
                     balance: BigInt::from(0).to_signed_bytes_be(),
-                    component_id: event.id.to_vec().to_hex().as_bytes().to_vec(),
+                    component_id: event
+                        .id
+                        .to_vec()
+                        .to_hex()
+                        .as_bytes()
+                        .to_vec(),
                 },
             ],
         })

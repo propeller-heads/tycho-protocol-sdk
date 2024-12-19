@@ -33,7 +33,14 @@ pub fn map_balance_changes(
                 e,
             )
         })
-        .filter_map(|(current_tick, event)| event_to_balance_deltas(current_tick, event))
+        .filter_map(|(current_tick, event)| {
+            event_to_balance_deltas(
+                // Should never fail because we are converting back a value that was originally i32
+                TryInto::<i32>::try_into(current_tick)
+                    .expect("Failed to convert current tick to i32"),
+                event,
+            )
+        })
         .flatten()
         .collect();
 
@@ -45,7 +52,7 @@ pub fn store_pools_balances(balances_deltas: BlockBalanceDeltas, store: StoreAdd
     tycho_substreams::balances::store_balance_changes(balances_deltas, store);
 }
 
-fn event_to_balance_deltas(current_tick: i64, event: PoolEvent) -> Option<Vec<BalanceDelta>> {
+fn event_to_balance_deltas(current_tick: i32, event: PoolEvent) -> Option<Vec<BalanceDelta>> {
     let address = event.pool_id.as_bytes().to_vec();
     match event.r#type.unwrap() {
         pool_event::Type::ModifyLiquidity(e) => {
@@ -133,16 +140,16 @@ impl PoolEvent {
 }
 
 fn get_amount_delta(
-    current_tick: i64,
+    current_tick: i32,
     tick_lower: i32,
     tick_upper: i32,
     liquidity_delta: String,
 ) -> (BigInt, BigInt) {
+    // This should never fail because the liquidity delta is a string encoded signed int128 (from
+    // the contract)
     let liquidity_delta: i128 = liquidity_delta
         .parse()
-        .expect(" Failed to parse liquidity delta");
-    let current_tick =
-        TryInto::<i32>::try_into(current_tick).expect("Failed to convert current tick to i32");
+        .expect("Failed to parse liquidity delta");
 
     let (amount0, amount1) =
         calculate_token_amounts(current_tick, tick_lower, tick_upper, liquidity_delta)
