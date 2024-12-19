@@ -243,9 +243,9 @@ pub fn map_protocol_changes(
             .drain()
             .sorted_unstable_by_key(|(index, _)| *index)
             .filter_map(|(_, change)| {
-                if change.contract_changes.is_empty() &&
-                    change.component_changes.is_empty() &&
-                    change.balance_changes.is_empty()
+                if change.contract_changes.is_empty()
+                    && change.component_changes.is_empty()
+                    && change.balance_changes.is_empty()
                 {
                     None
                 } else {
@@ -254,30 +254,4 @@ pub fn map_protocol_changes(
             })
             .collect::<Vec<_>>(),
     })
-}
-
-fn is_deployment_tx(tx: &eth::v2::TransactionTrace, vault_address: &[u8]) -> bool {
-    let created_accounts = tx
-        .calls
-        .iter()
-        .flat_map(|call| {
-            call.account_creations
-                .iter()
-                .map(|ac| ac.account.to_owned())
-        })
-        .collect::<Vec<_>>();
-
-    if let Some(deployed_address) = created_accounts.first() {
-        return deployed_address.as_slice() == vault_address;
-    }
-    false
-}
-
-fn find_deployed_underlying_address(vault_address: &[u8]) -> Option<[u8; 20]> {
-    match vault_address {
-        hex!("A663B02CF0a4b149d2aD41910CB81e23e1c41c32") => {
-            Some(hex!("853d955aCEf822Db058eb8505911ED77F175b99e"))
-        }
-        _ => None,
-    }
 }

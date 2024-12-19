@@ -9,8 +9,7 @@ use substreams::{
     hex, log,
     pb::substreams::StoreDeltas,
     store::{
-        StoreAddBigInt, StoreGet, StoreGetProto, StoreGetString, StoreNew, StoreSetIfNotExists,
-        StoreSetIfNotExistsProto,
+        StoreAddBigInt, StoreGet, StoreGetProto, StoreGetString, StoreNew, StoreSet, StoreSetString,
     },
 };
 use substreams_ethereum::{Event, pb::eth};
@@ -52,17 +51,14 @@ pub fn map_components(block: eth::v2::Block) -> Result<BlockTransactionProtocolC
 
 /// Simply stores the `ProtocolComponent`s with the pool address as the key and the pool id as value
 #[substreams::handlers::store]
-pub fn store_components(
-    map: BlockTransactionProtocolComponents,
-    store: StoreSetIfNotExistsProto<ProtocolComponent>,
-) {
+pub fn store_components(map: BlockTransactionProtocolComponents, store: StoreSetString) {
     map.tx_components
         .into_iter()
         .for_each(|tx_pc| {
             tx_pc
                 .components
                 .into_iter()
-                .for_each(|pc| store.set_if_not_exists(0, format!("pool:{0}", &pc.id[..42]), &pc))
+                .for_each(|pc| store.set(0, format!("pool:{0}", &pc.id[..42]), &pc.id))
         });
 }
 
@@ -265,7 +261,7 @@ pub fn map_protocol_changes(
         &block,
         |addr| {
             components_store
-                .get_last(format!("pool:0x{}", hex::encode(addr)))
+                .get_last(format!("pool:0x{0}", hex::encode(addr)))
                 .is_some() ||
                 addr.eq(VAULT_ADDRESS)
         },
