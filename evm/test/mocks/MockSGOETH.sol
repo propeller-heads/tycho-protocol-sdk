@@ -4,13 +4,16 @@ pragma solidity ^0.8.26;
 import "openzeppelin-contracts/contracts/token/ERC20/extensions/ERC4626.sol";
 import "openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
 
-contract MockSUSDC is ERC4626 {
+contract MockSGOETH is ERC4626 {
     bool public isBufferInitialized;
 
-    constructor(IERC20 _asset) ERC4626(_asset) ERC20("Staked USDC", "sUSDC") {}
+    constructor(IERC20 _asset)
+        ERC4626(_asset)
+        ERC20("Staked GOETH", "sGOETH")
+    {}
 
     function _decimals() internal pure returns (uint8) {
-        return 6; // Same as USDC
+        return 18;
     }
 
     // Override convertToShares to implement 1:1 conversion for testing
