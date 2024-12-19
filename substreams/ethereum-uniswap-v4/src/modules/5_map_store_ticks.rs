@@ -13,6 +13,7 @@ use substreams::{
 };
 
 use anyhow::Ok;
+use substreams_helper::hex::Hexable;
 
 #[substreams::handlers::map]
 pub fn map_ticks_changes(events: Events) -> Result<TickDeltas, anyhow::Error> {
@@ -34,7 +35,7 @@ pub fn store_ticks_liquidity(ticks_deltas: TickDeltas, store: StoreAddBigInt) {
     deltas.iter().for_each(|delta| {
         store.add(
             delta.ordinal,
-            format!("pool:{0}:tick:{1}", hex::encode(&delta.pool_address), delta.tick_index,),
+            format!("pool:{0}:tick:{1}", &delta.pool_address.to_hex(), delta.tick_index,),
             BigInt::from_signed_bytes_be(&delta.liquidity_net_delta),
         );
     });
@@ -52,14 +53,14 @@ fn event_to_ticks_deltas(event: PoolEvent) -> Vec<TickDelta> {
                 BigInt::from_str(&liq_change.liquidity_delta).expect("Failed to parse BigInt");
             vec![
                 TickDelta {
-                    pool_address: hex::decode(&event.pool_id).unwrap(),
+                    pool_address: hex::decode(event.pool_id.trim_start_matches("0x")).unwrap(),
                     tick_index: liq_change.tick_lower,
                     liquidity_net_delta: { amount.to_signed_bytes_be() },
                     ordinal: event.log_ordinal,
                     transaction: event.transaction.clone(),
                 },
                 TickDelta {
-                    pool_address: hex::decode(&event.pool_id).unwrap(),
+                    pool_address: hex::decode(event.pool_id.trim_start_matches("0x")).unwrap(),
                     tick_index: liq_change.tick_upper,
                     liquidity_net_delta: amount.neg().to_signed_bytes_be(),
                     ordinal: event.log_ordinal,

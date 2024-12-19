@@ -48,6 +48,13 @@ fn get_new_pools(
                         change: ChangeType::Creation.into(),
                     },
                     Attribute {
+                        name: "sqrt_price_x96".to_string(),
+                        value: event
+                            .sqrt_price_x96
+                            .to_signed_bytes_be(),
+                        change: ChangeType::Update.into(),
+                    },
+                    Attribute {
                         name: "protocol_fees/zero2one".to_string(),
                         value: BigInt::from(0).to_signed_bytes_be(),
                         change: ChangeType::Creation.into(),
@@ -104,12 +111,12 @@ fn get_new_pools(
                 BalanceChange {
                     token: event.currency0,
                     balance: BigInt::from(0).to_signed_bytes_be(),
-                    component_id: event.id.to_vec(),
+                    component_id: event.id.to_vec().to_hex().as_bytes().to_vec(),
                 },
                 BalanceChange {
                     token: event.currency1,
                     balance: BigInt::from(0).to_signed_bytes_be(),
-                    component_id: event.id.to_vec(),
+                    component_id: event.id.to_vec().to_hex().as_bytes().to_vec(),
                 },
             ],
         })

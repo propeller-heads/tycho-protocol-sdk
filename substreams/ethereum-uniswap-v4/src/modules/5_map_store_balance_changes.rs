@@ -46,16 +46,20 @@ pub fn store_pools_balances(balances_deltas: BlockBalanceDeltas, store: StoreAdd
 }
 
 fn event_to_balance_deltas(current_tick: i64, event: PoolEvent) -> Option<Vec<BalanceDelta>> {
-    let address = format!("0x{}", event.pool_id)
-        .as_bytes()
-        .to_vec();
+    let address = event.pool_id.as_bytes().to_vec();
     match event.r#type.unwrap() {
         pool_event::Type::ModifyLiquidity(e) => {
             let (delta0, delta1) =
                 get_amount_delta(current_tick, e.tick_lower, e.tick_upper, e.liquidity_delta);
             Some(vec![
                 BalanceDelta {
-                    token: hex::decode(event.currency0.clone()).unwrap(),
+                    token: hex::decode(
+                        event
+                            .currency0
+                            .clone()
+                            .trim_start_matches("0x"),
+                    )
+                    .unwrap(),
                     delta: delta0.to_signed_bytes_be(),
                     component_id: address.clone(),
                     ord: event.log_ordinal,
@@ -65,7 +69,13 @@ fn event_to_balance_deltas(current_tick: i64, event: PoolEvent) -> Option<Vec<Ba
                         .map(Into::into),
                 },
                 BalanceDelta {
-                    token: hex::decode(event.currency1.clone()).unwrap(),
+                    token: hex::decode(
+                        event
+                            .currency1
+                            .clone()
+                            .trim_start_matches("0x"),
+                    )
+                    .unwrap(),
                     delta: delta1.to_signed_bytes_be(),
                     component_id: address,
                     ord: event.log_ordinal,
@@ -76,7 +86,13 @@ fn event_to_balance_deltas(current_tick: i64, event: PoolEvent) -> Option<Vec<Ba
 
         pool_event::Type::Swap(e) => Some(vec![
             BalanceDelta {
-                token: hex::decode(event.currency0.clone()).unwrap(),
+                token: hex::decode(
+                    event
+                        .currency0
+                        .clone()
+                        .trim_start_matches("0x"),
+                )
+                .unwrap(),
                 delta: BigInt::from_str(&e.amount0)
                     .unwrap()
                     .to_signed_bytes_be(),
@@ -88,7 +104,13 @@ fn event_to_balance_deltas(current_tick: i64, event: PoolEvent) -> Option<Vec<Ba
                     .map(Into::into),
             },
             BalanceDelta {
-                token: hex::decode(event.currency1.clone()).unwrap(),
+                token: hex::decode(
+                    event
+                        .currency1
+                        .clone()
+                        .trim_start_matches("0x"),
+                )
+                .unwrap(),
                 delta: BigInt::from_str(&e.amount1)
                     .unwrap()
                     .to_signed_bytes_be(),
