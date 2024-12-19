@@ -464,6 +464,102 @@ contract BalancerV3SwapAdapterTest is AdapterTest, ERC20, BalancerV3Errors {
         }
     }
 
+    ////////////////////////////////////////TO FIX !!!//////////////////////////////////////////////////
+    ///////////////////////////////////////// ERC4626-->ERC20-->ERC20 UNWRAP_SWAP
+    //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    
+    function testPriceFuzzBalancerV3_ERC4626_ERC20_ERC20_UNWRAP_SWAP(uint256 amount0)
+        public
+    {
+        address token0 = address(ERC4626_sUSDC);
+        address token1 = ERC20_GOETH;
+
+       bytes32 pool = bytes32(bytes20(ERC20_ERC20_GOETH_USDC_WEIGHTED_POOL));
+       uint256[] memory limits = adapter.getLimits(pool, token0, token1);
+
+       amount0 = bound(amount0, 100 * 10**6, 100000 * 10**6);
+       vm.assume(amount0 < limits[0]);
+
+       uint256[] memory amounts = new uint256[](1);
+       amounts[0] = amount0;
+
+       __prankStaticCall();
+       Fraction[] memory prices = adapter.price(pool, token0, token1, amounts);
+
+       for (uint256 i = 0; i < prices.length; i++) {
+           assertGt(prices[i].numerator, 0);
+           assertGt(prices[i].denominator, 0);
+       }
+    }
+
+    function testSwapFuzzBalancerV3_ERC4626_ERC20_ERC20_UNWRAP_SWAP(
+        uint256 specifiedAmount,
+        bool isBuy
+    ) public {
+        // Scale bounds based on whether it's a buy or sell order
+        if (isBuy) {
+            specifiedAmount = bound(
+                specifiedAmount,
+                10**17,
+                1000 * 10**18
+                
+            );
+        } else {
+            specifiedAmount = bound(
+                specifiedAmount,
+                10 * 10**6,
+                100000 * 10**6
+            );
+        }
+
+        address token0 = address(ERC4626_sUSDC);
+        address token1 = ERC20_GOETH;
+
+        OrderSide side = isBuy ? OrderSide.Buy : OrderSide.Sell;
+        bytes32 pool = bytes32(bytes20(ERC20_ERC20_GOETH_USDC_WEIGHTED_POOL));
+        uint256[] memory limits = adapter.getLimits(pool, token0, token1);
+
+        if (side == OrderSide.Buy) {
+            vm.assume(specifiedAmount < limits[1]);
+        } else {
+            vm.assume(specifiedAmount < limits[0]);
+        }
+
+        deal(token0, address(this), IERC20(token0).totalSupply() * 2);
+        IERC4626(token0).approve(address(adapter), type(uint256).max);
+
+        uint256 bal0 = IERC4626(token0).balanceOf(address(this));
+        uint256 bal1 = IERC20(token1).balanceOf(address(this));
+
+        Trade memory trade = adapter.swap(
+            pool,
+            token0,
+            token1,
+            side,
+            specifiedAmount
+        );
+
+        if (side == OrderSide.Buy) {
+            assertEq(
+                specifiedAmount,
+                IERC20(token1).balanceOf(address(this)) - bal1
+            );
+            assertEq(
+                trade.calculatedAmount,
+                bal0 - IERC4626(token0).balanceOf(address(this))
+            );
+        } else {
+            assertEq(
+                specifiedAmount,
+                bal0 - IERC4626(token0).balanceOf(address(this))
+            );
+            assertEq(
+                trade.calculatedAmount,
+                IERC20(token1).balanceOf(address(this)) - bal1
+            );
+        }
+    }
+
     ///////////////////////////////////////// ERC4626_ERC4626_DIRECT
     //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
