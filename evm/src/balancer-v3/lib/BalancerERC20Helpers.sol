@@ -73,7 +73,12 @@ abstract contract BalancerERC20Helpers is BalancerStorage {
 
         // prepare path
         (IBatchRouter.SwapPathExactAmountIn memory sellPath,,) = createERC20Path(
-            pool, sellToken, buyToken, specifiedAmount, false, isETHSell || isETHBuy
+            pool,
+            sellToken,
+            buyToken,
+            specifiedAmount,
+            false,
+            isETHSell || isETHBuy
         );
         IBatchRouter.SwapPathExactAmountIn[] memory paths =
             new IBatchRouter.SwapPathExactAmountIn[](1);
@@ -103,12 +108,11 @@ abstract contract BalancerERC20Helpers is BalancerStorage {
         }
 
         // Swap (incl. WETH)
-        if(isETHSell) {
+        if (isETHSell) {
             (,, amountsOut) = router.swapExactIn{value: specifiedAmount}(
                 paths, type(uint256).max, isETHSell || isETHBuy, userData
             );
-        }
-        else {
+        } else {
             (,, amountsOut) = router.swapExactIn(
                 paths, type(uint256).max, isETHSell || isETHBuy, userData
             );
@@ -150,14 +154,18 @@ abstract contract BalancerERC20Helpers is BalancerStorage {
         bytes memory userData;
         bool isETHSell = address(sellToken) == address(0);
         bool isETHBuy = address(buyToken) == address(0);
-        uint256 msgSenderBalance = isETHSell
-            ? address(msg.sender).balance
-            : sellToken.balanceOf(msg.sender);
+        uint256 msgSenderBalance =
+            isETHSell ? address(this).balance : sellToken.balanceOf(msg.sender);
 
         // prepare path
         (, IBatchRouter.SwapPathExactAmountOut memory buyPath,) =
         createERC20Path(
-            pool, sellToken, buyToken, specifiedAmount, true, isETHSell || isETHBuy
+            pool,
+            sellToken,
+            buyToken,
+            specifiedAmount,
+            true,
+            isETHSell || isETHBuy
         );
         IBatchRouter.SwapPathExactAmountOut[] memory paths =
             new IBatchRouter.SwapPathExactAmountOut[](1);
@@ -189,12 +197,11 @@ abstract contract BalancerERC20Helpers is BalancerStorage {
         }
 
         // perform swap
-        if(isETHSell) {
+        if (isETHSell) {
             (,, amountsIn) = router.swapExactOut{value: msgSenderBalance}(
                 paths, type(uint256).max, isETHSell || isETHBuy, userData
-            );          
-        }
-        else {
+            );
+        } else {
             (,, amountsIn) = router.swapExactOut(
                 paths, type(uint256).max, isETHSell || isETHBuy, userData
             );
@@ -250,7 +257,7 @@ abstract contract BalancerERC20Helpers is BalancerStorage {
             IBatchRouter.SwapPathStep memory step
         )
     {
-        uint256 maxAmountIn_ = address(msg.sender).balance;
+        uint256 maxAmountIn_ = address(this).balance;
         if (!isETH) {
             maxAmountIn_ = IERC20(sellToken).balanceOf(msg.sender);
         }
