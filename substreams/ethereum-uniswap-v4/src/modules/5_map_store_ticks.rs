@@ -55,7 +55,7 @@ fn event_to_ticks_deltas(event: PoolEvent) -> Vec<TickDelta> {
                 TickDelta {
                     pool_address: hex::decode(event.pool_id.trim_start_matches("0x")).unwrap(),
                     tick_index: liq_change.tick_lower,
-                    liquidity_net_delta: { amount.to_signed_bytes_be() },
+                    liquidity_net_delta: amount.to_signed_bytes_be(),
                     ordinal: event.log_ordinal,
                     transaction: event.transaction.clone(),
                 },
