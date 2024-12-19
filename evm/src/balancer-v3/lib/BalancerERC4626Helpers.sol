@@ -379,11 +379,11 @@ abstract contract BalancerERC4626Helpers is BalancerCustomWrapHelpers {
                 address token = address(tokens[i]);
 
                 if (token == buyToken) {
-                    limits[0] = balancesRaw[i] * RESERVE_LIMIT_FACTOR / 10;
+                    limits[1] = balancesRaw[i] * RESERVE_LIMIT_FACTOR / 10;
                 }
 
                 if (token == IERC4626(sellToken).asset()) {
-                    limits[1] = IERC4626(sellToken).previewDeposit(
+                    limits[0] = IERC4626(sellToken).previewDeposit(
                         balancesRaw[i] * RESERVE_LIMIT_FACTOR / 10
                     );
                 }
