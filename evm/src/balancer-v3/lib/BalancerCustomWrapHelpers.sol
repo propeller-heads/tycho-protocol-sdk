@@ -7,6 +7,9 @@ abstract contract BalancerCustomWrapHelpers is BalancerERC20Helpers {
     using SafeERC20 for IERC20;
 
     function isERC4626(address token) internal view returns (bool) {
+        if (token == WETH_ADDRESS) {
+            return false;
+        }
         try IERC4626(token).asset() {
             try IERC4626(token).maxRedeem(msg.sender) {
                 return true;
@@ -32,6 +35,7 @@ abstract contract BalancerCustomWrapHelpers is BalancerERC20Helpers {
         IERC20[] memory tokens = vault.getPoolTokens(pool);
 
         if (isERC4626(sellToken) && isERC4626(buyToken)) {
+            // 4626-(20-20)-4626
             address sellTokenAsset = IERC4626(sellToken).asset();
             address buyTokenAsset = IERC4626(buyToken).asset();
 
@@ -53,11 +57,11 @@ abstract contract BalancerCustomWrapHelpers is BalancerERC20Helpers {
                 }
             }
 
-            if (sellTokenOutput == address(0) || buyTokenOutput == address(0)) {
-                kind = CUSTOM_WRAP_KIND.NONE;
-            } else {
-                kind = CUSTOM_WRAP_KIND.ERC4626_TO_ERC4626;
-            }
+            require(
+                sellTokenOutput != address(0) && buyTokenOutput != address(0),
+                "CUSTOM_WRAP(4626-4626): Invalid Pool"
+            );
+            kind = CUSTOM_WRAP_KIND.ERC4626_TO_ERC4626;
         } else if (!isERC4626(sellToken) && !isERC4626(buyToken)) {
             for (uint256 i = 0; i < tokens.length; i++) {
                 address token = address(tokens[i]);
@@ -78,13 +82,14 @@ abstract contract BalancerCustomWrapHelpers is BalancerERC20Helpers {
                     }
                 }
             }
-            if (sellTokenOutput == address(0) || buyTokenOutput == address(0)) {
-                kind = CUSTOM_WRAP_KIND.NONE;
-            } else {
-                kind = CUSTOM_WRAP_KIND.ERC20_TO_ERC20;
-            }
+
+            require(
+                sellTokenOutput != address(0) && buyTokenOutput != address(0),
+                "CUSTOM_WRAP(4626-4626): Invalid Pool"
+            );
+            kind = CUSTOM_WRAP_KIND.ERC20_TO_ERC20;
         } else {
-            kind = CUSTOM_WRAP_KIND.NONE;
+            revert("CUSTOM_WRAP: Invalid tokens");
         }
     }
 
@@ -120,6 +125,7 @@ abstract contract BalancerCustomWrapHelpers is BalancerERC20Helpers {
                 IERC20(sellTokenOutput),
                 IERC20(buyTokenOutput),
                 specifiedAmount,
+                false,
                 false
             );
             steps[1] = step1;
@@ -157,16 +163,14 @@ abstract contract BalancerCustomWrapHelpers is BalancerERC20Helpers {
                 IERC20(sellTokenOutput),
                 IERC20(buyTokenOutput),
                 specifiedAmount,
+                false,
                 false
             );
             steps[1] = step1;
 
             // Step 3: buyToken.asset() -> buyToken.shares()
             (,, IBatchRouter.SwapPathStep memory step2) = createWrapOrUnwrapPath(
-                buyToken,
-                specifiedAmount,
-                IVault.WrappingDirection.WRAP,
-                false
+                buyToken, specifiedAmount, IVault.WrappingDirection.WRAP, false
             );
             steps[2] = step2;
 
@@ -318,7 +322,8 @@ abstract contract BalancerCustomWrapHelpers is BalancerERC20Helpers {
                 IERC4626(sellTokenOutput),
                 IERC4626(buyTokenOutput),
                 specifiedAmount,
-                true
+                true,
+                false
             );
             steps[1] = step1;
 
@@ -336,7 +341,7 @@ abstract contract BalancerCustomWrapHelpers is BalancerERC20Helpers {
             paths[0] = IBatchRouter.SwapPathExactAmountOut({
                 tokenIn: IERC20(_sellToken),
                 steps: steps,
-                maxAmountIn: type(uint256).max,
+                maxAmountIn: initialSenderBalance,
                 exactAmountOut: specifiedAmount
             });
 
@@ -363,7 +368,8 @@ abstract contract BalancerCustomWrapHelpers is BalancerERC20Helpers {
                 IERC20(sellTokenOutput),
                 IERC20(buyTokenOutput),
                 specifiedAmount,
-                true
+                true,
+                false
             );
             steps[1] = step1;
 
@@ -378,7 +384,7 @@ abstract contract BalancerCustomWrapHelpers is BalancerERC20Helpers {
             paths[0] = IBatchRouter.SwapPathExactAmountOut({
                 tokenIn: IERC20(_sellToken),
                 steps: steps,
-                maxAmountIn: type(uint256).max,
+                maxAmountIn: initialSenderBalance,
                 exactAmountOut: specifiedAmount
             });
 
@@ -435,7 +441,9 @@ abstract contract BalancerCustomWrapHelpers is BalancerERC20Helpers {
                     ? IERC20(token)
                     : IERC20(IERC4626(token).asset()),
                 steps: steps,
-                maxAmountIn: type(uint256).max,
+                maxAmountIn: direction == IVault.WrappingDirection.UNWRAP
+                    ? IERC20(token).balanceOf(address(this))
+                    : IERC20(IERC4626(token).asset()).balanceOf(address(this)),
                 exactAmountOut: amount
             });
         } else {

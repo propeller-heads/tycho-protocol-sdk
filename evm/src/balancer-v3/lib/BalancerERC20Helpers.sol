@@ -72,8 +72,14 @@ abstract contract BalancerERC20Helpers is BalancerStorage {
         bool isETHBuy = address(buyToken) == address(0);
 
         // prepare path
-        (IBatchRouter.SwapPathExactAmountIn memory sellPath,,) =
-            createERC20Path(pool, sellToken, buyToken, specifiedAmount, false);
+        (IBatchRouter.SwapPathExactAmountIn memory sellPath,,) = createERC20Path(
+            pool,
+            sellToken,
+            buyToken,
+            specifiedAmount,
+            false,
+            isETHSell || isETHBuy
+        );
         IBatchRouter.SwapPathExactAmountIn[] memory paths =
             new IBatchRouter.SwapPathExactAmountIn[](1);
         paths[0] = sellPath;
@@ -102,9 +108,15 @@ abstract contract BalancerERC20Helpers is BalancerStorage {
         }
 
         // Swap (incl. WETH)
-        (,, amountsOut) = router.swapExactIn(
-            paths, type(uint256).max, isETHSell || isETHBuy, userData
-        );
+        if (isETHSell) {
+            (,, amountsOut) = router.swapExactIn{value: specifiedAmount}(
+                paths, type(uint256).max, isETHSell || isETHBuy, userData
+            );
+        } else {
+            (,, amountsOut) = router.swapExactIn(
+                paths, type(uint256).max, isETHSell || isETHBuy, userData
+            );
+        }
 
         // transfer if required
         if (performTransfer) {
@@ -142,13 +154,19 @@ abstract contract BalancerERC20Helpers is BalancerStorage {
         bytes memory userData;
         bool isETHSell = address(sellToken) == address(0);
         bool isETHBuy = address(buyToken) == address(0);
-        uint256 msgSenderBalance = isETHSell
-            ? address(msg.sender).balance
-            : sellToken.balanceOf(msg.sender);
+        uint256 msgSenderBalance =
+            isETHSell ? address(this).balance : sellToken.balanceOf(msg.sender);
 
         // prepare path
         (, IBatchRouter.SwapPathExactAmountOut memory buyPath,) =
-            createERC20Path(pool, sellToken, buyToken, specifiedAmount, true);
+        createERC20Path(
+            pool,
+            sellToken,
+            buyToken,
+            specifiedAmount,
+            true,
+            isETHSell || isETHBuy
+        );
         IBatchRouter.SwapPathExactAmountOut[] memory paths =
             new IBatchRouter.SwapPathExactAmountOut[](1);
         paths[0] = buyPath;
@@ -179,9 +197,15 @@ abstract contract BalancerERC20Helpers is BalancerStorage {
         }
 
         // perform swap
-        (,, amountsIn) = router.swapExactOut(
-            paths, type(uint256).max, isETHSell || isETHBuy, userData
-        );
+        if (isETHSell) {
+            (,, amountsIn) = router.swapExactOut{value: msgSenderBalance}(
+                paths, type(uint256).max, isETHSell || isETHBuy, userData
+            );
+        } else {
+            (,, amountsIn) = router.swapExactOut(
+                paths, type(uint256).max, isETHSell || isETHBuy, userData
+            );
+        }
 
         // transfer if required
         if (performTransfer) {
@@ -222,16 +246,22 @@ abstract contract BalancerERC20Helpers is BalancerStorage {
         IERC20 sellToken,
         IERC20 buyToken,
         uint256 specifiedAmount,
-        bool isBuy
+        bool isBuy,
+        bool isETH
     )
         internal
-        pure
+        view
         returns (
             IBatchRouter.SwapPathExactAmountIn memory sellPath,
             IBatchRouter.SwapPathExactAmountOut memory buyPath,
             IBatchRouter.SwapPathStep memory step
         )
     {
+        uint256 maxAmountIn_ = address(this).balance;
+        if (!isETH) {
+            maxAmountIn_ = IERC20(sellToken).balanceOf(msg.sender);
+        }
+
         // prepare steps
         step = IBatchRouter.SwapPathStep({
             pool: pool,
@@ -246,7 +276,7 @@ abstract contract BalancerERC20Helpers is BalancerStorage {
             buyPath = IBatchRouter.SwapPathExactAmountOut({
                 tokenIn: sellToken,
                 steps: steps,
-                maxAmountIn: type(uint256).max,
+                maxAmountIn: maxAmountIn_,
                 exactAmountOut: specifiedAmount
             });
         } else {

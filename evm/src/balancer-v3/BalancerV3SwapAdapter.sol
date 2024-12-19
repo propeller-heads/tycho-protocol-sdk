@@ -10,22 +10,36 @@ import "./lib/BalancerSwapHelpers.sol";
  * - ETH<->ERC20
  * - ERC20<->ERC20
  * - ERC4626<->ERC4626
+ * - ERC4626<->ERC20
  *
  * 2 steps:
- * - ERC20->(ERC4626->ERC4626)
- * - (ERC20->ERC20)->ERC4626
- * - (ERC4626->ERC20)->ERC20
- * - (ERC4626->ERC4626)->ERC20
+ * - (ERC20->ERC20)->ERC4626: swap, wrap_0
+ * - (ERC4626->ERC20)->ERC4626: swap, wrap_1
+ *
+ * - (ERC4626->ERC4626)->ERC20: swap, unwrap_0
+ * - (ERC20->ERC4626)->ERC20; swap, unwrap_1
+ *
+ * - ERC20->(ERC4626->ERC4626): wrap, swap_0
+ * - ERC20->(ERC4626->ERC20); wrap, swap_1
+ *
+ * - ERC4626->(ERC20->ERC20): unwrap, swap_0
+ * - ERC4626->(ERC20->ERC4626): unwrap, swap_1
  *
  * 3 steps:
  * - ERC20->(ERC4626->ERC4626)->ERC20
  * - ERC4626->(ERC20->ERC20)->ERC4626
  */
 contract BalancerV3SwapAdapter is BalancerSwapHelpers {
-    constructor(address payable vault_, address _router, address _permit2) {
+    constructor(
+        address payable vault_,
+        address _router,
+        address _permit2,
+        address _WETH_ADDRESS
+    ) {
         vault = IVault(vault_);
         router = IBatchRouter(_router);
         permit2 = _permit2;
+        WETH_ADDRESS = _WETH_ADDRESS;
     }
 
     /// @dev Enable ETH receiving
@@ -62,7 +76,8 @@ contract BalancerV3SwapAdapter is BalancerSwapHelpers {
         trade.calculatedAmount =
             swapMiddleware(poolId, sellToken, buyToken, side, specifiedAmount);
 
-        // as post-trade price cannot be calculated in an external call, we return the trade price here
+        // as post-trade price cannot be calculated in an external call, we
+        // return the trade price here
         trade.price = Fraction(trade.calculatedAmount, specifiedAmount);
 
         uint256 gasBefore = gasleft();

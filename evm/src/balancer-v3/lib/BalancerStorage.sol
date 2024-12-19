@@ -16,7 +16,7 @@ abstract contract BalancerStorage {
     IBatchRouter immutable router;
 
     // ETH and Wrapped ETH addresses, using ETH as address(0)
-    address constant WETH_ADDRESS = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
+    address immutable WETH_ADDRESS;
     address constant ETH_ADDRESS = address(0);
 
     // permit2 address
@@ -34,10 +34,9 @@ abstract contract BalancerStorage {
 
     enum ERC4626_SWAP_TYPE {
         NONE,
-        ERC20_SWAP, // ERC20->ERC20->ERC4626
-        ERC20_WRAP, // ERC20->ERC4626->ERC4626
-        ERC4626_UNWRAP, // ERC4626->ERC20->ERC20
-        ERC4626_SWAP // ERC4626->ERC4626->ERC20
-
+        SWAP_WRAP,
+        SWAP_UNWRAP,
+        WRAP_SWAP,
+        UNWRAP_SWAP
     }
 }
