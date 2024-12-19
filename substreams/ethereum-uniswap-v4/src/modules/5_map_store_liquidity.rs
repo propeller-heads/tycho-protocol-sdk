@@ -10,6 +10,7 @@ use crate::pb::uniswap::v4::{
 use substreams::scalar::BigInt;
 
 use anyhow::Ok;
+use substreams_helper::hex::Hexable;
 
 #[substreams::handlers::map]
 pub fn map_liquidity_changes(
@@ -44,14 +45,14 @@ pub fn store_liquidity(ticks_deltas: LiquidityChanges, store: StoreSetSumBigInt)
             LiquidityChangeType::Delta => {
                 store.sum(
                     changes.ordinal,
-                    format!("pool:{0}", hex::encode(&changes.pool_address)),
+                    format!("pool:{0}", &changes.pool_address.to_hex()),
                     BigInt::from_signed_bytes_be(&changes.value),
                 );
             }
             LiquidityChangeType::Absolute => {
                 store.set(
                     changes.ordinal,
-                    format!("pool:{0}", hex::encode(&changes.pool_address)),
+                    format!("pool:{0}", &changes.pool_address.to_hex()),
                     BigInt::from_signed_bytes_be(&changes.value),
                 );
             }
@@ -65,7 +66,7 @@ fn event_to_liquidity_deltas(current_tick: i64, event: PoolEvent) -> Option<Liqu
                 current_tick < mod_liquidity.tick_upper.into()
             {
                 Some(LiquidityChange {
-                    pool_address: hex::decode(event.pool_id).unwrap(),
+                    pool_address: hex::decode(event.pool_id.trim_start_matches("0x")).unwrap(),
                     value: BigInt::from_str(&mod_liquidity.liquidity_delta)
                         .unwrap()
                         .to_signed_bytes_be(),
@@ -78,7 +79,7 @@ fn event_to_liquidity_deltas(current_tick: i64, event: PoolEvent) -> Option<Liqu
             }
         }
         pool_event::Type::Swap(swap) => Some(LiquidityChange {
-            pool_address: hex::decode(event.pool_id).unwrap(),
+            pool_address: hex::decode(event.pool_id.trim_start_matches("0x")).unwrap(),
             value: BigInt::from_str(&swap.liquidity)
                 .unwrap()
                 .to_signed_bytes_be(),

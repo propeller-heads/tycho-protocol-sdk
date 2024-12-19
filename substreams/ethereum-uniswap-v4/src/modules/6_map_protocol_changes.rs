@@ -172,7 +172,13 @@ fn event_to_attributes_updates(event: PoolEvent) -> Vec<(Transaction, PoolAddres
                     .clone()
                     .unwrap()
                     .into(),
-                hex::decode(event.pool_id.clone()).unwrap(),
+                hex::decode(
+                    event
+                        .pool_id
+                        .clone()
+                        .trim_start_matches("0x"),
+                )
+                .unwrap(),
                 Attribute {
                     name: "sqrt_price_x96".to_string(),
                     value: BigInt::from_str(&swap.sqrt_price_x96)
@@ -183,7 +189,7 @@ fn event_to_attributes_updates(event: PoolEvent) -> Vec<(Transaction, PoolAddres
             ),
             (
                 event.transaction.unwrap().into(),
-                hex::decode(event.pool_id).unwrap(),
+                hex::decode(event.pool_id.trim_start_matches("0x")).unwrap(),
                 Attribute {
                     name: "tick".to_string(),
                     value: BigInt::from(swap.tick).to_signed_bytes_be(),
@@ -205,7 +211,13 @@ fn event_to_attributes_updates(event: PoolEvent) -> Vec<(Transaction, PoolAddres
                         .clone()
                         .unwrap()
                         .into(),
-                    hex::decode(event.pool_id.clone()).unwrap(),
+                    hex::decode(
+                        event
+                            .pool_id
+                            .clone()
+                            .trim_start_matches("0x"),
+                    )
+                    .unwrap(),
                     Attribute {
                         name: "protocol_fees/zero2one".to_string(),
                         value: BigInt::from(lower_12_bits).to_signed_bytes_be(),
@@ -214,7 +226,7 @@ fn event_to_attributes_updates(event: PoolEvent) -> Vec<(Transaction, PoolAddres
                 ),
                 (
                     event.transaction.unwrap().into(),
-                    hex::decode(event.pool_id).unwrap(),
+                    hex::decode(event.pool_id.trim_start_matches("0x")).unwrap(),
                     Attribute {
                         name: "protocol_fees/one2zero".to_string(),
                         value: BigInt::from(upper_12_bits).to_signed_bytes_be(),
