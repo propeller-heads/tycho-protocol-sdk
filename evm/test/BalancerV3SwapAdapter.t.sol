@@ -15,13 +15,11 @@ import {ERC20} from "openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
 
 import {FractionMath} from "src/libraries/FractionMath.sol";
 import "./mocks/MockSUSDC.sol";
+import "./mocks/MockSETHx.sol";
 import {IBufferRouter} from "./interfaces/IBufferRouter.sol";
 
 contract BalancerV3SwapAdapterTest is AdapterTest, ERC20, BalancerV3Errors {
     using FractionMath for Fraction;
-
-    // because this value also applies to out tokens and is used in checks
-    uint256 _MINIMUM_WRAP_AMOUNT = 10001;
 
     IVault constant balancerV3Vault =
         IVault(payable(0xbA1333333333a1BA1108E8412f11850A5C319bA9));
@@ -56,8 +54,8 @@ contract BalancerV3SwapAdapterTest is AdapterTest, ERC20, BalancerV3Errors {
 
     uint256 constant TEST_ITERATIONS = 100;
 
-    MockSUSDC public sUSDC;
-    address public constant USDC = 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48;
+    MockSUSDC public ERC4626_sUSDC;
+    MockSETHx public ERC4626_sETHx;
 
     constructor() ERC20("", "") {}
 
@@ -72,36 +70,68 @@ contract BalancerV3SwapAdapterTest is AdapterTest, ERC20, BalancerV3Errors {
             ERC20_WETH
         );
 
-        // Create sUSDC first
-        sUSDC = new MockSUSDC(IERC20(USDC));
-        vm.label(address(sUSDC), "sUSDC");
+        // Create ERC4626_sUSDC first
+        ERC4626_sUSDC = new MockSUSDC(IERC20(ERC20_USDC));
+        vm.label(address(ERC4626_sUSDC), "ERC4626_sUSDC");
+
+        // Create sETHx first
+        ERC4626_sETHx = new MockSETHx(IERC20(ERC20_ETHx));
+        vm.label(address(ERC4626_sETHx), "ERC4626_sETHx");
         
-        // Deal USDC to this contract for buffer initialization
-        deal(USDC, address(this), 1000000 * 10**6);
+        // Deal ERC20_USDC to this contract for buffer initialization
+        deal(ERC20_USDC, address(this), 1000000 * 10**6);
+        // Deal ETHx to this contract for buffer initialization
+        deal(ERC20_ETHx, address(this), 1000 * 10**18);
         
-        // Approve USDC spending through Permit2
-        IERC20(USDC).approve(permit2, type(uint256).max);
+        // Approve ERC20_USDC spending through Permit2
+        IERC20(ERC20_USDC).approve(permit2, type(uint256).max);
+        // Approve ETHx spending through Permit2
+        IERC20(ERC20_ETHx).approve(permit2, type(uint256).max);
         
         // Approve both tokens for Buffer Router through Permit2
         IPermit2(permit2).approve(
-            USDC,
+            ERC20_USDC,
+            address(0x9179C06629ef7f17Cb5759F501D89997FE0E7b45),  // Buffer Router
+            uint160(type(uint256).max),
+            uint48(block.timestamp + 1 days)
+        );
+
+        IPermit2(permit2).approve(
+            ERC20_ETHx,
             address(0x9179C06629ef7f17Cb5759F501D89997FE0E7b45),  // Buffer Router
             uint160(type(uint256).max),
             uint48(block.timestamp + 1 days)
         );
         
-        // Also approve sUSDC for Buffer Router
-        IERC20(address(sUSDC)).approve(permit2, type(uint256).max);
+        // Also approve ERC4626_sUSDC for Buffer Router
+        IERC20(address(ERC4626_sUSDC)).approve(permit2, type(uint256).max);
         IPermit2(permit2).approve(
-            address(sUSDC),
+            address(ERC4626_sUSDC),
+            address(0x9179C06629ef7f17Cb5759F501D89997FE0E7b45),  // Buffer Router
+            uint160(type(uint256).max),
+            uint48(block.timestamp + 1 days)
+        );
+
+        // Also approve sETHx for Buffer Router
+        IERC20(address(ERC4626_sETHx)).approve(permit2, type(uint256).max);
+        IPermit2(permit2).approve(
+            address(ERC4626_sETHx),
             address(0x9179C06629ef7f17Cb5759F501D89997FE0E7b45),  // Buffer Router
             uint160(type(uint256).max),
             uint48(block.timestamp + 1 days)
         );
         
-        // Approve Permit2 to spend USDC for the Balancer vault
+        // Approve Permit2 to spend sUSDC for the Balancer vault
         IPermit2(permit2).approve(
-            address(sUSDC),
+            address(ERC4626_sUSDC),
+            address(balancerV3Vault),
+            uint160(type(uint256).max),
+            uint48(block.timestamp + 1 days)
+        );
+
+        // Approve Permit2 to spend sETHx for the Balancer vault
+        IPermit2(permit2).approve(
+            address(ERC4626_sETHx),
             address(balancerV3Vault),
             uint160(type(uint256).max),
             uint48(block.timestamp + 1 days)
@@ -109,31 +139,54 @@ contract BalancerV3SwapAdapterTest is AdapterTest, ERC20, BalancerV3Errors {
         
         // Initialize Balancer's internal ERC4626 buffer through the Buffer Router
         IBufferRouter bufferRouter = IBufferRouter(0x9179C06629ef7f17Cb5759F501D89997FE0E7b45);
+
+        IERC20(ERC20_USDC).approve(address(ERC4626_sUSDC), type(uint256).max);
+
+        IERC20(ERC20_ETHx).approve(address(ERC4626_sETHx), type(uint256).max);
         
-        IERC20(USDC).approve(address(sUSDC), type(uint256).max);
-        
-        // Mint some sUSDC first
-        sUSDC.deposit(10 * 10**6, address(this));
+        // Mint some ERC4626_sUSDC first
+        ERC4626_sUSDC.deposit(10 * 10**6, address(this));
+
+        // Mint some sETHx first
+        ERC4626_sETHx.deposit(10 * 10**18, address(this));
         
         // Initialize buffer with equal amounts of underlying and wrapped tokens
         bufferRouter.initializeBuffer(
-            IERC4626(address(sUSDC)),  // wrapped token
-            10 * 10**6,                // exactAmountUnderlyingIn (10 USDC)
-            10 * 10**6,                // exactAmountWrappedIn (10 sUSDC)
+            IERC4626(address(ERC4626_sUSDC)),  // wrapped token
+            10 * 10**6,                // exactAmountUnderlyingIn (10 ERC20_USDC)
+            10 * 10**6,                // exactAmountWrappedIn (10 ERC4626_sUSDC)
             9 * 10**6                  // minIssuedShares (90% of input as safety)
         );
 
-        // Deal USDC to test contract
-        deal(USDC, address(this), 1000000 * 10**6);
+        bufferRouter.initializeBuffer(
+            IERC4626(address(ERC4626_sETHx)),  // wrapped token
+            10 * 10**18,                // exactAmountUnderlyingIn (10 ETHx)
+            10 * 10**18,                // exactAmountWrappedIn (10 sETHx)
+            9 * 10**18                  // minIssuedShares (90% of input as safety)
+        );
+
+        // Deal ERC20_USDC to test contract
+        deal(ERC20_USDC, address(this), 1000000 * 10**6);
+
+        // Deal ETHx to test contract
+        deal(ERC20_ETHx, address(this), 1000 * 10**18);
         
-        // Approve USDC spending to sUSDC vault
-        IERC20(USDC).approve(address(sUSDC), type(uint256).max);
+        // Approve ERC20_USDC spending to ERC4626_sUSDC vault
+        IERC20(ERC20_USDC).approve(address(ERC4626_sUSDC), type(uint256).max);
+
+        // Approve ETHx spending to sETHx vault
+        IERC20(ERC20_ETHx).approve(address(ERC4626_sETHx), type(uint256).max);
         
-        // Deposit USDC to get sUSDC
-        sUSDC.deposit(1000000 * 10**6, address(this));
+        // Deposit ERC20_USDC to get ERC4626_sUSDC
+        ERC4626_sUSDC.deposit(1000000 * 10**6, address(this));
+
+        // Deposit ETHx to get sETHx
+        ERC4626_sETHx.deposit(1000 * 10**18, address(this));
         
-        // Add USDC liquidity to the GOETH-USDC pool
-        IERC20(USDC).approve(address(balancerV3Vault), type(uint256).max);
+
+        IERC20(ERC20_USDC).approve(address(balancerV3Vault), type(uint256).max);
+
+        IERC20(ERC20_ETHx).approve(address(balancerV3Vault), type(uint256).max);
 
         vm.label(address(balancerV3Vault), "BalancerV3Vault");
         vm.label(address(router), "BalancerV3BatchRouter");
@@ -316,32 +369,55 @@ contract BalancerV3SwapAdapterTest is AdapterTest, ERC20, BalancerV3Errors {
         }
     }
 
-        ///////////////////////////////////////// ERC20-->ERC20-->ERC4626 SWAP_WRAP
+    ///////////////////////////////////////// ERC20-->ERC20-->ERC4626 SWAP_WRAP
     //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     
+    function testPriceFuzzBalancerV3_ERC20_ERC20_ERC4626_SWAP_WRAP(uint256 amount0)
+        public
+    {
+        address token0 = ERC20_GOETH;
+        address token1 = address(ERC4626_sUSDC);
+
+       bytes32 pool = bytes32(bytes20(ERC20_ERC20_GOETH_USDC_WEIGHTED_POOL));
+       uint256[] memory limits = adapter.getLimits(pool, token0, token1);
+
+       // Use same bounds as swap test for sell orders
+       amount0 = bound(amount0, 10**17, 1000 * 10**18);
+       vm.assume(amount0 < limits[0]);
+
+       uint256[] memory amounts = new uint256[](1);
+       amounts[0] = amount0;
+
+       __prankStaticCall();
+       Fraction[] memory prices = adapter.price(pool, token0, token1, amounts);
+
+       for (uint256 i = 0; i < prices.length; i++) {
+           assertGt(prices[i].numerator, 0);
+           assertGt(prices[i].denominator, 0);
+       }
+    }
+
     function testSwapFuzzBalancerV3_ERC20_ERC20_ERC4626_SWAP_WRAP(
         uint256 specifiedAmount,
         bool isBuy
     ) public {
         // Scale bounds based on whether it's a buy or sell order
         if (isBuy) {
-            // For buy orders, bound USDC amount directly
             specifiedAmount = bound(
                 specifiedAmount,
-                10 * 10**6,  // Min: 10 USDC
-                100000 * 10**6  // Max: 100000 USDC
+                10 * 10**6,
+                100000 * 10**6
             );
         } else {
-            // For sell orders, bound GOETH amount (needs more decimals)
             specifiedAmount = bound(
                 specifiedAmount,
-                10**17,  // Min: scale up for GOETH decimals
-                1000 * 10**18  // Max: scale up for GOETH decimals
+                10**17,
+                1000 * 10**18
             );
         }
 
         address token0 = ERC20_GOETH;
-        address token1 = address(sUSDC);
+        address token1 = address(ERC4626_sUSDC);
 
         OrderSide side = isBuy ? OrderSide.Buy : OrderSide.Sell;
         bytes32 pool = bytes32(bytes20(ERC20_ERC20_GOETH_USDC_WEIGHTED_POOL));
@@ -721,6 +797,102 @@ contract BalancerV3SwapAdapterTest is AdapterTest, ERC20, BalancerV3Errors {
         }
     }
 
+    ///////////////////////////////////////// ERC4626-->ERC20-->ERC4626 UNWRAP_SWAP
+    //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    function testPriceFuzzBalancerV3_ERC4626_ERC20_ERC4626_UNWRAP_SWAP(uint256 amount0)
+        public
+    {
+        address token0 = address(ERC4626_sETHx);
+        address token1 = ERC4626_waEthWETH;
+
+        bytes32 pool = bytes32(bytes20(ERC4626_ERC20_ETHx_waWETH_STABLE_POOL));
+
+        uint256[] memory limits = adapter.getLimits(pool, token0, token1);
+
+        // Use same bounds as swap test
+        amount0 = bound(amount0, 10**15, 1000 * 10**18);
+        vm.assume(amount0 < limits[0]);
+
+        uint256[] memory amounts = new uint256[](1);
+        amounts[0] = amount0;
+
+        __prankStaticCall();
+        Fraction[] memory prices = adapter.price(pool, token0, token1, amounts);
+
+        for (uint256 i = 0; i < prices.length; i++) {
+            assertGt(prices[i].numerator, 0);
+            assertGt(prices[i].denominator, 0);
+        }
+    }
+
+    function testSwapFuzzBalancerV3_ERC4626_ERC20_ERC4626_UNWRAP_SWAP(
+        uint256 specifiedAmount,
+        bool isBuy
+    ) public {
+        // Scale bounds based on whether it's a buy or sell order
+        if (isBuy) {
+            specifiedAmount = bound(
+                specifiedAmount,
+                10**15,
+                1000 * 10**18
+            );
+        } else {
+            specifiedAmount = bound(
+                specifiedAmount,
+                10**15,
+                1000 * 10**18
+            );
+        }
+
+        address token0 = address(ERC4626_sETHx);
+        address token1 = ERC4626_waEthWETH;
+
+        OrderSide side = isBuy ? OrderSide.Buy : OrderSide.Sell;
+        bytes32 pool = bytes32(bytes20(ERC4626_ERC20_ETHx_waWETH_STABLE_POOL));
+        uint256[] memory limits = adapter.getLimits(pool, token0, token1);
+
+        if (side == OrderSide.Buy) {
+            vm.assume(specifiedAmount < limits[1]);
+        } else {
+            vm.assume(specifiedAmount < limits[0]);
+        }
+
+        // Deal tokens to test contract
+        deal(token0, address(this), IERC4626(token0).totalSupply() * 2);
+        IERC4626(token0).approve(address(adapter), type(uint256).max);
+
+        uint256 bal0 = IERC4626(token0).balanceOf(address(this));
+        uint256 bal1 = IERC4626(token1).balanceOf(address(this));
+
+        Trade memory trade = adapter.swap(
+            pool,
+            token0,
+            token1,
+            side,
+            specifiedAmount
+        );
+
+        if (side == OrderSide.Buy) {
+            assertEq(
+                specifiedAmount,
+                IERC4626(token1).balanceOf(address(this)) - bal1
+            );
+            assertEq(
+                trade.calculatedAmount,
+                bal0 - IERC4626(token0).balanceOf(address(this))
+            );
+        } else {
+            assertEq(
+                specifiedAmount,
+                bal0 - IERC4626(token0).balanceOf(address(this))
+            );
+            assertEq(
+                trade.calculatedAmount,
+                IERC4626(token1).balanceOf(address(this)) - bal1
+            );
+        }
+    }
 
     function __prankStaticCall() internal {
         // Prank address 0x0 for both msg.sender and tx.origin (to identify as a
