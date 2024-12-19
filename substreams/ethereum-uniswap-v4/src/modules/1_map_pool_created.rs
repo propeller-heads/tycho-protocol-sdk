@@ -52,7 +52,7 @@ fn get_new_pools(
                         value: event
                             .sqrt_price_x96
                             .to_signed_bytes_be(),
-                        change: ChangeType::Update.into(),
+                        change: ChangeType::Creation.into(),
                     },
                     Attribute {
                         name: "protocol_fees/zero2one".to_string(),
