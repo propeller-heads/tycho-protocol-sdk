@@ -506,7 +506,7 @@ contract BalancerV3SwapAdapterTest is AdapterTest, ERC20, BalancerV3Errors {
         }
     }
 
-    ////////////////////////////////////////TO FIX
+    ////////////////////////////////////////
     // !!!//////////////////////////////////////////////////
     ///////////////////////////////////////// ERC4626-->ERC20-->ERC20
     // UNWRAP_SWAP
@@ -1258,6 +1258,32 @@ contract BalancerV3SwapAdapterTest is AdapterTest, ERC20, BalancerV3Errors {
                 trade.calculatedAmount,
                 IERC4626(token1).balanceOf(address(this)) - bal1
             );
+        }
+    }
+
+    ///////////////////////////////////////// ERC20-->ERC4626-->ERC4626-->ERC20
+    // UNWRAP_SWAP_WRAP
+    //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    function testPriceFuzzBalancerV3_ERC20_ERC4626_ERC4626_ERC20_WRAP_SWAP_UNWRAP(
+        uint256 amount0
+    ) public {
+        address token0 = address(ERC20_GOETH);
+        address token1 = address(ERC20_USDC);
+
+        bytes32 pool = bytes32(bytes20(ERC20_ERC20_GOETH_USDC_WEIGHTED_POOL));
+        uint256[] memory limits = adapter.getLimits(pool, token0, token1);
+
+        vm.assume(amount0 < limits[0] && amount0 > 1e17);
+
+        uint256[] memory amounts = new uint256[](1);
+        amounts[0] = amount0;
+
+        __prankStaticCall();
+        Fraction[] memory prices = adapter.price(pool, token0, token1, amounts);
+
+        for (uint256 i = 0; i < prices.length; i++) {
+            assertGt(prices[i].numerator, 0);
+            assertGt(prices[i].denominator, 0);
         }
     }
 
