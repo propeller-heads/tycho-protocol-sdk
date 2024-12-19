@@ -6,8 +6,7 @@ use anyhow::Result;
 use itertools::Itertools;
 use std::collections::HashMap;
 use substreams::{
-    hex,
-    log,
+    hex, log,
     pb::substreams::StoreDeltas,
     store::{
         StoreAddBigInt, StoreGet, StoreGetProto, StoreGetString, StoreNew, StoreSet, StoreSetString,
@@ -284,8 +283,8 @@ pub fn map_protocol_changes(
                         // We reconstruct the component_id from the address here
                         let id = components_store
                             .get_last(format!("pool:0x{}", hex::encode(address)))
-                            .unwrap(); // Shouldn't happen because we filter by known components 
-                                      // in `extract_contract_changes_builder`
+                            .unwrap(); // Shouldn't happen because we filter by known components
+                                       // in `extract_contract_changes_builder`
                         change.mark_component_as_updated(&id);
                     }
                 })
