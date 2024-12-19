@@ -7,7 +7,7 @@ use abi::{
         events::PoolCreated as WeightedPoolCreated, functions::Create as WeightedPoolCreate,
     },
 };
-use substreams::{hex, log};
+use substreams::hex;
 use substreams_ethereum::{
     Event, Function,
     pb::eth::v2::{Call, Log, TransactionTrace},
@@ -34,25 +34,20 @@ pub fn address_map(
                 .map(|t| t.0)
                 .collect::<Vec<_>>();
 
-            log::info!("weighted pool created: {:?}", pool);
-
             Some(
-                ProtocolComponent::new(
-                    &format!("0x{}", hex::encode(pool.to_owned())),
-                    &(tx.into()),
-                )
-                .with_contracts(&[pool, VAULT_ADDRESS.to_vec()])
-                .with_tokens(tokens.as_slice())
-                .with_attributes(&[
-                    ("pool_type", "WeightedPoolFactory".as_bytes()),
-                    (
-                        "normalized_weights",
-                        &json_serialize_bigint_list(normalized_weights.as_slice()),
-                    ),
-                    ("fee", &swap_fee_percentage.to_signed_bytes_be()),
-                    ("manual_updates", &[1u8]),
-                ])
-                .as_swap_type("balancer_v3_pool", ImplementationType::Vm),
+                ProtocolComponent::new(&format!("0x{}", hex::encode(&pool)), &(tx.into()))
+                    .with_contracts(&[pool, VAULT_ADDRESS.to_vec()])
+                    .with_tokens(tokens.as_slice())
+                    .with_attributes(&[
+                        ("pool_type", "WeightedPoolFactory".as_bytes()),
+                        (
+                            "normalized_weights",
+                            &json_serialize_bigint_list(normalized_weights.as_slice()),
+                        ),
+                        ("fee", &swap_fee_percentage.to_signed_bytes_be()),
+                        ("manual_updates", &[1u8]),
+                    ])
+                    .as_swap_type("balancer_v3_pool", ImplementationType::Vm),
             )
         }
         hex!("B9d01CA61b9C181dA1051bFDd28e1097e920AB14") => {
@@ -64,22 +59,17 @@ pub fn address_map(
                 .map(|t| t.0)
                 .collect::<Vec<_>>();
 
-            log::info!("stable pool created: {:?}", pool);
-
             Some(
-                ProtocolComponent::new(
-                    &format!("0x{}", hex::encode(pool.to_owned())),
-                    &(tx.into()),
-                )
-                .with_contracts(&[pool.to_owned(), VAULT_ADDRESS.to_vec()])
-                .with_tokens(tokens.as_slice())
-                .with_attributes(&[
-                    ("pool_type", "StablePoolFactory".as_bytes()),
-                    ("bpt", &pool),
-                    ("fee", &swap_fee_percentage.to_signed_bytes_be()),
-                    ("manual_updates", &[1u8]),
-                ])
-                .as_swap_type("balancer_v3_pool", ImplementationType::Vm),
+                ProtocolComponent::new(&format!("0x{}", hex::encode(&pool)), &(tx.into()))
+                    .with_contracts(&[pool.to_owned(), VAULT_ADDRESS.to_vec()])
+                    .with_tokens(tokens.as_slice())
+                    .with_attributes(&[
+                        ("pool_type", "StablePoolFactory".as_bytes()),
+                        ("bpt", &pool),
+                        ("fee", &swap_fee_percentage.to_signed_bytes_be()),
+                        ("manual_updates", &[1u8]),
+                    ])
+                    .as_swap_type("balancer_v3_pool", ImplementationType::Vm),
             )
         }
         _ => None,
