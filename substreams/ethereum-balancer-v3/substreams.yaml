@@ -1,10 +1,7 @@
 specVersion: v0.1.0
 package:
-  name: balancer_v3
+  name: "ethereum_balancer_v3"
   version: v0.1.0
-
-imports:
-    ethcommon: https://spkg.io/streamingfast/ethereum-common-v0.3.0.spkg
 
 protobuf:
   files:
