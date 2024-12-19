@@ -90,7 +90,7 @@ contract BalancerV3SwapAdapterTest is AdapterTest, ERC20, BalancerV3Errors {
         deal(ERC20_USDC, address(this), 1000000 * 10 ** 6);
         // Deal ETHx to this contract for buffer initialization
         deal(ERC20_ETHx, address(this), 100000 * 10 ** 18);
-        deal(ERC20_GOETH, address(this), 10000000 * 10 ** 18);
+        deal(ERC20_GOETH, address(this), 10000000 * (10 ** 18));
         IERC20(ERC20_GOETH).approve(permit2, type(uint256).max);
         IERC20(ERC4626_sGOETH).approve(permit2, type(uint256).max);
 
@@ -191,7 +191,7 @@ contract BalancerV3SwapAdapterTest is AdapterTest, ERC20, BalancerV3Errors {
         ERC4626_sETHx.deposit(1000 * 10 ** 18, address(this));
 
         // Mint some sGOETH first
-        ERC4626_sGOETH.deposit(10000 * 10 ** 18, address(this));
+        ERC4626_sGOETH.deposit(1000000 * (10 ** 18), address(this));
 
         // Initialize buffer with equal amounts of underlying and wrapped tokens
         bufferRouter.initializeBuffer(
@@ -506,7 +506,7 @@ contract BalancerV3SwapAdapterTest is AdapterTest, ERC20, BalancerV3Errors {
         }
     }
 
-    ////////////////////////////////////////TO FIX
+    ////////////////////////////////////////
     // !!!//////////////////////////////////////////////////
     ///////////////////////////////////////// ERC4626-->ERC20-->ERC20
     // UNWRAP_SWAP
@@ -1183,11 +1183,11 @@ contract BalancerV3SwapAdapterTest is AdapterTest, ERC20, BalancerV3Errors {
         }
     }
 
-    ///////////////////////////////////////// ERC20-->ERC4626-->ERC4626-->ERC20
+    ///////////////////////////////////////// ERC4626-->ERC20-->ERC20-->ERC4626
     // UNWRAP_SWAP_WRAP
     //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-    function testPriceFuzzBalancerV3_ERC20_ERC4626_ERC4626_ERC20_UNWRAP_SWAP_WRAP(
+    function testPriceFuzzBalancerV3_ERC4626_ERC20_ERC20_ERC4626_UNWRAP_SWAP_WRAP(
         uint256 amount0
     ) public {
         address token0 = address(ERC4626_sGOETH);
@@ -1210,7 +1210,7 @@ contract BalancerV3SwapAdapterTest is AdapterTest, ERC20, BalancerV3Errors {
         }
     }
 
-    function testSwapFuzzBalancerV3_ERC20_ERC4626_ERC4626_ERC20_UNWRAP_SWAP_WRAP(
+    function testSwapFuzzBalancerV3_ERC4626_ERC20_ERC20_ERC4626_UNWRAP_SWAP_WRAP(
         uint256 specifiedAmount,
         bool isBuy
     ) public {
@@ -1226,8 +1226,10 @@ contract BalancerV3SwapAdapterTest is AdapterTest, ERC20, BalancerV3Errors {
             deal(token0, address(this), type(uint256).max);
         } else {
             vm.assume(specifiedAmount < limits[0] && specifiedAmount > 1e17);
-            deal(token0, address(this), specifiedAmount);
+            deal(token0, address(this), type(uint256).max);
         }
+
+        deal(token0, address(this), specifiedAmount);
 
         IERC4626(token0).approve(address(this), type(uint256).max);
         IERC4626(token0).approve(address(adapter), type(uint256).max);
@@ -1256,6 +1258,32 @@ contract BalancerV3SwapAdapterTest is AdapterTest, ERC20, BalancerV3Errors {
                 trade.calculatedAmount,
                 IERC4626(token1).balanceOf(address(this)) - bal1
             );
+        }
+    }
+
+    ///////////////////////////////////////// ERC20-->ERC4626-->ERC4626-->ERC20
+    // UNWRAP_SWAP_WRAP
+    //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    function testPriceFuzzBalancerV3_ERC20_ERC4626_ERC4626_ERC20_WRAP_SWAP_UNWRAP(
+        uint256 amount0
+    ) public {
+        address token0 = address(ERC20_GOETH);
+        address token1 = address(ERC20_USDC);
+
+        bytes32 pool = bytes32(bytes20(ERC20_ERC20_GOETH_USDC_WEIGHTED_POOL));
+        uint256[] memory limits = adapter.getLimits(pool, token0, token1);
+
+        vm.assume(amount0 < limits[0] && amount0 > 1e17);
+
+        uint256[] memory amounts = new uint256[](1);
+        amounts[0] = amount0;
+
+        __prankStaticCall();
+        Fraction[] memory prices = adapter.price(pool, token0, token1, amounts);
+
+        for (uint256 i = 0; i < prices.length; i++) {
+            assertGt(prices[i].numerator, 0);
+            assertGt(prices[i].denominator, 0);
         }
     }
 
