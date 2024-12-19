@@ -4,7 +4,7 @@ protocol_type_names:
 adapter_contract: "BalancerV3SwapAdapter"
 adapter_build_signature: "constructor(address,address,address)"
 adapter_build_args: "0xbA1333333333a1BA1108E8412f11850A5C319bA9,0x136f1EFcC3f8f88516B9E94110D56FDBfB1778d1,0x000000000022D473030F116dDEE9F6B43aC78BA3"
-skip_balance_check: true
+skip_balance_check: false 
 initialized_accounts:
   - "0xbA1333333333a1BA1108E8412f11850A5C319bA9"
 
@@ -42,3 +42,19 @@ tests:
 
         skip_simulation: true
         creation_tx: "0x44d82009c125f39bd2bbd1f723e7284e4226d5d752a66b18536e5d92c37b0c82"
+
+  - name: test_swap_g_usdc
+    start_block: 21389576 
+    stop_block: 21389587
+    expected_components:
+      - id: "0xf91c11BA4220b7a72E1dc5E92f2b48D3fdF62726"
+        tokens:
+          - "0x440017A1b021006d556d7fc06A54c32E42Eb745B"
+          - "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"
+        static_attributes:
+          normalized_weights: "0x5b22307830366630356235396433623230303030222c22307830366630356235396433623230303030225d"
+          manual_updates: "0x01"
+          pool_type: "0x5765696768746564506f6f6c466163746f7279"
+          fee: "0x0aa87bee538000"
+        skip_simulation: false
+        creation_tx: "0x50a58ca41af90029a67bc7f4305cceb1e85800246f9c559fa74d8625ddfe14ed"
