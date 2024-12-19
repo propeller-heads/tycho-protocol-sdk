@@ -46,7 +46,7 @@ modules:
     kind: store
     initialBlock: 12272146
     updatePolicy: add
-    valueType: bigint
+    valueType: proto:tycho.evm.v1.ProtocolComponent
     inputs:
       - map: map_relative_balances
 

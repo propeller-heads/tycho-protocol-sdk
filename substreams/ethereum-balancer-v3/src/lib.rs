@@ -1,3 +1,3 @@
 mod abi;
 mod modules;
-pub mod pb;
+mod pool_factories;
