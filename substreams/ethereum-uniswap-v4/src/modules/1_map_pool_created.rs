@@ -37,6 +37,17 @@ fn get_new_pools(
             entity_changes: vec![EntityChanges {
                 component_id: event.id.to_vec().to_hex(),
                 attributes: vec![
+                    // Represents the pool's LP Fee. The fee is either static or dynamic.
+                    // Static fees are represented in hundredths of a bip, and can be set to a
+                    // value between 0 and 1000000 (100%) and are immutable. If
+                    // the value is set to 0x800000 (1 in the most significant bit of uint24) then
+                    // the pool has a dynamic fee. This pool is initialized
+                    // with 0 fee which can be changed later via hooks (dynamic fee).
+                    Attribute {
+                        name: "fee".to_string(),
+                        value: event.fee.to_signed_bytes_be(),
+                        change: ChangeType::Creation.into(),
+                    },
                     Attribute {
                         name: "liquidity".to_string(),
                         value: BigInt::from(0).to_signed_bytes_be(),
@@ -71,17 +82,6 @@ fn get_new_pools(
                 tokens: vec![event.currency0.clone(), event.currency1.clone()],
                 contracts: vec![],
                 static_att: vec![
-                    // Represents the pool's LP Fee. The fee is either static or dynamic.
-                    // Static fees are represented in hundredths of a bip, and can be set to a
-                    // value between 0 and 1000000 (100%) and are immutable. If
-                    // the value is set to 0x800000 (1 in the most significant bit of uint24) then
-                    // the pool has a dynamic fee. This pool is initialized
-                    // with 0 fee which can be changed later via hooks (dynamic fee).
-                    Attribute {
-                        name: "fee".to_string(),
-                        value: event.fee.to_signed_bytes_be(),
-                        change: ChangeType::Creation.into(),
-                    },
                     Attribute {
                         name: "tick_spacing".to_string(),
                         value: event.tick_spacing.to_signed_bytes_be(),
