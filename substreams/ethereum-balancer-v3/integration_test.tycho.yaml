@@ -5,6 +5,8 @@ adapter_contract: "BalancerV3SwapAdapter"
 adapter_build_signature: "constructor(address,address,address)"
 adapter_build_args: "0xbA1333333333a1BA1108E8412f11850A5C319bA9,0x136f1EFcC3f8f88516B9E94110D56FDBfB1778d1,0x000000000022D473030F116dDEE9F6B43aC78BA3"
 skip_balance_check: false 
+
+# vault address for v3 needed for the router contract
 initialized_accounts:
   - "0xbA1333333333a1BA1108E8412f11850A5C319bA9"
 
