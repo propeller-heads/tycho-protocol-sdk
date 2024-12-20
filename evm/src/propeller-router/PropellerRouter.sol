@@ -66,27 +66,27 @@ contract PropellerRouter is
         );
     }
 
-    function singleExactInChecked(uint256 givenAmount, bytes calldata swap)
+    function singleExactIn(uint256 givenAmount, bytes calldata swap)
         external
         override
         onlyRole(EXECUTOR_ROLE)
         withSwapContext
         returns (uint256 calculatedAmount)
     {
-        calculatedAmount = _singleExactInChecked(givenAmount, swap);
+        calculatedAmount = _singleExactIn(givenAmount, swap);
     }
 
-    function singleExactOutChecked(uint256 givenAmount, bytes calldata swap)
+    function singleExactOut(uint256 givenAmount, bytes calldata swap)
         external
         override
         onlyRole(EXECUTOR_ROLE)
         withSwapContext
         returns (uint256 calculatedAmount)
     {
-        calculatedAmount = _singleExactOutChecked(givenAmount, swap);
+        calculatedAmount = _singleExactOut(givenAmount, swap);
     }
 
-    function sequentialExactInChecked(
+    function sequentialExactIn(
         uint256 givenAmount,
         uint256 minUserAmount,
         bytes calldata swaps
@@ -98,10 +98,10 @@ contract PropellerRouter is
         returns (uint256 calculatedAmount)
     {
         calculatedAmount =
-            _sequentialExactInChecked(givenAmount, minUserAmount, swaps);
+            _sequentialExactIn(givenAmount, minUserAmount, swaps);
     }
 
-    function sequentialExactOutChecked(
+    function sequentialExactOut(
         uint256 givenAmount,
         uint256 maxUserAmount,
         bytes[] calldata swaps
@@ -113,10 +113,10 @@ contract PropellerRouter is
         returns (uint256 calculatedAmount)
     {
         calculatedAmount =
-            _sequentialExactOutChecked(givenAmount, maxUserAmount, swaps);
+            _sequentialExactOut(givenAmount, maxUserAmount, swaps);
     }
 
-    function splitExactInChecked(
+    function splitExactIn(
         uint256 amount,
         uint256 minUserAmount,
         SplitSwapExactInParameters calldata parameters
@@ -127,7 +127,7 @@ contract PropellerRouter is
         withSwapContext
         returns (uint256 amountOut)
     {
-        amountOut = _splitExactInChecked(
+        amountOut = _splitExactIn(
             amount, minUserAmount, parameters.nTokens, parameters.swaps
         );
     }

@@ -55,7 +55,7 @@ abstract contract PropellerRouterInternal is PropellerRouterStructs {
             _executeSwap(swap.exchange(), amount, swap.protocolData());
     }
 
-    function _singleExactOutChecked(uint256 amount, bytes calldata data)
+    function _singleExactOut(uint256 amount, bytes calldata data)
         internal
         returns (uint256 calculatedAmount)
     {
@@ -75,7 +75,7 @@ abstract contract PropellerRouterInternal is PropellerRouterStructs {
         }
     }
 
-    function _singleExactInChecked(uint256 amount, bytes calldata data)
+    function _singleExactIn(uint256 amount, bytes calldata data)
         internal
         returns (uint256 calculatedAmount)
     {
@@ -96,9 +96,14 @@ abstract contract PropellerRouterInternal is PropellerRouterStructs {
     }
 
     /**
-     * @dev Executes a sequence of exact in swaps
+     * @dev Executes a sequence of exact in swaps, checking that the user gets more
+     * than minUserAmount of buyToken.
      */
-    function _sequentialSwapExactIn(uint256 givenAmount, bytes calldata swaps)
+    function _sequentialSwapExactIn(
+        uint256 givenAmount,
+        uint256 minUserAmount,
+        bytes calldata swaps
+    )
         internal
         returns (uint256 calculatedAmount)
     {
@@ -112,6 +117,9 @@ abstract contract PropellerRouterInternal is PropellerRouterStructs {
             calculatedAmount =
                 _executeSwap(exchange, calculatedAmount, swap.protocolData());
         }
+        if (calculatedAmount < minUserAmount) {
+            revert NegativeSlippage(calculatedAmount, minUserAmount);
+        }
     }
 
     /**
@@ -119,13 +127,15 @@ abstract contract PropellerRouterInternal is PropellerRouterStructs {
      *  backwards and then executing with corrected amounts a
      *  sequential exactIn swap
      *
+     * This method checks that the user spends no more than maxUserAmount of sellToken
      *  Note: All used executors must implement ISwapQuoter, for this
      *  method to work correctly.
      */
     function _sequentialSwapExactOut(
         uint256 givenAmount,
+        uint256 maxUserAmount,
         bytes[] calldata swaps
-    ) internal returns (uint256) {
+    ) internal returns (uint256 calculatedAmount) {
         // Idea: On v2, reserve 14 bytes for calculatedAmount and replace them here
         //  to save some quotes, if these 14 bytes are all zero the swap call won't
         //  recalculate the quote else, it will simply execute with the calculatedAmount
@@ -147,67 +157,26 @@ abstract contract PropellerRouterInternal is PropellerRouterStructs {
             swap = swaps[i];
             _executeSwap(swap.exchange(), amounts[i + 1], swap.protocolData());
         }
-        return amounts[0];
-    }
+        calculatedAmount = amounts[0];
 
-    /**
-     * @dev Same as sequentialExactOut but checks that the user
-     * spends less than maxUserAmount of sellToken.
-     */
-    function _sequentialExactOutChecked(
-        uint256 givenAmount,
-        uint256 maxUserAmount,
-        bytes[] calldata swaps
-    ) internal returns (uint256 calculatedAmount) {
-        calculatedAmount = _sequentialSwapExactOut(givenAmount, swaps);
         if (calculatedAmount > maxUserAmount) {
             revert NegativeSlippage(calculatedAmount, maxUserAmount);
         }
     }
 
     /**
-     * @dev same as sequentialExactIn but checks that the user gets
-     * more than minUserAmount of buyToken.
-     */
-    function _sequentialExactInChecked(
-        uint256 givenAmount,
-        uint256 minUserAmount,
-        bytes calldata swaps
-    ) internal returns (uint256 calculatedAmount) {
-        calculatedAmount = _sequentialSwapExactIn(givenAmount, swaps);
-        if (calculatedAmount < minUserAmount) {
-            revert NegativeSlippage(calculatedAmount, minUserAmount);
-        }
-    }
-
-    /**
-     * @dev same as _splitSwapWithDataInclToken but checks that the user gets
-     * more than minUserAmount of buyToken.
-     */
-    function _splitExactInChecked(
-        uint256 amountIn,
-        uint256 minUserAmount,
-        uint256 nTokens,
-        bytes calldata swaps_
-    ) internal returns (uint256 calculatedAmount) {
-        calculatedAmount =
-            _splitSwapExactIn(amountIn, nTokens, swaps_);
-        if (calculatedAmount < minUserAmount) {
-            revert NegativeSlippage(calculatedAmount, minUserAmount);
-        }
-    }
-        /**
      * @dev Executes a swap graph with internal splits token amount
-     *  splits.
+     *  splits, checking that the user gets more than minUserAmount of buyToken.
      *
      *  Assumes the swaps in swaps_ already contain any required token
      *  addresses.
      */
     function _splitSwapExactIn(
         uint256 amountIn,
+        uint256 minUserAmount,
         uint256 nTokens,
         bytes calldata swaps_
-    ) internal returns (uint256) {
+    ) internal returns (uint256 calculatedAmount) {
         uint256 currentAmountIn;
         uint256 currentAmountOut;
         uint8 tokenInIndex;
@@ -236,7 +205,10 @@ abstract contract PropellerRouterInternal is PropellerRouterStructs {
             remainingAmounts[tokenOutIndex] += currentAmountOut;
             remainingAmounts[tokenInIndex] -= currentAmountIn;
         }
-        return amounts[tokenOutIndex];
+        calculatedAmount = amounts[tokenOutIndex];
+        if (calculatedAmount < minUserAmount) {
+            revert NegativeSlippage(calculatedAmount, minUserAmount);
+        }
     }
 
     /**
@@ -276,48 +248,4 @@ abstract contract PropellerRouterInternal is PropellerRouterStructs {
         }
     }
 
-    /**
-     * @dev Allows to route amount into any other action type supported
-     * by this contract. This allows for more flexibility during
-     * batchExecute or within callbacks.
-     *  @param amount the amount to forward into the next action
-     *  @param type_ what kind of action to take
-     *  @param actionData data with the encoding for each action. See the
-     *      individual methods for more information.
-     */
-    function _executeAction(
-        uint256 amount,
-        ActionType type_,
-        bytes calldata actionData
-    ) internal returns (uint256 calculatedAmount) {
-        if (type_ == ActionType.SINGLE_IN_CHECKED) {
-            calculatedAmount = _singleExactInChecked(amount, actionData);
-        } else if (type_ == ActionType.SINGLE_OUT_CHECKED) {
-            calculatedAmount = _singleExactOutChecked(amount, actionData);
-        } else if (type_ == ActionType.SEQUENTIAL_IN_CHECKED) {
-            (uint256 checkAmount, bytes calldata swaps) =
-                actionData.decodeAmountAndBytes();
-            calculatedAmount =
-                _sequentialExactInChecked(amount, checkAmount, swaps);
-        } else if (type_ == ActionType.SEQUENTIAL_OUT_CHECKED) {
-            (uint256 checkAmount, bytes[] calldata swaps) =
-                actionData.decodeAmountAndSwapArray();
-            calculatedAmount =
-                _sequentialExactOutChecked(amount, checkAmount, swaps);
-        } else if (type_ == ActionType.SPLIT_EXACT_IN_CHECKED) {
-            (
-                uint256 checkAmount,
-                IERC20[] calldata tokens,
-                bytes[] calldata swaps
-            ) = actionData.decodeSplitSwapWithTokenArrayCheckedArgs();
-            calculatedAmount = _splitSwapWithoutTokensChecked(
-                amount, checkAmount, tokens, swaps
-            );
-        }
-        // No more action type = transfer. AFAIK this was used for USV3 callbacks
-        // and is unnecessary if we simplify the USV3 executor logic.
-        else {
-            revert UnsupportedBatchData(uint8(type_));
-        }
-    }
 }

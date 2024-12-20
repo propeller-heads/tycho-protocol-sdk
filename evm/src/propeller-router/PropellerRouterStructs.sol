@@ -62,26 +62,4 @@ interface PropellerRouterStructs {
         address[] addresses;
         uint256 allowance;
     }
-
-    /**
-     * @dev header for generic callback
-     * `tokenOwed` the token we need to pay the pool with
-     * `supplyActionType` the type of action to do with amountOwed
-     * `forwardActionType` the type of action to do with amountReceived
-     */
-    struct GenericCallbackHeader {
-        IERC20 tokenOwed;
-        ActionType supplyActionType;
-        ActionType forwardActionType;
-    }
-
-    enum ActionType {
-        SINGLE_IN_CHECKED,
-        SINGLE_OUT_CHECKED,
-        SEQUENTIAL_OUT_CHECKED,
-        SEQUENTIAL_IN_CHECKED,
-        SPLIT_EXACT_IN_CHECKED,
-        WRAP,
-        UNWRAP
-    }
 }

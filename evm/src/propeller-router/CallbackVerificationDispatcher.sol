@@ -38,6 +38,9 @@ contract CallbackVerificationDispatcher is PropellerRouterStructs {
 
     /**
      * @dev Calls a callback verifier. This should revert if the callback verification fails.
+     * TODO check if we even still need the GenericCallbackHeader if we are hard-coding
+     *   the callbacks for USV3 (which we can do since we don't care about gas and are
+     *   prioritizing simplicity)
      * This function returns the offset of the GenericCallbackHeader in data.
      * This offset depends on the protocol and is required to parse the callback data in the fallback function.
      */
