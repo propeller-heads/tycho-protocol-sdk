@@ -132,15 +132,6 @@ contract PropellerRouter is
         );
     }
 
-    function batchExecute(bytes calldata data)
-        external
-        override
-        onlyRole(EXECUTOR_ROLE)
-        withSwapContext
-    {
-        _batchExecute(data);
-    }
-
     /**
      * @dev Entrypoint to add or replace a swap method contract address
      * @param id for this method

@@ -44,6 +44,17 @@ abstract contract PropellerRouterInternal is PropellerRouterStructs {
         bytes calldata protocolDataIncludingTokens
     ) internal virtual returns (uint256 calculatedAmount);
 
+    /**
+     * @dev Executes a single swap, but might do more actions through callbacks.
+     */
+    function _singleSwap(uint256 amount, bytes calldata swap)
+        internal
+        returns (uint256 calculatedAmount)
+    {
+        calculatedAmount =
+            _executeSwap(swap.exchange(), amount, swap.protocolData());
+    }
+
     function _singleExactOutChecked(uint256 amount, bytes calldata data)
         internal
         returns (uint256 calculatedAmount)
@@ -262,21 +273,6 @@ abstract contract PropellerRouterInternal is PropellerRouterStructs {
         }
         if (!sent) {
             revert InvalidTransfer(receiver, address(0), amount);
-        }
-    }
-
-    /**
-     * @dev Executes multiple actions with a single call.
-     */
-    function _batchExecute(bytes calldata data) internal {
-        uint256 amount;
-        bytes calldata actionData;
-        bytes calldata batchElement;
-        ActionType actionType;
-        while (data.length > 0) {
-            (batchElement, data) = data.next();
-            (amount, actionType, actionData) = batchElement.decodeBatchExecute();
-            _executeAction(amount, actionType, actionData);
         }
     }
 
