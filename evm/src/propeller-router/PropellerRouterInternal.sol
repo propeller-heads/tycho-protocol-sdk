@@ -44,10 +44,6 @@ abstract contract PropellerRouterInternal is PropellerRouterStructs {
         bytes calldata protocolDataIncludingTokens
     ) internal virtual returns (uint256 calculatedAmount);
 
-    /**
-     * @dev Same as _singleSwap but checks that the user
-     * spends less than maxUserAmount of tokenIn
-     */
     function _singleExactOutChecked(uint256 amount, bytes calldata data)
         internal
         returns (uint256 calculatedAmount)
@@ -68,10 +64,6 @@ abstract contract PropellerRouterInternal is PropellerRouterStructs {
         }
     }
 
-    /**
-     * @dev Same as _singleSwap but checks that the user gets
-     * more than minUserAmount of tokenOut.
-     */
     function _singleExactInChecked(uint256 amount, bytes calldata data)
         internal
         returns (uint256 calculatedAmount)

@@ -11,13 +11,6 @@ import "./CallbackVerificationDispatcher.sol";
 import "./ApprovalManagement.sol";
 import "./SwapContext.sol";
 
-/**
- * @title ICowSwapRouterPublic
- * @author propellerheads.xyz
- *
- * A router contract to execute batch swaps using cow protocol.
- *
- */
 contract PropellerRouter is
     PropellerRouterInternal,
     SwapContext,
@@ -40,15 +33,14 @@ contract PropellerRouter is
     function _executeSwap(
         uint8 exchange,
         uint256 amount,
-        bytes calldata protocolDataIncludingTokens
+        bytes calldata protocolData
     ) internal override returns (uint256 calculatedAmount) {
         // USV2 and USV3 will also be swap executors - no special case
         calculatedAmount = _callSwapExecutor(
-            exchange, amount, protocolDataIncludingTokens, false
+            exchange, amount, protocolData, false
         );
     }
 
-    // TODO Should we move this call to the executor?
     function _verifyCallback(bytes calldata data)
         internal
         override
@@ -66,15 +58,14 @@ contract PropellerRouter is
     function _quoteSwap(
         uint8 exchange,
         uint256 amount,
-        bytes calldata protocolDataIncludingTokens
+        bytes calldata protocolData
     ) internal override returns (uint256 calculatedAmount) {
         // USV2 and USV3 will also be swap executors - no special case
         calculatedAmount = _callSwapExecutor(
-            exchange, amount, protocolDataIncludingTokens, true
+            exchange, amount, protocolData, true
         );
     }
 
-    /// @inheritdoc ICowSwapRouterPublic
     function singleExactInChecked(uint256 givenAmount, bytes calldata swap)
         external
         override
@@ -85,7 +76,6 @@ contract PropellerRouter is
         calculatedAmount = _singleExactInChecked(givenAmount, swap);
     }
 
-    /// @inheritdoc ICowSwapRouterPublic
     function singleExactOutChecked(uint256 givenAmount, bytes calldata swap)
         external
         override
@@ -96,7 +86,6 @@ contract PropellerRouter is
         calculatedAmount = _singleExactOutChecked(givenAmount, swap);
     }
 
-    /// @inheritdoc ICowSwapRouterPublic
     function sequentialExactInChecked(
         uint256 givenAmount,
         uint256 minUserAmount,
@@ -112,7 +101,6 @@ contract PropellerRouter is
             _sequentialExactInChecked(givenAmount, minUserAmount, swaps);
     }
 
-    /// @inheritdoc ICowSwapRouterPublic
     function sequentialExactOutChecked(
         uint256 givenAmount,
         uint256 maxUserAmount,
@@ -128,7 +116,6 @@ contract PropellerRouter is
             _sequentialExactOutChecked(givenAmount, maxUserAmount, swaps);
     }
 
-    /// @inheritdoc ICowSwapRouterPublic
     function splitExactInChecked(
         uint256 amount,
         uint256 minUserAmount,
@@ -145,7 +132,6 @@ contract PropellerRouter is
         );
     }
 
-    /// @inheritdoc ICowSwapRouterPublic
     function batchExecute(bytes calldata data)
         external
         override
