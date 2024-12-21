@@ -8,9 +8,7 @@ use std::collections::HashMap;
 use substreams::{
     hex, log,
     pb::substreams::StoreDeltas,
-    store::{
-        StoreAddBigInt, StoreGet, StoreGetProto, StoreGetString, StoreNew, StoreSet, StoreSetString,
-    },
+    store::{StoreAddBigInt, StoreGet, StoreGetProto, StoreNew, StoreSet, StoreSetProto},
 };
 use substreams_ethereum::{pb::eth, Event};
 use tycho_substreams::{
@@ -51,14 +49,17 @@ pub fn map_components(block: eth::v2::Block) -> Result<BlockTransactionProtocolC
 
 /// Simply stores the `ProtocolComponent`s with the pool address as the key and the pool id as value
 #[substreams::handlers::store]
-pub fn store_components(map: BlockTransactionProtocolComponents, store: StoreSetString) {
+pub fn store_components(
+    map: BlockTransactionProtocolComponents,
+    store: StoreSetProto<ProtocolComponent>,
+) {
     map.tx_components
         .into_iter()
         .for_each(|tx_pc| {
             tx_pc
                 .components
                 .into_iter()
-                .for_each(|pc| store.set(0, format!("pool:{0}", &pc.id[..42]), &pc.id))
+                .for_each(|pc| store.set(0, format!("pool:{0}", &pc.id[..42]), &pc))
         });
 }
 
@@ -192,7 +193,7 @@ pub fn map_protocol_changes(
     block: eth::v2::Block,
     grouped_components: BlockTransactionProtocolComponents,
     deltas: BlockBalanceDeltas,
-    components_store: StoreGetString,
+    components_store: StoreGetProto<ProtocolComponent>,
     balance_store: StoreDeltas, // Note, this map module is using the `deltas` mode for the store.
 ) -> Result<BlockChanges> {
     // We merge contract changes by transaction (identified by transaction index) making it easy to
@@ -283,6 +284,7 @@ pub fn map_protocol_changes(
                         // We reconstruct the component_id from the address here
                         let id = components_store
                             .get_last(format!("pool:0x{}", hex::encode(address)))
+                            .map(|c| c.id)
                             .unwrap(); // Shouldn't happen because we filter by known components
                                        // in `extract_contract_changes_builder`
                         change.mark_component_as_updated(&id);

@@ -24,7 +24,6 @@ tests:
           pool_type: "0x537461626c65506f6f6c466163746f7279"
           bpt: "0xc4ce391d82d164c166df9c8336ddf84206b2f812"
           manual_updates: "0x01"
-
         skip_simulation: true
         creation_tx: "0xecfe638ea155e78ca2698bea0bee5f86c2f77abe3e9dc93ed19ab6e674165b95"
 
@@ -41,7 +40,6 @@ tests:
           manual_updates: "0x01"
           pool_type: "0x5765696768746564506f6f6c466163746f7279"
           fee: "0x2386f26fc10000"
-
         skip_simulation: true
         creation_tx: "0x44d82009c125f39bd2bbd1f723e7284e4226d5d752a66b18536e5d92c37b0c82"
 
@@ -91,4 +89,20 @@ tests:
           fee: "0x5af3107a4000"
           manual_updates: "0x01"
         skip_simulation: false
+        creation_tx: "0xecfe638ea155e78ca2698bea0bee5f86c2f77abe3e9dc93ed19ab6e674165b95"
+
+  - name: test_3_steps
+    start_block: 21374757
+    stop_block: 21374770 
+    expected_components:
+      - id: "0xc4Ce391d82D164c166dF9c8336DDF84206b2F812"
+        tokens: 
+          - "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2"
+          - "0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0"
+        static_attributes:
+          bpt: "0xc4ce391d82d164c166df9c8336ddf84206b2f812"
+          pool_type: "0x537461626c65506f6f6c466163746f7279"
+          fee: "0x5af3107a4000"
+          manual_updates: "0x01"
+        skip_simulation: true
         creation_tx: "0xecfe638ea155e78ca2698bea0bee5f86c2f77abe3e9dc93ed19ab6e674165b95"
