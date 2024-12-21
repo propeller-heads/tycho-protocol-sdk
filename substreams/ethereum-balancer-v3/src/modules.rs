@@ -16,6 +16,7 @@ use tycho_substreams::{
 };
 
 pub const VAULT_ADDRESS: &[u8] = &hex!("bA1333333333a1BA1108E8412f11850A5C319bA9");
+pub const VAULT_EXTENSION_ADDRESS: &[u8] = &hex!("0E8B07657D719B86e06bF0806D6729e3D528C9A9");
 
 #[substreams::handlers::map]
 pub fn map_components(block: eth::v2::Block) -> Result<BlockTransactionProtocolComponents> {
@@ -209,6 +210,11 @@ pub fn map_protocol_changes(
             change: ChangeType::Creation.into(),
         },
         Attribute {
+            name: "stateless_contract_addr_0".into(),
+            value: address_to_bytes_with_0x(&VAULT_EXTENSION_ADDRESS),
+            change: ChangeType::Creation.into(),
+        },
+        Attribute {
             name: "update_marker".to_string(),
             value: vec![1u8],
             change: ChangeType::Creation.into(),
@@ -302,4 +308,14 @@ pub fn map_protocol_changes(
             .filter_map(|(_, builder)| builder.build())
             .collect::<Vec<_>>(),
     })
+}
+
+/// Converts address bytes into a Vec<u8> containing a leading `0x`.
+fn address_to_bytes_with_0x(address: &[u8; 20]) -> Vec<u8> {
+    address_to_string_with_0x(address).into_bytes()
+}
+
+/// Converts address bytes into a string containing a leading `0x`.
+fn address_to_string_with_0x(address: &[u8]) -> String {
+    format!("0x{}", hex::encode(address))
 }
