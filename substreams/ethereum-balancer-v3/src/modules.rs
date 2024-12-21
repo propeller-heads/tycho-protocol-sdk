@@ -16,7 +16,7 @@ use tycho_substreams::{
 };
 
 pub const VAULT_ADDRESS: &[u8] = &hex!("bA1333333333a1BA1108E8412f11850A5C319bA9");
-pub const VAULT_EXTENSION_ADDRESS: &[u8] = &hex!("0E8B07657D719B86e06bF0806D6729e3D528C9A9");
+pub const VAULT_EXTENSION_ADDRESS: &[u8; 20] = &hex!("0E8B07657D719B86e06bF0806D6729e3D528C9A9");
 
 #[substreams::handlers::map]
 pub fn map_components(block: eth::v2::Block) -> Result<BlockTransactionProtocolComponents> {
@@ -211,7 +211,7 @@ pub fn map_protocol_changes(
         },
         Attribute {
             name: "stateless_contract_addr_0".into(),
-            value: address_to_bytes_with_0x(&VAULT_EXTENSION_ADDRESS),
+            value: address_to_bytes_with_0x(VAULT_EXTENSION_ADDRESS),
             change: ChangeType::Creation.into(),
         },
         Attribute {
