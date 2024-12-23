@@ -44,6 +44,11 @@ fn get_new_pools(
                     // the pool has a dynamic fee. This pool is initialized
                     // with 0 fee which can be changed later via hooks (dynamic fee).
                     Attribute {
+                        name: "balance_owner".to_string(),
+                        value: hex::decode(pool_manager_address).unwrap(),
+                        change: ChangeType::Creation.into(),
+                    },
+                    Attribute {
                         name: "fee".to_string(),
                         value: event.fee.to_signed_bytes_be(),
                         change: ChangeType::Creation.into(),
