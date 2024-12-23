@@ -11,7 +11,10 @@ use std::collections::HashMap;
 use substreams::{
     hex, log,
     pb::substreams::StoreDeltas,
-    store::{StoreAddBigInt, StoreGet, StoreGetProto, StoreNew, StoreSet, StoreSetProto},
+    store::{
+        StoreAddBigInt, StoreGet, StoreGetProto, StoreNew, StoreSetIfNotExists,
+        StoreSetIfNotExistsProto,
+    },
 };
 use substreams_ethereum::{pb::eth, Event};
 use tycho_substreams::{
@@ -57,7 +60,7 @@ pub fn map_components(block: eth::v2::Block) -> Result<BlockTransactionProtocolC
 #[substreams::handlers::store]
 pub fn store_components(
     map: BlockTransactionProtocolComponents,
-    store: StoreSetProto<ProtocolComponent>,
+    store: StoreSetIfNotExistsProto<ProtocolComponent>,
 ) {
     map.tx_components
         .into_iter()
@@ -65,7 +68,7 @@ pub fn store_components(
             tx_pc
                 .components
                 .into_iter()
-                .for_each(|pc| store.set(0, format!("pool:{0}", &pc.id), &pc))
+                .for_each(|pc| store.set_if_not_exists(0, format!("pool:{0}", &pc.id), &pc))
         });
 }
 
