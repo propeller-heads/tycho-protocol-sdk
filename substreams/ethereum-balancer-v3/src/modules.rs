@@ -36,6 +36,7 @@ pub fn map_components(block: eth::v2::Block) -> Result<BlockTransactionProtocolC
                             call.call,
                             tx,
                         )
+                        .or_else(|| pool_factories::buffer_map(log, tx))
                     })
                     .collect::<Vec<_>>();
 

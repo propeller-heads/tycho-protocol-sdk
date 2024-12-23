@@ -31,7 +31,7 @@ modules:
   - name: store_components
     kind: store
     initialBlock: 21332121
-    updatePolicy: set
+    updatePolicy: set_if_not_exists
     valueType: proto:tycho.evm.v1.ProtocolComponents
     inputs:
       - map: map_components

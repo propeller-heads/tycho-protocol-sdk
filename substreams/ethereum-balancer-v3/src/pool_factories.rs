@@ -1,4 +1,7 @@
-use crate::{abi, modules::VAULT_ADDRESS};
+use crate::{
+    abi::{self, vault_contract::events::LiquidityAddedToBuffer},
+    modules::VAULT_ADDRESS,
+};
 use abi::{
     stable_pool_factory_contract::{
         events::PoolCreated as StablePoolCreated, functions::Create as StablePoolCreate,
@@ -7,12 +10,14 @@ use abi::{
         events::PoolCreated as WeightedPoolCreated, functions::Create as WeightedPoolCreate,
     },
 };
-use substreams::hex;
+use substreams::{hex, scalar::BigInt};
 use substreams_ethereum::{
-    pb::eth::v2::{Call, Log, TransactionTrace},
+    pb::eth::v2::{Call, Log, TransactionReceipt, TransactionTrace},
     Event, Function,
 };
-use tycho_substreams::{attributes::json_serialize_bigint_list, prelude::*};
+use tycho_substreams::{
+    abi::erc20::events::Transfer, attributes::json_serialize_bigint_list, prelude::*,
+};
 
 pub fn address_map(
     pool_factory_address: &[u8],
@@ -74,4 +79,31 @@ pub fn address_map(
         }
         _ => None,
     }
+}
+
+fn find_underlying_token(tx: &TransactionTrace, underlying_amount: BigInt) -> Option<Vec<u8>> {
+    tx.receipt()
+        .logs()
+        .filter_map(|log| {
+            if let Some(Transfer { to, value, .. }) = Transfer::match_and_decode(log) {
+                if to == VAULT_ADDRESS && value == underlying_amount {
+                    return Some(log.address().to_vec());
+                }
+            }
+            None
+        })
+        .next()
+}
+
+pub fn buffer_map(log: &Log, tx: &TransactionTrace) -> Option<ProtocolComponent> {
+    LiquidityAddedToBuffer::match_and_decode(log).map(
+        |LiquidityAddedToBuffer { wrapped_token, amount_underlying, .. }| {
+            let underlying_token = find_underlying_token(tx, amount_underlying).unwrap(); // must exist
+            ProtocolComponent::new(&format!("0x{}", hex::encode(&wrapped_token)), &(tx.into()))
+                .with_contracts(&[wrapped_token.to_vec(), VAULT_ADDRESS.to_vec()])
+                .with_tokens(&[wrapped_token.as_slice(), underlying_token.as_slice()])
+                .with_attributes(&[("pool_type", "buffer".as_bytes())])
+                .as_swap_type("balancer_v3_pool", ImplementationType::Vm)
+        },
+    )
 }
