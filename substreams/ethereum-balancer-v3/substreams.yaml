@@ -32,7 +32,7 @@ modules:
     kind: store
     initialBlock: 21332121
     updatePolicy: set
-    valueType: string
+    valueType: proto:tycho.evm.v1.ProtocolComponents
     inputs:
       - map: map_components
 
