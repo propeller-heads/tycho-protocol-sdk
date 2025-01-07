@@ -1,3 +1,4 @@
+#![allow(clippy::all)]
 use anyhow::{Ok, Result};
 use regex::Regex;
 use std::fs;

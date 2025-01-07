@@ -1,3 +1,3 @@
-pub mod lido;
 #[allow(clippy::all)]
+pub mod lido;
 pub mod wsteth_contract;
