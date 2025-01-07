@@ -92,23 +92,31 @@ pub fn map_relative_balances(
                                     &call.call.return_data,
                                 ),
                             ) {
-                                let amount_in = unwrap_call
-                                    .u_wst_eth_amount
-                                    .to_signed_bytes_be();
-                                let amount_out = output_amount.neg().to_signed_bytes_be();
+                                let delta_wst_eth = unwrap_call.u_wst_eth_amount;
+                                let delta_st_eth = output_amount.neg();
                                 deltas.extend_from_slice(&[
+                                    // increase stEth balance in the wsteth component
                                     BalanceDelta {
                                         ord: call.call.begin_ordinal,
                                         tx: Some(tx.into()),
                                         token: LIDO_STETH_ADDRESS.to_vec(),
-                                        delta: amount_out,
+                                        delta: delta_st_eth.to_signed_bytes_be(),
                                         component_id: WSTETH_ADDRESS.to_vec(),
                                     },
+                                    // remove stEth balance from the eth component
+                                    BalanceDelta {
+                                        ord: call.call.begin_ordinal,
+                                        tx: Some(tx.into()),
+                                        token: ETH_ADDRESS.to_vec(),
+                                        delta: delta_st_eth.neg().to_signed_bytes_be(),
+                                        component_id: LIDO_STETH_ADDRESS.to_vec(),
+                                    },
+                                    // add wstEth balance to the wstEth component
                                     BalanceDelta {
                                         ord: call.call.begin_ordinal,
                                         tx: Some(tx.into()),
                                         token: WSTETH_ADDRESS.to_vec(),
-                                        delta: amount_in,
+                                        delta: delta_wst_eth.to_signed_bytes_be(),
                                         component_id: WSTETH_ADDRESS.to_vec(),
                                     },
                                 ])
@@ -119,24 +127,32 @@ pub fn map_relative_balances(
                                     &call.call.return_data,
                                 ),
                             ) {
-                                let amount_in = unwrap_call
-                                    .u_wst_eth_amount
-                                    .to_signed_bytes_be();
-                                let amount_out = output_amount.neg().to_signed_bytes_be();
+                                let delta_wst_eth = unwrap_call.u_wst_eth_amount;
+                                let delta_st_eth = output_amount;
                                 deltas.extend_from_slice(&[
+                                    // WSTETH_component.stEth -= delta_st_eth
                                     BalanceDelta {
                                         ord: call.call.begin_ordinal,
                                         tx: Some(tx.into()),
                                         token: LIDO_STETH_ADDRESS.to_vec(),
-                                        delta: amount_out,
+                                        delta: delta_st_eth.neg().to_signed_bytes_be(),
                                         component_id: WSTETH_ADDRESS.to_vec(),
                                     },
+                                    // WSTETH_component.wstEth -= delta_wst_eth
                                     BalanceDelta {
                                         ord: call.call.begin_ordinal,
                                         tx: Some(tx.into()),
                                         token: WSTETH_ADDRESS.to_vec(),
-                                        delta: amount_in,
+                                        delta: delta_wst_eth.neg().to_signed_bytes_be(),
                                         component_id: WSTETH_ADDRESS.to_vec(),
+                                    },
+                                    // STETH_component.stEth += delta_st_eth
+                                    BalanceDelta {
+                                        ord: call.call.begin_ordinal,
+                                        tx: Some(tx.into()),
+                                        token: LIDO_STETH_ADDRESS.to_vec(),
+                                        delta: delta_st_eth.to_signed_bytes_be(),
+                                        component_id: LIDO_STETH_ADDRESS.to_vec(),
                                     },
                                 ])
                             }
@@ -144,7 +160,6 @@ pub fn map_relative_balances(
                     }
                     // process logs
                     if log.address == LIDO_STETH_ADDRESS {
-                        // 1. "TokenRebased" events
                         if let Some(TokenRebased {
                             pre_total_ether,
                             post_total_ether,
@@ -158,9 +173,12 @@ pub fn map_relative_balances(
                                 .get_last(format!("pool:{}", &component_id[..42]))
                                 .is_some()
                             {
+                                // signed deltas, accounts for the rewards + withdrawals
+                                // finalization
                                 let delta_eth = post_total_ether - pre_total_ether;
                                 let delta_shares = post_total_shares - pre_total_shares;
                                 deltas.extend_from_slice(&[
+                                    // STETH_component.stEth += delta_shares
                                     BalanceDelta {
                                         ord: log.ordinal,
                                         tx: Some(tx.into()),
@@ -168,6 +186,7 @@ pub fn map_relative_balances(
                                         delta: delta_shares.to_signed_bytes_be(),
                                         component_id: LIDO_STETH_ADDRESS.to_vec(),
                                     },
+                                    // STETH_component.eth += delta_eth
                                     BalanceDelta {
                                         ord: log.ordinal,
                                         tx: Some(tx.into()),
@@ -178,6 +197,7 @@ pub fn map_relative_balances(
                                 ])
                             }
                         }
+                        // Transfer Shares due to Submit function
                         if let Some(TransferShares { shares_value: delta_shares, .. }) =
                             TransferShares::match_and_decode(log)
                         {
@@ -192,6 +212,7 @@ pub fn map_relative_balances(
                                 .unwrap(); // events are emitted in the same tx
 
                             deltas.extend_from_slice(&[
+                                // STETH_component.eth += delta_eth
                                 BalanceDelta {
                                     ord: log.ordinal,
                                     tx: Some(tx.into()),
@@ -199,6 +220,7 @@ pub fn map_relative_balances(
                                     delta: delta_eth.to_signed_bytes_be(),
                                     component_id: LIDO_STETH_ADDRESS.to_vec(),
                                 },
+                                // STETH_component.stEth += delta_shares
                                 BalanceDelta {
                                     ord: log.ordinal,
                                     tx: Some(tx.into()),
@@ -234,23 +256,23 @@ pub fn map_relative_balances(
                                     .unwrap();
 
                                 deltas.extend_from_slice(&[
-                                    // decrease stEth balance in the ETH component
+                                    // STETH_component.stEth -= delta_shares
                                     BalanceDelta {
                                         ord: log.ordinal,
                                         tx: Some(tx.into()),
-                                        token: ETH_ADDRESS.to_vec(),
+                                        token: LIDO_STETH_ADDRESS.to_vec(),
                                         delta: delta_shares.neg().to_signed_bytes_be(),
                                         component_id: LIDO_STETH_ADDRESS.to_vec(),
                                     },
-                                    // increase stEth balance in the wstETH component
+                                    // WSTETH_component.stEth += delta_shares
                                     BalanceDelta {
                                         ord: log.ordinal,
                                         tx: Some(tx.into()),
-                                        token: WSTETH_ADDRESS.to_vec(),
+                                        token: LIDO_STETH_ADDRESS.to_vec(),
                                         delta: delta_shares.to_signed_bytes_be(),
                                         component_id: WSTETH_ADDRESS.to_vec(),
                                     },
-                                    // increase wstETH balance in the wstETH component
+                                    // WSTETH_component.wstEth += delta_wst_eth
                                     BalanceDelta {
                                         ord: log.ordinal,
                                         tx: Some(tx.into()),
