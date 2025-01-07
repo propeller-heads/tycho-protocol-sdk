@@ -33,7 +33,7 @@ modules:
   - name: store_components
     kind: store
     initialBlock: 11888477
-    updatePolicy: add
+    updatePolicy: set 
     valueType: int64
     inputs:
       - map: map_components
