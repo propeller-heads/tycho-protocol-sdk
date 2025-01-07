@@ -1,0 +1,30 @@
+substreams_yaml_path: ./substreams.yaml
+protocol_type_names:
+  - "lido_vault"
+adapter_contract: "LidoAdapter"
+adapter_build_signature: "constructor(address,address)"
+adapter_build_args: "0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0,0xe19fc582dd93FA876CF4061Eb5456F310144F57b"
+skip_balance_check: true
+
+tests:
+  - name: lido_steth_component
+    start_block: 11888477
+    stop_block: 11888487
+    expected_components:
+      - id: "pool:0xe19fc582dd93fa876cf4061eb5456f310144f57b"
+        tokens:
+          - "0x0000000000000000000000000000000000000000"
+          - "0xe19fc582dd93FA876CF4061Eb5456F310144F57b"
+        skip_simulation: true
+        creation_tx: "0xaf2c1a501d2b290ef1e84ddcfc7beb3406f8ece2c46dee14e212e8233654ff05"
+
+  - name: lido_wsteth_component
+    start_block: 11888477
+    stop_block: 11888577
+    expected_components:
+      - id: "pool:0x7f39c581f595b53c5cb19bd0b3f8da6c935e2ca0"
+        tokens:
+          - "0xe19fc582dd93FA876CF4061Eb5456F310144F57b"
+          - "0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0"
+        skip_simulation: true
+        creation_tx: "0xaf2c1a501d2b290ef1e84ddcfc7beb3406f8ece2c46dee14e212e8233654ff05"
