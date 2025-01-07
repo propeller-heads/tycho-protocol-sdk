@@ -12,7 +12,7 @@ contract LidoAdapterTest is Test, ISwapAdapterTypes {
 
     LidoAdapter adapter;
     address constant wstETH = 0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0;
-    address stETH = 0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84;
+    address constant stETH = 0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84;
     address constant ETH = address(0);
     uint256 constant TEST_ITERATIONS = 100;
 
