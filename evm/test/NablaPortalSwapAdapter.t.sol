@@ -2,33 +2,23 @@
 pragma solidity ^0.8.13;
 
 import "./AdapterTest.sol";
-import {NablaPortalSwapAdapter, IERC20} from "src/nabla/NablaPortalSwapAdapter.sol";
+import {NablaPortalSwapAdapter, IERC20, INablaPortal} from "src/nabla/NablaPortalSwapAdapter.sol";
 import {FractionMath} from "src/libraries/FractionMath.sol";
 
 contract NablaPortalSwapAdapterTest is AdapterTest {
     using FractionMath for Fraction;
 
+    INablaPortal constant nablaPortal =
+        INablaPortal(payable(0xcB94Eee869a2041F3B44da423F78134aFb6b676B));
     NablaPortalSwapAdapter adapter;
 
-    address constant ORACLE_ADAPTER =
-        0x1234567890123456789012345678901234567890; // Replace with actual address
-    address constant GUARD_ORACLE = 0x2345678901234567890123456789012345678901; // Replace with actual address
-    address constant WETH = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2; // mainnet wETH
-    // address constant WETH = 0x82aF49447D8a07e3bd95BD0d56f35241523fBab1; // arbitrum wETH
-
     function setUp() public {
-        uint256 forkBlock = 18710000;
-        vm.createSelectFork(vm.rpcUrl("mainnet"), forkBlock);
+        uint256 forkBlock = 280000000;
+        vm.createSelectFork(vm.rpcUrl("arbitrum"), forkBlock);
 
-        adapter = new NablaPortalSwapAdapter(
-            ORACLE_ADAPTER,
-            GUARD_ORACLE,
-            WETH
-        );
+        adapter = new NablaPortalSwapAdapter(payable(address(nablaPortal)));
 
-        vm.label(ORACLE_ADAPTER, "OracleAdapter");
-        vm.label(GUARD_ORACLE, "GuardOracle");
-        vm.label(WETH, "WETH");
+        vm.label(address(nablaPortal), "INablaPortal");
         vm.label(address(adapter), "NablaPortalSwapAdapter");
     }
 
@@ -55,19 +45,11 @@ contract NablaPortalSwapAdapterTest is AdapterTest {
         address t1
     ) public view {
         Capability[] memory res = adapter.getCapabilities(pair, t0, t1);
-
-        assertEq(res.length, 4);
+        assertEq(res.length, 5);
         assertEq(uint256(res[0]), uint256(Capability.SellOrder));
         assertEq(uint256(res[1]), uint256(Capability.BuyOrder));
         assertEq(uint256(res[2]), uint256(Capability.PriceFunction));
+        assertEq(uint256(res[3]), uint256(Capability.ScaledPrices));
+        assertEq(uint256(res[4]), uint256(Capability.HardLimits));
     }
-
-    // function testGetLimits() public view {
-    //     bytes32 pair = bytes32(bytes20(USDC_WETH_PAIR));
-    //     uint256[] memory limits = adapter.getLimits(pair, WETH, WETH);
-
-    //     assertEq(limits.length, 2);
-    //     assertGt(limits[0], 0);
-    //     assertGt(limits[1], 0);
-    // }
 }
