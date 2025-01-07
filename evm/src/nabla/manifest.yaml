@@ -1,24 +1,21 @@
-# information about the author helps us reach out in case of issues.
 author:
-  name: zarathustra
-  email: karrenbelt_git@pm.me
+  name: author
+  email: author@email.com
 
-# Protocol Constants
 constants:
   protocol_gas: 30000
-  # Minimum capabilities we can expect, individual pools may extend these
   capabilities:
     - SellSide
     - BuySide
     - PriceFunction
+    - ScaledPrices
+    - HardLimits
 
 contract: NablaPortalSwapAdapter.sol
 
-# Deployment instances used to generate chain specific bytecode.
 instances:
   - chain:
-      name: mainnet
-      id: 0  # either 0 or 1
+      name: arbitrum
+      id: 42161
     arguments:
-      - "0xcB94Eee869a2041F3B44da423F78134aFb6b676B"  # arbitrum
-      # - "0xd24d145f5E351de52934A7E1f8cF55b907E67fFF"  # base
+      - "0xcB94Eee869a2041F3B44da423F78134aFb6b676B"
