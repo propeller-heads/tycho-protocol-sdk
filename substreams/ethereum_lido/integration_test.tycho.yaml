@@ -11,10 +11,10 @@ tests:
     start_block: 11473216
     stop_block: 11473216
     expected_components:
-      - id: "pool:0xe19fc582dd93fa876cf4061eb5456f310144f57b"
+      - id: "0xae7ab96520de3a18e5e111b5eaab095312d7fe84"
         tokens:
           - "0x0000000000000000000000000000000000000000"
-          - "0xe19fc582dd93FA876CF4061Eb5456F310144F57b"
+          - "0xae7ab96520de3a18e5e111b5eaab095312d7fe84"
         skip_simulation: true
         creation_tx: "0x3feabd79e8549ad68d1827c074fa7123815c80206498946293d5373a160fd866"
 
@@ -22,9 +22,9 @@ tests:
     start_block: 11888477
     stop_block: 11888577
     expected_components:
-      - id: "pool:0x7f39c581f595b53c5cb19bd0b3f8da6c935e2ca0"
+      - id: "0x7f39c581f595b53c5cb19bd0b3f8da6c935e2ca0"
         tokens:
-          - "0xe19fc582dd93FA876CF4061Eb5456F310144F57b"
+          - "0xae7ab96520de3a18e5e111b5eaab095312d7fe84"
           - "0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0"
         skip_simulation: true
         creation_tx: "0xaf2c1a501d2b290ef1e84ddcfc7beb3406f8ece2c46dee14e212e8233654ff05"
