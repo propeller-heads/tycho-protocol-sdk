@@ -84,78 +84,76 @@ pub fn map_relative_balances(
             tx.logs_with_calls()
                 .for_each(|(log, call)| {
                     // Wrap function
-                    if !call.call.state_reverted {
-                        if tx.to == WSTETH_ADDRESS {
-                            if let (Some(unwrap_call), Ok(output_amount)) = (
-                                abi::wsteth_contract::functions::Unwrap::match_and_decode(call),
-                                abi::wsteth_contract::functions::Unwrap::output(
-                                    &call.call.return_data,
-                                ),
-                            ) {
-                                let delta_wst_eth = unwrap_call.u_wst_eth_amount;
-                                let delta_st_eth = output_amount.neg();
-                                deltas.extend_from_slice(&[
-                                    // increase stEth balance in the wsteth component
-                                    BalanceDelta {
-                                        ord: call.call.begin_ordinal,
-                                        tx: Some(tx.into()),
-                                        token: LIDO_STETH_ADDRESS.to_vec(),
-                                        delta: delta_st_eth.to_signed_bytes_be(),
-                                        component_id: WSTETH_ADDRESS.to_vec(),
-                                    },
-                                    // remove stEth balance from the eth component
-                                    BalanceDelta {
-                                        ord: call.call.begin_ordinal,
-                                        tx: Some(tx.into()),
-                                        token: ETH_ADDRESS.to_vec(),
-                                        delta: delta_st_eth.neg().to_signed_bytes_be(),
-                                        component_id: LIDO_STETH_ADDRESS.to_vec(),
-                                    },
-                                    // add wstEth balance to the wstEth component
-                                    BalanceDelta {
-                                        ord: call.call.begin_ordinal,
-                                        tx: Some(tx.into()),
-                                        token: WSTETH_ADDRESS.to_vec(),
-                                        delta: delta_wst_eth.to_signed_bytes_be(),
-                                        component_id: WSTETH_ADDRESS.to_vec(),
-                                    },
-                                ])
-                            }
-                            if let (Some(unwrap_call), Ok(output_amount)) = (
-                                abi::wsteth_contract::functions::Unwrap::match_and_decode(call),
-                                abi::wsteth_contract::functions::Unwrap::output(
-                                    &call.call.return_data,
-                                ),
-                            ) {
-                                let delta_wst_eth = unwrap_call.u_wst_eth_amount;
-                                let delta_st_eth = output_amount;
-                                deltas.extend_from_slice(&[
-                                    // WSTETH_component.stEth -= delta_st_eth
-                                    BalanceDelta {
-                                        ord: call.call.begin_ordinal,
-                                        tx: Some(tx.into()),
-                                        token: LIDO_STETH_ADDRESS.to_vec(),
-                                        delta: delta_st_eth.neg().to_signed_bytes_be(),
-                                        component_id: WSTETH_ADDRESS.to_vec(),
-                                    },
-                                    // WSTETH_component.wstEth -= delta_wst_eth
-                                    BalanceDelta {
-                                        ord: call.call.begin_ordinal,
-                                        tx: Some(tx.into()),
-                                        token: WSTETH_ADDRESS.to_vec(),
-                                        delta: delta_wst_eth.neg().to_signed_bytes_be(),
-                                        component_id: WSTETH_ADDRESS.to_vec(),
-                                    },
-                                    // STETH_component.stEth += delta_st_eth
-                                    BalanceDelta {
-                                        ord: call.call.begin_ordinal,
-                                        tx: Some(tx.into()),
-                                        token: LIDO_STETH_ADDRESS.to_vec(),
-                                        delta: delta_st_eth.to_signed_bytes_be(),
-                                        component_id: LIDO_STETH_ADDRESS.to_vec(),
-                                    },
-                                ])
-                            }
+                    if !call.call.state_reverted && tx.to == WSTETH_ADDRESS {
+                        if let (Some(unwrap_call), Ok(output_amount)) = (
+                            abi::wsteth_contract::functions::Unwrap::match_and_decode(call),
+                            abi::wsteth_contract::functions::Unwrap::output(
+                                &call.call.return_data,
+                            ),
+                        ) {
+                            let delta_wst_eth = unwrap_call.u_wst_eth_amount;
+                            let delta_st_eth = output_amount.neg();
+                            deltas.extend_from_slice(&[
+                                // increase stEth balance in the wsteth component
+                                BalanceDelta {
+                                    ord: call.call.begin_ordinal,
+                                    tx: Some(tx.into()),
+                                    token: LIDO_STETH_ADDRESS.to_vec(),
+                                    delta: delta_st_eth.to_signed_bytes_be(),
+                                    component_id: WSTETH_ADDRESS.to_vec(),
+                                },
+                                // remove stEth balance from the eth component
+                                BalanceDelta {
+                                    ord: call.call.begin_ordinal,
+                                    tx: Some(tx.into()),
+                                    token: ETH_ADDRESS.to_vec(),
+                                    delta: delta_st_eth.neg().to_signed_bytes_be(),
+                                    component_id: LIDO_STETH_ADDRESS.to_vec(),
+                                },
+                                // add wstEth balance to the wstEth component
+                                BalanceDelta {
+                                    ord: call.call.begin_ordinal,
+                                    tx: Some(tx.into()),
+                                    token: WSTETH_ADDRESS.to_vec(),
+                                    delta: delta_wst_eth.to_signed_bytes_be(),
+                                    component_id: WSTETH_ADDRESS.to_vec(),
+                                },
+                            ])
+                        }
+                        if let (Some(unwrap_call), Ok(output_amount)) = (
+                            abi::wsteth_contract::functions::Unwrap::match_and_decode(call),
+                            abi::wsteth_contract::functions::Unwrap::output(
+                                &call.call.return_data,
+                            ),
+                        ) {
+                            let delta_wst_eth = unwrap_call.u_wst_eth_amount;
+                            let delta_st_eth = output_amount;
+                            deltas.extend_from_slice(&[
+                                // WSTETH_component.stEth -= delta_st_eth
+                                BalanceDelta {
+                                    ord: call.call.begin_ordinal,
+                                    tx: Some(tx.into()),
+                                    token: LIDO_STETH_ADDRESS.to_vec(),
+                                    delta: delta_st_eth.neg().to_signed_bytes_be(),
+                                    component_id: WSTETH_ADDRESS.to_vec(),
+                                },
+                                // WSTETH_component.wstEth -= delta_wst_eth
+                                BalanceDelta {
+                                    ord: call.call.begin_ordinal,
+                                    tx: Some(tx.into()),
+                                    token: WSTETH_ADDRESS.to_vec(),
+                                    delta: delta_wst_eth.neg().to_signed_bytes_be(),
+                                    component_id: WSTETH_ADDRESS.to_vec(),
+                                },
+                                // STETH_component.stEth += delta_st_eth
+                                BalanceDelta {
+                                    ord: call.call.begin_ordinal,
+                                    tx: Some(tx.into()),
+                                    token: LIDO_STETH_ADDRESS.to_vec(),
+                                    delta: delta_st_eth.to_signed_bytes_be(),
+                                    component_id: LIDO_STETH_ADDRESS.to_vec(),
+                                },
+                            ])
                         }
                     }
                     // process logs
@@ -207,7 +205,7 @@ pub fn map_relative_balances(
                                 .unwrap()
                                 .logs
                                 .iter()
-                                .find_map(|log| Transfer::match_and_decode(log))
+                                .find_map(Transfer::match_and_decode)
                                 .map(|transfer| transfer.value)
                                 .unwrap(); // events are emitted in the same tx
 
