@@ -17,7 +17,7 @@ use tycho_substreams::{
 };
 
 const WSTETH_ADDRESS: [u8; 20] = hex!("7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0"); //wstETH
-const LIDO_STETH_ADDRESS: [u8; 20] = hex!("e19fc582dd93FA876CF4061Eb5456F310144F57b"); //stETH
+const LIDO_STETH_ADDRESS: [u8; 20] = hex!("ae7ab96520DE3A18E5e111B5EaAb095312D7fE84"); //stETH
 const ETH_ADDRESS: [u8; 20] = hex!("0000000000000000000000000000000000000000"); //ETH
 const LIDO_STETH_CREATION_TX: [u8; 32] =
     hex!("3feabd79e8549ad68d1827c074fa7123815c80206498946293d5373a160fd866"); //stETH creation tx
@@ -327,7 +327,7 @@ pub fn map_protocol_changes(
         Attribute {
             // proxy
             name: "stateless_contract_addr_0".into(),
-            value: hex!("e19fc582dd93fa876cf4061eb5456f310144f57b").to_vec(),
+            value: String::from("0x17144556fd3424EDC8Fc8A4C940B2D04936d17eb").into_bytes(),
             change: ChangeType::Creation.into(),
         },
     ];
