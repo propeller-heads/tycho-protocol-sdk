@@ -19,6 +19,10 @@ use tycho_substreams::{
 const WSTETH_ADDRESS: [u8; 20] = hex!("7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0"); //wstETH
 const LIDO_STETH_ADDRESS: [u8; 20] = hex!("e19fc582dd93FA876CF4061Eb5456F310144F57b"); //stETH
 const ETH_ADDRESS: [u8; 20] = hex!("0000000000000000000000000000000000000000"); //ETH
+const LIDO_STETH_CREATION_TX: [u8; 32] =
+    hex!("3feabd79e8549ad68d1827c074fa7123815c80206498946293d5373a160fd866"); //stETH creation tx
+const WSTETH_CREATION_TX: [u8; 32] =
+    hex!("af2c1a501d2b290ef1e84ddcfc7beb3406f8ece2c46dee14e212e8233654ff05"); //wstETH creation tx
 
 #[substreams::handlers::map]
 pub fn map_components(block: eth::v2::Block) -> Result<BlockTransactionProtocolComponents> {
@@ -28,26 +32,22 @@ pub fn map_components(block: eth::v2::Block) -> Result<BlockTransactionProtocolC
             .transactions()
             .filter_map(|tx| {
                 let mut components = vec![];
-                tx.calls()
-                    .filter(|call| !call.call.state_reverted)
-                    .for_each(|_| {
-                        if is_deployment_tx(tx, &WSTETH_ADDRESS) {
-                            components.extend([
-                                ProtocolComponent::at_contract(
-                                    WSTETH_ADDRESS.as_slice(),
-                                    &tx.into(),
-                                )
-                                .with_tokens(&[LIDO_STETH_ADDRESS, WSTETH_ADDRESS])
-                                .as_swap_type("lido_vault", ImplementationType::Vm),
-                                ProtocolComponent::at_contract(
-                                    LIDO_STETH_ADDRESS.as_slice(),
-                                    &tx.into(),
-                                )
-                                .with_tokens(&[ETH_ADDRESS, LIDO_STETH_ADDRESS])
-                                .as_swap_type("lido_vault", ImplementationType::Vm),
-                            ]);
-                        }
-                    });
+                if tx.hash == WSTETH_CREATION_TX {
+                    components.extend([ProtocolComponent::at_contract(
+                        WSTETH_ADDRESS.as_slice(),
+                        &tx.into(),
+                    )
+                    .with_tokens(&[LIDO_STETH_ADDRESS, WSTETH_ADDRESS])
+                    .as_swap_type("lido_vault", ImplementationType::Vm)]);
+                }
+                if tx.hash == LIDO_STETH_CREATION_TX {
+                    components.extend([ProtocolComponent::at_contract(
+                        LIDO_STETH_ADDRESS.as_slice(),
+                        &tx.into(),
+                    )
+                    .with_tokens(&[ETH_ADDRESS, LIDO_STETH_ADDRESS])
+                    .as_swap_type("lido_vault", ImplementationType::Vm)]);
+                }
 
                 if !components.is_empty() {
                     Some(TransactionProtocolComponents { tx: Some(tx.into()), components })
@@ -318,11 +318,19 @@ pub fn map_protocol_changes(
 
     // `ProtocolComponents` are gathered from `map_pools_created` which just need a bit of work to
     //   convert into `TransactionChanges`
-    let default_attributes = vec![Attribute {
-        name: "update_marker".to_string(),
-        value: vec![1u8],
-        change: ChangeType::Creation.into(),
-    }];
+    let default_attributes = vec![
+        Attribute {
+            name: "update_marker".to_string(),
+            value: vec![1u8],
+            change: ChangeType::Creation.into(),
+        },
+        Attribute {
+            // proxy
+            name: "stateless_contract_addr_0".into(),
+            value: hex!("e19fc582dd93fa876cf4061eb5456f310144f57b").to_vec(),
+            change: ChangeType::Creation.into(),
+        },
+    ];
     grouped_components
         .tx_components
         .iter()
@@ -407,21 +415,4 @@ pub fn map_protocol_changes(
             .filter_map(|(_, builder)| builder.build())
             .collect::<Vec<_>>(),
     })
-}
-
-fn is_deployment_tx(tx: &eth::v2::TransactionTrace, vault_address: &[u8]) -> bool {
-    let created_accounts = tx
-        .calls
-        .iter()
-        .flat_map(|call| {
-            call.account_creations
-                .iter()
-                .map(|ac| ac.account.to_owned())
-        })
-        .collect::<Vec<_>>();
-
-    if let Some(deployed_address) = created_accounts.first() {
-        return deployed_address.as_slice() == vault_address;
-    }
-    false
 }
