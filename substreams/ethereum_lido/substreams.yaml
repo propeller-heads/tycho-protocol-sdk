@@ -22,25 +22,23 @@ binaries:
 modules:
   - name: map_components
     kind: map
-    initialBlock: 11888477
+    initialBlock: 11473216
     inputs:
       - source: sf.ethereum.type.v2.Block
     output:
-      type: proto:tycho.evm.v1.GroupedTransactionProtocolComponents
-    doc: |
-      param is the address without the 0x prefix of the sfrax vault you want to track
+      type: proto:tycho.evm.v1.BlockTransactionProtocolComponents
 
   - name: store_components
     kind: store
-    initialBlock: 11888477
+    initialBlock: 11473216
     updatePolicy: set 
-    valueType: int64
+    valueType: string
     inputs:
       - map: map_components
 
   - name: map_relative_balances
     kind: map
-    initialBlock: 11888477 # An arbitrary block that should change based on your requirements
+    initialBlock: 11473216
     inputs:
       - source: sf.ethereum.type.v2.Block
       - store: store_components
@@ -49,7 +47,7 @@ modules:
 
   - name: store_balances
     kind: store
-    initialBlock: 11888477
+    initialBlock: 11473216
     updatePolicy: add
     valueType: bigint
     inputs:
@@ -57,7 +55,7 @@ modules:
 
   - name: map_protocol_changes
     kind: map
-    initialBlock: 11888477
+    initialBlock: 11473216
     inputs:
       - source: sf.ethereum.type.v2.Block
       - map: map_components
@@ -66,4 +64,4 @@ modules:
       - store: store_balances
         mode: deltas # This is the key property that simplifies `BalanceChange` handling
     output:
-      type: proto:tycho.evm.v1.BlockContractChanges
+      type: proto:tycho.evm.v1.BlockChanges
