@@ -1,20 +1,18 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 pragma solidity ^0.8.13;
 
+import {INablaPortal} from "./interfaces/INablaPortal.sol";
 import {ISwapAdapter} from "src/interfaces/ISwapAdapter.sol";
 import {IERC20, SafeERC20} from "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 
 contract NablaPortalSwapAdapter is ISwapAdapter {
     using SafeERC20 for IERC20;
 
-    address immutable oracleAdapter;
-    address immutable guardOracle;
-    address immutable weth;
+    INablaPortal immutable portal;
 
-    constructor(address _oracleAdapter, address _guardOracle, address _weth) {
-        oracleAdapter = _oracleAdapter;
-        guardOracle = _guardOracle;
-        weth = _weth;
+    constructor(address portal_) {
+        require(portal_ != address(0), "Invalid portal address");
+        portal = INablaPortal(portal);
     }
 
     function price(
@@ -50,11 +48,12 @@ contract NablaPortalSwapAdapter is ISwapAdapter {
         address /*sellToken*/,
         address /*buyToken*/
     ) external pure override returns (Capability[] memory capabilities) {
-        capabilities = new Capability[](4);
+        capabilities = new Capability[](5);
         capabilities[0] = Capability.SellOrder;
         capabilities[1] = Capability.BuyOrder;
         capabilities[2] = Capability.PriceFunction;
-        capabilities[3] = Capability.HardLimits;
+        capabilities[3] = Capability.ScaledPrices;
+        capabilities[4] = Capability.HardLimits;
     }
 
     /// @dev Optional
