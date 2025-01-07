@@ -4,8 +4,8 @@ use std::fs;
 use substreams_ethereum::Abigen;
 
 fn main() -> Result<(), anyhow::Error> {
-    let file_names = ["abi/wsteth_contract.abi.json"];
-    let file_output_names = ["src/abi/wsteth_contract.rs"];
+    let file_names = ["abi/wsteth_contract.abi.json", "abi/lido.abi.json"];
+    let file_output_names = ["src/abi/wsteth_contract.rs", "src/abi/lido.rs"];
 
     for (i, f) in file_names.into_iter().enumerate() {
         let contents = fs::read_to_string(f).expect("Should have been able to read the file");

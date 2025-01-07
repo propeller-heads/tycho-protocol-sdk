@@ -1,4 +1,7 @@
-use crate::abi;
+use crate::abi::{
+    self,
+    lido::events::{TokenRebased, Transfer, TransferShares},
+};
 use anyhow::Result;
 use itertools::Itertools;
 use std::collections::HashMap;
@@ -7,13 +10,14 @@ use substreams::{
     pb::substreams::StoreDeltas,
     store::{StoreAddBigInt, StoreGet, StoreGetString, StoreNew, StoreSet, StoreSetString},
 };
-use substreams_ethereum::{pb::eth, Function};
+use substreams_ethereum::{pb::eth, Event, Function};
 use tycho_substreams::{
     balances::aggregate_balances_changes, contract::extract_contract_changes_builder, prelude::*,
 };
 
 const WSTETH_ADDRESS: [u8; 20] = hex!("7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0"); //wstETH
-const LOCKED_ASSET_ADDRESS: [u8; 20] = hex!("e19fc582dd93FA876CF4061Eb5456F310144F57b"); //stETH
+const LIDO_STETH_ADDRESS: [u8; 20] = hex!("e19fc582dd93FA876CF4061Eb5456F310144F57b"); //stETH
+const ETH_ADDRESS: [u8; 20] = hex!("0000000000000000000000000000000000000000"); //ETH
 
 #[substreams::handlers::map]
 pub fn map_components(block: eth::v2::Block) -> Result<BlockTransactionProtocolComponents> {
@@ -22,17 +26,27 @@ pub fn map_components(block: eth::v2::Block) -> Result<BlockTransactionProtocolC
         tx_components: block
             .transactions()
             .filter_map(|tx| {
-                let components = tx
-                    .calls()
+                let mut components = vec![];
+                tx.calls()
                     .filter(|call| !call.call.state_reverted)
-                    .filter_map(|_| {
+                    .for_each(|_| {
                         if is_deployment_tx(tx, &WSTETH_ADDRESS) {
-                            Some(create_vault_component(&tx.into()))
-                        } else {
-                            None
+                            components.extend([
+                                ProtocolComponent::at_contract(
+                                    WSTETH_ADDRESS.as_slice(),
+                                    &tx.into(),
+                                )
+                                .with_tokens(&[LIDO_STETH_ADDRESS, WSTETH_ADDRESS])
+                                .as_swap_type("lido_wsteth", ImplementationType::Vm),
+                                ProtocolComponent::at_contract(
+                                    LIDO_STETH_ADDRESS.as_slice(),
+                                    &tx.into(),
+                                )
+                                .with_tokens(&[ETH_ADDRESS, LIDO_STETH_ADDRESS])
+                                .as_swap_type("lido_steth", ImplementationType::Vm),
+                            ]);
                         }
-                    })
-                    .collect::<Vec<_>>();
+                    });
 
                 if !components.is_empty() {
                     Some(TransactionProtocolComponents { tx: Some(tx.into()), components })
@@ -58,87 +72,142 @@ pub fn store_components(map: BlockTransactionProtocolComponents, store: StoreSet
 }
 
 #[substreams::handlers::map]
-pub fn map_relative_balances(block: eth::v2::Block) -> Result<BlockBalanceDeltas, anyhow::Error> {
-    // # Initial state can be obtained from the initialize() call or first TokenRebased event
-    // # Then track the following events/calls:
-
-    // 1. "Submitted" events
-    // total_pooled_eth += event.amount
-
-    // 2. "ETHDistributed" events
-    // # Updates from consensus layer and withdrawals
-    // total_pooled_eth += (event.postCLBalance - event.preCLBalance)  # CL balance change
-    // total_pooled_eth += event.executionLayerRewardsWithdrawn        # EL rewards
-    // total_pooled_eth -= event.withdrawalsWithdrawn                  # Processed withdrawals
-
-    // 3. "Unbuffered" events
-    // # No change in total_pooled_eth as this just moves ETH from buffer to deposits
-
-    // 4. Track deposit() function calls
-    // # No change in total_pooled_eth as this just moves ETH from buffer to deposits
-
-    // 5. "TokenRebased" events (as a verification)
-    // # This event provides the absolute total_pooled_eth value
-    // verify total_pooled_eth == event.postTotalEther
+pub fn map_relative_balances(
+    block: eth::v2::Block,
+    components_store: StoreGetString,
+) -> Result<BlockBalanceDeltas, anyhow::Error> {
     let balance_deltas = block
         .transactions()
         .flat_map(|tx| {
             let mut deltas = Vec::new();
-            if tx.to == WSTETH_ADDRESS {
-                tx.calls.iter().for_each(|call| {
+            tx.logs_with_calls()
+                .for_each(|(log, call)| {
                     // Wrap function
-                    if let (Some(unwrap_call), Ok(output_amount)) = (
-                        abi::wsteth_contract::functions::Unwrap::match_and_decode(call),
-                        abi::wsteth_contract::functions::Unwrap::output(&call.return_data),
-                    ) {
-                        let amount_in = unwrap_call
-                            .u_wst_eth_amount
-                            .to_signed_bytes_be();
-                        let amount_out = output_amount.neg().to_signed_bytes_be();
-                        deltas.extend_from_slice(&[
-                            BalanceDelta {
-                                ord: call.begin_ordinal,
-                                tx: Some(tx.into()),
-                                token: LOCKED_ASSET_ADDRESS.to_vec(),
-                                delta: amount_out,
-                                component_id: WSTETH_ADDRESS.to_vec(),
-                            },
-                            BalanceDelta {
-                                ord: call.begin_ordinal,
-                                tx: Some(tx.into()),
-                                token: WSTETH_ADDRESS.to_vec(),
-                                delta: amount_in,
-                                component_id: WSTETH_ADDRESS.to_vec(),
-                            },
-                        ])
+                    if !call.call.state_reverted {
+                        if tx.to == WSTETH_ADDRESS {
+                            if let (Some(unwrap_call), Ok(output_amount)) = (
+                                abi::wsteth_contract::functions::Unwrap::match_and_decode(call),
+                                abi::wsteth_contract::functions::Unwrap::output(
+                                    &call.call.return_data,
+                                ),
+                            ) {
+                                let amount_in = unwrap_call
+                                    .u_wst_eth_amount
+                                    .to_signed_bytes_be();
+                                let amount_out = output_amount.neg().to_signed_bytes_be();
+                                deltas.extend_from_slice(&[
+                                    BalanceDelta {
+                                        ord: call.call.begin_ordinal,
+                                        tx: Some(tx.into()),
+                                        token: LIDO_STETH_ADDRESS.to_vec(),
+                                        delta: amount_out,
+                                        component_id: WSTETH_ADDRESS.to_vec(),
+                                    },
+                                    BalanceDelta {
+                                        ord: call.call.begin_ordinal,
+                                        tx: Some(tx.into()),
+                                        token: WSTETH_ADDRESS.to_vec(),
+                                        delta: amount_in,
+                                        component_id: WSTETH_ADDRESS.to_vec(),
+                                    },
+                                ])
+                            }
+                            if let (Some(unwrap_call), Ok(output_amount)) = (
+                                abi::wsteth_contract::functions::Unwrap::match_and_decode(call),
+                                abi::wsteth_contract::functions::Unwrap::output(
+                                    &call.call.return_data,
+                                ),
+                            ) {
+                                let amount_in = unwrap_call
+                                    .u_wst_eth_amount
+                                    .to_signed_bytes_be();
+                                let amount_out = output_amount.neg().to_signed_bytes_be();
+                                deltas.extend_from_slice(&[
+                                    BalanceDelta {
+                                        ord: call.call.begin_ordinal,
+                                        tx: Some(tx.into()),
+                                        token: LIDO_STETH_ADDRESS.to_vec(),
+                                        delta: amount_out,
+                                        component_id: WSTETH_ADDRESS.to_vec(),
+                                    },
+                                    BalanceDelta {
+                                        ord: call.call.begin_ordinal,
+                                        tx: Some(tx.into()),
+                                        token: WSTETH_ADDRESS.to_vec(),
+                                        delta: amount_in,
+                                        component_id: WSTETH_ADDRESS.to_vec(),
+                                    },
+                                ])
+                            }
+                        }
                     }
-                    if let (Some(unwrap_call), Ok(output_amount)) = (
-                        abi::wsteth_contract::functions::Unwrap::match_and_decode(call),
-                        abi::wsteth_contract::functions::Unwrap::output(&call.return_data),
-                    ) {
-                        let amount_in = unwrap_call
-                            .u_wst_eth_amount
-                            .to_signed_bytes_be();
-                        let amount_out = output_amount.neg().to_signed_bytes_be();
-                        deltas.extend_from_slice(&[
-                            BalanceDelta {
-                                ord: call.begin_ordinal,
-                                tx: Some(tx.into()),
-                                token: LOCKED_ASSET_ADDRESS.to_vec(),
-                                delta: amount_out,
-                                component_id: WSTETH_ADDRESS.to_vec(),
-                            },
-                            BalanceDelta {
-                                ord: call.begin_ordinal,
-                                tx: Some(tx.into()),
-                                token: WSTETH_ADDRESS.to_vec(),
-                                delta: amount_in,
-                                component_id: WSTETH_ADDRESS.to_vec(),
-                            },
-                        ])
+                    // process logs
+                    if log.address == LIDO_STETH_ADDRESS {
+                        // 1. "TokenRebased" events
+                        if let Some(TokenRebased {
+                            pre_total_ether,
+                            post_total_ether,
+                            pre_total_shares,
+                            post_total_shares,
+                            ..
+                        }) = TokenRebased::match_and_decode(log)
+                        {
+                            let component_id = format!("0x{}", hex::encode(LIDO_STETH_ADDRESS));
+                            if components_store
+                                .get_last(format!("pool:{}", &component_id[..42]))
+                                .is_some()
+                            {
+                                let delta_eth = post_total_ether - pre_total_ether;
+                                let delta_shares = post_total_shares - pre_total_shares;
+                                deltas.extend_from_slice(&[
+                                    BalanceDelta {
+                                        ord: log.ordinal,
+                                        tx: Some(tx.into()),
+                                        token: LIDO_STETH_ADDRESS.to_vec(),
+                                        delta: delta_shares.to_signed_bytes_be(),
+                                        component_id: LIDO_STETH_ADDRESS.to_vec(),
+                                    },
+                                    BalanceDelta {
+                                        ord: log.ordinal,
+                                        tx: Some(tx.into()),
+                                        token: ETH_ADDRESS.to_vec(),
+                                        delta: delta_eth.to_signed_bytes_be(),
+                                        component_id: LIDO_STETH_ADDRESS.to_vec(),
+                                    },
+                                ])
+                            }
+                        }
+                        if let Some(TransferShares { shares_value: delta_shares, .. }) =
+                            TransferShares::match_and_decode(log)
+                        {
+                            let delta_eth = tx
+                                .receipt
+                                .as_ref()
+                                .unwrap()
+                                .logs
+                                .iter()
+                                .find_map(|log| Transfer::match_and_decode(log))
+                                .map(|transfer| transfer.value)
+                                .unwrap(); // events are emitted in the same tx
+                            deltas.extend_from_slice(&[
+                                BalanceDelta {
+                                    ord: log.ordinal,
+                                    tx: Some(tx.into()),
+                                    token: ETH_ADDRESS.to_vec(),
+                                    delta: delta_eth.to_signed_bytes_be(),
+                                    component_id: LIDO_STETH_ADDRESS.to_vec(),
+                                },
+                                BalanceDelta {
+                                    ord: log.ordinal,
+                                    tx: Some(tx.into()),
+                                    token: LIDO_STETH_ADDRESS.to_vec(),
+                                    delta: delta_shares.to_signed_bytes_be(),
+                                    component_id: LIDO_STETH_ADDRESS.to_vec(),
+                                },
+                            ])
+                        }
                     }
-                })
-            }
+                });
             deltas
         })
         .collect_vec();
@@ -278,10 +347,4 @@ fn is_deployment_tx(tx: &eth::v2::TransactionTrace, vault_address: &[u8]) -> boo
         return deployed_address.as_slice() == vault_address;
     }
     false
-}
-
-fn create_vault_component(tx: &Transaction) -> ProtocolComponent {
-    ProtocolComponent::at_contract(WSTETH_ADDRESS.as_slice(), tx)
-        .with_tokens(&[LOCKED_ASSET_ADDRESS])
-        .as_swap_type("lido_wsteth", ImplementationType::Vm)
 }
