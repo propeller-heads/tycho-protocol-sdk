@@ -12,7 +12,8 @@ use substreams::{
 };
 use substreams_ethereum::{pb::eth, Event, Function};
 use tycho_substreams::{
-    balances::aggregate_balances_changes, contract::extract_contract_changes_builder, prelude::*,
+    abi::erc20::events::Transfer as ERC20Transfer, balances::aggregate_balances_changes,
+    contract::extract_contract_changes_builder, prelude::*,
 };
 
 const WSTETH_ADDRESS: [u8; 20] = hex!("7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0"); //wstETH
@@ -189,6 +190,7 @@ pub fn map_relative_balances(
                                 .find_map(|log| Transfer::match_and_decode(log))
                                 .map(|transfer| transfer.value)
                                 .unwrap(); // events are emitted in the same tx
+
                             deltas.extend_from_slice(&[
                                 BalanceDelta {
                                     ord: log.ordinal,
@@ -204,7 +206,60 @@ pub fn map_relative_balances(
                                     delta: delta_shares.to_signed_bytes_be(),
                                     component_id: LIDO_STETH_ADDRESS.to_vec(),
                                 },
-                            ])
+                            ]);
+
+                            // there might be the case where the tx is a receive callback in the
+                            // wsteth contract, this triggers a stake and a wrap (i.e. autowrap ETH)
+                            if tx.to == WSTETH_ADDRESS {
+                                // delta shares already constructed, we need to find the wstETH
+                                // minted in the openzeppelin _mint function that deposit a Transfer
+                                // event
+                                let delta_wst_eth = tx
+                                    .receipt
+                                    .as_ref()
+                                    .unwrap()
+                                    .logs
+                                    .iter()
+                                    .find_map(|log| {
+                                        ERC20Transfer::match_and_decode(log).map(|transfer| {
+                                            if transfer.from == vec![0u8; 20] {
+                                                Some(transfer)
+                                            } else {
+                                                None
+                                            }
+                                        })
+                                    })
+                                    .flatten()
+                                    .map(|transfer| transfer.value)
+                                    .unwrap();
+
+                                deltas.extend_from_slice(&[
+                                    // decrease stEth balance in the ETH component
+                                    BalanceDelta {
+                                        ord: log.ordinal,
+                                        tx: Some(tx.into()),
+                                        token: ETH_ADDRESS.to_vec(),
+                                        delta: delta_shares.neg().to_signed_bytes_be(),
+                                        component_id: LIDO_STETH_ADDRESS.to_vec(),
+                                    },
+                                    // increase stEth balance in the wstETH component
+                                    BalanceDelta {
+                                        ord: log.ordinal,
+                                        tx: Some(tx.into()),
+                                        token: WSTETH_ADDRESS.to_vec(),
+                                        delta: delta_shares.to_signed_bytes_be(),
+                                        component_id: WSTETH_ADDRESS.to_vec(),
+                                    },
+                                    // increase wstETH balance in the wstETH component
+                                    BalanceDelta {
+                                        ord: log.ordinal,
+                                        tx: Some(tx.into()),
+                                        token: WSTETH_ADDRESS.to_vec(),
+                                        delta: delta_wst_eth.to_signed_bytes_be(),
+                                        component_id: WSTETH_ADDRESS.to_vec(),
+                                    },
+                                ]);
+                            }
                         }
                     }
                 });
