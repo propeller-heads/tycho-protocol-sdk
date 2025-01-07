@@ -38,13 +38,13 @@ pub fn map_components(block: eth::v2::Block) -> Result<BlockTransactionProtocolC
                                     &tx.into(),
                                 )
                                 .with_tokens(&[LIDO_STETH_ADDRESS, WSTETH_ADDRESS])
-                                .as_swap_type("lido_wsteth", ImplementationType::Vm),
+                                .as_swap_type("lido_vault", ImplementationType::Vm),
                                 ProtocolComponent::at_contract(
                                     LIDO_STETH_ADDRESS.as_slice(),
                                     &tx.into(),
                                 )
                                 .with_tokens(&[ETH_ADDRESS, LIDO_STETH_ADDRESS])
-                                .as_swap_type("lido_steth", ImplementationType::Vm),
+                                .as_swap_type("lido_vault", ImplementationType::Vm),
                             ]);
                         }
                     });
