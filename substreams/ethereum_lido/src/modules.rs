@@ -87,9 +87,7 @@ pub fn map_relative_balances(
                     if !call.call.state_reverted && tx.to == WSTETH_ADDRESS {
                         if let (Some(unwrap_call), Ok(output_amount)) = (
                             abi::wsteth_contract::functions::Unwrap::match_and_decode(call),
-                            abi::wsteth_contract::functions::Unwrap::output(
-                                &call.call.return_data,
-                            ),
+                            abi::wsteth_contract::functions::Unwrap::output(&call.call.return_data),
                         ) {
                             let delta_wst_eth = unwrap_call.u_wst_eth_amount;
                             let delta_st_eth = output_amount.neg();
@@ -122,9 +120,7 @@ pub fn map_relative_balances(
                         }
                         if let (Some(unwrap_call), Ok(output_amount)) = (
                             abi::wsteth_contract::functions::Unwrap::match_and_decode(call),
-                            abi::wsteth_contract::functions::Unwrap::output(
-                                &call.call.return_data,
-                            ),
+                            abi::wsteth_contract::functions::Unwrap::output(&call.call.return_data),
                         ) {
                             let delta_wst_eth = unwrap_call.u_wst_eth_amount;
                             let delta_st_eth = output_amount;
@@ -325,16 +321,12 @@ pub fn map_protocol_changes(
         Attribute {
             // proxy
             name: "stateless_contract_addr_0".into(),
-            value: address_to_bytes_with_0x(
-                &hex!("17144556fd3424EDC8Fc8A4C940B2D04936d17eb"),
-            ),
+            value: address_to_bytes_with_0x(&hex!("17144556fd3424EDC8Fc8A4C940B2D04936d17eb")),
             change: ChangeType::Creation.into(),
         },
         Attribute {
             name: "stateless_contract_addr_1".to_string(),
-            value: address_to_bytes_with_0x(
-                &hex!("b8ffc3cd6e7cf5a098a1c92f48009765b24088dc"),
-            ),
+            value: address_to_bytes_with_0x(&hex!("b8ffc3cd6e7cf5a098a1c92f48009765b24088dc")),
             change: ChangeType::Creation.into(),
         },
     ];
@@ -432,4 +424,3 @@ fn address_to_bytes_with_0x(address: &[u8; 20]) -> Vec<u8> {
 fn address_to_string_with_0x(address: &[u8]) -> String {
     format!("0x{}", hex::encode(address))
 }
-
