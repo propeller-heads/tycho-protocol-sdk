@@ -9,7 +9,7 @@ skip_balance_check: true
 tests:
   - name: lido_steth_component
     start_block: 11473216
-    stop_block: 11473216
+    stop_block: 11473316
     expected_components:
       - id: "0xae7ab96520de3a18e5e111b5eaab095312d7fe84"
         tokens:
