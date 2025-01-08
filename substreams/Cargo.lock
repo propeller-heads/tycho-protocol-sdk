@@ -444,26 +444,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ethereum_lido"
-version = "0.0.1"
-dependencies = [
- "anyhow",
- "bytes",
- "ethabi 18.0.0",
- "getrandom",
- "hex",
- "hex-literal 0.4.1",
- "itertools 0.12.1",
- "num-bigint",
- "prost 0.11.9",
- "prost-types 0.12.6",
- "regex",
- "substreams",
- "substreams-ethereum",
- "tycho-substreams",
-]
-
-[[package]]
 name = "fastrand"
 version = "2.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
