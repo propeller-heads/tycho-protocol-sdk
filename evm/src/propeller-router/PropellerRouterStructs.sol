@@ -62,4 +62,12 @@ interface PropellerRouterStructs {
         address[] addresses;
         uint256 allowance;
     }
+
+    enum ActionType {
+        SINGLE_IN,
+        SINGLE_OUT,
+        SEQUENTIAL_OUT,
+        SEQUENTIAL_IN,
+        SPLIT_EXACT_IN
+    }
 }

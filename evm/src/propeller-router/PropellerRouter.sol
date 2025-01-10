@@ -283,6 +283,61 @@ contract PropellerRouter is
         }
     }
 
+    function batchExecute(bytes calldata data) internal {
+        uint256 amount;
+        bytes calldata actionData;
+        bytes calldata batchElement;
+        ActionType actionType;
+        while (data.length > 0) {
+            (batchElement, data) = data.next();
+            (actionType, actionData) = batchElement.decodeBatchExecute();
+            _executeAction(actionType, actionData);
+        }
+    }
+
+    /**
+     * @dev Allows to route amount into any other action type supported
+     * by this contract. This allows for more flexibility during
+     * batchExecute or within callbacks.
+     *  @param amount the amount to forward into the next action
+     *  @param type_ what kind of action to take
+     *  @param actionData data with the encoding for each action. See the
+     *      individual methods for more information.
+     */
+    function _executeAction(
+        uint256 amount,
+        ActionType type_,
+        bytes calldata actionData
+    ) internal returns (uint256 calculatedAmount) {
+        if (type_ == ActionType.SINGLE_IN) {
+            (uint256 amount, uint256 checkAmount, bytes calldata swaps) =
+                actionData.decodeAmountAndBytes();
+            calculatedAmount = singleExactIn(amount, checkAmount, swaps);
+        } else if (type_ == ActionType.SINGLE_OUT) {
+            (uint256 amount, uint256 checkAmount, bytes calldata swaps) =
+                actionData.decodeAmountAndBytes();
+            calculatedAmount = singleExactOut(amount, actionData);
+        } else if (type_ == ActionType.SEQUENTIAL_IN) {
+            (uint256 amount, uint256 checkAmount, bytes calldata swaps) =
+                actionData.decodeAmountAndBytes();
+            calculatedAmount =
+                sequentialExactIn(amount, checkAmount, swaps);
+        } else if (type_ == ActionType.SEQUENTIAL_OUT) {
+            (uint256 amount, uint256 checkAmount, bytes calldata swaps) =
+                actionData.decodeAmountAndBytes();
+            calculatedAmount =
+                sequentialExactOut(amount, checkAmount, swaps);
+        } else if (type_ == ActionType.SPLIT_IN) {
+            (uint256 amount, uint256 checkAmount, bytes calldata swaps) =
+                actionData.decodeAmountAndBytes();
+            calculatedAmount = splitExactIn(
+                amount, checkAmount, swaps
+            );
+        } else {
+            revert UnsupportedBatchData(uint8(type_));
+        }
+    }
+
     /**
      * @dev Entrypoint to add or replace a swap method contract address
      * @param id for this method
