@@ -31,14 +31,21 @@ contract PropellerRouter is
     }
 
     function _executeSwap(
-        uint8 exchange,
-        uint256 amount,
-        bytes calldata protocolData
+        address exchange,
+        bytes calldata protocolData // includes fn selector
     ) internal override returns (uint256 calculatedAmount) {
+
+        require(exchange != address(0), "Invalid exchange address");
+        require(selector.length == 4, "Invalid function selector");
+        bytes memory data = abi.encodePacked(selector, protocolData);
+        (bool success, bytes memory returnData) = exchange.call(data);
+        require(success, "Swap execution failed");
+
         // USV2 and USV3 will also be swap executors - no special case
         calculatedAmount = _callSwapExecutor(
             exchange, amount, protocolData, false
         );
+        calculatedAmount = abi.decode(returnData, (uint256));
     }
 
     function _verifyCallback(bytes calldata data)
@@ -85,16 +92,36 @@ contract PropellerRouter is
         returns (uint256 calculatedAmount)
     {
         (
+            bool wrapEth, // This means ETH is the sell token
+            bool unwrapEth, // This means ETH is the buy token
             uint256 minUserAmount,
             IERC20 tokenOut,
             address receiver,
             bytes calldata swap
         ) = data.decodeSingleCheckedArgs();
-        // We need to measure spent amount via balanceOf, as
-        // callbacks might execute additional swaps
-        uint256 balanceBefore = tokenOut.balanceOf(receiver);
-        _singleSwap(givenAmount, swap);
-        calculatedAmount = tokenOut.balanceOf(receiver) - balanceBefore;
+
+        uint256 balanceBefore;
+        if (wrapEth) {
+            _wrapETH(givenAmount);
+            balanceBefore = tokenOut.balanceOf(address(this));
+        }
+            balanceBefore = tokenOut.balanceOf(receiver);
+        }
+
+        // PERFORM MAIN SWAP
+         _singleSwap(givenAmount, swap);
+
+        if (unwrapEth) {
+            calculatedAmount = tokenOut.balanceOf(address(this)) - balanceBefore;
+            _unwrapETH(calculatedAmount);
+            address(receiver).transfer(calculatedAmount);
+        } else {
+            calculatedAmount = tokenOut.balanceOf(receiver) - balanceBefore;
+        }
+
+        // We used to get calculatedAmount from the final eth balance in the user
+        // account
+
         if (calculatedAmount < minUserAmount) {
             revert NegativeSlippage(calculatedAmount, minUserAmount);
         }
@@ -400,5 +427,27 @@ contract PropellerRouter is
         if (!sent) {
             revert InvalidTransfer(receiver, address(0), amount);
         }
+    }
+
+
+    /**
+     * @dev Wrap a defined amount of ETH.
+     * @param amount of native ETH to wrap.
+     */
+    function _wrapETH(uint256 amount) internal {
+        if (msg.value > 0 && msg.value != amount) {
+            revert MessageValueMismatch(msg.value, amount);
+        }
+        _weth.deposit{value: amount}();
+    }
+
+    /**
+     * @dev Unwrap a defined amount of WETH.
+     * @param amount of WETH to unwrap.
+     */
+    function _unwrapETH(uint256 amount) internal {
+        uint256 unwrapAmount =
+            amount == 0 ? _weth.balanceOf(address(this)) : amount;
+        _weth.withdraw(unwrapAmount);
     }
 }
