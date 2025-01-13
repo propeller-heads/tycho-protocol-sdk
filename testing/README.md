@@ -36,6 +36,19 @@ The script to generate this file manually is available under `evm/scripts/buildR
 
 ## Setup testing environment
 
+## Prerequisites
+
+Before setting up the Python environment, ensure the following tools and libraries are installed on your system:
+
+- **Git**: Version control tool (https://git-scm.com/)
+- **Rust**: Programming language and toolchain (https://www.rust-lang.org/)
+- **GCC**: GNU Compiler Collection (https://gcc.gnu.org/)
+- **libpq**: PostgreSQL client library (https://www.postgresql.org/docs/9.5/libpq.html)
+- **OpenSSL (libssl)**: OpenSSL development library (https://github.com/openssl/openssl)
+- **pkg-config**: Helper tool for managing compiler flags (https://www.freedesktop.org/wiki/Software/pkg-config/)
+- **Conda**: Python package manager (https://docs.conda.io/en/latest/)
+- **pip**: Python package installer (https://pip.pypa.io/)
+
 Run the setup env script. It will create a conda virtual env and install all dependencies.
 This script must be run from within the `tycho-protocol-sdk/testing` directory.
 
