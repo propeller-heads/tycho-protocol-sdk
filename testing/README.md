@@ -36,20 +36,8 @@ The script to generate this file manually is available under `evm/scripts/buildR
 
 ## Setup testing environment
 
-### Step 1: Export Environment Variables
-
-**DOMAIN_OWNER**
-
-- **Description**: The domain owner identifier for Propellerhead's AWS account, used for authenticating on the private
-  PyPI repository.
-- **Example**: `export DOMAIN_OWNER=123456789`
-
-### Step 2: Create python virtual environment for testing
-
-Run setup env script. It will create a conda virtual env and install all dependencies.
+Run the setup env script. It will create a conda virtual env and install all dependencies.
 This script must be run from within the `tycho-protocol-sdk/testing` directory.
-
-Please note that some dependencies require access to our private PyPI repository.
 
 ```
 setup_env.sh

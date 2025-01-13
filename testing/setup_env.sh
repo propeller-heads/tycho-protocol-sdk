@@ -15,8 +15,7 @@ source activate $ENV_NAME
 
 # Install the requirements
 echo "Installing the requirements from ${REQUIREMENTS_FILE}..."
-source ./pre_build.sh
-pip install -r $REQUIREMENTS_FILE
+pip install -r $REQUIREMENTS_FILE --index-url https://pypi.org/simple
 conda activate $ENV_NAME
 
 echo "Setup complete."
