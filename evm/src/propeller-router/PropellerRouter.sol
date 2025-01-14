@@ -9,6 +9,7 @@ import "./SwapExecutionDispatcher.sol";
 import "./CallbackVerificationDispatcher.sol";
 import "./ApprovalManagement.sol";
 import "./SwapContext.sol";
+import {IAllowanceTransfer} from "Permit2/src/interfaces/IAllowanceTransfer.sol";
 
 contract PropellerRouter is
     PropellerRouterStructs,
@@ -21,6 +22,11 @@ contract PropellerRouter is
     using PrefixLengthEncodedByteArray for bytes;
     using PackedSwapStructs for bytes;
     using EfficientERC20 for IERC20;
+
+    IAllowanceTransfer public immutable permit2;
+    constructor(address _permit2) {
+        permit2 = IAllowanceTransfer(_permit2);
+    }
 
     //keccak256("EXECUTOR_ROLE") : save gas on deployment
     bytes32 public constant EXECUTOR_ROLE =
@@ -101,6 +107,8 @@ contract PropellerRouter is
         bool wrapEth, // This means ETH is the sell token
         bool unwrapEth, // This means ETH is the buy token
         bytes calldata swap
+        IAllowanceTransfer.PermitSingle calldata permitSingle,
+        bytes calldata signature
     )
         external
         override
@@ -112,7 +120,9 @@ contract PropellerRouter is
 
         // For native ETH, assume funds already in our router. Else, transfer.
         if (tokenIn != address(0)) {
-            IERC20(tokenIn).safeTransferFrom(msg.sender, address(this), givenAmount);
+            if (permitSingle.spender != address(this)) revert InvalidSpender();
+           permit2.permit(msg.sender, permitSingle, signature);
+           permit2.transferFrom(msg.sender, address(this), amount, permitSingle.details.token);
         }
 
         if (tokenOut == address(0)) {
@@ -157,7 +167,9 @@ contract PropellerRouter is
         uint256 givenAmount,
         uint256 maxUserAmount,
         address tokenIn,
-        bytes calldata swap
+        bytes calldata swap,
+        IAllowanceTransfer.PermitSingle calldata permitSingle,
+        bytes calldata signature
     )
         external
         override
@@ -175,6 +187,11 @@ contract PropellerRouter is
             _singleSwap(givenAmount, swap);
             calculatedAmount = balanceBefore - msg.sender.balance;
         } else {
+            // We will need to call permit2 to register the approval, though the
+            // permit2.transferFrom will be performed inside the executor
+            if (permitSingle.spender != address(this)) revert InvalidSpender();
+            permit2.permit(msg.sender, permitSingle, signature);
+
             uint256 balanceBefore = IERC20(tokenIn).balanceOf(msg.sender);
             _singleSwap(givenAmount, swap);
             calculatedAmount = balanceBefore - IERC20(tokenIn).balanceOf(msg.sender);
@@ -194,6 +211,8 @@ contract PropellerRouter is
         uint256 minUserAmount,
         address tokenIn,
         bytes calldata swaps
+        IAllowanceTransfer.PermitSingle calldata permitSingle,
+        bytes calldata signature
     )
         external
         override
@@ -205,11 +224,16 @@ contract PropellerRouter is
         // example)
         uint8 exchange;
         bytes calldata swap;
+
+        // TODO double check why we set this
         calculatedAmount = givenAmount;
 
         // For native ETH, assume funds already in our router. Else, transfer.
+        // Note: permit2 does not work for native ETH
         if (tokenIn != address(0)) {
-            IERC20(tokenIn).safeTransferFrom(msg.sender, address(this), givenAmount);
+            if (permitSingle.spender != address(this)) revert InvalidSpender();
+           permit2.permit(msg.sender, permitSingle, signature);
+           permit2.transferFrom(msg.sender, address(this), givenAmount, permitSingle.details.token);
         }
 
 
@@ -238,6 +262,8 @@ contract PropellerRouter is
         uint256 maxUserAmount,
         address tokenIn,
         bytes[] calldata swaps
+        IAllowanceTransfer.PermitSingle calldata permitSingle,
+        bytes calldata signature
     )
         external
         override
@@ -266,8 +292,13 @@ contract PropellerRouter is
                 _quoteSwap(swap.exchange(), amounts[i], swap.protocolData());
         }
         calculatedAmount = amounts[0];
+
+        // For native ETH, assume funds already in our router. Else, transfer.
+        // Note: permit2 does not work for native ETH
         if (tokenIn != address(0)) {
-            IERC20(tokenIn).safeTransferFrom(msg.sender, address(this), calculatedAmount);
+            if (permitSingle.spender != address(this)) revert InvalidSpender();
+           permit2.permit(msg.sender, permitSingle, signature);
+           permit2.transferFrom(msg.sender, address(this), calculatedAmount, permitSingle.details.token);
         }
 
 
@@ -293,6 +324,8 @@ contract PropellerRouter is
         address tokenIn,
         uint256 minUserAmount,
         SplitSwapExactInParameters calldata parameters
+        IAllowanceTransfer.PermitSingle calldata permitSingle,
+        bytes calldata signature
     )
         external
         override
@@ -318,9 +351,12 @@ contract PropellerRouter is
         amounts[0] = amountIn;
         remainingAmounts[0] = amountIn;
 
-        // For native ETH, assume funds already in our router. Otherwise, transfer.
+        // For native ETH, assume funds already in our router. Else, transfer.
+        // Note: permit2 does not work for native ETH
         if (tokenIn != address(0)) {
-            IERC20(tokenIn).safeTransferFrom(msg.sender, address(this), amountIn);
+            if (permitSingle.spender != address(this)) revert InvalidSpender();
+           permit2.permit(msg.sender, permitSingle, signature);
+           permit2.transferFrom(msg.sender, address(this), amountIn, permitSingle.details.token);
         }
 
 
