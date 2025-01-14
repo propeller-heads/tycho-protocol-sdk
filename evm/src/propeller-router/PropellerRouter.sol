@@ -30,6 +30,14 @@ contract PropellerRouter is
         _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
     }
 
+    /**
+     * @dev We use the fallback function to allow flexibility on callback.
+     * This function will delegate call a verifier contract and should revert is the caller is not a pool.
+     */
+    fallback() external {
+        _executeGenericCallback(msg.data);
+    }
+
     function _executeSwap(
         address exchange,
         bytes calldata protocolData // includes fn selector
@@ -528,5 +536,79 @@ contract PropellerRouter is
         uint256 unwrapAmount =
             amount == 0 ? _weth.balanceOf(address(this)) : amount;
         _weth.withdraw(unwrapAmount);
+    }
+
+    /**
+     * @dev Check if the sender is correct and executes callback actions.
+     *  @param msgData encoded data. It must includes data for the verification and the action.
+     */
+    function _executeGenericCallback(bytes calldata msgData) internal {
+        (
+            uint256 amountOwed,
+            uint256 amountReceived,
+            address tokenOwed,
+            uint16 offset
+        ) = _verifyCallback(msgData);
+
+        bytes calldata data = msgData[4 + offset:];
+        ActionType supplyActionType;
+        ActionType forwardActionType;
+        bytes calldata supplyActionData;
+        bytes calldata forwardActionData;
+        assembly {
+            // 1 + 1 + 4 = 6
+            let dataLoad := calldataload(data.offset)
+            supplyActionType := and(shr(248, dataLoad), 0xff)
+            forwardActionType := and(shr(240, dataLoad), 0xff)
+            // 2 bytes offset from header containing actiontypes + 2 + 2 bytes of length encoding
+            supplyActionData.offset := add(data.offset, 10)
+            supplyActionData.length := and(shr(224, dataLoad), 0xffff)
+            // any remaining bytes are calldata for forwardReceived
+            forwardActionData.offset :=
+                add(supplyActionData.offset, supplyActionData.length)
+            forwardActionData.length := and(shr(192, dataLoad), 0xffff)
+        }
+
+        _swapCallback(
+            IERC20(tokenOwed),
+            amountOwed,
+            amountReceived,
+            supplyActionType,
+            supplyActionData,
+            forwardActionType,
+            forwardActionData
+        );
+    }
+
+    /**
+     * @dev Generic swap callback, can perform other actions see _executeAction.
+     */
+    function _swapCallback(
+        IERC20 tokenOwed,
+        uint256 amountOwed,
+        uint256 amountReceived,
+        ActionType supplyOwedActionType,
+        bytes calldata actionData0,
+        ActionType forwardReceivedActionType,
+        bytes calldata actionData1
+    ) internal {
+        // msg.sender must be a pool this needs to be verfied before calling this method!
+        if (supplyOwedActionType == IBatchSwapRouterV1Structs.ActionType.PAY) {
+            address payer = _getPayer();
+            _resetPayer();
+            tokenOwed.safeTransferFrom(payer, msg.sender, amountOwed);
+        } else if (
+            supplyOwedActionType
+                == IBatchSwapRouterV1Structs.ActionType.TRANSFER
+        ) {
+            tokenOwed.safeTransfer(msg.sender, amountOwed);
+        } else {
+            _executeAction(amountOwed, supplyOwedActionType, actionData0);
+        }
+        if (actionData1.length > 0) {
+            _executeAction(
+                amountReceived, forwardReceivedActionType, actionData1
+            );
+        }
     }
 }
