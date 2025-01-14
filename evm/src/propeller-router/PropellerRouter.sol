@@ -63,7 +63,7 @@ contract PropellerRouter is
     }
 
     /**
-     * @dev Executes a single swap, but might do more actions through callbacks.
+     * @dev Executes a single swap
      */
     function _singleSwap(uint256 amount, bytes calldata swap)
         internal
@@ -95,13 +95,27 @@ contract PropellerRouter is
             bool wrapEth, // This means ETH is the sell token
             bool unwrapEth, // This means ETH is the buy token
             uint256 minUserAmount,
-            IERC20 tokenOut,
+            address tokenOut,
             address receiver,
             bytes calldata swap
         ) = data.decodeSingleCheckedArgs();
 
         uint256 balanceBefore;
+
+        if (tokenOut == address(0)) {
+            uint256 balanceBefore = payer.balance;
+            _singleSwap(givenAmount, swap);
+            calculatedAmount = balanceBefore - payer.balance;
+        } else {
+            uint256 balanceBefore = IERC20(tokenOut).balanceOf(payer);
+            _singleSwap(givenAmount, swap);
+            calculatedAmount = balanceBefore - IERC20(tokenOut).balanceOf(payer);
+        }
+
+        // Wrap ETH if it's the in token -> sender sends ETH -> wrap it before pool
+        // TODO fix this wrapping unwrapping logic - it doesn't account for tokenIn
         if (wrapEth) {
+            // In the case where we are wrapping ETH, the out token will be WETH
             _wrapETH(givenAmount);
             balanceBefore = tokenOut.balanceOf(address(this));
         }
@@ -136,15 +150,25 @@ contract PropellerRouter is
     {
         (
             uint256 maxUserAmount,
-            IERC20 tokenIn,
+            address tokenIn,
             address payer,
             bytes calldata swap
         ) = data.decodeSingleCheckedArgs();
+
         // We need to measure spent amount via balanceOf, as
         // callbacks might execute additional swaps
-        uint256 balanceBefore = tokenIn.balanceOf(payer);
-        _singleSwap(givenAmount, swap);
-        calculatedAmount = balanceBefore - tokenIn.balanceOf(payer);
+
+        // TODO deal with wraps and unwraps in this method
+        if (tokenIn == address(0)) {
+            uint256 balanceBefore = payer.balance;
+            _singleSwap(givenAmount, swap);
+            calculatedAmount = balanceBefore - payer.balance;
+        } else {
+            uint256 balanceBefore = IERC20(tokenIn).balanceOf(payer);
+            _singleSwap(givenAmount, swap);
+            calculatedAmount = balanceBefore - IERC20(tokenIn).balanceOf(payer);
+        }
+
         if (calculatedAmount > maxUserAmount) {
             revert NegativeSlippage(calculatedAmount, maxUserAmount);
         }
