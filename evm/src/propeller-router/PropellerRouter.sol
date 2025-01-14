@@ -104,11 +104,17 @@ contract PropellerRouter is
             bool unwrapEth, // This means ETH is the buy token
             uint256 minUserAmount,
             address tokenOut,
+            address tokenIn,
             address receiver,
             bytes calldata swap
         ) = data.decodeSingleCheckedArgs();
 
         uint256 balanceBefore;
+
+        // For native ETH, assume funds already in our router. Else, transfer.
+        if (tokenIn != address(0)) {
+            IERC20(tokenIn).safeTransferFrom(msg.sender, address(this), givenAmount);
+        }
 
         if (tokenOut == address(0)) {
             uint256 balanceBefore = payer.balance;
@@ -121,13 +127,12 @@ contract PropellerRouter is
         }
 
         // Wrap ETH if it's the in token -> sender sends ETH -> wrap it before pool
-        // TODO fix this wrapping unwrapping logic - it doesn't account for tokenIn
         if (wrapEth) {
             // In the case where we are wrapping ETH, the out token will be WETH
             _wrapETH(givenAmount);
-            balanceBefore = tokenOut.balanceOf(address(this));
-        }
-            balanceBefore = tokenOut.balanceOf(receiver);
+            balanceBefore = WETH.balanceOf(address(this));
+        } else {
+            balanceBefore = WETH.balanceOf(receiver);
         }
 
         // PERFORM MAIN SWAP
@@ -189,6 +194,7 @@ contract PropellerRouter is
     function sequentialExactIn(
         uint256 givenAmount,
         uint256 minUserAmount,
+        address tokenIn,
         bytes calldata swaps
     )
         external
@@ -200,6 +206,12 @@ contract PropellerRouter is
         uint8 exchange;
         bytes calldata swap;
         calculatedAmount = givenAmount;
+
+        // For native ETH, assume funds already in our router. Else, transfer.
+        if (tokenIn != address(0)) {
+            IERC20(tokenIn).safeTransferFrom(msg.sender, address(this), givenAmount);
+        }
+
 
         while (swaps.length > 0) {
             (swap, swaps) = swaps.next();
@@ -269,6 +281,7 @@ contract PropellerRouter is
      */
     function splitExactIn(
         uint256 amountIn,
+        address tokenIn,
         uint256 minUserAmount,
         SplitSwapExactInParameters calldata parameters
     )
@@ -288,10 +301,17 @@ contract PropellerRouter is
         uint24 split;
         bytes calldata swap;
 
+
         uint256[] memory remainingAmounts = new uint256[](nTokens);
         uint256[] memory amounts = new uint256[](nTokens);
         amounts[0] = amountIn;
         remainingAmounts[0] = amountIn;
+
+        // For native ETH, assume funds already in our router. Otherwise, transfer.
+        if (tokenIn != address(0)) {
+            IERC20(tokenIn).safeTransferFrom(msg.sender, address(this), amountIn);
+        }
+
 
         while (swaps_.length > 0) {
             (swap, swaps_) = swaps_.next();
