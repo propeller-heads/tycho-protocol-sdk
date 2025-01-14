@@ -92,23 +92,22 @@ contract PropellerRouter is
         );
     }
 
-    function singleExactIn(uint256 givenAmount, bytes calldata swap)
+    function singleExactIn(
+        uint256 givenAmount,
+        uint256 minUserAmount,
+        address tokenIn,
+        address tokenOut,
+        address receiver,
+        bool wrapEth, // This means ETH is the sell token
+        bool unwrapEth, // This means ETH is the buy token
+        bytes calldata swap
+    )
         external
         override
         onlyRole(EXECUTOR_ROLE)
         withSwapContext
         returns (uint256 calculatedAmount)
     {
-        (
-            bool wrapEth, // This means ETH is the sell token
-            bool unwrapEth, // This means ETH is the buy token
-            uint256 minUserAmount,
-            address tokenOut,
-            address tokenIn,
-            address receiver,
-            bytes calldata swap
-        ) = data.decodeSingleCheckedArgs();
-
         uint256 balanceBefore;
 
         // For native ETH, assume funds already in our router. Else, transfer.
@@ -117,13 +116,13 @@ contract PropellerRouter is
         }
 
         if (tokenOut == address(0)) {
-            uint256 balanceBefore = payer.balance;
+            uint256 balanceBefore = receiver.balance;
             _singleSwap(givenAmount, swap);
-            calculatedAmount = balanceBefore - payer.balance;
+            calculatedAmount = balanceBefore - receiver.balance;
         } else {
-            uint256 balanceBefore = IERC20(tokenOut).balanceOf(payer);
+            uint256 balanceBefore = IERC20(tokenOut).balanceOf(receiver);
             _singleSwap(givenAmount, swap);
-            calculatedAmount = balanceBefore - IERC20(tokenOut).balanceOf(payer);
+            calculatedAmount = balanceBefore - IERC20(tokenOut).balanceOf(receiver);
         }
 
         // Wrap ETH if it's the in token -> sender sends ETH -> wrap it before pool
@@ -154,32 +153,31 @@ contract PropellerRouter is
         }
     }
 
-    function singleExactOut(uint256 givenAmount, bytes calldata swap)
+    function singleExactOut(
+        uint256 givenAmount,
+        uint256 maxUserAmount,
+        address tokenIn,
+        bytes calldata swap
+    )
         external
         override
         onlyRole(EXECUTOR_ROLE)
         withSwapContext
         returns (uint256 calculatedAmount)
     {
-        (
-            uint256 maxUserAmount,
-            address tokenIn,
-            address payer,
-            bytes calldata swap
-        ) = data.decodeSingleCheckedArgs();
-
         // We need to measure spent amount via balanceOf, as
         // callbacks might execute additional swaps
 
-        // TODO deal with wraps and unwraps in this method
+        // TODO deal with wraps and unwraps in this method (see singleExactIn for
+        // example)
         if (tokenIn == address(0)) {
-            uint256 balanceBefore = payer.balance;
+            uint256 balanceBefore = msg.sender.balance;
             _singleSwap(givenAmount, swap);
-            calculatedAmount = balanceBefore - payer.balance;
+            calculatedAmount = balanceBefore - msg.sender.balance;
         } else {
-            uint256 balanceBefore = IERC20(tokenIn).balanceOf(payer);
+            uint256 balanceBefore = IERC20(tokenIn).balanceOf(msg.sender);
             _singleSwap(givenAmount, swap);
-            calculatedAmount = balanceBefore - IERC20(tokenIn).balanceOf(payer);
+            calculatedAmount = balanceBefore - IERC20(tokenIn).balanceOf(msg.sender);
         }
 
         if (calculatedAmount > maxUserAmount) {
@@ -203,6 +201,8 @@ contract PropellerRouter is
         withSwapContext
         returns (uint256 calculatedAmount)
     {
+        // TODO deal with wraps and unwraps in this method (see singleExactIn for
+        // example)
         uint8 exchange;
         bytes calldata swap;
         calculatedAmount = givenAmount;
@@ -236,6 +236,7 @@ contract PropellerRouter is
     function sequentialExactOut(
         uint256 givenAmount,
         uint256 maxUserAmount,
+        address tokenIn,
         bytes[] calldata swaps
     )
         external
@@ -244,6 +245,9 @@ contract PropellerRouter is
         withSwapContext
         returns (uint256 calculatedAmount)
     {
+        // TODO deal with wraps and unwraps in this method (see singleExactIn for
+        // example)
+
         // Idea: On v2, reserve 14 bytes for calculatedAmount and replace them here
         //  to save some quotes, if these 14 bytes are all zero the swap call won't
         //  recalculate the quote else, it will simply execute with the calculatedAmount
@@ -261,11 +265,16 @@ contract PropellerRouter is
             amounts[i - 1] =
                 _quoteSwap(swap.exchange(), amounts[i], swap.protocolData());
         }
+        calculatedAmount = amounts[0];
+        if (tokenIn != address(0)) {
+            IERC20(tokenIn).safeTransferFrom(msg.sender, address(this), calculatedAmount);
+        }
+
+
         for (uint8 i = 0; i < swaps.length; i++) {
             swap = swaps[i];
             _executeSwap(swap.exchange(), amounts[i + 1], swap.protocolData());
         }
-        calculatedAmount = amounts[0];
 
         if (calculatedAmount > maxUserAmount) {
             revert NegativeSlippage(calculatedAmount, maxUserAmount);
@@ -291,6 +300,8 @@ contract PropellerRouter is
         withSwapContext
         returns (uint256 amountOut)
     {
+        // TODO deal with wraps and unwraps in this method (see singleExactIn for
+        // example)
         uint256 nTokens = parameters.nTokens;
         bytes calldata swaps_ = parameters.swaps;
 
@@ -361,6 +372,8 @@ contract PropellerRouter is
         ActionType type_,
         bytes calldata actionData
     ) internal returns (uint256 calculatedAmount) {
+        // TODO we will need decoding methods for each strategy now
+        // Some of them require tokenIn, wrap, unwrap, etc. to be passed
         if (type_ == ActionType.SINGLE_IN) {
             (uint256 amount, uint256 checkAmount, bytes calldata swaps) =
                 actionData.decodeAmountAndBytes();
@@ -563,6 +576,7 @@ contract PropellerRouter is
      *  @param msgData encoded data. It must includes data for the verification and the action.
      */
     function _executeGenericCallback(bytes calldata msgData) internal {
+        // TODO this the previous implementation - adapt for current needs
         (
             uint256 amountOwed,
             uint256 amountReceived,
