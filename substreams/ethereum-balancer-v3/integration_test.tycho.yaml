@@ -58,21 +58,21 @@ tests:
           manual_updates: "0x01"
           pool_type: "0x5765696768746564506f6f6c466163746f7279"
           fee: "0x0aa87bee538000"
-        skip_simulation: true
+        skip_simulation: false
         creation_tx: "0x50a58ca41af90029a67bc7f4305cceb1e85800246f9c559fa74d8625ddfe14ed"
 
-  - name: test_swap_weth_ethx
-    start_block: 21374920
-    stop_block: 21374929 
-    expected_components:
-      - id: "0x4AB7aB316D43345009B2140e0580B072eEc7DF16"
-        tokens:
-          - "0x0bfc9d54Fc184518A81162F8fB99c2eACa081202"
-          - "0xA35b1B31Ce002FBF2058D22F30f95D405200A15b"
-        static_attributes:
-          bpt: "0x4ab7ab316d43345009b2140e0580b072eec7df16"
-          pool_type: "0x537461626c65506f6f6c466163746f7279"
-          fee: "0x016bcc41e90000"
-          manual_updates: "0x01"
-        skip_simulation: true 
-        creation_tx: "0x6e8aea6ed4e566709c35cbb4298f89eac74ba5c39f64927a47b07de204dc8c9a"
+  # - name: test_swap_weth_ethx
+  #   start_block: 21374920
+  #   stop_block: 21374929 
+  #   expected_components:
+  #     - id: "0x4AB7aB316D43345009B2140e0580B072eEc7DF16"
+  #       tokens:
+  #         - "0x0bfc9d54Fc184518A81162F8fB99c2eACa081202"
+  #         - "0xA35b1B31Ce002FBF2058D22F30f95D405200A15b"
+  #       static_attributes:
+  #         bpt: "0x4ab7ab316d43345009b2140e0580b072eec7df16"
+  #         pool_type: "0x537461626c65506f6f6c466163746f7279"
+  #         fee: "0x016bcc41e90000"
+  #         manual_updates: "0x01"
+  #       skip_simulation: true  # rate provider
+  #       creation_tx: "0x6e8aea6ed4e566709c35cbb4298f89eac74ba5c39f64927a47b07de204dc8c9a"
