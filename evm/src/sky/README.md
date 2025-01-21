@@ -2,12 +2,20 @@
 ## Token Pairs & Routes
 
 ### Routes
+- DAI <-> sDAI (Savings DAI)
+    - 0x83F20F44975D03b1b09e64809B757c47f942BEeA
 - DAI <-> USDC (DAI LitePSM-USDC @ Ethereum)
-- USDS <-> USDC (USDS LitePSMWrapper-USDC @ Ethereum)
+    - 0xf6e72Db5454dd049d0788e411b06CfAF16853042
 - DAI <-> USDS (DAI USDS Converter @ Ethereum)
+    - 0x3225737a9Bbb6473CB4a45b7244ACa2BeFdB276A
+- USDS <-> USDC (USDS LitePSMWrapper-USDC @ Ethereum)
+    - 0xA188EEC8F81263234dA3622A406892F3D630f98c
 - USDS <-> sUSDS (sUSDS Token and Vault @ Ethereum)
+    - 0xa3931d71877C0E7a3148CB7Eb4463524FEc27fbD
 - MKR <-> SKY (MKR SKY Converter @ Ethereum)
-- DAI <-> sDAI (we already have adapter and substream)
+    - 0xBDcFCA946b6CDd965f99a839e4435Bcdc1bc470B
+
+
 
 ## DAI <-> USDC | DAI LitePSM-USDC @ Ethereum | Integration
 > Supports DAI <-> USDC conversion. <br>

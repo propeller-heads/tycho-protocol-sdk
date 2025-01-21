@@ -2,19 +2,57 @@
 pragma solidity ^0.8.13;
 
 import {ISwapAdapter} from "src/interfaces/ISwapAdapter.sol";
+import {IERC20Metadata} from
+    "openzeppelin-contracts/contracts/token/ERC20/extensions/IERC20Metadata.sol";
+import {
+    IERC20,
+    SafeERC20
+} from "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
+import {IERC4626} from "openzeppelin-contracts/contracts/interfaces/IERC4626.sol";
 
-/// @title TemplateSwapAdapter
-/// @dev This is a template for a swap adapter.
-/// Rename it to your own protocol's name and implement it according to the
-/// specification.
-contract TemplateSwapAdapter is ISwapAdapter {
+
+/// @title SkySwapAdapter
+
+contract SkySwapAdapter is ISwapAdapter {
+
+    using SafeERC20 for IERC20;
+    using SafeERC20 for ISavingsDai;
+
+    uint256 constant PRECISION = 10 ** 18;
+
+    // DAI <-> sDAI
+    ISavingsDai immutable savingsDai; // 0x83F20F44975D03b1b09e64809B757c47f942BEeA
+    // DAI <-> USDC
+    IDssLitePSM immutable daiLitePSM; // 0x83F20F44975D03b1b09e64809B757c47f942BEeA
+    // DAI <-> USDS
+    IDaiUsdsConverter immutable daiUsdsConverter; // 0x3225737a9Bbb6473CB4a45b7244ACa2BeFdB276A
+    // USDS <-> USDC
+    IUsdsPsmWrapper immutable usdsPsmWrapper; // 0xA188EEC8F81263234dA3622A406892F3D630f98c
+    // USDS <-> sUSDS
+    ISUsds immutable sUsds; // 0xa3931d71877C0E7a3148CB7Eb4463524FEc27fbD
+    // MKR <-> SKY
+    IMkrSkyConverter immutable mkrSkyConverter; // 0xBDcFCA946b6CDd965f99a839e4435Bcdc1bc470B
+
+
+    IERC20 immutable dai; // 0x6B175474E89094C44Da98b954EedeAC495271d0F
+
+    constructor(address savingsDai_, address daiLitePSM_, address daiUsdsConverter_, address usdsPsmWrapper_, address dai_, address sUsds_, address mkrSkyConverter_) {
+        savingsDai = ISavingsDai(savingsDai_);
+        daiLitePSM = IDssLitePSM(daiLitePSM_);
+        daiUsdsConverter = IDaiUsdsConverter(daiUsdsConverter_);
+        usdsPsmWrapper = IUsdsPsmWrapper(usdsPsmWrapper_);
+        sUsds = ISUsds(sUsds_);
+        mkrSkyConverter = IMkrSkyConverter(mkrSkyConverter_);
+        dai = IERC20(dai_);
+    }
+
     function price(
         bytes32 _poolId,
         address _sellToken,
         address _buyToken,
         uint256[] memory _specifiedAmounts
     ) external view override returns (Fraction[] memory _prices) {
-        revert NotImplemented("TemplateSwapAdapter.price");
+        revert NotImplemented("SkySwapAdapter.price");
     }
 
     function swap(
@@ -24,14 +62,14 @@ contract TemplateSwapAdapter is ISwapAdapter {
         OrderSide side,
         uint256 specifiedAmount
     ) external returns (Trade memory trade) {
-        revert NotImplemented("TemplateSwapAdapter.swap");
+        revert NotImplemented("SkySwapAdapter.swap");
     }
 
     function getLimits(bytes32 poolId, address sellToken, address buyToken)
         external
         returns (uint256[] memory limits)
     {
-        revert NotImplemented("TemplateSwapAdapter.getLimits");
+        revert NotImplemented("SkySwapAdapter.getLimits");
     }
 
     function getCapabilities(
@@ -39,20 +77,235 @@ contract TemplateSwapAdapter is ISwapAdapter {
         address sellToken,
         address buyToken
     ) external returns (Capability[] memory capabilities) {
-        revert NotImplemented("TemplateSwapAdapter.getCapabilities");
+        revert NotImplemented("SkySwapAdapter.getCapabilities");
     }
 
     function getTokens(bytes32 poolId)
         external
         returns (address[] memory tokens)
     {
-        revert NotImplemented("TemplateSwapAdapter.getTokens");
+        revert NotImplemented("SkySwapAdapter.getTokens");
     }
 
     function getPoolIds(uint256 offset, uint256 limit)
         external
         returns (bytes32[] memory ids)
     {
-        revert NotImplemented("TemplateSwapAdapter.getPoolIds");
+        revert NotImplemented("SkySwapAdapter.getPoolIds");
     }
+}
+
+
+// INTERFACES
+
+///////////////////////////////////// ISavingsDai ////////////////////////////////////////////////////////////
+
+interface ISavingsDai is IERC20 {
+    function asset() external view returns (address);
+
+    function decimals() external view returns (uint8);
+
+    function maxMint(address) external pure returns (uint256);
+
+    function maxRedeem(address) external view returns (uint256);
+
+    function previewMint(uint256 shares) external view returns (uint256);
+
+    function previewWithdraw(uint256 assets) external view returns (uint256);
+
+    function previewDeposit(uint256 assets) external view returns (uint256);
+
+    function previewRedeem(uint256 shares) external view returns (uint256);
+
+    function totalAssets() external view returns (uint256);
+
+    function totalSupply() external pure returns (uint256);
+
+    function deposit(uint256 assets, address receiver)
+        external
+        returns (uint256 shares);
+
+    function mint(uint256 shares, address receiver)
+        external
+        returns (uint256 assets);
+
+    function withdraw(uint256 assets, address receiver, address owner)
+        external
+        returns (uint256 shares);
+
+    function redeem(uint256 shares, address receiver, address owner)
+        external
+        returns (uint256 assets);
+}
+
+///////////////////////////////////// IDssLitePSM ////////////////////////////////////////////////////////////
+
+interface IDssLitePSM {
+
+    /**
+     * A lightweight PSM implementation.
+     * @notice Swaps Dai for `gem` at a 1:1 exchange rate.
+     * @notice Fees `tin` and `tout` might apply.
+     * @dev `gem` balance is kept in `pocket` instead of this contract.
+     * @dev A few assumptions are made:
+     *      1. There are no other urns for the same `ilk`
+     *      2. Stability fee is always zero for the `ilk`
+     *      3. The `spot` price for gem is always 1 (`10**27`).
+     *      4. The `spotter.par` (Dai parity) is always 1 (`10**27`).
+     *      5. This contract can freely transfer `gem` on behalf of `pocket`.
+    */
+    function HALTED() external view returns (uint256);
+
+    function ilk() external view returns (bytes32);
+
+    function gem() external view returns (address);
+
+    function daiJoin() external view returns (address);
+    
+    function vat() external view returns (address);
+    
+    function dai() external view returns (address);
+
+    function pocket() external view returns (address);
+
+    function to18ConversionFactor() external view returns (uint256);
+
+    /// @notice Fee for selling gems.
+    /// @dev `wad` precision. 1 * WAD means a 100% fee.
+    function tin() external view returns (uint256);
+
+    /// @notice Fee for buying gems.
+    /// @dev `wad` precision. 1 * WAD means a 100% fee.
+    function tout() external view returns (uint256);
+
+    /// @notice Buffer for pre-minted Dai.
+    /// @dev `wad` precision.
+    function buf() external view returns (uint256);
+
+    /**
+     * @notice Function that swaps `gem` into Dai.
+     * @dev Reverts if `tin` is set to `HALTED`.
+     * @param usr The destination of the bought Dai.
+     * @param gemAmt The amount of gem to sell. [`gem` precision].
+     * @return daiOutWad The amount of Dai bought.
+     */
+    function sellGem(address usr, uint256 gemAmt) external returns (uint256 daiOutWad);
+
+    /**
+     * @notice Function that swaps Dai into `gem`.
+     * @dev Reverts if `tout` is set to `HALTED`.
+     * @param usr The destination of the bought gems.
+     * @param gemAmt The amount of gem to buy. [`gem` precision].
+     * @return daiInWad The amount of Dai required to sell.
+     */
+    function buyGem(address usr, uint256 gemAmt) external returns (uint256 daiInWad);
+
+    /**
+     * @notice Returns the number of decimals for `gem`.
+     * @return The number of decimals for `gem`.
+     */
+    function dec() external view returns (uint256);
+
+    /**
+     * @notice Returns whether the contract is live or not.
+     * @return Whether the contract is live or not.
+     */
+    function live() external view returns (uint256);
+
+}
+
+///////////////////////////////////// IDaiUsdsConverter ////////////////////////////////////////////////////////////
+
+interface IDaiUsdsConverter {
+    function dai() external view returns (address);
+    function usds() external view returns (address);
+
+    function daiToUsds(address usr, uint256 wad) external;
+    function usdsToDai(address usr, uint256 wad) external;
+
+}
+
+///////////////////////////////////// IUsdsPsmWrapper ////////////////////////////////////////////////////////////
+
+interface IUsdsPsmWrapper {
+
+    function tin() external view returns (uint256);
+    function tout() external view returns (uint256);
+    function live() external view returns (uint256);
+    function sellGem(address usr, uint256 gemAmt) external returns (uint256 usdsOutWad);
+    function buyGem(address usr, uint256 gemAmt) external returns (uint256 usdsInWad);
+    function WAD() external view returns (uint256);
+    function HALTED() external view returns (uint256);
+    function dec() external view returns (uint256);
+    function to18ConversionFactor() external view returns (uint256);
+    function usds() external view returns (address);
+    function gem() external view returns (address);
+    function psm() external view returns (address);
+    function legacyDaiJoin() external view returns (address);
+    function usdsJoin() external view returns (address);
+    function vat() external view returns (address);
+    function ilk() external view returns (bytes32);
+    function pocket() external view returns (address);
+    function legacyDai() external view returns (address);
+    function buf() external view returns (uint256);
+}
+
+///////////////////////////////////// ISUsds ////////////////////////////////////////////////////////////
+
+interface ISUsds is IERC4626 {
+
+    // Savings yield
+    function chi() external view returns (uint192); // The Rate Accumulator  [ray]
+    function rho() external view returns (uint64); // Time of last drip     [unix epoch time]
+    function ssr() external view returns (uint256); // The USDS Savings Rate [ray]
+    function decimals() external view returns (uint8);
+
+    function asset() external view returns (address);
+
+    function totalAssets() external view returns (uint256);
+
+    function convertToShares(uint256 assets) external view returns (uint256);
+
+    function convertToAssets(uint256 shares) external view returns (uint256);
+
+    function maxDeposit(address) external pure returns (uint256);
+
+    function previewDeposit(uint256 assets) external view returns (uint256);
+
+    function deposit(uint256 assets, address receiver) external returns (uint256 shares);
+
+    function deposit(uint256 assets, address receiver, uint16 referral) external returns (uint256 shares);
+
+    function maxMint(address) external pure returns (uint256);
+
+    function previewMint(uint256 shares) external view returns (uint256);
+
+    function mint(uint256 shares, address receiver) external returns (uint256 assets);
+
+    function mint(uint256 shares, address receiver, uint16 referral) external returns (uint256 assets);
+
+    function maxWithdraw(address owner) external view returns (uint256);
+
+    function previewWithdraw(uint256 assets) external view returns (uint256);
+
+    function withdraw(uint256 assets, address receiver, address owner) external returns (uint256 shares);
+
+    function maxRedeem(address owner) external view returns (uint256);
+
+    function previewRedeem(uint256 shares) external view returns (uint256);
+
+    function redeem(uint256 shares, address receiver, address owner) external returns (uint256 assets);
+
+    function permit(address owner, address spender, uint256 value, uint256 deadline, bytes memory signature) external;
+
+}
+
+///////////////////////////////////// IMkrSkyConverter ////////////////////////////////////////////////////////////
+
+interface IMkrSkyConverter {
+    function mkr() external view returns (address);
+    function sky() external view returns (address);
+    function rate() external view returns (uint256);
+    function mkrToSky(address usr, uint256 mkrAmt) external;
+    function skyToMkr(address usr, uint256 skyAmt) external;
 }
