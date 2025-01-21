@@ -55,8 +55,12 @@ contract BalancerV3SwapAdapter is BalancerSwapHelpers {
         _prices = new Fraction[](_specifiedAmounts.length);
 
         for (uint256 i = 0; i < _specifiedAmounts.length; i++) {
-            _prices[i] =
-                getPriceAt(_poolId, _sellToken, _buyToken, _specifiedAmounts[i]);
+            _prices[i] = getPriceAt(
+                _poolId,
+                _sellToken,
+                _buyToken,
+                _specifiedAmounts[i]
+            );
         }
     }
 
@@ -72,35 +76,39 @@ contract BalancerV3SwapAdapter is BalancerSwapHelpers {
             return trade;
         }
 
+        uint256 gasBefore = gasleft();
+
         // perform swap (forward to middleware)
-        trade.calculatedAmount =
-            swapMiddleware(poolId, sellToken, buyToken, side, specifiedAmount);
+        trade.calculatedAmount = swapMiddleware(
+            poolId,
+            sellToken,
+            buyToken,
+            side,
+            specifiedAmount
+        );
+
+        trade.gasUsed = gasBefore - gasleft();
 
         // as post-trade price cannot be calculated in an external call, we
         // return the trade price here
         trade.price = Fraction(trade.calculatedAmount, specifiedAmount);
-
-        uint256 gasBefore = gasleft();
-        trade.gasUsed = gasBefore - gasleft();
     }
 
     /// @inheritdoc ISwapAdapter
-    function getLimits(bytes32 poolId, address sellToken, address buyToken)
-        external
-        view
-        override
-        returns (uint256[] memory limits)
-    {
+    function getLimits(
+        bytes32 poolId,
+        address sellToken,
+        address buyToken
+    ) external view override returns (uint256[] memory limits) {
         limits = getLimitsMiddleware(poolId, sellToken, buyToken);
     }
 
     /// @inheritdoc ISwapAdapter
-    function getCapabilities(bytes32, address, address)
-        external
-        pure
-        override
-        returns (Capability[] memory capabilities)
-    {
+    function getCapabilities(
+        bytes32,
+        address,
+        address
+    ) external pure override returns (Capability[] memory capabilities) {
         capabilities = new Capability[](4);
         capabilities[0] = Capability.SellOrder;
         capabilities[1] = Capability.BuyOrder;
@@ -109,12 +117,9 @@ contract BalancerV3SwapAdapter is BalancerSwapHelpers {
     }
 
     /// @inheritdoc ISwapAdapter
-    function getTokens(bytes32 poolId)
-        external
-        view
-        override
-        returns (address[] memory tokens)
-    {
+    function getTokens(
+        bytes32 poolId
+    ) external view override returns (address[] memory tokens) {
         address poolAddress = address(bytes20(poolId));
         // Is accessing to vault to get the tokens of a pool / Here could be
         // where it was reverting the test
@@ -126,12 +131,10 @@ contract BalancerV3SwapAdapter is BalancerSwapHelpers {
         }
     }
 
-    function getPoolIds(uint256, uint256)
-        external
-        pure
-        override
-        returns (bytes32[] memory)
-    {
+    function getPoolIds(
+        uint256,
+        uint256
+    ) external pure override returns (bytes32[] memory) {
         revert NotImplemented("BalancerV3SwapAdapter.getPoolIds");
     }
 
