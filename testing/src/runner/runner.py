@@ -10,9 +10,9 @@ from pathlib import Path
 from typing import List
 
 import yaml
-from protosim_py.evm.decoders import ThirdPartyPoolTychoDecoder
-from protosim_py.evm.storage import TychoDBSingleton
-from protosim_py.models import EVMBlock
+from tycho_simulation_py.evm.decoders import ThirdPartyPoolTychoDecoder
+from tycho_simulation_py.evm.storage import TychoDBSingleton
+from tycho_simulation_py.models import EVMBlock
 from pydantic import BaseModel
 from tycho_indexer_client.dto import (
     Chain,
@@ -148,7 +148,8 @@ class TestRunner:
                 comp_id = expected_component.id.lower()
                 if comp_id not in components_by_id:
                     return TestResult.Failed(
-                        f"'{comp_id}' not found in protocol components."
+                        f"'{comp_id}' not found in protocol components. "
+                        f"Available components: {set(components_by_id.keys())}"
                     )
 
                 diff = ProtocolComponentExpectation(
@@ -247,6 +248,8 @@ class TestRunner:
                 self.config.adapter_build_args,
             )
 
+        TychoDBSingleton.clear_instance()
+
         decoder = ThirdPartyPoolTychoDecoder(
             token_factory_func=self._token_factory_func,
             adapter_contract=adapter_contract,
@@ -265,32 +268,35 @@ class TestRunner:
             if not pool_state.balances:
                 raise ValueError(f"Missing balances for pool {pool_id}")
             for sell_token, buy_token in itertools.permutations(pool_state.tokens, 2):
-                # Try to sell 0.1% of the protocol balance
-                sell_amount = Decimal("0.001") * pool_state.balances[sell_token.address]
-                try:
-                    amount_out, gas_used, _ = pool_state.get_amount_out(
-                        sell_token, sell_amount, buy_token
+                for prctg in ["0.001", "0.01", "0.1"]:
+                    # Try to sell 0.1% of the protocol balance
+                    sell_amount = (
+                        Decimal(prctg) * pool_state.balances[sell_token.address]
                     )
-                    print(
-                        f"Amount out for {pool_id}: {sell_amount} {sell_token} -> {amount_out} {buy_token} - "
-                        f"Gas used: {gas_used}"
-                    )
-                except Exception as e:
-                    print(
-                        f"Error simulating get_amount_out for {pool_id}: {sell_token} -> {buy_token}. "
-                        f"Error: {e}"
-                    )
-                    if pool_id not in failed_simulations:
-                        failed_simulations[pool_id] = []
-                    failed_simulations[pool_id].append(
-                        SimulationFailure(
-                            pool_id=pool_id,
-                            sell_token=str(sell_token),
-                            buy_token=str(buy_token),
-                            error=str(e),
+                    try:
+                        amount_out, gas_used, _ = pool_state.get_amount_out(
+                            sell_token, sell_amount, buy_token
                         )
-                    )
-                    continue
+                        print(
+                            f"Amount out for {pool_id}: {sell_amount} {sell_token} -> {amount_out} {buy_token} - "
+                            f"Gas used: {gas_used}"
+                        )
+                    except Exception as e:
+                        print(
+                            f"Error simulating get_amount_out for {pool_id}: {sell_token} -> {buy_token} at block {block_number}. "
+                            f"Error: {e}"
+                        )
+                        if pool_id not in failed_simulations:
+                            failed_simulations[pool_id] = []
+                        failed_simulations[pool_id].append(
+                            SimulationFailure(
+                                pool_id=pool_id,
+                                sell_token=str(sell_token),
+                                buy_token=str(buy_token),
+                                error=str(e),
+                            )
+                        )
+                        continue
         return failed_simulations
 
     @staticmethod
@@ -303,7 +309,7 @@ class TestRunner:
             data = yaml.safe_load(file)
 
         modify_func(data)
-        spkg_name = f"{yaml_file_path.rsplit('/', 1)[0]}/{data['package']['name'].replace('_', '-', 1)}-{data['package']['version']}.spkg"
+        spkg_name = f"{yaml_file_path.rsplit('/', 1)[0]}/{data['package']['name'].replace('_', '-')}-{data['package']['version']}.spkg"
 
         with open(yaml_file_path, "w") as file:
             yaml.dump(data, file, default_flow_style=False)
