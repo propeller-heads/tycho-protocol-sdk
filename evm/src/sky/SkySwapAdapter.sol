@@ -19,11 +19,12 @@ contract SkySwapAdapter is ISwapAdapter {
     using SafeERC20 for ISavingsDai;
 
     uint256 constant PRECISION = 10 ** 18;
+    uint256 constant MKR_TO_SKY_RATE = 24000;
 
     // DAI <-> sDAI
     ISavingsDai immutable savingsDai; // 0x83F20F44975D03b1b09e64809B757c47f942BEeA
     // DAI <-> USDC
-    IDssLitePSM immutable daiLitePSM; // 0x83F20F44975D03b1b09e64809B757c47f942BEeA
+    IDssLitePSM immutable daiLitePSM; // 0xf6e72Db5454dd049d0788e411b06CfAF16853042
     // DAI <-> USDS
     IDaiUsdsConverter immutable daiUsdsConverter; // 0x3225737a9Bbb6473CB4a45b7244ACa2BeFdB276A
     // USDS <-> USDC
@@ -35,8 +36,26 @@ contract SkySwapAdapter is ISwapAdapter {
 
 
     IERC20 immutable dai; // 0x6B175474E89094C44Da98b954EedeAC495271d0F
+    IERC20 immutable usds; // 0xdC035D45d973E3EC169d2276DDab16f1e407384F
+    IERC20 immutable usdc; // 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48
+    IERC20 immutable mkr; // 0x9f8F72aA9304c8B593d555F12eF6589cC3A579A2
+    IERC20 immutable sky; // 0x56072C95FAA701256059aa122697B133aDEd9279
 
-    constructor(address savingsDai_, address daiLitePSM_, address daiUsdsConverter_, address usdsPsmWrapper_, address dai_, address sUsds_, address mkrSkyConverter_) {
+
+    constructor(
+        address savingsDai_,
+        address daiLitePSM_, 
+        address daiUsdsConverter_, 
+        address usdsPsmWrapper_, 
+        address sUsds_,
+        address mkrSkyConverter_,
+        address dai_, 
+        address usds_, 
+        address usdc_, 
+        address mkr_, 
+        address sky_
+    ) 
+    {
         savingsDai = ISavingsDai(savingsDai_);
         daiLitePSM = IDssLitePSM(daiLitePSM_);
         daiUsdsConverter = IDaiUsdsConverter(daiUsdsConverter_);
@@ -44,8 +63,47 @@ contract SkySwapAdapter is ISwapAdapter {
         sUsds = ISUsds(sUsds_);
         mkrSkyConverter = IMkrSkyConverter(mkrSkyConverter_);
         dai = IERC20(dai_);
+        usds = IERC20(usds_);
+        usdc = IERC20(usdc_);
+        mkr = IERC20(mkr_);
+        sky = IERC20(sky_);
     }
 
+    /// @dev Check if swap between provided sellToken and buyToken are supported
+    /// by this adapter
+    modifier checkInputTokens(address sellToken, address buyToken) {
+        bool isValidPair = 
+            // DAI <-> sDAI
+            (sellToken == address(dai) && buyToken == address(savingsDai)) ||
+            (sellToken == address(savingsDai) && buyToken == address(dai)) ||
+            
+            // DAI <-> USDC
+            (sellToken == address(dai) && buyToken == address(usdc)) ||
+            (sellToken == address(usdc) && buyToken == address(dai)) ||
+            
+            // DAI <-> USDS
+            (sellToken == address(dai) && buyToken == address(usds)) ||
+            (sellToken == address(usds) && buyToken == address(dai)) ||
+            
+            // USDS <-> USDC
+            (sellToken == address(usds) && buyToken == address(usdc)) ||
+            (sellToken == address(usdc) && buyToken == address(usds)) ||
+            
+            // USDS <-> sUSDS
+            (sellToken == address(usds) && buyToken == address(sUsds)) ||
+            (sellToken == address(sUsds) && buyToken == address(usds)) ||
+            
+            // MKR <-> SKY
+            (sellToken == address(mkr) && buyToken == address(sky)) ||
+            (sellToken == address(sky) && buyToken == address(mkr));
+
+        if (!isValidPair) {
+            revert Unavailable("Sky: Unsupported token pair");
+        }
+
+        _;
+    }
+    /// @inheritdoc ISwapAdapter
     function price(
         bytes32 _poolId,
         address _sellToken,
@@ -55,6 +113,7 @@ contract SkySwapAdapter is ISwapAdapter {
         revert NotImplemented("SkySwapAdapter.price");
     }
 
+    /// @inheritdoc ISwapAdapter
     function swap(
         bytes32 poolId,
         address sellToken,
@@ -65,30 +124,115 @@ contract SkySwapAdapter is ISwapAdapter {
         revert NotImplemented("SkySwapAdapter.swap");
     }
 
-    function getLimits(bytes32 poolId, address sellToken, address buyToken)
+    /// @inheritdoc ISwapAdapter
+    function getLimits(bytes32, address sellToken, address buyToken)
         external
+        view
+        override
         returns (uint256[] memory limits)
     {
-        revert NotImplemented("SkySwapAdapter.getLimits");
+        limits = new uint256[](2);
+
+        // DAI <-> sDAI
+        if ((sellToken == address(dai) && buyToken == address(savingsDai)) ||
+            (sellToken == address(savingsDai) && buyToken == address(dai))) {
+
+            if (sellToken == address(dai)) {
+                limits[0] = 3 * (10 ** 24);
+                limits[1] = limits[0];
+            } else {
+                uint256 totalAssets = savingsDai.totalAssets();
+                limits[0] = savingsDai.previewWithdraw(totalAssets);
+                limits[1] = totalAssets;
+            }
+            return limits;
+        }
+
+        // DAI <-> USDC
+        if ((sellToken == address(dai) && buyToken == address(usdc)) ||
+            (sellToken == address(usdc) && buyToken == address(dai))) {
+
+            limits[0] = 3 * (10 ** 24);
+            limits[1] = limits[0];
+
+            return limits;
+        }
+
+        // DAI <-> USDS
+        if ((sellToken == address(dai) && buyToken == address(usds)) ||
+            (sellToken == address(usds) && buyToken == address(dai))) {
+
+            limits[0] = 3 * (10 ** 24);
+            limits[1] = limits[0];
+
+            return limits;
+        }
+
+        // USDS <-> USDC 
+        if ((sellToken == address(usds) && buyToken == address(usdc)) ||
+            (sellToken == address(usdc) && buyToken == address(usds))) {
+
+            limits[0] = 3 * (10 ** 24);
+            limits[1] = limits[0];
+
+            return limits;
+        }
+
+        // USDS <-> sUSDS
+        if ((sellToken == address(usds) && buyToken == address(sUsds)) ||
+            (sellToken == address(sUsds) && buyToken == address(usds))) {
+
+            if (sellToken == address(usds)) {
+                limits[0] = 3 * (10 ** 24);
+                limits[1] = limits[0];
+            } else {
+                uint256 totalAssets = sUsds.totalAssets();
+                limits[0] = sUsds.previewWithdraw(totalAssets);
+                limits[1] = totalAssets;
+            }
+            return limits;
+        }
+
+        // MKR <-> SKY
+        if ((sellToken == address(mkr) && buyToken == address(sky)) ||
+            (sellToken == address(sky) && buyToken == address(mkr))) {
+
+            if (sellToken == address(mkr)) {
+                limits[0] = mkr.totalSupply();
+                limits[1] = limits[0] * MKR_TO_SKY_RATE;
+            } else {
+                limits[0] = sky.totalSupply();
+                limits[1] = limits[0] / MKR_TO_SKY_RATE;
+            }
+            return limits;
+        }
+
+        revert Unavailable("Sky: Invalid token pair");
     }
 
     function getCapabilities(
         bytes32 poolId,
         address sellToken,
         address buyToken
-    ) external returns (Capability[] memory capabilities) {
-        revert NotImplemented("SkySwapAdapter.getCapabilities");
+    ) external 
+      view 
+      returns (Capability[] memory capabilities) 
+    {
+        
+      revert NotImplemented("SkySwapAdapter.getCapabilities");
     }
 
     function getTokens(bytes32 poolId)
-        external
+        external 
+        view
         returns (address[] memory tokens)
     {
         revert NotImplemented("SkySwapAdapter.getTokens");
     }
 
     function getPoolIds(uint256 offset, uint256 limit)
-        external
+        external 
+        view
         returns (bytes32[] memory ids)
     {
         revert NotImplemented("SkySwapAdapter.getPoolIds");
