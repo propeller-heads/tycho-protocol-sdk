@@ -24,7 +24,7 @@ contract SkySwapAdapter is ISwapAdapter {
     // DAI <-> sDAI
     ISavingsDai immutable savingsDai; // 0x83F20F44975D03b1b09e64809B757c47f942BEeA
     // DAI <-> USDC
-    IDssLitePSM immutable daiLitePSM; // 0x83F20F44975D03b1b09e64809B757c47f942BEeA
+    IDssLitePSM immutable daiLitePSM; // 0xf6e72Db5454dd049d0788e411b06CfAF16853042
     // DAI <-> USDS
     IDaiUsdsConverter immutable daiUsdsConverter; // 0x3225737a9Bbb6473CB4a45b7244ACa2BeFdB276A
     // USDS <-> USDC
@@ -42,7 +42,20 @@ contract SkySwapAdapter is ISwapAdapter {
     IERC20 immutable sky; // 0x56072C95FAA701256059aa122697B133aDEd9279
 
 
-    constructor(address savingsDai_, address daiLitePSM_, address daiUsdsConverter_, address usdsPsmWrapper_, address dai_, address usds_, address usdc_, address mkr_, address sky_, address sUsds_, address mkrSkyConverter_) {
+    constructor(
+        address savingsDai_,
+        address daiLitePSM_, 
+        address daiUsdsConverter_, 
+        address usdsPsmWrapper_, 
+        address sUsds_,
+        address mkrSkyConverter_,
+        address dai_, 
+        address usds_, 
+        address usdc_, 
+        address mkr_, 
+        address sky_
+    ) 
+    {
         savingsDai = ISavingsDai(savingsDai_);
         daiLitePSM = IDssLitePSM(daiLitePSM_);
         daiUsdsConverter = IDaiUsdsConverter(daiUsdsConverter_);
