@@ -69,33 +69,47 @@ contract SkySwapAdapter is ISwapAdapter {
         sky = IERC20(sky_);
     }
 
+    // Token pair checks
+    function isDaiSDaiPair(address sellToken, address buyToken) internal view returns (bool) {
+        return (sellToken == address(dai) && buyToken == address(savingsDai)) ||
+               (sellToken == address(savingsDai) && buyToken == address(dai));
+    }
+
+    function isDaiUsdcPair(address sellToken, address buyToken) internal view returns (bool) {
+        return (sellToken == address(dai) && buyToken == address(usdc)) ||
+               (sellToken == address(usdc) && buyToken == address(dai));
+    }
+
+    function isDaiUsdsPair(address sellToken, address buyToken) internal view returns (bool) {
+        return (sellToken == address(dai) && buyToken == address(usds)) ||
+               (sellToken == address(usds) && buyToken == address(dai));
+    }
+
+    function isUsdsUsdcPair(address sellToken, address buyToken) internal view returns (bool) {
+        return (sellToken == address(usds) && buyToken == address(usdc)) ||
+               (sellToken == address(usdc) && buyToken == address(usds));
+    }
+
+    function isUsdsSUsdsPair(address sellToken, address buyToken) internal view returns (bool) {
+        return (sellToken == address(usds) && buyToken == address(sUsds)) ||
+               (sellToken == address(sUsds) && buyToken == address(usds));
+    }
+
+    function isMkrSkyPair(address sellToken, address buyToken) internal view returns (bool) {
+        return (sellToken == address(mkr) && buyToken == address(sky)) ||
+               (sellToken == address(sky) && buyToken == address(mkr));
+    }
+
     /// @dev Check if swap between provided sellToken and buyToken are supported
     /// by this adapter
     modifier checkInputTokens(address sellToken, address buyToken) {
         bool isValidPair = 
-            // DAI <-> sDAI
-            (sellToken == address(dai) && buyToken == address(savingsDai)) ||
-            (sellToken == address(savingsDai) && buyToken == address(dai)) ||
-            
-            // DAI <-> USDC
-            (sellToken == address(dai) && buyToken == address(usdc)) ||
-            (sellToken == address(usdc) && buyToken == address(dai)) ||
-            
-            // DAI <-> USDS
-            (sellToken == address(dai) && buyToken == address(usds)) ||
-            (sellToken == address(usds) && buyToken == address(dai)) ||
-            
-            // USDS <-> USDC
-            (sellToken == address(usds) && buyToken == address(usdc)) ||
-            (sellToken == address(usdc) && buyToken == address(usds)) ||
-            
-            // USDS <-> sUSDS
-            (sellToken == address(usds) && buyToken == address(sUsds)) ||
-            (sellToken == address(sUsds) && buyToken == address(usds)) ||
-            
-            // MKR <-> SKY
-            (sellToken == address(mkr) && buyToken == address(sky)) ||
-            (sellToken == address(sky) && buyToken == address(mkr));
+            isDaiSDaiPair(sellToken, buyToken) ||
+            isDaiUsdcPair(sellToken, buyToken) ||
+            isDaiUsdsPair(sellToken, buyToken) ||
+            isUsdsUsdcPair(sellToken, buyToken) ||
+            isUsdsSUsdsPair(sellToken, buyToken) ||
+            isMkrSkyPair(sellToken, buyToken);
 
         if (!isValidPair) {
             revert Unavailable("Sky: Unsupported token pair");
@@ -115,13 +129,63 @@ contract SkySwapAdapter is ISwapAdapter {
 
     /// @inheritdoc ISwapAdapter
     function swap(
-        bytes32 poolId,
+        bytes32,
         address sellToken,
         address buyToken,
         OrderSide side,
         uint256 specifiedAmount
-    ) external returns (Trade memory trade) {
+    ) external override checkInputTokens(sellToken, buyToken) returns (Trade memory trade) {
+
+        if (specifiedAmount == 0) {
+            return trade;
+        }
+    
+
+
+
+
         revert NotImplemented("SkySwapAdapter.swap");
+    }
+
+    function getPriceAt(address sellToken, address buyToken, uint256 amount) internal view returns (Fraction memory) {
+        if (isDaiSDaiPair(sellToken, buyToken)) {
+            if (sellToken == address(dai)) {
+                return
+                    Fraction(savingsDai.previewDeposit(PRECISION), PRECISION);
+            } else {
+                return
+                    Fraction(savingsDai.previewRedeem(PRECISION), PRECISION);
+            }
+        } else if (isDaiUsdcPair(sellToken, buyToken)) {
+            if (sellToken == address(usdc)) {
+                uint256 daiOutWad = amount * daiLitePSM.to18ConversionFactor();
+                uint256 fee;
+                if (daiLitePSM.tin() > 0) {
+                    fee = daiOutWad * daiLitePSM.tin() / daiLitePSM.WAD();
+                    unchecked {
+                        daiOutWad -= fee;
+                    }
+                }
+                return Fraction(daiOutWad, amount);
+            } else {
+                uint256 daiInWad = amount * daiLitePSM.to18ConversionFactor();
+                uint256 fee;
+                if (daiLitePSM.tout() > 0) {
+                    fee = daiInWad * daiLitePSM.tout() / daiLitePSM.WAD();
+                    daiInWad += fee;
+                }
+                return Fraction(amount, daiInWad);
+            }
+        } else if (isDaiUsdsPair(sellToken, buyToken)) {
+            return Fraction(PRECISION, PRECISION);
+
+        } else if (isUsdsUsdcPair(sellToken, buyToken)) {
+
+        } else if (isUsdsSUsdsPair(sellToken, buyToken)) {
+
+        } else if (isMkrSkyPair(sellToken, buyToken)) {
+
+        }
     }
 
     /// @inheritdoc ISwapAdapter
@@ -134,8 +198,7 @@ contract SkySwapAdapter is ISwapAdapter {
         limits = new uint256[](2);
 
         // DAI <-> sDAI
-        if ((sellToken == address(dai) && buyToken == address(savingsDai)) ||
-            (sellToken == address(savingsDai) && buyToken == address(dai))) {
+        if (isDaiSDaiPair(sellToken, buyToken)) {
 
             if (sellToken == address(dai)) {
                 limits[0] = 3 * (10 ** 24);
@@ -149,8 +212,7 @@ contract SkySwapAdapter is ISwapAdapter {
         }
 
         // DAI <-> USDC
-        if ((sellToken == address(dai) && buyToken == address(usdc)) ||
-            (sellToken == address(usdc) && buyToken == address(dai))) {
+        if (isDaiUsdcPair(sellToken, buyToken)) {
 
             limits[0] = 3 * (10 ** 24);
             limits[1] = limits[0];
@@ -159,8 +221,7 @@ contract SkySwapAdapter is ISwapAdapter {
         }
 
         // DAI <-> USDS
-        if ((sellToken == address(dai) && buyToken == address(usds)) ||
-            (sellToken == address(usds) && buyToken == address(dai))) {
+        if (isDaiUsdsPair(sellToken, buyToken)) {
 
             limits[0] = 3 * (10 ** 24);
             limits[1] = limits[0];
@@ -169,8 +230,7 @@ contract SkySwapAdapter is ISwapAdapter {
         }
 
         // USDS <-> USDC 
-        if ((sellToken == address(usds) && buyToken == address(usdc)) ||
-            (sellToken == address(usdc) && buyToken == address(usds))) {
+        if (isUsdsUsdcPair(sellToken, buyToken)) {
 
             limits[0] = 3 * (10 ** 24);
             limits[1] = limits[0];
@@ -179,8 +239,7 @@ contract SkySwapAdapter is ISwapAdapter {
         }
 
         // USDS <-> sUSDS
-        if ((sellToken == address(usds) && buyToken == address(sUsds)) ||
-            (sellToken == address(sUsds) && buyToken == address(usds))) {
+        if (isUsdsSUsdsPair(sellToken, buyToken)) {
 
             if (sellToken == address(usds)) {
                 limits[0] = 3 * (10 ** 24);
@@ -194,8 +253,7 @@ contract SkySwapAdapter is ISwapAdapter {
         }
 
         // MKR <-> SKY
-        if ((sellToken == address(mkr) && buyToken == address(sky)) ||
-            (sellToken == address(sky) && buyToken == address(mkr))) {
+        if (isMkrSkyPair(sellToken, buyToken)) {
 
             if (sellToken == address(mkr)) {
                 limits[0] = mkr.totalSupply();
@@ -313,6 +371,8 @@ interface IDssLitePSM {
     function pocket() external view returns (address);
 
     function to18ConversionFactor() external view returns (uint256);
+
+    function WAD() external view returns (uint256);
 
     /// @notice Fee for selling gems.
     /// @dev `wad` precision. 1 * WAD means a 100% fee.
