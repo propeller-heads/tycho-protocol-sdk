@@ -134,11 +134,12 @@
 
 ## USDS <-> USDC | USDS LitePSMWrapper-USDC @ Ethereum | Integration
 > <b>DETAILS</b><br>
-> Supports USDS <-> USDC conversion. <br>
 > Converts USDS to USDC at a fixed ratio of 1:1 and vice versa.<br>
 > `gem` is USDC. <br>
 > Notice Sell function is for path USDC --> USDS. <br>
 > Notice Buy function is for path USDS --> USDC. <br>
+> Fees have not been activated for USDS → USDC and USDC → USDS.
+> Fees could change in the future.
 
 - Route: [USDS LitePSMWrapper-USDC @ Ethereum](https://developers.sky.money/modules/litepsm#usds-litepsmwrapper-usdc-ethereum)
 - [Codebase](https://github.com/makerdao/usds-wrappers/blob/dev/src/UsdsPsmWrapper.sol)
