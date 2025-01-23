@@ -204,10 +204,10 @@ contract SkySwapAdapter is ISwapAdapter {
             if (address(sellToken) == address(usdc)) {
                 return usdsPsmWrapper.sellGem(msg.sender, specifiedAmount);
             } else {
-                uint256 usdsAmount = specifiedAmount / usdsPsmWrapper.to18ConversionFactor();
+                uint256 usdcAmount = specifiedAmount / usdsPsmWrapper.to18ConversionFactor();
                 uint256 fee;
                 if (usdsPsmWrapper.tin() > 0) {
-                    fee = usdsAmount * usdsPsmWrapper.tin() / usdsPsmWrapper.WAD();
+                    fee = usdcAmount * usdsPsmWrapper.tin() / usdsPsmWrapper.WAD();
                     usdcAmount = usdcAmount - fee;
                 }
                 return usdsPsmWrapper.buyGem(msg.sender, usdcAmount);
@@ -269,11 +269,15 @@ contract SkySwapAdapter is ISwapAdapter {
                 return amountIn;
             } else {
                 // USDC->DAI: Calculate USDC needed for specified DAI amount
-                uint256 amountIn = specifiedAmount / daiLitePSM.to18ConversionFactor();
-                usdc.safeTransferFrom(msg.sender, address(this), amountIn);
-                usdc.safeIncreaseAllowance(address(daiLitePSM), amountIn);
-                daiLitePSM.sellGem(msg.sender, amountIn);
-                return amountIn;
+                uint256 usdcAmount = specifiedAmount / daiLitePSM.to18ConversionFactor();
+                if (daiLitePSM.tin() > 0) {
+                    uint256 fee = usdcAmount * daiLitePSM.tin() / daiLitePSM.WAD();
+                    usdcAmount += fee;  // Add fee to input amount
+                }
+                usdc.safeTransferFrom(msg.sender, address(this), usdcAmount);
+                usdc.safeIncreaseAllowance(address(daiLitePSM), usdcAmount);
+                uint256 daiOut = daiLitePSM.sellGem(msg.sender, usdcAmount);
+                return usdcAmount;
             }
         } else if (isDaiUsdsPair(sellToken, buyToken)) {
             if (address(buyToken) == address(usds)) {
@@ -447,10 +451,22 @@ contract SkySwapAdapter is ISwapAdapter {
         }
 
         // DAI <-> USDC
+        // DAI is in DssLitePsm
+        // USDC is in DssLitePsm.pocket()
         if (isDaiUsdcPair(sellToken, buyToken)) {
 
-            limits[0] = 3 * (10 ** 24);
-            limits[1] = limits[0];
+            if (sellToken == address(usdc)) {
+                // When selling USDC, we need DAI in the PSM to cover it
+                // Convert DAI balance to USDC terms (accounting for decimals)
+                limits[0] = dai.balanceOf(address(daiLitePSM)) / (daiLitePSM.to18ConversionFactor()*10);
+                limits[1] = dai.balanceOf(address(daiLitePSM))/10;
+            } else {
+                // When selling DAI, we need USDC in the PSM's pocket to cover it
+                uint256 usdcBalance = usdc.balanceOf(daiLitePSM.pocket());
+                limits[0] = (usdcBalance * daiLitePSM.to18ConversionFactor())/10;  // Convert to DAI decimals
+                limits[1] = usdc.balanceOf(daiLitePSM.pocket())/10;
+            }
+
 
             return limits;
         }
@@ -512,11 +528,11 @@ contract SkySwapAdapter is ISwapAdapter {
       returns (Capability[] memory capabilities) 
     {
         
-      revert NotImplemented("SkySwapAdapter.getCapabilities");
+        revert NotImplemented("SkySwapAdapter.getCapabilities");
     }
 
     function getTokens(bytes32 poolId)
-        external 
+        external
         view
         returns (address[] memory tokens)
     {
@@ -524,7 +540,7 @@ contract SkySwapAdapter is ISwapAdapter {
     }
 
     function getPoolIds(uint256 offset, uint256 limit)
-        external 
+        external
         view
         returns (bytes32[] memory ids)
     {
@@ -659,8 +675,8 @@ interface IDaiUsdsConverter {
     function dai() external view returns (address);
     function usds() external view returns (address);
 
-    function daiToUsds(address usr, uint256 wad) external;
-    function usdsToDai(address usr, uint256 wad) external;
+    function daiToUsds(address usr, uint256 wad) external returns (uint256 usdsOutWad);
+    function usdsToDai(address usr, uint256 wad) external returns (uint256 daiInWad);
 
 }
 
@@ -782,6 +798,6 @@ interface IMkrSkyConverter {
     function mkr() external view returns (address);
     function sky() external view returns (address);
     function rate() external view returns (uint256);
-    function mkrToSky(address usr, uint256 mkrAmt) external;
-    function skyToMkr(address usr, uint256 skyAmt) external;
+    function mkrToSky(address usr, uint256 mkrAmt) external returns (uint256 skyAmt);
+    function skyToMkr(address usr, uint256 skyAmt) external returns (uint256 mkrAmt);
 }
