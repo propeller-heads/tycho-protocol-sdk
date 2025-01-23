@@ -14,7 +14,6 @@ import {IERC4626} from "openzeppelin-contracts/contracts/interfaces/IERC4626.sol
 /// @title SkySwapAdapter
 
 contract SkySwapAdapter is ISwapAdapter {
-
     using SafeERC20 for IERC20;
     using SafeERC20 for ISavingsDai;
 
@@ -139,15 +138,214 @@ contract SkySwapAdapter is ISwapAdapter {
         if (specifiedAmount == 0) {
             return trade;
         }
-    
 
+        uint256 gasBefore = gasleft();      
+        if (side == OrderSide.Sell) {
+            trade.calculatedAmount = sell(sellToken, buyToken, specifiedAmount);
+        } else {
+            trade.calculatedAmount = buy(sellToken, buyToken, specifiedAmount);
+        }
 
+        trade.gasUsed = gasBefore - gasleft();
 
+        trade.price = getPriceAt(sellToken, buyToken);
 
-        revert NotImplemented("SkySwapAdapter.swap");
     }
 
-    function getPriceAt(address sellToken, address buyToken, uint256 amount) internal view returns (Fraction memory) {
+    /// @notice Executes a sell order on the contract.
+    /// @param sellToken The token being sold.
+    /// @param buyToken The token being bought.
+    /// @param specifiedAmount The amount to be traded.
+    /// @return calculatedAmount The amount of tokens received.
+    function sell(address sellToken, address buyToken, uint256 specifiedAmount) internal returns (uint256 calculatedAmount) {
+        
+        IERC20(sellToken).safeTransferFrom(msg.sender, address(this), specifiedAmount);
+        
+        if (isDaiSDaiPair(sellToken, buyToken)) {
+
+            if (address(sellToken) == address(dai)) {
+                IERC20(sellToken).safeIncreaseAllowance(address(savingsDai), specifiedAmount);
+            }
+
+            return address(sellToken) == address(dai)
+                ? savingsDai.deposit(specifiedAmount, msg.sender)
+                    : savingsDai.redeem(specifiedAmount, msg.sender, address(this));
+
+        }  else if (isDaiUsdcPair(sellToken, buyToken)) {
+            IERC20(sellToken).safeIncreaseAllowance(address(daiLitePSM), specifiedAmount);
+
+            // USDC-DAI
+            if (address(sellToken) == address(usdc)) {
+                return daiLitePSM.sellGem(msg.sender, specifiedAmount);
+
+            // DAI-USDC
+            } else {
+                // Convert DAI (18 decimals) to USDC (6 decimals)
+                uint256 usdcAmount = specifiedAmount / daiLitePSM.to18ConversionFactor();
+                
+                // Calculate fees if any
+                if (daiLitePSM.tout() > 0) {
+                    uint256 fee = usdcAmount * daiLitePSM.tout() / daiLitePSM.WAD();
+                    usdcAmount = usdcAmount - fee;
+                }
+                
+                return daiLitePSM.buyGem(msg.sender, usdcAmount);
+            }
+        } else if (isDaiUsdsPair(sellToken, buyToken)) {
+            IERC20(sellToken).safeIncreaseAllowance(address(daiUsdsConverter), specifiedAmount);
+
+            return address(sellToken) == address(dai)
+                ? daiUsdsConverter.daiToUsds(msg.sender, specifiedAmount)
+                : daiUsdsConverter.usdsToDai(msg.sender, specifiedAmount);
+
+        } else if (isUsdsUsdcPair(sellToken, buyToken)) {
+            IERC20(sellToken).safeIncreaseAllowance(address(usdsPsmWrapper), specifiedAmount);
+
+            if (address(sellToken) == address(usdc)) {
+                return usdsPsmWrapper.sellGem(msg.sender, specifiedAmount);
+            } else {
+                uint256 usdsAmount = specifiedAmount / usdsPsmWrapper.to18ConversionFactor();
+                uint256 fee;
+                if (usdsPsmWrapper.tin() > 0) {
+                    fee = usdsAmount * usdsPsmWrapper.tin() / usdsPsmWrapper.WAD();
+                    usdcAmount = usdcAmount - fee;
+                }
+                return usdsPsmWrapper.buyGem(msg.sender, usdcAmount);
+            }
+        } else if (isUsdsSUsdsPair(sellToken, buyToken)) {
+            IERC20(sellToken).safeIncreaseAllowance(address(sUsds), specifiedAmount);
+
+            return address(sellToken) == address(usds)
+                ? sUsds.deposit(specifiedAmount, msg.sender)
+                    : sUsds.redeem(specifiedAmount, msg.sender, address(this));
+
+        } else if (isMkrSkyPair(sellToken, buyToken)) {
+            IERC20(sellToken).safeIncreaseAllowance(address(mkrSkyConverter), specifiedAmount);
+
+            if (address(sellToken) == address(mkr)) {
+                return mkrSkyConverter.mkrToSky(msg.sender, specifiedAmount);
+            } else {
+                return mkrSkyConverter.skyToMkr(msg.sender, specifiedAmount);
+            }
+        }
+
+        revert Unavailable("Sky: Unsupported token pair");
+    }
+
+    /// @notice Executes a buy order on the contract.
+    /// @param buyToken The token being bought.
+    /// @param specifiedAmount The amount of buyToken to receive.
+    /// @return calculatedAmount The amount of sellToken sold.
+    function buy(address sellToken, address buyToken, uint256 specifiedAmount)
+        internal
+        returns (uint256 calculatedAmount)
+    {
+        if (isDaiSDaiPair(sellToken, buyToken)) {
+            if (address(buyToken) == address(savingsDai)) {
+                // DAI->sDAI: Calculate DAI needed for specified sDAI amount
+                uint256 amountIn = savingsDai.previewMint(specifiedAmount);
+                dai.safeTransferFrom(msg.sender, address(this), amountIn);
+                dai.safeIncreaseAllowance(address(savingsDai), amountIn);
+                savingsDai.mint(specifiedAmount, msg.sender);
+                return amountIn;
+            } else {
+                // sDAI->DAI: Calculate sDAI needed for specified DAI amount
+                uint256 amountIn = savingsDai.previewWithdraw(specifiedAmount);
+                savingsDai.safeTransferFrom(msg.sender, address(this), amountIn);
+                savingsDai.withdraw(specifiedAmount, msg.sender, address(this));
+                return amountIn;
+            }
+        } else if (isDaiUsdcPair(sellToken, buyToken)) {
+            if (address(buyToken) == address(usdc)) {
+                // DAI->USDC: Calculate DAI needed for specified USDC amount
+                uint256 amountIn = specifiedAmount * daiLitePSM.to18ConversionFactor();
+                if (daiLitePSM.tout() > 0) {
+                    uint256 fee = amountIn * daiLitePSM.tout() / daiLitePSM.WAD();
+                    amountIn += fee;
+                }
+                dai.safeTransferFrom(msg.sender, address(this), amountIn);
+                dai.safeIncreaseAllowance(address(daiLitePSM), amountIn);
+                daiLitePSM.buyGem(msg.sender, specifiedAmount);
+                return amountIn;
+            } else {
+                // USDC->DAI: Calculate USDC needed for specified DAI amount
+                uint256 amountIn = specifiedAmount / daiLitePSM.to18ConversionFactor();
+                usdc.safeTransferFrom(msg.sender, address(this), amountIn);
+                usdc.safeIncreaseAllowance(address(daiLitePSM), amountIn);
+                daiLitePSM.sellGem(msg.sender, amountIn);
+                return amountIn;
+            }
+        } else if (isDaiUsdsPair(sellToken, buyToken)) {
+            if (address(buyToken) == address(usds)) {
+                // DAI->USDS
+                dai.safeTransferFrom(msg.sender, address(this), specifiedAmount);
+                dai.safeIncreaseAllowance(address(daiUsdsConverter), specifiedAmount);
+                daiUsdsConverter.daiToUsds(msg.sender, specifiedAmount);
+                return specifiedAmount;
+            } else {
+                // USDS->DAI
+                usds.safeTransferFrom(msg.sender, address(this), specifiedAmount);
+                usds.safeIncreaseAllowance(address(daiUsdsConverter), specifiedAmount);
+                daiUsdsConverter.usdsToDai(msg.sender, specifiedAmount);
+                return specifiedAmount;
+            }
+        } else if (isUsdsUsdcPair(sellToken, buyToken)) {
+            if (address(buyToken) == address(usdc)) {
+                // USDS->USDC
+                uint256 amountIn = specifiedAmount * usdsPsmWrapper.to18ConversionFactor();
+                if (usdsPsmWrapper.tout() > 0) {
+                    uint256 fee = amountIn * usdsPsmWrapper.tout() / usdsPsmWrapper.WAD();
+                    amountIn += fee;
+                }
+                usds.safeTransferFrom(msg.sender, address(this), amountIn);
+                usds.safeIncreaseAllowance(address(usdsPsmWrapper), amountIn);
+                usdsPsmWrapper.buyGem(msg.sender, specifiedAmount);
+                return amountIn;
+            } else {
+                // USDC->USDS
+                uint256 amountIn = specifiedAmount / usdsPsmWrapper.to18ConversionFactor();
+                usdc.safeTransferFrom(msg.sender, address(this), amountIn);
+                usdc.safeIncreaseAllowance(address(usdsPsmWrapper), amountIn);
+                usdsPsmWrapper.sellGem(msg.sender, amountIn);
+                return amountIn;
+            }
+        } else if (isUsdsSUsdsPair(sellToken, buyToken)) {
+            if (address(buyToken) == address(sUsds)) {
+                // USDS->sUSDS
+                uint256 amountIn = sUsds.previewMint(specifiedAmount);
+                usds.safeTransferFrom(msg.sender, address(this), amountIn);
+                usds.safeIncreaseAllowance(address(sUsds), amountIn);
+                sUsds.mint(specifiedAmount, msg.sender);
+                return amountIn;
+            } else {
+                // sUSDS->USDS
+                uint256 amountIn = sUsds.previewWithdraw(specifiedAmount);
+                IERC20(address(sUsds)).safeTransferFrom(msg.sender, address(this), amountIn);
+                sUsds.withdraw(specifiedAmount, msg.sender, address(this));
+                return amountIn;
+            }
+        } else if (isMkrSkyPair(sellToken, buyToken)) {
+            if (address(buyToken) == address(sky)) {
+                // MKR->SKY
+                uint256 amountIn = specifiedAmount / MKR_TO_SKY_RATE;
+                mkr.safeTransferFrom(msg.sender, address(this), amountIn);
+                mkr.safeIncreaseAllowance(address(mkrSkyConverter), amountIn);
+                mkrSkyConverter.mkrToSky(msg.sender, amountIn);
+                return amountIn;
+            } else {
+                // SKY->MKR
+                uint256 amountIn = specifiedAmount * MKR_TO_SKY_RATE;
+                sky.safeTransferFrom(msg.sender, address(this), amountIn);
+                sky.safeIncreaseAllowance(address(mkrSkyConverter), amountIn);
+                mkrSkyConverter.skyToMkr(msg.sender, amountIn);
+                return amountIn;
+            }
+        }
+
+        revert Unavailable("Sky: Unsupported token pair");
+    }
+
+    function getPriceAt(address sellToken, address buyToken) internal view returns (Fraction memory) {
         if (isDaiSDaiPair(sellToken, buyToken)) {
             if (sellToken == address(dai)) {
                 return
@@ -158,7 +356,10 @@ contract SkySwapAdapter is ISwapAdapter {
             }
         } else if (isDaiUsdcPair(sellToken, buyToken)) {
             if (sellToken == address(usdc)) {
-                uint256 daiOutWad = amount * daiLitePSM.to18ConversionFactor();
+                // gem is USDC, daiLitePSM.dec() returns gem decimals = 6
+                // To get 1 unit of gem (USDC), we need to multiply by 10^6
+                // to18ConversionFactor = 10 ** (18 - gem.decimals())
+                uint256 daiOutWad = 10**daiLitePSM.dec() * daiLitePSM.to18ConversionFactor();
                 uint256 fee;
                 if (daiLitePSM.tin() > 0) {
                     fee = daiOutWad * daiLitePSM.tin() / daiLitePSM.WAD();
@@ -166,39 +367,39 @@ contract SkySwapAdapter is ISwapAdapter {
                         daiOutWad -= fee;
                     }
                 }
-                return Fraction(daiOutWad, amount);
+                return Fraction(daiOutWad, PRECISION);
             } else {
-                uint256 daiInWad = amount * daiLitePSM.to18ConversionFactor();
+                uint256 daiInWad = IERC20Metadata(address(dai)).decimals() * daiLitePSM.to18ConversionFactor();
                 uint256 fee;
                 if (daiLitePSM.tout() > 0) {
                     fee = daiInWad * daiLitePSM.tout() / daiLitePSM.WAD();
                     daiInWad += fee;
                 }
-                return Fraction(amount, daiInWad);
+                return Fraction(PRECISION, daiInWad);
             }
         } else if (isDaiUsdsPair(sellToken, buyToken)) {
             return Fraction(PRECISION, PRECISION);
 
         } else if (isUsdsUsdcPair(sellToken, buyToken)) {
-            PsmLike psm = PsmLike(usdsPsmWrapper.psm());
+            // PsmLike psm = PsmLike(usdsPsmWrapper.psm());
             if (sellToken == address(usdc)) {
-                uint256 usdsOutWad = amount * usdsPsmWrapper.to18ConversionFactor();
+                uint256 usdsOutWad = 10**usdsPsmWrapper.dec() * usdsPsmWrapper.to18ConversionFactor();
                 uint256 fee;
-                if (psm.tin() > 0) {
-                    fee = usdsOutWad * psm.tin() / usdsPsmWrapper.WAD();
+                if (usdsPsmWrapper.tin() > 0) {
+                    fee = usdsOutWad * usdsPsmWrapper.tin() / usdsPsmWrapper.WAD();
                     unchecked {
                         usdsOutWad -= fee;
                     }
                 }
-                return Fraction(usdsOutWad, amount);
+                return Fraction(usdsOutWad, PRECISION);
             } else {
-                uint256 usdsInWad = amount * usdsPsmWrapper.to18ConversionFactor();
+                uint256 usdsInWad = IERC20Metadata(address(usds)).decimals() * usdsPsmWrapper.to18ConversionFactor();
                 uint256 fee;
-                if (psm.tout() > 0) {
-                    fee = usdsInWad * psm.tout() / usdsPsmWrapper.WAD();
+                if (usdsPsmWrapper.tout() > 0) {
+                    fee = usdsInWad * usdsPsmWrapper.tout() / usdsPsmWrapper.WAD();
                     usdsInWad += fee;
                 }
-                return Fraction(amount, usdsInWad);
+                return Fraction(PRECISION, usdsInWad);
             }
 
         } else if (isUsdsSUsdsPair(sellToken, buyToken)) {
@@ -219,6 +420,7 @@ contract SkySwapAdapter is ISwapAdapter {
                     Fraction(PRECISION, mkrSkyConverter.rate()*PRECISION);
             }
         }
+        return Fraction(0, 0); // Default return for unreachable path
     }
 
     /// @inheritdoc ISwapAdapter
