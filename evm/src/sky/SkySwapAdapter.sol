@@ -180,11 +180,44 @@ contract SkySwapAdapter is ISwapAdapter {
             return Fraction(PRECISION, PRECISION);
 
         } else if (isUsdsUsdcPair(sellToken, buyToken)) {
+            PsmLike psm = PsmLike(usdsPsmWrapper.psm());
+            if (sellToken == address(usdc)) {
+                uint256 usdsOutWad = amount * usdsPsmWrapper.to18ConversionFactor();
+                uint256 fee;
+                if (psm.tin() > 0) {
+                    fee = usdsOutWad * psm.tin() / usdsPsmWrapper.WAD();
+                    unchecked {
+                        usdsOutWad -= fee;
+                    }
+                }
+                return Fraction(usdsOutWad, amount);
+            } else {
+                uint256 usdsInWad = amount * usdsPsmWrapper.to18ConversionFactor();
+                uint256 fee;
+                if (psm.tout() > 0) {
+                    fee = usdsInWad * psm.tout() / usdsPsmWrapper.WAD();
+                    usdsInWad += fee;
+                }
+                return Fraction(amount, usdsInWad);
+            }
 
         } else if (isUsdsSUsdsPair(sellToken, buyToken)) {
+            if (sellToken == address(usds)) {
+                return
+                    Fraction(sUsds.previewDeposit(PRECISION), PRECISION);
+            } else {
+                return
+                    Fraction(sUsds.previewRedeem(PRECISION), PRECISION);
+            }
 
         } else if (isMkrSkyPair(sellToken, buyToken)) {
-
+            if (sellToken == address(mkr)) {
+                return
+                    Fraction(mkrSkyConverter.rate()*PRECISION, PRECISION);
+            } else {
+                return
+                    Fraction(PRECISION, mkrSkyConverter.rate()*PRECISION);
+            }
         }
     }
 
@@ -452,6 +485,43 @@ interface IUsdsPsmWrapper {
     function pocket() external view returns (address);
     function legacyDai() external view returns (address);
     function buf() external view returns (uint256);
+}
+
+interface PsmLike {
+    function gem() external view returns (address);
+    function vat() external view returns (address);
+    function daiJoin() external view returns (address);
+    function pocket() external view returns (address);
+    function tin() external view returns (uint256);
+    function tout() external view returns (uint256);
+    function buf() external view returns (uint256);
+    function sellGem(address, uint256) external returns (uint256);
+    function buyGem(address, uint256) external returns (uint256);
+    function ilk() external view returns (bytes32);
+    function vow() external view returns (address);
+}
+
+interface GemLike {
+    function decimals() external view returns (uint8);
+    function approve(address, uint256) external;
+    function transferFrom(address, address, uint256) external;
+}
+
+interface DaiJoinLike {
+    function dai() external view returns (address);
+    function join(address, uint256) external;
+    function exit(address, uint256) external;
+}
+
+interface UsdsJoinLike {
+    function usds() external view returns (address);
+    function join(address, uint256) external;
+    function exit(address, uint256) external;
+}
+
+interface VatLike {
+    function hope(address) external;
+    function live() external view returns (uint256);
 }
 
 ///////////////////////////////////// ISUsds ////////////////////////////////////////////////////////////
