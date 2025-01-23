@@ -216,7 +216,7 @@ contract SkySwapAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
 
     ////////////////////////////////// DAI-USDC ///////////////////////////////////////
 
-    // USDC-DAI | SELL SIDE PASS | BUY SIDE FAIL
+    // USDC-DAI | SELL SIDE PASS | BUY SIDE PASS
     function testSwapFuzzUsdcForDai(uint256 specifiedAmount, bool isBuy)
         public
     {
@@ -271,6 +271,59 @@ contract SkySwapAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
                 dai_balance_after - dai_balance_before,
                 1e15,
                 "DAI calculation differs too much from actual"
+            );
+        }
+    }
+
+    // DAI-USDC | BUY SIDE | SELL SIDE
+    function testSwapFuzzDaiForUsdc(uint256 specifiedAmount, bool isBuy)
+        public
+    {
+        vm.assume(specifiedAmount > 10e6); // DAI has 18 decimals for sell, USDC 6 decimals for buy
+        
+        OrderSide side = isBuy ? OrderSide.Buy : OrderSide.Sell;
+
+        uint256[] memory limits =
+            adapter.getLimits(PAIR, DAI_ADDRESS, USDC_ADDRESS);
+
+        if (side == OrderSide.Buy) {
+            // When buying USDC, specifiedAmount is in USDC (6 decimals)
+            vm.assume(specifiedAmount < limits[1]);
+            
+            deal(DAI_ADDRESS, address(this), 10e24);
+            DAI.approve(address(adapter), 10e24);
+        } else {
+            // When selling DAI, specifiedAmount is in DAI (18 decimals)
+            vm.assume(specifiedAmount < limits[0]);
+            
+            deal(DAI_ADDRESS, address(this), specifiedAmount);
+            DAI.approve(address(adapter), specifiedAmount);
+        }
+        
+        uint256 dai_balance_before = DAI.balanceOf(address(this));
+        console.log("dai_balance_before", dai_balance_before);
+        uint256 usdc_balance_before = USDC.balanceOf(address(this));
+        console.log("usdc_balance_before", usdc_balance_before);
+
+        Trade memory trade =
+            adapter.swap(PAIR, DAI_ADDRESS, USDC_ADDRESS, side, specifiedAmount);
+
+        uint256 dai_balance_after = DAI.balanceOf(address(this));
+        console.log("dai_balance_after", dai_balance_after);
+        uint256 usdc_balance_after = USDC.balanceOf(address(this));
+        console.log("usdc_balance_after", usdc_balance_after);
+
+        if (side == OrderSide.Buy) {
+            // When buying USDC, specified amount is in USDC (6 decimals)
+            assertEq(specifiedAmount, usdc_balance_after - usdc_balance_before);
+            assertEq(
+                trade.calculatedAmount, dai_balance_before - dai_balance_after
+            );
+        } else {
+            // When selling DAI, specified amount is in DAI (18 decimals)
+            assertEq(specifiedAmount, dai_balance_before - dai_balance_after);
+            assertEq(
+                trade.calculatedAmount, usdc_balance_after - usdc_balance_before
             );
         }
     }
