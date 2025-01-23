@@ -139,15 +139,22 @@ contract SkySwapAdapter is ISwapAdapter {
         if (specifiedAmount == 0) {
             return trade;
         }
-    
 
+        uint256 gasBefore = gasleft();
+        // if (side == OrderSide.Sell) {
+        //     trade.calculatedAmount = sell(sellToken, buyToken, specifiedAmount);
+        // } else {
+        //     trade.calculatedAmount = buy(sellToken, buyToken, specifiedAmount);
+        // }
 
+        trade.gasUsed = gasBefore - gasleft();
 
+        trade.price = getPriceAt(sellToken, buyToken);
 
         revert NotImplemented("SkySwapAdapter.swap");
     }
 
-    function getPriceAt(address sellToken, address buyToken, uint256 amount) internal view returns (Fraction memory) {
+    function getPriceAt(address sellToken, address buyToken) internal view returns (Fraction memory) {
         if (isDaiSDaiPair(sellToken, buyToken)) {
             if (sellToken == address(dai)) {
                 return
@@ -158,7 +165,10 @@ contract SkySwapAdapter is ISwapAdapter {
             }
         } else if (isDaiUsdcPair(sellToken, buyToken)) {
             if (sellToken == address(usdc)) {
-                uint256 daiOutWad = amount * daiLitePSM.to18ConversionFactor();
+                // gem is USDC, daiLitePSM.dec() returns gem decimals = 6
+                // To get 1 unit of gem (USDC), we need to multiply by 10^6
+                // to18ConversionFactor = 10 ** (18 - gem.decimals())
+                uint256 daiOutWad = 10**daiLitePSM.dec() * daiLitePSM.to18ConversionFactor();
                 uint256 fee;
                 if (daiLitePSM.tin() > 0) {
                     fee = daiOutWad * daiLitePSM.tin() / daiLitePSM.WAD();
@@ -166,39 +176,39 @@ contract SkySwapAdapter is ISwapAdapter {
                         daiOutWad -= fee;
                     }
                 }
-                return Fraction(daiOutWad, amount);
+                return Fraction(daiOutWad, PRECISION);
             } else {
-                uint256 daiInWad = amount * daiLitePSM.to18ConversionFactor();
+                uint256 daiInWad = IERC20Metadata(address(dai)).decimals() * daiLitePSM.to18ConversionFactor();
                 uint256 fee;
                 if (daiLitePSM.tout() > 0) {
                     fee = daiInWad * daiLitePSM.tout() / daiLitePSM.WAD();
                     daiInWad += fee;
                 }
-                return Fraction(amount, daiInWad);
+                return Fraction(PRECISION, daiInWad);
             }
         } else if (isDaiUsdsPair(sellToken, buyToken)) {
             return Fraction(PRECISION, PRECISION);
 
         } else if (isUsdsUsdcPair(sellToken, buyToken)) {
-            PsmLike psm = PsmLike(usdsPsmWrapper.psm());
+            // PsmLike psm = PsmLike(usdsPsmWrapper.psm());
             if (sellToken == address(usdc)) {
-                uint256 usdsOutWad = amount * usdsPsmWrapper.to18ConversionFactor();
+                uint256 usdsOutWad = 10**usdsPsmWrapper.dec() * usdsPsmWrapper.to18ConversionFactor();
                 uint256 fee;
-                if (psm.tin() > 0) {
-                    fee = usdsOutWad * psm.tin() / usdsPsmWrapper.WAD();
+                if (usdsPsmWrapper.tin() > 0) {
+                    fee = usdsOutWad * usdsPsmWrapper.tin() / usdsPsmWrapper.WAD();
                     unchecked {
                         usdsOutWad -= fee;
                     }
                 }
-                return Fraction(usdsOutWad, amount);
+                return Fraction(usdsOutWad, PRECISION);
             } else {
-                uint256 usdsInWad = amount * usdsPsmWrapper.to18ConversionFactor();
+                uint256 usdsInWad = IERC20Metadata(address(usds)).decimals() * usdsPsmWrapper.to18ConversionFactor();
                 uint256 fee;
-                if (psm.tout() > 0) {
-                    fee = usdsInWad * psm.tout() / usdsPsmWrapper.WAD();
+                if (usdsPsmWrapper.tout() > 0) {
+                    fee = usdsInWad * usdsPsmWrapper.tout() / usdsPsmWrapper.WAD();
                     usdsInWad += fee;
                 }
-                return Fraction(amount, usdsInWad);
+                return Fraction(PRECISION, usdsInWad);
             }
 
         } else if (isUsdsSUsdsPair(sellToken, buyToken)) {
@@ -219,6 +229,7 @@ contract SkySwapAdapter is ISwapAdapter {
                     Fraction(PRECISION, mkrSkyConverter.rate()*PRECISION);
             }
         }
+        return Fraction(0, 0); // Default return for unreachable path
     }
 
     /// @inheritdoc ISwapAdapter
