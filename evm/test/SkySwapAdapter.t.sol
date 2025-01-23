@@ -47,6 +47,7 @@ contract SkySwapAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
     IERC20 constant USDS = IERC20(USDS_ADDRESS);
     IERC20 constant MKR = IERC20(MKR_ADDRESS);
     IERC20 constant SKY = IERC20(SKY_ADDRESS);
+    IERC20 constant USDC = IERC20(USDC_ADDRESS);
     bytes32 constant PAIR = bytes32(0);
     uint256 constant NUM_PAIRS = 6;  // Total number of token pairs
 
@@ -70,6 +71,18 @@ contract SkySwapAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
             MKR_ADDRESS,
             SKY_ADDRESS
         );
+
+        vm.label(address(adapter), "SkySwapAdapter");
+        vm.label(DAI_LITE_PSM_ADDRESS, "DaiLitePSM");
+        vm.label(DAI_USDS_CONVERTER_ADDRESS, "DaiUsdsConverter");
+        vm.label(USDS_PSM_WRAPPER_ADDRESS, "UsdsPsmWrapper");
+        vm.label(MKR_SKY_CONVERTER_ADDRESS, "MkrSkyConverter");
+        vm.label(DAI_ADDRESS, "DAI");
+        vm.label(SDAI_ADDRESS, "sDAI");
+        vm.label(USDS_ADDRESS, "USDS");
+        vm.label(USDC_ADDRESS, "USDC");
+        vm.label(MKR_ADDRESS, "MKR");
+        vm.label(SKY_ADDRESS, "SKY");
 
         // Initialize pairs mapping
         pairs[0] = TokenPair({
@@ -109,6 +122,161 @@ contract SkySwapAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
         });
     }
 
+    ////////////////////////////////// DAI-sDAI ///////////////////////////////////////
+
+    // DAI -> sDAI | PASS
+    function testSwapFuzzDaiForSDai(uint256 specifiedAmount, bool isBuy)
+        public
+    {
+        vm.assume(specifiedAmount > 1);
+
+        OrderSide side = isBuy ? OrderSide.Buy : OrderSide.Sell;
+
+        uint256[] memory limits =
+            adapter.getLimits(PAIR, DAI_ADDRESS, SDAI_ADDRESS);
+
+        if (side == OrderSide.Buy) {
+            vm.assume(specifiedAmount < limits[1]);
+
+            deal(DAI_ADDRESS, address(this), type(uint256).max);
+            DAI.approve(address(adapter), type(uint256).max);
+        } else {
+            vm.assume(specifiedAmount < limits[0]);
+
+            deal(DAI_ADDRESS, address(this), specifiedAmount);
+            DAI.approve(address(adapter), specifiedAmount);
+        }
+
+        uint256 dai_balance_before = DAI.balanceOf(address(this));
+        uint256 sDai_balance_before = SDAI.balanceOf(address(this));
+
+        Trade memory trade =
+            adapter.swap(PAIR, DAI_ADDRESS, SDAI_ADDRESS, side, specifiedAmount);
+
+        uint256 dai_balance_after = DAI.balanceOf(address(this));
+        uint256 sDai_balance_after = SDAI.balanceOf(address(this));
+
+        if (side == OrderSide.Buy) {
+            assertEq(specifiedAmount, sDai_balance_after - sDai_balance_before);
+            assertEq(
+                trade.calculatedAmount, dai_balance_before - dai_balance_after
+            );
+        } else {
+            assertEq(specifiedAmount, dai_balance_before - dai_balance_after);
+            assertEq(
+                trade.calculatedAmount, sDai_balance_after - sDai_balance_before
+            );
+        }
+    }
+
+    // sDAI -> DAI | PASS
+    function testSwapFuzzSDaiForDai(uint256 specifiedAmount, bool isBuy)
+        public
+    {
+        vm.assume(specifiedAmount > 1);
+
+        OrderSide side = isBuy ? OrderSide.Buy : OrderSide.Sell;
+
+        uint256[] memory limits =
+            adapter.getLimits(PAIR, SDAI_ADDRESS, DAI_ADDRESS);
+
+        if (side == OrderSide.Buy) {
+            vm.assume(specifiedAmount < limits[1]);
+
+            deal(SDAI_ADDRESS, address(this), type(uint256).max);
+            SDAI.approve(address(adapter), type(uint256).max);
+        } else {
+            vm.assume(specifiedAmount < limits[0]);
+
+            deal(SDAI_ADDRESS, address(this), specifiedAmount);
+            SDAI.approve(address(adapter), specifiedAmount);
+        }
+
+        uint256 sDai_balance_before = SDAI.balanceOf(address(this));
+        uint256 dai_balance_before = DAI.balanceOf(address(this));
+
+        Trade memory trade =
+            adapter.swap(PAIR, SDAI_ADDRESS, DAI_ADDRESS, side, specifiedAmount);
+
+        uint256 sDai_balance_after = SDAI.balanceOf(address(this));
+        uint256 dai_balance_after = DAI.balanceOf(address(this));
+
+        if (side == OrderSide.Buy) {
+            assertEq(specifiedAmount, dai_balance_after - dai_balance_before);
+            assertEq(
+                trade.calculatedAmount, sDai_balance_before - sDai_balance_after
+            );
+        } else {
+            assertEq(specifiedAmount, sDai_balance_before - sDai_balance_after);
+            assertEq(
+                trade.calculatedAmount, dai_balance_after - dai_balance_before
+            );
+        }
+    }
+
+    ////////////////////////////////// DAI-USDC ///////////////////////////////////////
+
+    // USDC-DAI | SELL SIDE PASS | BUY SIDE FAIL
+    function testSwapFuzzUsdcForDai(uint256 specifiedAmount, bool isBuy)
+        public
+    {
+        vm.assume(specifiedAmount > 10e6);
+
+        OrderSide side = isBuy ? OrderSide.Buy : OrderSide.Sell;
+
+        uint256[] memory limits =
+            adapter.getLimits(PAIR, USDC_ADDRESS, DAI_ADDRESS);
+
+        if (side == OrderSide.Buy) {
+            vm.assume(specifiedAmount < limits[1]);
+
+            deal(USDC_ADDRESS, address(this), 10e24);
+            USDC.approve(address(adapter), 10e24);
+        } else {
+            vm.assume(specifiedAmount < limits[0]);
+
+            deal(USDC_ADDRESS, address(this), specifiedAmount);
+            USDC.approve(address(adapter), specifiedAmount);
+        }
+        
+        uint256 usdc_balance_before = USDC.balanceOf(address(this));
+        console.log("usdc_balance_before", usdc_balance_before);
+        uint256 dai_balance_before = DAI.balanceOf(address(this));
+        console.log("dai_balance_before", dai_balance_before);
+
+        Trade memory trade =
+            adapter.swap(PAIR, USDC_ADDRESS, DAI_ADDRESS, side, specifiedAmount);
+
+        uint256 usdc_balance_after = USDC.balanceOf(address(this));
+        console.log("usdc_balance_after", usdc_balance_after);
+        uint256 dai_balance_after = DAI.balanceOf(address(this));
+        console.log("dai_balance_after", dai_balance_after);
+
+        if (side == OrderSide.Buy) {
+            // Allow for small rounding errors (up to 0.001 DAI or 10^15 wei)
+            uint256 daiReceived = dai_balance_after - dai_balance_before;
+            assertApproxEqAbs(
+                specifiedAmount,
+                daiReceived,
+                1e15,
+                "DAI amount received differs too much from specified"
+            );
+            assertEq(
+                trade.calculatedAmount, usdc_balance_before - usdc_balance_after
+            );
+        } else {
+            assertEq(specifiedAmount, usdc_balance_before - usdc_balance_after);
+            assertApproxEqAbs(
+                trade.calculatedAmount,
+                dai_balance_after - dai_balance_before,
+                1e15,
+                "DAI calculation differs too much from actual"
+            );
+        }
+    }
+
+    ////////////////////////////////////////// Get Limits ///////////////////////////////////////
+
     function testGetLimitsSkyProtocolPairs() public view {
         for (uint256 i = 0; i < NUM_PAIRS; i++) {
             TokenPair memory pair = pairs[i];
@@ -126,7 +294,12 @@ contract SkySwapAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
         assertEq(limits.length, 2);
     }
 
-
+    function testGetLimitsUsdcDaiPair() public view {
+        uint256[] memory limits =
+            adapter.getLimits(PAIR, USDC_ADDRESS, DAI_ADDRESS);
+        console.log("limits", limits[0], limits[1]);
+        assertEq(limits.length, 2);
+    }
 
     // This test is currently broken due to a bug in runPoolBehaviour
     // with constant price pools.
