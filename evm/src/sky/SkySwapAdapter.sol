@@ -189,7 +189,8 @@ contract SkySwapAdapter is ISwapAdapter {
                     usdcAmount = usdcAmount - fee;
                 }
                 
-                return daiLitePSM.buyGem(msg.sender, usdcAmount);
+                daiLitePSM.buyGem(msg.sender, usdcAmount);
+                return usdcAmount;
             }
         } else if (isDaiUsdsPair(sellToken, buyToken)) {
             IERC20(sellToken).safeIncreaseAllowance(address(daiUsdsConverter), specifiedAmount);
