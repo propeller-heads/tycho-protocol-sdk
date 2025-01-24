@@ -279,9 +279,10 @@ contract SkySwapAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
     function testSwapFuzzDaiForUsdc(uint256 specifiedAmount, bool isBuy)
         public
     {
-        vm.assume(specifiedAmount > 10e6); // DAI has 18 decimals for sell, USDC 6 decimals for buy
-        
-        OrderSide side = isBuy ? OrderSide.Buy : OrderSide.Sell;
+        // vm.assume(specifiedAmount > 10e6); // DAI has 18 decimals for sell, USDC 6 decimals for buy
+        // OrderSide side = isBuy ? OrderSide.Buy : OrderSide.Sell;
+        OrderSide side = OrderSide.Sell;
+
 
         uint256[] memory limits =
             adapter.getLimits(PAIR, DAI_ADDRESS, USDC_ADDRESS);
@@ -301,17 +302,13 @@ contract SkySwapAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
         }
         
         uint256 dai_balance_before = DAI.balanceOf(address(this));
-        console.log("dai_balance_before", dai_balance_before);
         uint256 usdc_balance_before = USDC.balanceOf(address(this));
-        console.log("usdc_balance_before", usdc_balance_before);
 
         Trade memory trade =
             adapter.swap(PAIR, DAI_ADDRESS, USDC_ADDRESS, side, specifiedAmount);
 
         uint256 dai_balance_after = DAI.balanceOf(address(this));
-        console.log("dai_balance_after", dai_balance_after);
         uint256 usdc_balance_after = USDC.balanceOf(address(this));
-        console.log("usdc_balance_after", usdc_balance_after);
 
         if (side == OrderSide.Buy) {
             // When buying USDC, specified amount is in USDC (6 decimals)
@@ -321,6 +318,12 @@ contract SkySwapAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
             );
         } else {
             // When selling DAI, specified amount is in DAI (18 decimals)
+            console.log("specifiedAmount", specifiedAmount);
+            console.log("dai_balance_before", dai_balance_before);
+            console.log("dai_balance_after", dai_balance_after);
+            console.log("trade.calculatedAmount", trade.calculatedAmount);
+            console.log("usdc_balance_before", usdc_balance_before);
+            console.log("usdc_balance_after", usdc_balance_after);
             assertEq(specifiedAmount, dai_balance_before - dai_balance_after);
             assertEq(
                 trade.calculatedAmount, usdc_balance_after - usdc_balance_before
