@@ -193,11 +193,17 @@ contract SkySwapAdapter is ISwapAdapter {
                 return usdcAmount;
             }
         } else if (isDaiUsdsPair(sellToken, buyToken)) {
+            // Converts DAI to USDS at a fixed ratio of 1:1 and vice versa.
+            // No fees assessed. 
+            // Fees cannot be enabled on this route in the future.
             IERC20(sellToken).safeIncreaseAllowance(address(daiUsdsConverter), specifiedAmount);
-
-            return address(sellToken) == address(dai)
-                ? daiUsdsConverter.daiToUsds(msg.sender, specifiedAmount)
-                : daiUsdsConverter.usdsToDai(msg.sender, specifiedAmount);
+            if (address(sellToken) == address(dai)) {
+                daiUsdsConverter.daiToUsds(msg.sender, specifiedAmount);
+                return specifiedAmount;
+            } else {
+                daiUsdsConverter.usdsToDai(msg.sender, specifiedAmount);
+                return specifiedAmount;
+            }
 
         } else if (isUsdsUsdcPair(sellToken, buyToken)) {
             IERC20(sellToken).safeIncreaseAllowance(address(usdsPsmWrapper), specifiedAmount);
@@ -474,9 +480,16 @@ contract SkySwapAdapter is ISwapAdapter {
 
         // DAI <-> USDS
         if (isDaiUsdsPair(sellToken, buyToken)) {
+            uint256 daiTotalSupply = dai.totalSupply();
+            uint256 usdsTotalSupply = usds.totalSupply();
 
-            limits[0] = 3 * (10 ** 24);
-            limits[1] = limits[0];
+            if (daiTotalSupply <= usdsTotalSupply) {
+                limits[0] = daiTotalSupply/100;
+                limits[1] = limits[0];
+            } else {
+                limits[0] = usdsTotalSupply/100;
+                limits[1] = limits[0];
+            }
 
             return limits;
         }
@@ -676,8 +689,8 @@ interface IDaiUsdsConverter {
     function dai() external view returns (address);
     function usds() external view returns (address);
 
-    function daiToUsds(address usr, uint256 wad) external returns (uint256 usdsOutWad);
-    function usdsToDai(address usr, uint256 wad) external returns (uint256 daiInWad);
+    function daiToUsds(address usr, uint256 wad) external;
+    function usdsToDai(address usr, uint256 wad) external;
 
 }
 
