@@ -325,7 +325,7 @@ contract SkySwapAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
 
     //////////////////////////// DAI-USDS ////////////////////////////
 
-        // DAI-USDS | SELL SIDE  | BUY SIDE
+    // DAI-USDS | SELL SIDE PASS | BUY SIDE PASS
     function testSwapFuzzDaiForUsds(uint256 specifiedAmount, bool isBuy)
         public
     {
@@ -367,6 +367,51 @@ contract SkySwapAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
             );
         }
     }
+
+    // USDS-DAI | SELL SIDE PASS | BUY SIDE PASS
+    function testSwapFuzzUsdsForDai(uint256 specifiedAmount, bool isBuy)
+        public
+    {
+        OrderSide side = isBuy ? OrderSide.Buy : OrderSide.Sell;
+
+        uint256[] memory limits =
+            adapter.getLimits(PAIR, USDS_ADDRESS, DAI_ADDRESS);
+
+        if (side == OrderSide.Buy) {
+            vm.assume(specifiedAmount < limits[1]);
+            
+            deal(USDS_ADDRESS, address(this), 10e30);
+            USDS.approve(address(adapter), 10e30);
+        } else {
+            vm.assume(specifiedAmount < limits[0]);
+            
+            deal(USDS_ADDRESS, address(this), specifiedAmount);
+            USDS.approve(address(adapter), specifiedAmount);
+        }
+        
+        uint256 dai_balance_before = DAI.balanceOf(address(this));
+        uint256 usds_balance_before = USDS.balanceOf(address(this));
+
+        Trade memory trade =
+            adapter.swap(PAIR, USDS_ADDRESS, DAI_ADDRESS, side, specifiedAmount);
+
+        uint256 dai_balance_after = DAI.balanceOf(address(this));
+        uint256 usds_balance_after = USDS.balanceOf(address(this));
+
+        if (side == OrderSide.Buy) {
+            assertEq(specifiedAmount, dai_balance_after - dai_balance_before);
+            assertEq(
+                trade.calculatedAmount, usds_balance_before - usds_balance_after
+            );
+        } else {
+            assertEq(specifiedAmount, usds_balance_before - usds_balance_after);
+            assertEq(
+                trade.calculatedAmount, dai_balance_after - dai_balance_before
+            );
+        }
+    }
+
+    
 
     ////////////////////////////////////////// Get Limits ///////////////////////////////////////
 
