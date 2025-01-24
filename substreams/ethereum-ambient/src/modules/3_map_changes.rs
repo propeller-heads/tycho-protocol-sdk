@@ -11,10 +11,7 @@ use substreams_ethereum::pb::eth::{self};
 
 use tycho_substreams::prelude::*;
 
-use crate::{
-    contracts::main::{convert_protocol_component, AMBIENT_CONTRACT},
-    pb::tycho::ambient::v1::BlockPoolChanges,
-};
+use crate::{contracts::main::AMBIENT_CONTRACT, pb::tycho::ambient::v1::BlockPoolChanges};
 
 struct SlotValue {
     new_value: Vec<u8>,
@@ -300,7 +297,7 @@ fn map_changes(
         {
             let new_components = components
                 .into_iter()
-                .map(convert_protocol_component)
+                .map(Into::into)
                 .collect::<Vec<ProtocolComponent>>();
             tx_change
                 .component_changes

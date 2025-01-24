@@ -159,22 +159,24 @@ pub fn decode_pool_init(
     }
 }
 
-pub fn convert_protocol_component(component: AmbientProtocolComponent) -> ProtocolComponent {
-    ProtocolComponent {
-        id: component.id,
-        tokens: component.tokens,
-        contracts: vec![AMBIENT_CONTRACT.to_vec()],
-        static_att: vec![Attribute {
-            name: "pool_index".to_string(),
-            value: component.pool_index,
+impl From<AmbientProtocolComponent> for ProtocolComponent {
+    fn from(component: AmbientProtocolComponent) -> Self {
+        ProtocolComponent {
+            id: component.id,
+            tokens: component.tokens,
+            contracts: vec![AMBIENT_CONTRACT.to_vec()],
+            static_att: vec![Attribute {
+                name: "pool_index".to_string(),
+                value: component.pool_index,
+                change: ChangeType::Creation.into(),
+            }],
             change: ChangeType::Creation.into(),
-        }],
-        change: ChangeType::Creation.into(),
-        protocol_type: Some(ProtocolType {
-            name: "ambient_pool".to_string(),
-            attribute_schema: vec![],
-            financial_type: FinancialType::Swap.into(),
-            implementation_type: ImplementationType::Vm.into(),
-        }),
+            protocol_type: Some(ProtocolType {
+                name: "ambient_pool".to_string(),
+                attribute_schema: vec![],
+                financial_type: FinancialType::Swap.into(),
+                implementation_type: ImplementationType::Vm.into(),
+            }),
+        }
     }
 }
