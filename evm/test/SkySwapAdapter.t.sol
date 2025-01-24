@@ -275,7 +275,7 @@ contract SkySwapAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
         }
     }
 
-    // DAI-USDC | BUY SIDE | SELL SIDE
+    // DAI-USDC | SELL SIDE PASS | BUY SIDE PASS
     function testSwapFuzzDaiForUsdc(uint256 specifiedAmount, bool isBuy)
         public
     {
@@ -315,15 +315,55 @@ contract SkySwapAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
             );
         } else {
             // When selling DAI, specified amount is in DAI (18 decimals)
-            console.log("specifiedAmount", specifiedAmount);
-            console.log("dai_balance_before", dai_balance_before);
-            console.log("dai_balance_after", dai_balance_after);
-            console.log("trade.calculatedAmount", trade.calculatedAmount);
-            console.log("usdc_balance_before", usdc_balance_before);
-            console.log("usdc_balance_after", usdc_balance_after);
             assertEq(specifiedAmount, dai_balance_before - dai_balance_after);
             assertEq(
                 trade.calculatedAmount, usdc_balance_after - usdc_balance_before
+            );
+        }
+    }
+
+
+    //////////////////////////// DAI-USDS ////////////////////////////
+
+        // DAI-USDS | SELL SIDE  | BUY SIDE
+    function testSwapFuzzDaiForUsds(uint256 specifiedAmount, bool isBuy)
+        public
+    {
+        OrderSide side = isBuy ? OrderSide.Buy : OrderSide.Sell;
+
+        uint256[] memory limits =
+            adapter.getLimits(PAIR, DAI_ADDRESS, USDS_ADDRESS);
+
+        if (side == OrderSide.Buy) {
+            vm.assume(specifiedAmount < limits[1]);
+            
+            deal(DAI_ADDRESS, address(this), 10e30);
+            DAI.approve(address(adapter), 10e30);
+        } else {
+            vm.assume(specifiedAmount < limits[0]);
+            
+            deal(DAI_ADDRESS, address(this), specifiedAmount);
+            DAI.approve(address(adapter), specifiedAmount);
+        }
+        
+        uint256 dai_balance_before = DAI.balanceOf(address(this));
+        uint256 usds_balance_before = USDS.balanceOf(address(this));
+
+        Trade memory trade =
+            adapter.swap(PAIR, DAI_ADDRESS, USDS_ADDRESS, side, specifiedAmount);
+
+        uint256 dai_balance_after = DAI.balanceOf(address(this));
+        uint256 usds_balance_after = USDS.balanceOf(address(this));
+
+        if (side == OrderSide.Buy) {
+            assertEq(specifiedAmount, usds_balance_after - usds_balance_before);
+            assertEq(
+                trade.calculatedAmount, dai_balance_before - dai_balance_after
+            );
+        } else {
+            assertEq(specifiedAmount, dai_balance_before - dai_balance_after);
+            assertEq(
+                trade.calculatedAmount, usds_balance_after - usds_balance_before
             );
         }
     }
