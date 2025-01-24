@@ -279,10 +279,7 @@ contract SkySwapAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
     function testSwapFuzzDaiForUsdc(uint256 specifiedAmount, bool isBuy)
         public
     {
-        // vm.assume(specifiedAmount > 10e6); // DAI has 18 decimals for sell, USDC 6 decimals for buy
-        // OrderSide side = isBuy ? OrderSide.Buy : OrderSide.Sell;
-        OrderSide side = OrderSide.Sell;
-
+        OrderSide side = isBuy ? OrderSide.Buy : OrderSide.Sell;
 
         uint256[] memory limits =
             adapter.getLimits(PAIR, DAI_ADDRESS, USDC_ADDRESS);
@@ -291,8 +288,8 @@ contract SkySwapAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
             // When buying USDC, specifiedAmount is in USDC (6 decimals)
             vm.assume(specifiedAmount < limits[1]);
             
-            deal(DAI_ADDRESS, address(this), 10e24);
-            DAI.approve(address(adapter), 10e24);
+            deal(DAI_ADDRESS, address(this), 10e30);
+            DAI.approve(address(adapter), 10e30);
         } else {
             // When selling DAI, specifiedAmount is in DAI (18 decimals)
             vm.assume(specifiedAmount < limits[0]);
