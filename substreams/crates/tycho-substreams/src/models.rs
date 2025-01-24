@@ -465,6 +465,7 @@ pub struct InterimContractChange {
     code: Vec<u8>,
     slots: HashMap<Vec<u8>, SlotValue>,
     change: ChangeType,
+    token_balances: HashMap<Vec<u8>, Vec<u8>>,
 }
 
 impl InterimContractChange {
@@ -475,6 +476,7 @@ impl InterimContractChange {
             code: vec![],
             slots: Default::default(),
             change: if creation { ChangeType::Creation } else { ChangeType::Update },
+            token_balances: Default::default(),
         }
     }
 
@@ -528,6 +530,11 @@ impl From<InterimContractChange> for Option<ContractChange> {
                 .map(|(slot, value)| ContractSlot { slot, value: value.new_value })
                 .collect(),
             change: value.change.into(),
+            token_balances: value
+                .token_balances
+                .into_iter()
+                .map(|(k, v)| AccountBalanceChange { token: k, balance: v })
+                .collect(),
         };
         if contract_change.is_empty() {
             None
