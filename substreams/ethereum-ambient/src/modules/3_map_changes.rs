@@ -79,10 +79,10 @@ fn map_changes(
     block_pool_changes: BlockPoolChanges,
     balance_store: StoreDeltas,
     pool_store: StoreGetProto<ProtocolComponent>,
-) -> Result<BlockContractChanges, substreams::errors::Error> {
-    let mut block_changes = BlockContractChanges::default();
+) -> Result<BlockChanges, substreams::errors::Error> {
+    let mut block_changes = BlockChanges::default();
 
-    let mut transaction_changes = TransactionContractChanges::default();
+    let mut transaction_changes = TransactionChanges::default();
 
     let mut changed_contracts: HashMap<Vec<u8>, InterimContractChange> = HashMap::new();
 
