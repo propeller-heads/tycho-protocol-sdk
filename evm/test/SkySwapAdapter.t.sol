@@ -48,6 +48,7 @@ contract SkySwapAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
     IERC20 constant MKR = IERC20(MKR_ADDRESS);
     IERC20 constant SKY = IERC20(SKY_ADDRESS);
     IERC20 constant USDC = IERC20(USDC_ADDRESS);
+    IERC20 constant SUSDS = IERC20(SUSDS_ADDRESS);
     bytes32 constant PAIR = bytes32(0);
     uint256 constant NUM_PAIRS = 6;  // Total number of token pairs
 
@@ -521,7 +522,7 @@ contract SkySwapAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
 
     //////////////////////////// USDS-sUSDS ////////////////////////////
 
-    // USDS -> sUSDS | SELL SIDE | BUY SIDE
+    // USDS -> sUSDS | SELL SIDE PASS | BUY SIDE PASS
     function testSwapFuzzUsdsForSUsds(uint256 specifiedAmount, bool isBuy)
         public
     {
@@ -533,8 +534,8 @@ contract SkySwapAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
         if (side == OrderSide.Buy) {
             vm.assume(specifiedAmount < limits[1]);
             
-            deal(USDS_ADDRESS, address(this), 10e30);
-            USDS.approve(address(adapter), 10e30);
+            deal(USDS_ADDRESS, address(this), 10e50);
+            USDS.approve(address(adapter), 10e50);
         } else {
             vm.assume(specifiedAmount < limits[0]);
             
@@ -542,31 +543,71 @@ contract SkySwapAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
             USDS.approve(address(adapter), specifiedAmount);
         }
         
-        uint256 dai_balance_before = DAI.balanceOf(address(this));
         uint256 usds_balance_before = USDS.balanceOf(address(this));
+        uint256 sUsds_balance_before = SUSDS.balanceOf(address(this));
 
         Trade memory trade =
-            adapter.swap(PAIR, USDS_ADDRESS, DAI_ADDRESS, side, specifiedAmount);
+            adapter.swap(PAIR, USDS_ADDRESS, SUSDS_ADDRESS, side, specifiedAmount);
 
-        uint256 dai_balance_after = DAI.balanceOf(address(this));
         uint256 usds_balance_after = USDS.balanceOf(address(this));
+        uint256 sUsds_balance_after = SUSDS.balanceOf(address(this));
 
         if (side == OrderSide.Buy) {
-            assertEq(specifiedAmount, dai_balance_after - dai_balance_before);
+            assertEq(specifiedAmount, sUsds_balance_after - sUsds_balance_before);
             assertEq(
                 trade.calculatedAmount, usds_balance_before - usds_balance_after
             );
         } else {
             assertEq(specifiedAmount, usds_balance_before - usds_balance_after);
             assertEq(
-                trade.calculatedAmount, dai_balance_after - dai_balance_before
+                trade.calculatedAmount, sUsds_balance_after - sUsds_balance_before
             );
         }
     }
 
-
-
     // sUSDS -> USDS | SELL SIDE | BUY SIDE
+
+    function testSwapFuzzSUsdsForUsds(uint256 specifiedAmount, bool isBuy)
+        public
+    {
+        OrderSide side = isBuy ? OrderSide.Buy : OrderSide.Sell;
+
+        uint256[] memory limits =
+            adapter.getLimits(PAIR, SUSDS_ADDRESS, USDS_ADDRESS);
+
+        if (side == OrderSide.Buy) {
+            vm.assume(specifiedAmount < limits[1]);
+            
+            deal(SUSDS_ADDRESS, address(this), 10e50);
+            SUSDS.approve(address(adapter), 10e50);
+        } else {
+            vm.assume(specifiedAmount < limits[0]);
+            
+            deal(SUSDS_ADDRESS, address(this), specifiedAmount);
+            SUSDS.approve(address(adapter), specifiedAmount);
+        }
+        
+        uint256 sUsds_balance_before = SUSDS.balanceOf(address(this));
+        uint256 usds_balance_before = USDS.balanceOf(address(this));
+
+        Trade memory trade =
+            adapter.swap(PAIR, SUSDS_ADDRESS, USDS_ADDRESS, side, specifiedAmount);
+
+        uint256 sUsds_balance_after = SUSDS.balanceOf(address(this));
+        uint256 usds_balance_after = USDS.balanceOf(address(this));
+
+        if (side == OrderSide.Buy) {
+            assertEq(specifiedAmount, usds_balance_after - usds_balance_before);
+            assertEq(
+                trade.calculatedAmount, sUsds_balance_before - sUsds_balance_after
+            );
+        } else {
+            assertEq(specifiedAmount, sUsds_balance_before - sUsds_balance_after);
+            assertEq(
+                trade.calculatedAmount, usds_balance_after - usds_balance_before
+            );
+        }
+    }
 
 
     //////////////////////////// MKR-SKY ////////////////////////////
