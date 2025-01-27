@@ -1,0 +1,35 @@
+specVersion: v0.1.0
+package:
+  name: "ethereum_ekubo"
+  version: v0.1.0
+
+protobuf:
+  files:
+    - tycho/evm/v1/vm.proto
+    - tycho/evm/v1/common.proto
+    - tycho/evm/v1/utils.proto
+  importPaths:
+    - ../../proto
+    - ./proto
+
+binaries:
+  default:
+    type: wasm/rust-v1
+    file: ../target/wasm32-unknown-unknown/release/ethereum_ekubo.wasm
+
+modules:
+  - name: map_protocol_changes
+    kind: map
+    initialBlock: 0x73b68a
+    inputs:
+      - params: string
+      - source: sf.ethereum.type.v2.Block
+    output:
+      type: proto:tycho.evm.state.v1.BlockContractChanges
+
+network: sepolia
+
+networks:
+  sepolia:
+    params:
+      map_protocol_changes: "core_address=1e86d6184ff853b16836010ff6284c340cb3f0a0&oracle_address=51bac5cf785aad8d81310ef1ddbb8e49ebbdc2c6"

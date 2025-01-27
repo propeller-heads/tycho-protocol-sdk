@@ -1,0 +1,28 @@
+[package]
+name = "ethereum-ekubo"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "ethereum_ekubo"
+crate-type = ["cdylib"]
+
+[build-dependencies]
+anyhow = "1.0.95"
+substreams-ethereum = "0.9"
+
+[dependencies]
+substreams = "0.5.22"
+substreams-ethereum = "0.9.9"
+prost = "0.11"
+tycho-substreams = { git = "https://github.com/propeller-heads/tycho-protocol-sdk.git", rev = "b8aeaa3" }
+serde = "1.0.217"
+serde_qs = "0.13.0"
+hex = "0.4.3"
+tiny-keccak = "2.0.2"   
+ethabi = "18.0.0"
+num-bigint = "0.4.4"
+
+# Required so that ethabi > ethereum-types build correctly under wasm32-unknown-unknown
+[target.wasm32-unknown-unknown.dependencies]
+getrandom = { version = "0.2", features = ["custom"] }
