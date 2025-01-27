@@ -414,7 +414,7 @@ contract SkySwapAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
 
     //////////////////////////// USDS-USDC ////////////////////////////
 
-    // USDC -> USDS | SELL SIDE PASS | BUY SIDE
+    // USDC -> USDS | SELL SIDE PASS | BUY SIDE PASS
 
     function testSwapFuzzUsdcForUsds(uint256 specifiedAmount, bool isBuy)
         public
@@ -471,7 +471,52 @@ contract SkySwapAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
     }
 
 
-    // USDS -> USDC | SELL SIDE | BUY SIDE
+    // USDS -> USDC | SELL SIDE PASS | BUY SIDE PASS
+    function testSwapFuzzUsdsForUsdc(uint256 specifiedAmount, bool isBuy)
+        public
+    {
+        OrderSide side = isBuy ? OrderSide.Buy : OrderSide.Sell;
+
+        uint256[] memory limits =
+            adapter.getLimits(PAIR, USDS_ADDRESS, USDC_ADDRESS);
+
+        if (side == OrderSide.Buy) {
+            // When buying USDC, specifiedAmount is in USDC (6 decimals)
+            vm.assume(specifiedAmount < limits[1]);
+            
+            deal(USDS_ADDRESS, address(this), 10e50);
+            USDS.approve(address(adapter), 10e50);
+        } else {
+            // When selling USDS, specifiedAmount is in USDS (18 decimals)
+            vm.assume(specifiedAmount < limits[0]);
+
+            deal(USDS_ADDRESS, address(this), specifiedAmount);
+            USDS.approve(address(adapter), specifiedAmount);
+        }
+
+        uint256 usds_balance_before = USDS.balanceOf(address(this));
+        uint256 usdc_balance_before = USDC.balanceOf(address(this));
+
+        Trade memory trade =
+            adapter.swap(PAIR, USDS_ADDRESS, USDC_ADDRESS, side, specifiedAmount);
+
+        uint256 usds_balance_after = USDS.balanceOf(address(this));
+        uint256 usdc_balance_after = USDC.balanceOf(address(this));
+
+        if (side == OrderSide.Buy) {
+            // When buying USDC, specified amount is in USDC (6 decimals)
+            assertEq(specifiedAmount, usdc_balance_after - usdc_balance_before);
+            assertEq(
+                trade.calculatedAmount, usds_balance_before - usds_balance_after
+            );
+        } else {
+            // When selling USDS, specified amount is in USDS (18 decimals)
+            assertEq(specifiedAmount, usds_balance_before - usds_balance_after);
+            assertEq(
+                trade.calculatedAmount, usdc_balance_after - usdc_balance_before
+            );
+        }
+    }
 
 
     //////////////////////////// USDS-sUSDS ////////////////////////////
