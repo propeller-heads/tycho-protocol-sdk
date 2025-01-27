@@ -565,7 +565,7 @@ contract SkySwapAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
         }
     }
 
-    // sUSDS -> USDS | SELL SIDE | BUY SIDE
+    // sUSDS -> USDS | SELL SIDE PASS | BUY SIDE PASS
 
     function testSwapFuzzSUsdsForUsds(uint256 specifiedAmount, bool isBuy)
         public
@@ -612,10 +612,104 @@ contract SkySwapAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
 
     //////////////////////////// MKR-SKY ////////////////////////////
 
-    // MKR -> SKY | SELL SIDE | BUY SIDE
+    // MKR -> SKY | SELL SIDE PASS | BUY SIDE PASS
 
+    function testSwapFuzzMkrForSky(uint256 specifiedAmount, bool isBuy)
+        public
+    {
+        OrderSide side = isBuy ? OrderSide.Buy : OrderSide.Sell;
+        uint256[] memory limits =
+            adapter.getLimits(PAIR, MKR_ADDRESS, SKY_ADDRESS);
 
-    // SKY -> MKR | SELL SIDE | BUY SIDE
+        if (side == OrderSide.Buy) {
+            vm.assume(specifiedAmount < limits[1]);
+
+            deal(MKR_ADDRESS, address(this), 10e50);
+            MKR.approve(address(adapter), 10e50);
+        } else {
+            vm.assume(specifiedAmount < limits[0]);
+
+            deal(MKR_ADDRESS, address(this), specifiedAmount);
+            MKR.approve(address(adapter), specifiedAmount);
+        }
+        
+        uint256 mkr_balance_before = MKR.balanceOf(address(this));
+        uint256 sky_balance_before = SKY.balanceOf(address(this));
+
+        Trade memory trade =
+            adapter.swap(PAIR, MKR_ADDRESS, SKY_ADDRESS, side, specifiedAmount);
+
+        uint256 mkr_balance_after = MKR.balanceOf(address(this));
+        uint256 sky_balance_after = SKY.balanceOf(address(this));
+
+        if (side == OrderSide.Buy) {
+
+            uint256 skyReceived = sky_balance_after - sky_balance_before;
+            assertApproxEqAbs(
+                specifiedAmount,
+                skyReceived,
+                1e15,
+                "SKY amount received differs too much from specified"
+            );
+            assertEq(
+                trade.calculatedAmount, mkr_balance_before - mkr_balance_after
+            );
+        } else {
+            assertEq(specifiedAmount, mkr_balance_before - mkr_balance_after);
+            assertEq(
+                trade.calculatedAmount, sky_balance_after - sky_balance_before
+            );
+        }
+    }
+
+    // SKY -> MKR | SELL SIDE PASS | BUY SIDE PASS
+
+    function testSwapFuzzSkyForMkr(uint256 specifiedAmount, bool isBuy)
+        public
+    {
+        OrderSide side = isBuy ? OrderSide.Buy : OrderSide.Sell;
+        uint256[] memory limits =
+            adapter.getLimits(PAIR, SKY_ADDRESS, MKR_ADDRESS);
+
+        if (side == OrderSide.Buy) {
+            vm.assume(specifiedAmount < limits[1]);
+
+            deal(SKY_ADDRESS, address(this), 10e50);
+            SKY.approve(address(adapter), 10e50);
+        } else {
+            vm.assume(specifiedAmount < limits[0]);
+
+            deal(SKY_ADDRESS, address(this), specifiedAmount);
+            SKY.approve(address(adapter), specifiedAmount);
+        }
+        
+        uint256 sky_balance_before = SKY.balanceOf(address(this));
+        uint256 mkr_balance_before = MKR.balanceOf(address(this));
+
+        Trade memory trade =
+            adapter.swap(PAIR, SKY_ADDRESS, MKR_ADDRESS, side, specifiedAmount);
+
+        uint256 sky_balance_after = SKY.balanceOf(address(this));
+        uint256 mkr_balance_after = MKR.balanceOf(address(this));
+
+        if (side == OrderSide.Buy) {
+            uint256 mkrReceived = mkr_balance_after - mkr_balance_before;
+            assertApproxEqAbs(
+                specifiedAmount,
+                mkrReceived,
+                1e14,
+                "MKR amount received differs too much from specified"
+            );
+            assertEq(
+                trade.calculatedAmount, sky_balance_before - sky_balance_after
+            );
+        } else {
+            assertEq(specifiedAmount, sky_balance_before - sky_balance_after);
+            assertEq(
+                trade.calculatedAmount, mkr_balance_after - mkr_balance_before
+            );
+        }
+    }
 
     ////////////////////////////////////////// Get Limits ///////////////////////////////////////
 
