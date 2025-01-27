@@ -8,32 +8,74 @@ import {
     IERC20,
     SafeERC20
 } from "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
-import {IERC4626} from "openzeppelin-contracts/contracts/interfaces/IERC4626.sol";
+import {IERC4626} from
+    "openzeppelin-contracts/contracts/interfaces/IERC4626.sol";
 import "forge-std/Test.sol";
 
-
-/// @title SkySwapAdapter
-
+/**
+ * @title SkySwapAdapter
+ * @notice Adapter for SkySwap
+ * @dev This adapter supports the following token pairs:
+ *      - DAI <-> sDAI
+ *      - DAI <-> USDC | 1:1
+ *      - DAI <-> USDS | 1:1
+ *      - USDS <-> USDC | 1:1
+ *      - USDS <-> sUSDS | 1:1
+ *      - MKR <-> SKY | 1:24000
+ */
 contract SkySwapAdapter is ISwapAdapter {
     using SafeERC20 for IERC20;
     using SafeERC20 for ISavingsDai;
 
-    uint256 constant PRECISION = 10 ** 18;
-    uint256 constant MKR_TO_SKY_RATE = 24000;
+    uint256 private constant PRECISION = 10 ** 18;
+    uint256 private constant MKR_TO_SKY_RATE = 24000;
+    uint256 private constant RESERVE_FACTOR = 10;
 
-    // DAI <-> sDAI
-    ISavingsDai immutable savingsDai; // 0x83F20F44975D03b1b09e64809B757c47f942BEeA
-    // DAI <-> USDC
-    IDssLitePSM immutable daiLitePSM; // 0xf6e72Db5454dd049d0788e411b06CfAF16853042
-    // DAI <-> USDS
-    IDaiUsdsConverter immutable daiUsdsConverter; // 0x3225737a9Bbb6473CB4a45b7244ACa2BeFdB276A
-    // USDS <-> USDC
-    IUsdsPsmWrapper immutable usdsPsmWrapper; // 0xA188EEC8F81263234dA3622A406892F3D630f98c
-    // USDS <-> sUSDS
-    ISUsds immutable sUsds; // 0xa3931d71877C0E7a3148CB7Eb4463524FEc27fbD
-    // MKR <-> SKY
-    IMkrSkyConverter immutable mkrSkyConverter; // 0xBDcFCA946b6CDd965f99a839e4435Bcdc1bc470B
-
+    /**
+     * @dev SavingsDai swaps DAI <-> sDAI.
+     *      Address: 0x83F20F44975D03b1b09e64809B757c47f942BEeA
+     */
+    ISavingsDai immutable sDai;
+    /**
+     * @dev DSSLitePsm swaps DAI <-> USDC (referred to as "gem") at a fixed
+     * ratio of 1:1.
+     *      Fees `tin` and `tout` might apply.
+     *      `gem` balance is kept in `pocket` instead of this contract.
+     *      Address: 0xf6e72Db5454dd049d0788e411b06CfAF16853042
+     */
+    IDssLitePSM immutable daiLitePSM;
+    /**
+     * @dev DaiUsdsConverter converts DAI <-> USDS at a fixed ratio of 1:1.
+     *      No fees assessed. Fees cannot be enabled on this route in the
+     * future.
+     *      Address: 0x3225737a9Bbb6473CB4a45b7244ACa2BeFdB276A
+     */
+    IDaiUsdsConverter immutable daiUsdsConverter;
+    /**
+     * @dev USDSPSMWrapper swaps USDS <-> USDC (referred to as "gem") at a fixed
+     * ratio of 1:1.
+     *      Fees `tin` and `tout` might apply.
+     *      It uses DAI as the intermediary token.
+     *      Address: 0xA188EEC8F81263234dA3622A406892F3D630f98c
+     */
+    IUsdsPsmWrapper immutable usdsPsmWrapper;
+    /**
+     * @dev sUSDS swaps USDS <-> sUSDS
+     *      Contract contains an ERC4626 compatible interface to allow users to
+     *      deposit USDS to receive sUSDS or withdraw USDS with their sUSDS
+     * balance.
+     *      No fees assessed. Fees cannot be enabled on this route in the
+     * future.
+     *      Address: 0xa3931d71877C0E7a3148CB7Eb4463524FEc27fbD
+     */
+    ISUsds immutable sUsds;
+    /**
+     * @dev MkMkrSkyConverter converts MKR <-> SKY at a fixed ratio of 1:24000.
+     *      if minting capabilities are removed from either token, conversion
+     * for that token will no longer be possible.
+     *      Address: 0xBDcFCA946b6CDd965f99a839e4435Bcdc1bc470B
+     */
+    IMkrSkyConverter immutable mkrSkyConverter;
 
     IERC20 immutable dai; // 0x6B175474E89094C44Da98b954EedeAC495271d0F
     IERC20 immutable usds; // 0xdC035D45d973E3EC169d2276DDab16f1e407384F
@@ -41,22 +83,20 @@ contract SkySwapAdapter is ISwapAdapter {
     IERC20 immutable mkr; // 0x9f8F72aA9304c8B593d555F12eF6589cC3A579A2
     IERC20 immutable sky; // 0x56072C95FAA701256059aa122697B133aDEd9279
 
-
     constructor(
         address savingsDai_,
-        address daiLitePSM_, 
-        address daiUsdsConverter_, 
-        address usdsPsmWrapper_, 
+        address daiLitePSM_,
+        address daiUsdsConverter_,
+        address usdsPsmWrapper_,
         address sUsds_,
         address mkrSkyConverter_,
-        address dai_, 
-        address usds_, 
-        address usdc_, 
-        address mkr_, 
+        address dai_,
+        address usds_,
+        address usdc_,
+        address mkr_,
         address sky_
-    ) 
-    {
-        savingsDai = ISavingsDai(savingsDai_);
+    ) {
+        sDai = ISavingsDai(savingsDai_);
         daiLitePSM = IDssLitePSM(daiLitePSM_);
         daiUsdsConverter = IDaiUsdsConverter(daiUsdsConverter_);
         usdsPsmWrapper = IUsdsPsmWrapper(usdsPsmWrapper_);
@@ -69,54 +109,84 @@ contract SkySwapAdapter is ISwapAdapter {
         sky = IERC20(sky_);
     }
 
-    // Token pair checks
-    function isDaiSDaiPair(address sellToken, address buyToken) internal view returns (bool) {
-        return (sellToken == address(dai) && buyToken == address(savingsDai)) ||
-               (sellToken == address(savingsDai) && buyToken == address(dai));
+    /**
+     * @dev This function is used in the checkInputTokens modifier to determine
+     *      if the provided sellToken and buyToken are supported by this
+     * adapter.
+     */
+    function isDaiSDaiPair(address sellToken, address buyToken)
+        internal
+        view
+        returns (bool)
+    {
+        return (sellToken == address(dai) && buyToken == address(sDai))
+            || (sellToken == address(sDai) && buyToken == address(dai));
     }
 
-    function isDaiUsdcPair(address sellToken, address buyToken) internal view returns (bool) {
-        return (sellToken == address(dai) && buyToken == address(usdc)) ||
-               (sellToken == address(usdc) && buyToken == address(dai));
+    function isDaiUsdcPair(address sellToken, address buyToken)
+        internal
+        view
+        returns (bool)
+    {
+        return (sellToken == address(dai) && buyToken == address(usdc))
+            || (sellToken == address(usdc) && buyToken == address(dai));
     }
 
-    function isDaiUsdsPair(address sellToken, address buyToken) internal view returns (bool) {
-        return (sellToken == address(dai) && buyToken == address(usds)) ||
-               (sellToken == address(usds) && buyToken == address(dai));
+    function isDaiUsdsPair(address sellToken, address buyToken)
+        internal
+        view
+        returns (bool)
+    {
+        return (sellToken == address(dai) && buyToken == address(usds))
+            || (sellToken == address(usds) && buyToken == address(dai));
     }
 
-    function isUsdsUsdcPair(address sellToken, address buyToken) internal view returns (bool) {
-        return (sellToken == address(usds) && buyToken == address(usdc)) ||
-               (sellToken == address(usdc) && buyToken == address(usds));
+    function isUsdsUsdcPair(address sellToken, address buyToken)
+        internal
+        view
+        returns (bool)
+    {
+        return (sellToken == address(usds) && buyToken == address(usdc))
+            || (sellToken == address(usdc) && buyToken == address(usds));
     }
 
-    function isUsdsSUsdsPair(address sellToken, address buyToken) internal view returns (bool) {
-        return (sellToken == address(usds) && buyToken == address(sUsds)) ||
-               (sellToken == address(sUsds) && buyToken == address(usds));
+    function isUsdsSUsdsPair(address sellToken, address buyToken)
+        internal
+        view
+        returns (bool)
+    {
+        return (sellToken == address(usds) && buyToken == address(sUsds))
+            || (sellToken == address(sUsds) && buyToken == address(usds));
     }
 
-    function isMkrSkyPair(address sellToken, address buyToken) internal view returns (bool) {
-        return (sellToken == address(mkr) && buyToken == address(sky)) ||
-               (sellToken == address(sky) && buyToken == address(mkr));
+    function isMkrSkyPair(address sellToken, address buyToken)
+        internal
+        view
+        returns (bool)
+    {
+        return (sellToken == address(mkr) && buyToken == address(sky))
+            || (sellToken == address(sky) && buyToken == address(mkr));
     }
 
-    /// @dev Check if swap between provided sellToken and buyToken are supported
-    /// by this adapter
+    /**
+     * @dev Check if swap between provided sellToken and buyToken are supported
+     *      by this adapter.
+     */
     modifier checkInputTokens(address sellToken, address buyToken) {
-        bool isValidPair = 
-            isDaiSDaiPair(sellToken, buyToken) ||
-            isDaiUsdcPair(sellToken, buyToken) ||
-            isDaiUsdsPair(sellToken, buyToken) ||
-            isUsdsUsdcPair(sellToken, buyToken) ||
-            isUsdsSUsdsPair(sellToken, buyToken) ||
-            isMkrSkyPair(sellToken, buyToken);
+        bool isValidPair = isDaiSDaiPair(sellToken, buyToken)
+            || isDaiUsdcPair(sellToken, buyToken)
+            || isDaiUsdsPair(sellToken, buyToken)
+            || isUsdsUsdcPair(sellToken, buyToken)
+            || isUsdsSUsdsPair(sellToken, buyToken)
+            || isMkrSkyPair(sellToken, buyToken);
 
         if (!isValidPair) {
-            revert Unavailable("Sky: Unsupported token pair");
+            revert Unavailable("SkySwapAdapter: Unsupported token pair");
         }
 
         _;
     }
+
     /// @inheritdoc ISwapAdapter
     function price(
         bytes32 _poolId,
@@ -134,13 +204,18 @@ contract SkySwapAdapter is ISwapAdapter {
         address buyToken,
         OrderSide side,
         uint256 specifiedAmount
-    ) external override checkInputTokens(sellToken, buyToken) returns (Trade memory trade) {
-
+    )
+        external
+        override
+        checkInputTokens(sellToken, buyToken)
+        returns (Trade memory trade)
+    {
         if (specifiedAmount == 0) {
             return trade;
         }
 
-        uint256 gasBefore = gasleft();      
+        uint256 gasBefore = gasleft();
+
         if (side == OrderSide.Sell) {
             trade.calculatedAmount = sell(sellToken, buyToken, specifiedAmount);
         } else {
@@ -150,54 +225,62 @@ contract SkySwapAdapter is ISwapAdapter {
         trade.gasUsed = gasBefore - gasleft();
 
         trade.price = getPriceAt(sellToken, buyToken);
-
     }
 
-    /// @notice Executes a sell order on the contract.
-    /// @param sellToken The token being sold.
-    /// @param buyToken The token being bought.
-    /// @param specifiedAmount The amount to be traded.
-    /// @return calculatedAmount The amount of tokens received.
-    function sell(address sellToken, address buyToken, uint256 specifiedAmount) internal returns (uint256 calculatedAmount) {
-        
-        IERC20(sellToken).safeTransferFrom(msg.sender, address(this), specifiedAmount);
-        
+    /**
+     * @notice Executes a sell order on the contract.
+     * @param sellToken The token being sold.
+     * @param buyToken The token being bought.
+     * @param specifiedAmount The amount to be traded.
+     * @return calculatedAmount The amount of tokens received.
+     */
+    function sell(address sellToken, address buyToken, uint256 specifiedAmount)
+        internal
+        returns (uint256 calculatedAmount)
+    {
+        IERC20(sellToken).safeTransferFrom(
+            msg.sender, address(this), specifiedAmount
+        );
+        // DAI <-> sDAI
         if (isDaiSDaiPair(sellToken, buyToken)) {
-
             if (address(sellToken) == address(dai)) {
-                IERC20(sellToken).safeIncreaseAllowance(address(savingsDai), specifiedAmount);
+                IERC20(sellToken).safeIncreaseAllowance(
+                    address(sDai), specifiedAmount
+                );
             }
 
             return address(sellToken) == address(dai)
-                ? savingsDai.deposit(specifiedAmount, msg.sender)
-                    : savingsDai.redeem(specifiedAmount, msg.sender, address(this));
-
-        }  else if (isDaiUsdcPair(sellToken, buyToken)) {
-            IERC20(sellToken).safeIncreaseAllowance(address(daiLitePSM), specifiedAmount);
+                ? sDai.deposit(specifiedAmount, msg.sender)
+                : sDai.redeem(specifiedAmount, msg.sender, address(this));
+        }
+        // DAI <-> USDC
+        if (isDaiUsdcPair(sellToken, buyToken)) {
+            IERC20(sellToken).safeIncreaseAllowance(
+                address(daiLitePSM), specifiedAmount
+            );
 
             // USDC-DAI
             if (address(sellToken) == address(usdc)) {
                 return daiLitePSM.sellGem(msg.sender, specifiedAmount);
-
-            // DAI-USDC
             } else {
-                // Convert DAI (18 decimals) to USDC (6 decimals)
-                uint256 usdcAmount = specifiedAmount / daiLitePSM.to18ConversionFactor();
-                
-                // Calculate fees if any
+                uint256 usdcAmount =
+                    specifiedAmount / daiLitePSM.to18ConversionFactor();
+
                 if (daiLitePSM.tout() > 0) {
-                    uint256 fee = usdcAmount * daiLitePSM.tout() / daiLitePSM.WAD();
+                    uint256 fee =
+                        (usdcAmount * daiLitePSM.tout()) / daiLitePSM.WAD();
                     usdcAmount = usdcAmount - fee;
                 }
-                
+
                 daiLitePSM.buyGem(msg.sender, usdcAmount);
                 return usdcAmount;
             }
-        } else if (isDaiUsdsPair(sellToken, buyToken)) {
-            // Converts DAI to USDS at a fixed ratio of 1:1 and vice versa.
-            // No fees assessed. 
-            // Fees cannot be enabled on this route in the future.
-            IERC20(sellToken).safeIncreaseAllowance(address(daiUsdsConverter), specifiedAmount);
+        }
+        // DAI <-> USDS
+        if (isDaiUsdsPair(sellToken, buyToken)) {
+            IERC20(sellToken).safeIncreaseAllowance(
+                address(daiUsdsConverter), specifiedAmount
+            );
             if (address(sellToken) == address(dai)) {
                 daiUsdsConverter.daiToUsds(msg.sender, specifiedAmount);
                 return specifiedAmount;
@@ -205,39 +288,53 @@ contract SkySwapAdapter is ISwapAdapter {
                 daiUsdsConverter.usdsToDai(msg.sender, specifiedAmount);
                 return specifiedAmount;
             }
-
-        } else if (isUsdsUsdcPair(sellToken, buyToken)) {
-            IERC20(sellToken).safeIncreaseAllowance(address(usdsPsmWrapper), specifiedAmount);
+        }
+        // USDS <-> USDC
+        if (isUsdsUsdcPair(sellToken, buyToken)) {
+            IERC20(sellToken).safeIncreaseAllowance(
+                address(usdsPsmWrapper), specifiedAmount
+            );
 
             if (address(sellToken) == address(usdc)) {
                 return usdsPsmWrapper.sellGem(msg.sender, specifiedAmount);
             } else {
-                uint256 usdcAmount = specifiedAmount / usdsPsmWrapper.to18ConversionFactor();
+                uint256 usdcAmount =
+                    specifiedAmount / usdsPsmWrapper.to18ConversionFactor();
                 if (usdsPsmWrapper.tout() > 0) {
-                    uint256 fee = usdcAmount * usdsPsmWrapper.tout() / usdsPsmWrapper.WAD();
+                    uint256 fee = (usdcAmount * usdsPsmWrapper.tout())
+                        / usdsPsmWrapper.WAD();
                     usdcAmount = usdcAmount - fee;
                 }
                 usdsPsmWrapper.buyGem(msg.sender, usdcAmount);
                 return usdcAmount;
             }
-        } else if (isUsdsSUsdsPair(sellToken, buyToken)) {
-            IERC20(sellToken).safeIncreaseAllowance(address(sUsds), specifiedAmount);
+        }
+        // USDS <-> sUSDS
+        if (isUsdsSUsdsPair(sellToken, buyToken)) {
+            IERC20(sellToken).safeIncreaseAllowance(
+                address(sUsds), specifiedAmount
+            );
 
             return address(sellToken) == address(usds)
                 ? sUsds.deposit(specifiedAmount, msg.sender)
-                    : sUsds.redeem(specifiedAmount, msg.sender, address(this));
-
-        } else if (isMkrSkyPair(sellToken, buyToken)) {
-            IERC20(sellToken).safeIncreaseAllowance(address(mkrSkyConverter), specifiedAmount);
-
+                : sUsds.redeem(specifiedAmount, msg.sender, address(this));
+        }
+        // MKR <-> SKY
+        if (isMkrSkyPair(sellToken, buyToken)) {
             if (address(sellToken) == address(mkr)) {
-                return mkrSkyConverter.mkrToSky(msg.sender, specifiedAmount);
+                mkr.safeIncreaseAllowance(
+                    address(mkrSkyConverter), specifiedAmount
+                );
+                mkrSkyConverter.mkrToSky(msg.sender, specifiedAmount);
+                return specifiedAmount * MKR_TO_SKY_RATE;
             } else {
-                return mkrSkyConverter.skyToMkr(msg.sender, specifiedAmount);
+                sky.safeIncreaseAllowance(
+                    address(mkrSkyConverter), specifiedAmount
+                );
+                mkrSkyConverter.skyToMkr(msg.sender, specifiedAmount);
+                return specifiedAmount / MKR_TO_SKY_RATE;
             }
         }
-
-        revert Unavailable("Sky: Unsupported token pair");
     }
 
     /// @notice Executes a buy order on the contract.
@@ -248,27 +345,29 @@ contract SkySwapAdapter is ISwapAdapter {
         internal
         returns (uint256 calculatedAmount)
     {
+        // DAI <-> sDAI
         if (isDaiSDaiPair(sellToken, buyToken)) {
-            if (address(buyToken) == address(savingsDai)) {
-                // DAI->sDAI: Calculate DAI needed for specified sDAI amount
-                uint256 amountIn = savingsDai.previewMint(specifiedAmount);
+            if (address(buyToken) == address(sDai)) {
+                uint256 amountIn = sDai.previewMint(specifiedAmount);
                 dai.safeTransferFrom(msg.sender, address(this), amountIn);
-                dai.safeIncreaseAllowance(address(savingsDai), amountIn);
-                savingsDai.mint(specifiedAmount, msg.sender);
+                dai.safeIncreaseAllowance(address(sDai), amountIn);
+                sDai.mint(specifiedAmount, msg.sender);
                 return amountIn;
             } else {
-                // sDAI->DAI: Calculate sDAI needed for specified DAI amount
-                uint256 amountIn = savingsDai.previewWithdraw(specifiedAmount);
-                savingsDai.safeTransferFrom(msg.sender, address(this), amountIn);
-                savingsDai.withdraw(specifiedAmount, msg.sender, address(this));
+                uint256 amountIn = sDai.previewWithdraw(specifiedAmount);
+                sDai.safeTransferFrom(msg.sender, address(this), amountIn);
+                sDai.withdraw(specifiedAmount, msg.sender, address(this));
                 return amountIn;
             }
-        } else if (isDaiUsdcPair(sellToken, buyToken)) {
+        }
+        // DAI <-> USDC
+        if (isDaiUsdcPair(sellToken, buyToken)) {
             if (address(buyToken) == address(usdc)) {
-                // DAI->USDC: Calculate DAI needed for specified USDC amount
-                uint256 amountIn = specifiedAmount * daiLitePSM.to18ConversionFactor();
+                uint256 amountIn =
+                    specifiedAmount * daiLitePSM.to18ConversionFactor();
                 if (daiLitePSM.tout() > 0) {
-                    uint256 fee = amountIn * daiLitePSM.tout() / daiLitePSM.WAD();
+                    uint256 fee =
+                        (amountIn * daiLitePSM.tout()) / daiLitePSM.WAD();
                     amountIn += fee;
                 }
                 dai.safeTransferFrom(msg.sender, address(this), amountIn);
@@ -276,37 +375,47 @@ contract SkySwapAdapter is ISwapAdapter {
                 daiLitePSM.buyGem(msg.sender, specifiedAmount);
                 return amountIn;
             } else {
-                // USDC->DAI: Calculate USDC needed for specified DAI amount
-                uint256 usdcAmount = specifiedAmount / daiLitePSM.to18ConversionFactor();
+                uint256 usdcAmount =
+                    specifiedAmount / daiLitePSM.to18ConversionFactor();
                 if (daiLitePSM.tin() > 0) {
-                    uint256 fee = usdcAmount * daiLitePSM.tin() / daiLitePSM.WAD();
-                    usdcAmount += fee;  // Add fee to input amount
+                    uint256 fee =
+                        (usdcAmount * daiLitePSM.tin()) / daiLitePSM.WAD();
+                    usdcAmount += fee; // Add fee to input amount
                 }
                 usdc.safeTransferFrom(msg.sender, address(this), usdcAmount);
                 usdc.safeIncreaseAllowance(address(daiLitePSM), usdcAmount);
-                uint256 daiOut = daiLitePSM.sellGem(msg.sender, usdcAmount);
+                daiLitePSM.sellGem(msg.sender, usdcAmount);
                 return usdcAmount;
             }
-        } else if (isDaiUsdsPair(sellToken, buyToken)) {
+        }
+        // DAI <-> USDS
+        if (isDaiUsdsPair(sellToken, buyToken)) {
             if (address(buyToken) == address(usds)) {
-                // DAI->USDS
                 dai.safeTransferFrom(msg.sender, address(this), specifiedAmount);
-                dai.safeIncreaseAllowance(address(daiUsdsConverter), specifiedAmount);
+                dai.safeIncreaseAllowance(
+                    address(daiUsdsConverter), specifiedAmount
+                );
                 daiUsdsConverter.daiToUsds(msg.sender, specifiedAmount);
                 return specifiedAmount;
             } else {
-                // USDS->DAI
-                usds.safeTransferFrom(msg.sender, address(this), specifiedAmount);
-                usds.safeIncreaseAllowance(address(daiUsdsConverter), specifiedAmount);
+                usds.safeTransferFrom(
+                    msg.sender, address(this), specifiedAmount
+                );
+                usds.safeIncreaseAllowance(
+                    address(daiUsdsConverter), specifiedAmount
+                );
                 daiUsdsConverter.usdsToDai(msg.sender, specifiedAmount);
                 return specifiedAmount;
             }
-        } else if (isUsdsUsdcPair(sellToken, buyToken)) {
+        }
+        // USDS <-> USDC
+        if (isUsdsUsdcPair(sellToken, buyToken)) {
             if (address(buyToken) == address(usdc)) {
-                // USDS->USDC
-                uint256 amountIn = specifiedAmount * usdsPsmWrapper.to18ConversionFactor();
+                uint256 amountIn =
+                    specifiedAmount * usdsPsmWrapper.to18ConversionFactor();
                 if (usdsPsmWrapper.tout() > 0) {
-                    uint256 fee = amountIn * usdsPsmWrapper.tout() / usdsPsmWrapper.WAD();
+                    uint256 fee = (amountIn * usdsPsmWrapper.tout())
+                        / usdsPsmWrapper.WAD();
                     amountIn += fee;
                 }
                 usds.safeTransferFrom(msg.sender, address(this), amountIn);
@@ -314,46 +423,48 @@ contract SkySwapAdapter is ISwapAdapter {
                 usdsPsmWrapper.buyGem(msg.sender, specifiedAmount);
                 return amountIn;
             } else {
-                // USDC->USDS: Calculate USDC needed for specified USDS amount
-                uint256 usdcAmount = specifiedAmount / usdsPsmWrapper.to18ConversionFactor();
-                console.log("usdcAmount 1", usdcAmount);
-                console.log("specifiedAmount Adapter Contract:", specifiedAmount);
-                console.log("to18ConversionFactor", usdsPsmWrapper.to18ConversionFactor());
+                uint256 usdcAmount =
+                    specifiedAmount / usdsPsmWrapper.to18ConversionFactor();
                 if (usdsPsmWrapper.tin() > 0) {
-                    uint256 fee = usdcAmount * usdsPsmWrapper.tin() / usdsPsmWrapper.WAD();
+                    uint256 fee = (usdcAmount * usdsPsmWrapper.tin())
+                        / usdsPsmWrapper.WAD();
                     usdcAmount += fee;
                 }
-                console.log("usdcAmount 2", usdcAmount);
                 usdc.safeTransferFrom(msg.sender, address(this), usdcAmount);
                 usdc.safeIncreaseAllowance(address(usdsPsmWrapper), usdcAmount);
                 usdsPsmWrapper.sellGem(msg.sender, usdcAmount);
                 return usdcAmount;
             }
-        } else if (isUsdsSUsdsPair(sellToken, buyToken)) {
+        }
+        // USDS <-> sUSDS
+        if (isUsdsSUsdsPair(sellToken, buyToken)) {
             if (address(buyToken) == address(sUsds)) {
-                // USDS->sUSDS
                 uint256 amountIn = sUsds.previewMint(specifiedAmount);
                 usds.safeTransferFrom(msg.sender, address(this), amountIn);
                 usds.safeIncreaseAllowance(address(sUsds), amountIn);
                 sUsds.mint(specifiedAmount, msg.sender);
                 return amountIn;
             } else {
-                // sUSDS->USDS
                 uint256 amountIn = sUsds.previewWithdraw(specifiedAmount);
-                IERC20(address(sUsds)).safeTransferFrom(msg.sender, address(this), amountIn);
+                IERC20(address(sUsds)).safeTransferFrom(
+                    msg.sender, address(this), amountIn
+                );
+                IERC20(address(sUsds)).safeIncreaseAllowance(
+                    address(sUsds), amountIn
+                );
                 sUsds.withdraw(specifiedAmount, msg.sender, address(this));
                 return amountIn;
             }
-        } else if (isMkrSkyPair(sellToken, buyToken)) {
+        }
+        // MKR <-> SKY
+        if (isMkrSkyPair(sellToken, buyToken)) {
             if (address(buyToken) == address(sky)) {
-                // MKR->SKY
                 uint256 amountIn = specifiedAmount / MKR_TO_SKY_RATE;
                 mkr.safeTransferFrom(msg.sender, address(this), amountIn);
                 mkr.safeIncreaseAllowance(address(mkrSkyConverter), amountIn);
                 mkrSkyConverter.mkrToSky(msg.sender, amountIn);
                 return amountIn;
             } else {
-                // SKY->MKR
                 uint256 amountIn = specifiedAmount * MKR_TO_SKY_RATE;
                 sky.safeTransferFrom(msg.sender, address(this), amountIn);
                 sky.safeIncreaseAllowance(address(mkrSkyConverter), amountIn);
@@ -361,88 +472,92 @@ contract SkySwapAdapter is ISwapAdapter {
                 return amountIn;
             }
         }
-
-        revert Unavailable("Sky: Unsupported token pair");
     }
 
-    function getPriceAt(address sellToken, address buyToken) internal view returns (Fraction memory) {
+    function getPriceAt(address sellToken, address buyToken)
+        internal
+        view
+        returns (Fraction memory)
+    {
+        // DAI <-> sDAI
         if (isDaiSDaiPair(sellToken, buyToken)) {
             if (sellToken == address(dai)) {
-                return
-                    Fraction(savingsDai.previewDeposit(PRECISION), PRECISION);
+                return Fraction(sDai.previewDeposit(PRECISION), PRECISION);
             } else {
-                return
-                    Fraction(savingsDai.previewRedeem(PRECISION), PRECISION);
+                return Fraction(sDai.previewRedeem(PRECISION), PRECISION);
             }
-        } else if (isDaiUsdcPair(sellToken, buyToken)) {
+        }
+        // DAI <-> USDC
+        if (isDaiUsdcPair(sellToken, buyToken)) {
             if (sellToken == address(usdc)) {
-                // gem is USDC, daiLitePSM.dec() returns gem decimals = 6
-                // To get 1 unit of gem (USDC), we need to multiply by 10^6
-                // to18ConversionFactor = 10 ** (18 - gem.decimals())
-                uint256 daiOutWad = 10**daiLitePSM.dec() * daiLitePSM.to18ConversionFactor();
+                uint256 daiOutWad =
+                    10 ** daiLitePSM.dec() * daiLitePSM.to18ConversionFactor();
                 uint256 fee;
                 if (daiLitePSM.tin() > 0) {
-                    fee = daiOutWad * daiLitePSM.tin() / daiLitePSM.WAD();
+                    fee = (daiOutWad * daiLitePSM.tin()) / daiLitePSM.WAD();
                     unchecked {
                         daiOutWad -= fee;
                     }
                 }
                 return Fraction(daiOutWad, PRECISION);
             } else {
-                uint256 daiInWad = IERC20Metadata(address(dai)).decimals() * daiLitePSM.to18ConversionFactor();
+                uint256 daiInWad = IERC20Metadata(address(dai)).decimals()
+                    * daiLitePSM.to18ConversionFactor();
                 uint256 fee;
                 if (daiLitePSM.tout() > 0) {
-                    fee = daiInWad * daiLitePSM.tout() / daiLitePSM.WAD();
+                    fee = (daiInWad * daiLitePSM.tout()) / daiLitePSM.WAD();
                     daiInWad += fee;
                 }
                 return Fraction(PRECISION, daiInWad);
             }
-        } else if (isDaiUsdsPair(sellToken, buyToken)) {
+        }
+        // DAI <-> USDS
+        if (isDaiUsdsPair(sellToken, buyToken)) {
             return Fraction(PRECISION, PRECISION);
-
-        } else if (isUsdsUsdcPair(sellToken, buyToken)) {
-            // gem is USDC, usdsPsmWrapper.dec() returns gem decimals = 6
-            // To get 1 unit of gem (USDC), we need to multiply by 10^6
-            // to18ConversionFactor = 10 ** (18 - gem.decimals())
+        }
+        // USDS <-> USDC
+        if (isUsdsUsdcPair(sellToken, buyToken)) {
             if (sellToken == address(usdc)) {
-                uint256 usdsOutWad = 10**usdsPsmWrapper.dec() * usdsPsmWrapper.to18ConversionFactor();
+                uint256 usdsOutWad = 10 ** usdsPsmWrapper.dec()
+                    * usdsPsmWrapper.to18ConversionFactor();
                 uint256 fee;
                 if (usdsPsmWrapper.tin() > 0) {
-                    fee = usdsOutWad * usdsPsmWrapper.tin() / usdsPsmWrapper.WAD();
+                    fee = (usdsOutWad * usdsPsmWrapper.tin())
+                        / usdsPsmWrapper.WAD();
                     unchecked {
                         usdsOutWad -= fee;
                     }
                 }
                 return Fraction(usdsOutWad, PRECISION);
             } else {
-                uint256 usdsInWad = IERC20Metadata(address(usds)).decimals() * usdsPsmWrapper.to18ConversionFactor();
+                uint256 usdsInWad = IERC20Metadata(address(usds)).decimals()
+                    * usdsPsmWrapper.to18ConversionFactor();
                 uint256 fee;
                 if (usdsPsmWrapper.tout() > 0) {
-                    fee = usdsInWad * usdsPsmWrapper.tout() / usdsPsmWrapper.WAD();
+                    fee = (usdsInWad * usdsPsmWrapper.tout())
+                        / usdsPsmWrapper.WAD();
                     usdsInWad += fee;
                 }
                 return Fraction(PRECISION, usdsInWad);
             }
-
-        } else if (isUsdsSUsdsPair(sellToken, buyToken)) {
+        }
+        // USDS <-> sUSDS
+        if (isUsdsSUsdsPair(sellToken, buyToken)) {
             if (sellToken == address(usds)) {
-                return
-                    Fraction(sUsds.previewDeposit(PRECISION), PRECISION);
+                return Fraction(sUsds.previewDeposit(PRECISION), PRECISION);
             } else {
-                return
-                    Fraction(sUsds.previewRedeem(PRECISION), PRECISION);
-            }
-
-        } else if (isMkrSkyPair(sellToken, buyToken)) {
-            if (sellToken == address(mkr)) {
-                return
-                    Fraction(mkrSkyConverter.rate()*PRECISION, PRECISION);
-            } else {
-                return
-                    Fraction(PRECISION, mkrSkyConverter.rate()*PRECISION);
+                return Fraction(sUsds.previewRedeem(PRECISION), PRECISION);
             }
         }
-        return Fraction(0, 0); // Default return for unreachable path
+        // MKR <-> SKY
+        if (isMkrSkyPair(sellToken, buyToken)) {
+            if (sellToken == address(mkr)) {
+                return Fraction(mkrSkyConverter.rate() * PRECISION, PRECISION);
+            } else {
+                return Fraction(PRECISION, mkrSkyConverter.rate() * PRECISION);
+            }
+        }
+        return Fraction(0, 0);
     }
 
     /// @inheritdoc ISwapAdapter
@@ -450,41 +565,41 @@ contract SkySwapAdapter is ISwapAdapter {
         external
         view
         override
+        checkInputTokens(sellToken, buyToken)
         returns (uint256[] memory limits)
     {
         limits = new uint256[](2);
 
         // DAI <-> sDAI
         if (isDaiSDaiPair(sellToken, buyToken)) {
-
             if (sellToken == address(dai)) {
-                limits[0] = 3 * (10 ** 24);
-                limits[1] = limits[0];
+                limits[0] = dai.totalSupply() / RESERVE_FACTOR;
+                limits[1] = sDai.previewDeposit(limits[0]);
             } else {
-                uint256 totalAssets = savingsDai.totalAssets();
-                limits[0] = savingsDai.previewWithdraw(totalAssets);
-                limits[1] = totalAssets;
+                uint256 totalAssets = sDai.totalAssets();
+                limits[0] = sDai.previewWithdraw(totalAssets / RESERVE_FACTOR);
+                limits[1] = totalAssets / RESERVE_FACTOR;
             }
             return limits;
         }
 
-        // DAI <-> USDC
-        // DAI is in DssLitePsm
-        // USDC is in DssLitePsm.pocket()
-        if (isDaiUsdcPair(sellToken, buyToken)) {
-
+        // DAI <-> USDC & USDS <-> USDC
+        if (
+            isDaiUsdcPair(sellToken, buyToken)
+                || isUsdsUsdcPair(sellToken, buyToken)
+        ) {
             if (sellToken == address(usdc)) {
-                // When selling USDC, we need DAI in the PSM to cover it
-                // Convert DAI balance to USDC terms (accounting for decimals)
-                limits[0] = dai.balanceOf(address(daiLitePSM)) / (daiLitePSM.to18ConversionFactor()*10);
-                limits[1] = dai.balanceOf(address(daiLitePSM))/10;
+                uint256 daiBalanceLitePSM = dai.balanceOf(address(daiLitePSM));
+                limits[0] = daiBalanceLitePSM
+                    / (daiLitePSM.to18ConversionFactor() * RESERVE_FACTOR);
+                limits[1] = daiBalanceLitePSM / RESERVE_FACTOR;
             } else {
-                // When selling DAI, we need USDC in the PSM's pocket to cover it
-                uint256 usdcBalance = usdc.balanceOf(daiLitePSM.pocket());
-                limits[0] = (usdcBalance * daiLitePSM.to18ConversionFactor())/10;  // Convert to DAI decimals
-                limits[1] = usdc.balanceOf(daiLitePSM.pocket())/10;
+                uint256 usdcBalancePocket = usdc.balanceOf(daiLitePSM.pocket());
+                limits[0] = (
+                    usdcBalancePocket * daiLitePSM.to18ConversionFactor()
+                ) / RESERVE_FACTOR;
+                limits[1] = usdcBalancePocket / RESERVE_FACTOR;
             }
-
 
             return limits;
         }
@@ -495,29 +610,11 @@ contract SkySwapAdapter is ISwapAdapter {
             uint256 usdsTotalSupply = usds.totalSupply();
 
             if (daiTotalSupply <= usdsTotalSupply) {
-                limits[0] = daiTotalSupply/100;
+                limits[0] = daiTotalSupply / RESERVE_FACTOR;
                 limits[1] = limits[0];
             } else {
-                limits[0] = usdsTotalSupply/100;
+                limits[0] = usdsTotalSupply / RESERVE_FACTOR;
                 limits[1] = limits[0];
-            }
-
-            return limits;
-        }
-
-    // USDS <-> USDC 
-    if (isUsdsUsdcPair(sellToken, buyToken)) {
-
-        if (sellToken == address(usdc)) {
-            // When selling USDC, we need DAI in the PSM to cover it
-            // Convert DAI balance to USDC terms (accounting for decimals)
-            limits[0] = dai.balanceOf(address(daiLitePSM)) / (daiLitePSM.to18ConversionFactor()*10);
-            limits[1] = dai.balanceOf(address(daiLitePSM))/10;
-        } else {
-            // When selling DAI, we need USDC in the PSM's pocket to cover it
-            uint256 usdcBalance = usdc.balanceOf(daiLitePSM.pocket());
-            limits[0] = (usdcBalance * daiLitePSM.to18ConversionFactor())/10;  // Convert to DAI decimals
-            limits[1] = usdc.balanceOf(daiLitePSM.pocket())/10;
             }
 
             return limits;
@@ -525,28 +622,26 @@ contract SkySwapAdapter is ISwapAdapter {
 
         // USDS <-> sUSDS
         if (isUsdsSUsdsPair(sellToken, buyToken)) {
-
             uint256 usdsTotalSupply = usds.totalSupply();
             uint256 totalAssets = sUsds.totalAssets();
 
             if (sellToken == address(usds)) {
-                limits[0] = usdsTotalSupply/100;
+                limits[0] = usdsTotalSupply / RESERVE_FACTOR;
                 limits[1] = sUsds.previewDeposit(limits[0]);
             } else {
-                limits[0] = sUsds.previewRedeem(totalAssets/100);
-                limits[1] = totalAssets/100;
+                limits[0] = sUsds.previewRedeem(totalAssets / RESERVE_FACTOR);
+                limits[1] = totalAssets / RESERVE_FACTOR;
             }
             return limits;
         }
 
         // MKR <-> SKY
         if (isMkrSkyPair(sellToken, buyToken)) {
-
             if (sellToken == address(mkr)) {
-                limits[0] = mkr.totalSupply();
+                limits[0] = mkr.totalSupply() / RESERVE_FACTOR;
                 limits[1] = limits[0] * MKR_TO_SKY_RATE;
             } else {
-                limits[0] = sky.totalSupply();
+                limits[0] = sky.totalSupply() / RESERVE_FACTOR;
                 limits[1] = limits[0] / MKR_TO_SKY_RATE;
             }
             return limits;
@@ -559,11 +654,7 @@ contract SkySwapAdapter is ISwapAdapter {
         bytes32 poolId,
         address sellToken,
         address buyToken
-    ) external 
-      view 
-      returns (Capability[] memory capabilities) 
-    {
-        
+    ) external view returns (Capability[] memory capabilities) {
         revert NotImplemented("SkySwapAdapter.getCapabilities");
     }
 
@@ -584,10 +675,10 @@ contract SkySwapAdapter is ISwapAdapter {
     }
 }
 
-
 // INTERFACES
 
-///////////////////////////////////// ISavingsDai ////////////////////////////////////////////////////////////
+///////////////////////////////////// ISavingsDai
+// ////////////////////////////////////////////////////////////
 
 interface ISavingsDai is IERC20 {
     function asset() external view returns (address);
@@ -627,10 +718,10 @@ interface ISavingsDai is IERC20 {
         returns (uint256 assets);
 }
 
-///////////////////////////////////// IDssLitePSM ////////////////////////////////////////////////////////////
+///////////////////////////////////// IDssLitePSM
+// ////////////////////////////////////////////////////////////
 
 interface IDssLitePSM {
-
     /**
      * A lightweight PSM implementation.
      * @notice Swaps Dai for `gem` at a 1:1 exchange rate.
@@ -642,7 +733,7 @@ interface IDssLitePSM {
      *      3. The `spot` price for gem is always 1 (`10**27`).
      *      4. The `spotter.par` (Dai parity) is always 1 (`10**27`).
      *      5. This contract can freely transfer `gem` on behalf of `pocket`.
-    */
+     */
     function HALTED() external view returns (uint256);
 
     function ilk() external view returns (bytes32);
@@ -650,9 +741,9 @@ interface IDssLitePSM {
     function gem() external view returns (address);
 
     function daiJoin() external view returns (address);
-    
+
     function vat() external view returns (address);
-    
+
     function dai() external view returns (address);
 
     function pocket() external view returns (address);
@@ -680,7 +771,9 @@ interface IDssLitePSM {
      * @param gemAmt The amount of gem to sell. [`gem` precision].
      * @return daiOutWad The amount of Dai bought.
      */
-    function sellGem(address usr, uint256 gemAmt) external returns (uint256 daiOutWad);
+    function sellGem(address usr, uint256 gemAmt)
+        external
+        returns (uint256 daiOutWad);
 
     /**
      * @notice Function that swaps Dai into `gem`.
@@ -689,7 +782,9 @@ interface IDssLitePSM {
      * @param gemAmt The amount of gem to buy. [`gem` precision].
      * @return daiInWad The amount of Dai required to sell.
      */
-    function buyGem(address usr, uint256 gemAmt) external returns (uint256 daiInWad);
+    function buyGem(address usr, uint256 gemAmt)
+        external
+        returns (uint256 daiInWad);
 
     /**
      * @notice Returns the number of decimals for `gem`.
@@ -702,90 +797,135 @@ interface IDssLitePSM {
      * @return Whether the contract is live or not.
      */
     function live() external view returns (uint256);
-
 }
 
-///////////////////////////////////// IDaiUsdsConverter ////////////////////////////////////////////////////////////
+///////////////////////////////////// IDaiUsdsConverter
+// ////////////////////////////////////////////////////////////
 
 interface IDaiUsdsConverter {
     function dai() external view returns (address);
+
     function usds() external view returns (address);
 
     function daiToUsds(address usr, uint256 wad) external;
-    function usdsToDai(address usr, uint256 wad) external;
 
+    function usdsToDai(address usr, uint256 wad) external;
 }
 
-///////////////////////////////////// IUsdsPsmWrapper ////////////////////////////////////////////////////////////
+///////////////////////////////////// IUsdsPsmWrapper
+// ////////////////////////////////////////////////////////////
 
 interface IUsdsPsmWrapper {
-
     function tin() external view returns (uint256);
+
     function tout() external view returns (uint256);
+
     function live() external view returns (uint256);
-    function sellGem(address usr, uint256 gemAmt) external returns (uint256 usdsOutWad);
-    function buyGem(address usr, uint256 gemAmt) external returns (uint256 usdsInWad);
+
+    function sellGem(address usr, uint256 gemAmt)
+        external
+        returns (uint256 usdsOutWad);
+
+    function buyGem(address usr, uint256 gemAmt)
+        external
+        returns (uint256 usdsInWad);
+
     function WAD() external view returns (uint256);
+
     function HALTED() external view returns (uint256);
+
     function dec() external view returns (uint256);
+
     function to18ConversionFactor() external view returns (uint256);
+
     function usds() external view returns (address);
+
     function gem() external view returns (address);
+
     function psm() external view returns (address);
+
     function legacyDaiJoin() external view returns (address);
+
     function usdsJoin() external view returns (address);
+
     function vat() external view returns (address);
+
     function ilk() external view returns (bytes32);
+
     function pocket() external view returns (address);
+
     function legacyDai() external view returns (address);
+
     function buf() external view returns (uint256);
 }
 
 interface PsmLike {
     function gem() external view returns (address);
+
     function vat() external view returns (address);
+
     function daiJoin() external view returns (address);
+
     function pocket() external view returns (address);
+
     function tin() external view returns (uint256);
+
     function tout() external view returns (uint256);
+
     function buf() external view returns (uint256);
+
     function sellGem(address, uint256) external returns (uint256);
+
     function buyGem(address, uint256) external returns (uint256);
+
     function ilk() external view returns (bytes32);
+
     function vow() external view returns (address);
 }
 
 interface GemLike {
     function decimals() external view returns (uint8);
+
     function approve(address, uint256) external;
+
     function transferFrom(address, address, uint256) external;
 }
 
 interface DaiJoinLike {
     function dai() external view returns (address);
+
     function join(address, uint256) external;
+
     function exit(address, uint256) external;
 }
 
 interface UsdsJoinLike {
     function usds() external view returns (address);
+
     function join(address, uint256) external;
+
     function exit(address, uint256) external;
 }
 
 interface VatLike {
     function hope(address) external;
+
     function live() external view returns (uint256);
 }
 
-///////////////////////////////////// ISUsds ////////////////////////////////////////////////////////////
+///////////////////////////////////// ISUsds
+// ////////////////////////////////////////////////////////////
 
 interface ISUsds is IERC4626 {
-
     // Savings yield
     function chi() external view returns (uint192); // The Rate Accumulator  [ray]
-    function rho() external view returns (uint64); // Time of last drip     [unix epoch time]
-    function ssr() external view returns (uint256); // The USDS Savings Rate [ray]
+
+    function rho() external view returns (uint64); // Time of last drip     [unix
+        // epoch time]
+
+    function ssr() external view returns (uint256); // The USDS Savings Rate
+        // [ray]
+
     function decimals() external view returns (uint8);
 
     function asset() external view returns (address);
@@ -800,40 +940,62 @@ interface ISUsds is IERC4626 {
 
     function previewDeposit(uint256 assets) external view returns (uint256);
 
-    function deposit(uint256 assets, address receiver) external returns (uint256 shares);
+    function deposit(uint256 assets, address receiver)
+        external
+        returns (uint256 shares);
 
-    function deposit(uint256 assets, address receiver, uint16 referral) external returns (uint256 shares);
+    function deposit(uint256 assets, address receiver, uint16 referral)
+        external
+        returns (uint256 shares);
 
     function maxMint(address) external pure returns (uint256);
 
     function previewMint(uint256 shares) external view returns (uint256);
 
-    function mint(uint256 shares, address receiver) external returns (uint256 assets);
+    function mint(uint256 shares, address receiver)
+        external
+        returns (uint256 assets);
 
-    function mint(uint256 shares, address receiver, uint16 referral) external returns (uint256 assets);
+    function mint(uint256 shares, address receiver, uint16 referral)
+        external
+        returns (uint256 assets);
 
     function maxWithdraw(address owner) external view returns (uint256);
 
     function previewWithdraw(uint256 assets) external view returns (uint256);
 
-    function withdraw(uint256 assets, address receiver, address owner) external returns (uint256 shares);
+    function withdraw(uint256 assets, address receiver, address owner)
+        external
+        returns (uint256 shares);
 
     function maxRedeem(address owner) external view returns (uint256);
 
     function previewRedeem(uint256 shares) external view returns (uint256);
 
-    function redeem(uint256 shares, address receiver, address owner) external returns (uint256 assets);
+    function redeem(uint256 shares, address receiver, address owner)
+        external
+        returns (uint256 assets);
 
-    function permit(address owner, address spender, uint256 value, uint256 deadline, bytes memory signature) external;
-
+    function permit(
+        address owner,
+        address spender,
+        uint256 value,
+        uint256 deadline,
+        bytes memory signature
+    ) external;
 }
 
-///////////////////////////////////// IMkrSkyConverter ////////////////////////////////////////////////////////////
+///////////////////////////////////// IMkrSkyConverter
+// ////////////////////////////////////////////////////////////
 
 interface IMkrSkyConverter {
     function mkr() external view returns (address);
+
     function sky() external view returns (address);
+
     function rate() external view returns (uint256);
-    function mkrToSky(address usr, uint256 mkrAmt) external returns (uint256 skyAmt);
-    function skyToMkr(address usr, uint256 skyAmt) external returns (uint256 mkrAmt);
+
+    function mkrToSky(address usr, uint256 mkrAmt) external;
+
+    function skyToMkr(address usr, uint256 skyAmt) external;
 }
