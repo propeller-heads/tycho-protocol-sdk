@@ -216,7 +216,7 @@ contract SkySwapAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
 
     ////////////////////////////////// DAI-USDC ///////////////////////////////////////
 
-    // USDC-DAI | SELL SIDE PASS | BUY SIDE PASS
+    // USDC -> DAI | SELL SIDE PASS | BUY SIDE PASS
     function testSwapFuzzUsdcForDai(uint256 specifiedAmount, bool isBuy)
         public
     {
@@ -275,7 +275,7 @@ contract SkySwapAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
         }
     }
 
-    // DAI-USDC | SELL SIDE PASS | BUY SIDE PASS
+    // DAI -> USDC | SELL SIDE PASS | BUY SIDE PASS
     function testSwapFuzzDaiForUsdc(uint256 specifiedAmount, bool isBuy)
         public
     {
@@ -325,7 +325,7 @@ contract SkySwapAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
 
     //////////////////////////// DAI-USDS ////////////////////////////
 
-    // DAI-USDS | SELL SIDE PASS | BUY SIDE PASS
+    // DAI ->USDS | SELL SIDE PASS | BUY SIDE PASS
     function testSwapFuzzDaiForUsds(uint256 specifiedAmount, bool isBuy)
         public
     {
@@ -368,7 +368,7 @@ contract SkySwapAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
         }
     }
 
-    // USDS-DAI | SELL SIDE PASS | BUY SIDE PASS
+    // USDS -> DAI | SELL SIDE PASS | BUY SIDE PASS
     function testSwapFuzzUsdsForDai(uint256 specifiedAmount, bool isBuy)
         public
     {
@@ -411,7 +411,125 @@ contract SkySwapAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
         }
     }
 
-    
+
+    //////////////////////////// USDS-USDC ////////////////////////////
+
+    // USDC -> USDS | SELL SIDE PASS | BUY SIDE
+
+    function testSwapFuzzUsdcForUsds(uint256 specifiedAmount, bool isBuy)
+        public
+    {
+        OrderSide side = isBuy ? OrderSide.Buy : OrderSide.Sell;
+        uint256[] memory limits =
+            adapter.getLimits(PAIR, USDC_ADDRESS, USDS_ADDRESS);
+        console.log("limits", limits[0], limits[1]);
+
+        if (side == OrderSide.Buy) {
+            vm.assume(specifiedAmount < limits[1]);
+            vm.assume(specifiedAmount > 10e17);
+            
+            deal(USDC_ADDRESS, address(this), 10e50);
+            USDC.approve(address(adapter), 10e50);
+        } else {
+            vm.assume(specifiedAmount < limits[0]);
+            vm.assume(specifiedAmount > 10e5);
+            
+            deal(USDC_ADDRESS, address(this), specifiedAmount);
+            USDC.approve(address(adapter), specifiedAmount);
+        }
+        
+        uint256 usdc_balance_before = USDC.balanceOf(address(this));
+        uint256 usds_balance_before = USDS.balanceOf(address(this));
+
+        Trade memory trade =
+            adapter.swap(PAIR, USDC_ADDRESS, USDS_ADDRESS, side, specifiedAmount);
+
+        uint256 usdc_balance_after = USDC.balanceOf(address(this));
+        uint256 usds_balance_after = USDS.balanceOf(address(this));
+
+        if (side == OrderSide.Buy) {
+                // Allow for small rounding errors (up to 0.001 USDS or 10^15 wei)
+                uint256 usdsReceived = usds_balance_after - usds_balance_before;
+                assertApproxEqAbs(
+                    specifiedAmount,
+                    usdsReceived,
+                    1e15,
+                    "USDS amount received differs too much from specified"
+                );
+                assertEq(
+                    trade.calculatedAmount, usdc_balance_before - usdc_balance_after
+                );
+            } else {
+                assertEq(specifiedAmount, usdc_balance_before - usdc_balance_after);
+                assertApproxEqAbs(
+                    trade.calculatedAmount,
+                    usds_balance_after - usds_balance_before,
+                    1e15,
+                "USDS calculation differs too much from actual"
+            );
+        }
+    }
+
+
+    // USDS -> USDC | SELL SIDE | BUY SIDE
+
+
+    //////////////////////////// USDS-sUSDS ////////////////////////////
+
+    // USDS -> sUSDS | SELL SIDE | BUY SIDE
+    function testSwapFuzzUsdsForSUsds(uint256 specifiedAmount, bool isBuy)
+        public
+    {
+        OrderSide side = isBuy ? OrderSide.Buy : OrderSide.Sell;
+
+        uint256[] memory limits =
+            adapter.getLimits(PAIR, USDS_ADDRESS, DAI_ADDRESS);
+
+        if (side == OrderSide.Buy) {
+            vm.assume(specifiedAmount < limits[1]);
+            
+            deal(USDS_ADDRESS, address(this), 10e30);
+            USDS.approve(address(adapter), 10e30);
+        } else {
+            vm.assume(specifiedAmount < limits[0]);
+            
+            deal(USDS_ADDRESS, address(this), specifiedAmount);
+            USDS.approve(address(adapter), specifiedAmount);
+        }
+        
+        uint256 dai_balance_before = DAI.balanceOf(address(this));
+        uint256 usds_balance_before = USDS.balanceOf(address(this));
+
+        Trade memory trade =
+            adapter.swap(PAIR, USDS_ADDRESS, DAI_ADDRESS, side, specifiedAmount);
+
+        uint256 dai_balance_after = DAI.balanceOf(address(this));
+        uint256 usds_balance_after = USDS.balanceOf(address(this));
+
+        if (side == OrderSide.Buy) {
+            assertEq(specifiedAmount, dai_balance_after - dai_balance_before);
+            assertEq(
+                trade.calculatedAmount, usds_balance_before - usds_balance_after
+            );
+        } else {
+            assertEq(specifiedAmount, usds_balance_before - usds_balance_after);
+            assertEq(
+                trade.calculatedAmount, dai_balance_after - dai_balance_before
+            );
+        }
+    }
+
+
+
+    // sUSDS -> USDS | SELL SIDE | BUY SIDE
+
+
+    //////////////////////////// MKR-SKY ////////////////////////////
+
+    // MKR -> SKY | SELL SIDE | BUY SIDE
+
+
+    // SKY -> MKR | SELL SIDE | BUY SIDE
 
     ////////////////////////////////////////// Get Limits ///////////////////////////////////////
 

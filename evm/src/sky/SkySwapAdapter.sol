@@ -1,5 +1,5 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
 pragma solidity ^0.8.13;
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 import {ISwapAdapter} from "src/interfaces/ISwapAdapter.sol";
 import {IERC20Metadata} from
@@ -9,6 +9,7 @@ import {
     SafeERC20
 } from "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IERC4626} from "openzeppelin-contracts/contracts/interfaces/IERC4626.sol";
+import "forge-std/Test.sol";
 
 
 /// @title SkySwapAdapter
@@ -212,12 +213,12 @@ contract SkySwapAdapter is ISwapAdapter {
                 return usdsPsmWrapper.sellGem(msg.sender, specifiedAmount);
             } else {
                 uint256 usdcAmount = specifiedAmount / usdsPsmWrapper.to18ConversionFactor();
-                uint256 fee;
-                if (usdsPsmWrapper.tin() > 0) {
-                    fee = usdcAmount * usdsPsmWrapper.tin() / usdsPsmWrapper.WAD();
+                if (usdsPsmWrapper.tout() > 0) {
+                    uint256 fee = usdcAmount * usdsPsmWrapper.tout() / usdsPsmWrapper.WAD();
                     usdcAmount = usdcAmount - fee;
                 }
-                return usdsPsmWrapper.buyGem(msg.sender, usdcAmount);
+                usdsPsmWrapper.buyGem(msg.sender, usdcAmount);
+                return usdcAmount;
             }
         } else if (isUsdsSUsdsPair(sellToken, buyToken)) {
             IERC20(sellToken).safeIncreaseAllowance(address(sUsds), specifiedAmount);
@@ -313,12 +314,20 @@ contract SkySwapAdapter is ISwapAdapter {
                 usdsPsmWrapper.buyGem(msg.sender, specifiedAmount);
                 return amountIn;
             } else {
-                // USDC->USDS
-                uint256 amountIn = specifiedAmount / usdsPsmWrapper.to18ConversionFactor();
-                usdc.safeTransferFrom(msg.sender, address(this), amountIn);
-                usdc.safeIncreaseAllowance(address(usdsPsmWrapper), amountIn);
-                usdsPsmWrapper.sellGem(msg.sender, amountIn);
-                return amountIn;
+                // USDC->USDS: Calculate USDC needed for specified USDS amount
+                uint256 usdcAmount = specifiedAmount / usdsPsmWrapper.to18ConversionFactor();
+                console.log("usdcAmount 1", usdcAmount);
+                console.log("specifiedAmount Adapter Contract:", specifiedAmount);
+                console.log("to18ConversionFactor", usdsPsmWrapper.to18ConversionFactor());
+                if (usdsPsmWrapper.tin() > 0) {
+                    uint256 fee = usdcAmount * usdsPsmWrapper.tin() / usdsPsmWrapper.WAD();
+                    usdcAmount += fee;
+                }
+                console.log("usdcAmount 2", usdcAmount);
+                usdc.safeTransferFrom(msg.sender, address(this), usdcAmount);
+                usdc.safeIncreaseAllowance(address(usdsPsmWrapper), usdcAmount);
+                usdsPsmWrapper.sellGem(msg.sender, usdcAmount);
+                return usdcAmount;
             }
         } else if (isUsdsSUsdsPair(sellToken, buyToken)) {
             if (address(buyToken) == address(sUsds)) {
@@ -392,7 +401,9 @@ contract SkySwapAdapter is ISwapAdapter {
             return Fraction(PRECISION, PRECISION);
 
         } else if (isUsdsUsdcPair(sellToken, buyToken)) {
-            // PsmLike psm = PsmLike(usdsPsmWrapper.psm());
+            // gem is USDC, usdsPsmWrapper.dec() returns gem decimals = 6
+            // To get 1 unit of gem (USDC), we need to multiply by 10^6
+            // to18ConversionFactor = 10 ** (18 - gem.decimals())
             if (sellToken == address(usdc)) {
                 uint256 usdsOutWad = 10**usdsPsmWrapper.dec() * usdsPsmWrapper.to18ConversionFactor();
                 uint256 fee;
@@ -494,11 +505,20 @@ contract SkySwapAdapter is ISwapAdapter {
             return limits;
         }
 
-        // USDS <-> USDC 
-        if (isUsdsUsdcPair(sellToken, buyToken)) {
+    // USDS <-> USDC 
+    if (isUsdsUsdcPair(sellToken, buyToken)) {
 
-            limits[0] = 3 * (10 ** 24);
-            limits[1] = limits[0];
+        if (sellToken == address(usdc)) {
+            // When selling USDC, we need DAI in the PSM to cover it
+            // Convert DAI balance to USDC terms (accounting for decimals)
+            limits[0] = dai.balanceOf(address(daiLitePSM)) / (daiLitePSM.to18ConversionFactor()*10);
+            limits[1] = dai.balanceOf(address(daiLitePSM))/10;
+        } else {
+            // When selling DAI, we need USDC in the PSM's pocket to cover it
+            uint256 usdcBalance = usdc.balanceOf(daiLitePSM.pocket());
+            limits[0] = (usdcBalance * daiLitePSM.to18ConversionFactor())/10;  // Convert to DAI decimals
+            limits[1] = usdc.balanceOf(daiLitePSM.pocket())/10;
+            }
 
             return limits;
         }
