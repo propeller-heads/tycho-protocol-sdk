@@ -526,13 +526,15 @@ contract SkySwapAdapter is ISwapAdapter {
         // USDS <-> sUSDS
         if (isUsdsSUsdsPair(sellToken, buyToken)) {
 
+            uint256 usdsTotalSupply = usds.totalSupply();
+            uint256 totalAssets = sUsds.totalAssets();
+
             if (sellToken == address(usds)) {
-                limits[0] = 3 * (10 ** 24);
-                limits[1] = limits[0];
+                limits[0] = usdsTotalSupply/100;
+                limits[1] = sUsds.previewDeposit(limits[0]);
             } else {
-                uint256 totalAssets = sUsds.totalAssets();
-                limits[0] = sUsds.previewWithdraw(totalAssets);
-                limits[1] = totalAssets;
+                limits[0] = sUsds.previewRedeem(totalAssets/100);
+                limits[1] = totalAssets/100;
             }
             return limits;
         }
