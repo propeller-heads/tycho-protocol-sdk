@@ -12,7 +12,7 @@ use abi::{
 };
 use substreams::{hex, scalar::BigInt};
 use substreams_ethereum::{
-    pb::eth::v2::{Call, Log, TransactionReceipt, TransactionTrace},
+    pb::eth::v2::{Call, Log, TransactionTrace},
     Event, Function,
 };
 use tycho_substreams::{
@@ -23,7 +23,6 @@ pub fn address_map(
     pool_factory_address: &[u8],
     log: &Log,
     call: &Call,
-    tx: &TransactionTrace,
 ) -> Option<ProtocolComponent> {
     match *pool_factory_address {
         hex!("201efd508c8DfE9DE1a13c2452863A78CB2a86Cc") => {
@@ -40,7 +39,7 @@ pub fn address_map(
                 .collect::<Vec<_>>();
 
             Some(
-                ProtocolComponent::new(&format!("0x{}", hex::encode(&pool)), &(tx.into()))
+                ProtocolComponent::new(&format!("0x{}", hex::encode(&pool)))
                     .with_contracts(&[pool, VAULT_ADDRESS.to_vec()])
                     .with_tokens(tokens.as_slice())
                     .with_attributes(&[
@@ -65,7 +64,7 @@ pub fn address_map(
                 .collect::<Vec<_>>();
 
             Some(
-                ProtocolComponent::new(&format!("0x{}", hex::encode(&pool)), &(tx.into()))
+                ProtocolComponent::new(&format!("0x{}", hex::encode(&pool)))
                     .with_contracts(&[pool.to_owned(), VAULT_ADDRESS.to_vec()])
                     .with_tokens(tokens.as_slice())
                     .with_attributes(&[
@@ -99,7 +98,7 @@ pub fn buffer_map(log: &Log, tx: &TransactionTrace) -> Option<ProtocolComponent>
     LiquidityAddedToBuffer::match_and_decode(log).map(
         |LiquidityAddedToBuffer { wrapped_token, amount_underlying, .. }| {
             let underlying_token = find_underlying_token(tx, amount_underlying).unwrap(); // must exist
-            ProtocolComponent::new(&format!("0x{}", hex::encode(&wrapped_token)), &(tx.into()))
+            ProtocolComponent::new(&format!("0x{}", hex::encode(&wrapped_token)))
                 .with_contracts(&[wrapped_token.to_vec(), VAULT_ADDRESS.to_vec()])
                 .with_tokens(&[wrapped_token.as_slice(), underlying_token.as_slice()])
                 .with_attributes(&[("pool_type", "buffer".as_bytes())])

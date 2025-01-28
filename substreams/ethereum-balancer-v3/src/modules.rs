@@ -11,6 +11,7 @@ use std::collections::HashMap;
 use substreams::{
     hex, log,
     pb::substreams::StoreDeltas,
+    scalar::BigInt,
     store::{
         StoreAddBigInt, StoreGet, StoreGetProto, StoreNew, StoreSetIfNotExists,
         StoreSetIfNotExistsProto,
@@ -37,13 +38,8 @@ pub fn map_components(block: eth::v2::Block) -> Result<BlockTransactionProtocolC
                 let components = tx
                     .logs_with_calls()
                     .filter_map(|(log, call)| {
-                        pool_factories::address_map(
-                            call.call.address.as_slice(),
-                            log,
-                            call.call,
-                            tx,
-                        )
-                        .or_else(|| pool_factories::buffer_map(log, tx))
+                        pool_factories::address_map(call.call.address.as_slice(), log, call.call)
+                            .or_else(|| pool_factories::buffer_map(log, tx))
                     })
                     .collect::<Vec<_>>();
 
@@ -354,18 +350,25 @@ pub fn map_protocol_changes(
     // this  block. Then, these balance changes are merged onto the existing map of tx contract
     // changes,  inserting a new one if it doesn't exist.
     aggregate_balances_changes(balance_store, deltas)
-        .into_iter()
+        .iter()
         .for_each(|(_, (tx, balances))| {
             let builder = transaction_changes
                 .entry(tx.index)
                 .or_insert_with(|| TransactionChangesBuilder::new(&tx));
+
+            substreams::log::info!("balance changes for tx: 0x{:?}", hex::encode(&tx.hash));
+
+            let mut vault_contract_tlv_changes = InterimContractChange::new(VAULT_ADDRESS, false);
             balances
                 .values()
                 .for_each(|token_bc_map| {
-                    token_bc_map
-                        .values()
-                        .for_each(|bc| builder.add_balance_change(bc))
+                    token_bc_map.values().for_each(|bc| {
+                        builder.add_balance_change(bc);
+                        vault_contract_tlv_changes
+                            .upsert_token_balance(bc.token.as_slice(), bc.balance.as_slice());
+                    })
                 });
+            builder.add_contract_changes(&vault_contract_tlv_changes);
         });
 
     // Extract and insert any storage changes that happened for any of the components.
@@ -388,6 +391,7 @@ pub fn map_protocol_changes(
                 .changed_contracts()
                 .map(|e| e.to_vec())
                 .collect::<Vec<_>>();
+
             addresses
                 .into_iter()
                 .for_each(|address| {
