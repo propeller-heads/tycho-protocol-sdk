@@ -15,7 +15,7 @@ contract SkySwapAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
     struct TokenPair {
         address token0;
         address token1;
-        address converter;  // Contract responsible for conversion
+        address converter; // Contract responsible for conversion
     }
 
     mapping(uint256 => TokenPair) pairs;
@@ -29,12 +29,15 @@ contract SkySwapAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
     IMkrSkyConverter mkrSkyConverter;
 
     address constant SDAI_ADDRESS = 0x83F20F44975D03b1b09e64809B757c47f942BEeA;
-    address constant DAI_LITE_PSM_ADDRESS = 0xf6e72Db5454dd049d0788e411b06CfAF16853042;
-    address constant DAI_USDS_CONVERTER_ADDRESS = 0x3225737a9Bbb6473CB4a45b7244ACa2BeFdB276A;
-    address constant USDS_PSM_WRAPPER_ADDRESS = 0xA188EEC8F81263234dA3622A406892F3D630f98c;
+    address constant DAI_LITE_PSM_ADDRESS =
+        0xf6e72Db5454dd049d0788e411b06CfAF16853042;
+    address constant DAI_USDS_CONVERTER_ADDRESS =
+        0x3225737a9Bbb6473CB4a45b7244ACa2BeFdB276A;
+    address constant USDS_PSM_WRAPPER_ADDRESS =
+        0xA188EEC8F81263234dA3622A406892F3D630f98c;
     address constant SUSDS_ADDRESS = 0xa3931d71877C0E7a3148CB7Eb4463524FEc27fbD;
-    address constant MKR_SKY_CONVERTER_ADDRESS = 0xBDcFCA946b6CDd965f99a839e4435Bcdc1bc470B;
-
+    address constant MKR_SKY_CONVERTER_ADDRESS =
+        0xBDcFCA946b6CDd965f99a839e4435Bcdc1bc470B;
 
     address constant DAI_ADDRESS = 0x6B175474E89094C44Da98b954EedeAC495271d0F;
     address constant USDS_ADDRESS = 0xdC035D45d973E3EC169d2276DDab16f1e407384F;
@@ -50,7 +53,7 @@ contract SkySwapAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
     IERC20 constant USDC = IERC20(USDC_ADDRESS);
     IERC20 constant SUSDS = IERC20(SUSDS_ADDRESS);
     bytes32 constant PAIR = bytes32(0);
-    uint256 constant NUM_PAIRS = 6;  // Total number of token pairs
+    uint256 constant NUM_PAIRS = 6; // Total number of token pairs
 
     uint256 constant PRECISION = 10 ** 18;
     uint256 constant MKR_TO_SKY_RATE = 24000;
@@ -89,33 +92,35 @@ contract SkySwapAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
         pairs[0] = TokenPair({
             token0: DAI_ADDRESS,
             token1: SDAI_ADDRESS,
-            converter: SDAI_ADDRESS         // sDAI contract handles DAI<->sDAI
+            converter: SDAI_ADDRESS // sDAI contract handles DAI<->sDAI
         });
-        
+
         pairs[1] = TokenPair({
             token0: DAI_ADDRESS,
             token1: USDC_ADDRESS,
             converter: DAI_LITE_PSM_ADDRESS // PSM handles DAI<->USDC
         });
-        
+
         pairs[2] = TokenPair({
             token0: DAI_ADDRESS,
             token1: USDS_ADDRESS,
-            converter: DAI_USDS_CONVERTER_ADDRESS // Converter handles DAI<->USDS
+            converter: DAI_USDS_CONVERTER_ADDRESS // Converter handles
+                // DAI<->USDS
         });
-        
+
         pairs[3] = TokenPair({
             token0: USDS_ADDRESS,
             token1: USDC_ADDRESS,
-            converter: USDS_PSM_WRAPPER_ADDRESS  // PSM wrapper handles USDS<->USDC
+            converter: USDS_PSM_WRAPPER_ADDRESS // PSM wrapper handles
+                // USDS<->USDC
         });
-        
+
         pairs[4] = TokenPair({
             token0: USDS_ADDRESS,
             token1: SUSDS_ADDRESS,
-            converter: SUSDS_ADDRESS        // sUSDS contract handles USDS<->sUSDS
+            converter: SUSDS_ADDRESS // sUSDS contract handles USDS<->sUSDS
         });
-        
+
         pairs[5] = TokenPair({
             token0: MKR_ADDRESS,
             token1: SKY_ADDRESS,
@@ -123,7 +128,8 @@ contract SkySwapAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
         });
     }
 
-    ////////////////////////////////// DAI-sDAI ///////////////////////////////////////
+    ////////////////////////////////// DAI-sDAI
+    // ///////////////////////////////////////
 
     // DAI -> sDAI | PASS
     function testSwapFuzzDaiForSDai(uint256 specifiedAmount, bool isBuy)
@@ -215,7 +221,8 @@ contract SkySwapAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
         }
     }
 
-    ////////////////////////////////// DAI-USDC ///////////////////////////////////////
+    ////////////////////////////////// DAI-USDC
+    // ///////////////////////////////////////
 
     // USDC -> DAI | SELL SIDE PASS | BUY SIDE PASS
     function testSwapFuzzUsdcForDai(uint256 specifiedAmount, bool isBuy)
@@ -239,7 +246,7 @@ contract SkySwapAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
             deal(USDC_ADDRESS, address(this), specifiedAmount);
             USDC.approve(address(adapter), specifiedAmount);
         }
-        
+
         uint256 usdc_balance_before = USDC.balanceOf(address(this));
         console.log("usdc_balance_before", usdc_balance_before);
         uint256 dai_balance_before = DAI.balanceOf(address(this));
@@ -288,17 +295,17 @@ contract SkySwapAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
         if (side == OrderSide.Buy) {
             // When buying USDC, specifiedAmount is in USDC (6 decimals)
             vm.assume(specifiedAmount < limits[1]);
-            
+
             deal(DAI_ADDRESS, address(this), 10e30);
             DAI.approve(address(adapter), 10e30);
         } else {
             // When selling DAI, specifiedAmount is in DAI (18 decimals)
             vm.assume(specifiedAmount < limits[0]);
-            
+
             deal(DAI_ADDRESS, address(this), specifiedAmount);
             DAI.approve(address(adapter), specifiedAmount);
         }
-        
+
         uint256 dai_balance_before = DAI.balanceOf(address(this));
         uint256 usdc_balance_before = USDC.balanceOf(address(this));
 
@@ -323,7 +330,6 @@ contract SkySwapAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
         }
     }
 
-
     //////////////////////////// DAI-USDS ////////////////////////////
 
     // DAI ->USDS | SELL SIDE PASS | BUY SIDE PASS
@@ -337,16 +343,16 @@ contract SkySwapAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
 
         if (side == OrderSide.Buy) {
             vm.assume(specifiedAmount < limits[1]);
-            
+
             deal(DAI_ADDRESS, address(this), 10e30);
             DAI.approve(address(adapter), 10e30);
         } else {
             vm.assume(specifiedAmount < limits[0]);
-            
+
             deal(DAI_ADDRESS, address(this), specifiedAmount);
             DAI.approve(address(adapter), specifiedAmount);
         }
-        
+
         uint256 dai_balance_before = DAI.balanceOf(address(this));
         uint256 usds_balance_before = USDS.balanceOf(address(this));
 
@@ -380,16 +386,16 @@ contract SkySwapAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
 
         if (side == OrderSide.Buy) {
             vm.assume(specifiedAmount < limits[1]);
-            
+
             deal(USDS_ADDRESS, address(this), 10e30);
             USDS.approve(address(adapter), 10e30);
         } else {
             vm.assume(specifiedAmount < limits[0]);
-            
+
             deal(USDS_ADDRESS, address(this), specifiedAmount);
             USDS.approve(address(adapter), specifiedAmount);
         }
-        
+
         uint256 dai_balance_before = DAI.balanceOf(address(this));
         uint256 usds_balance_before = USDS.balanceOf(address(this));
 
@@ -412,7 +418,6 @@ contract SkySwapAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
         }
     }
 
-
     //////////////////////////// USDS-USDC ////////////////////////////
 
     // USDC -> USDS | SELL SIDE PASS | BUY SIDE PASS
@@ -428,49 +433,49 @@ contract SkySwapAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
         if (side == OrderSide.Buy) {
             vm.assume(specifiedAmount < limits[1]);
             vm.assume(specifiedAmount > 10e17);
-            
+
             deal(USDC_ADDRESS, address(this), 10e50);
             USDC.approve(address(adapter), 10e50);
         } else {
             vm.assume(specifiedAmount < limits[0]);
             vm.assume(specifiedAmount > 10e5);
-            
+
             deal(USDC_ADDRESS, address(this), specifiedAmount);
             USDC.approve(address(adapter), specifiedAmount);
         }
-        
+
         uint256 usdc_balance_before = USDC.balanceOf(address(this));
         uint256 usds_balance_before = USDS.balanceOf(address(this));
 
-        Trade memory trade =
-            adapter.swap(PAIR, USDC_ADDRESS, USDS_ADDRESS, side, specifiedAmount);
+        Trade memory trade = adapter.swap(
+            PAIR, USDC_ADDRESS, USDS_ADDRESS, side, specifiedAmount
+        );
 
         uint256 usdc_balance_after = USDC.balanceOf(address(this));
         uint256 usds_balance_after = USDS.balanceOf(address(this));
 
         if (side == OrderSide.Buy) {
-                // Allow for small rounding errors (up to 0.001 USDS or 10^15 wei)
-                uint256 usdsReceived = usds_balance_after - usds_balance_before;
-                assertApproxEqAbs(
-                    specifiedAmount,
-                    usdsReceived,
-                    1e15,
-                    "USDS amount received differs too much from specified"
-                );
-                assertEq(
-                    trade.calculatedAmount, usdc_balance_before - usdc_balance_after
-                );
-            } else {
-                assertEq(specifiedAmount, usdc_balance_before - usdc_balance_after);
-                assertApproxEqAbs(
-                    trade.calculatedAmount,
-                    usds_balance_after - usds_balance_before,
-                    1e15,
+            // Allow for small rounding errors (up to 0.001 USDS or 10^15 wei)
+            uint256 usdsReceived = usds_balance_after - usds_balance_before;
+            assertApproxEqAbs(
+                specifiedAmount,
+                usdsReceived,
+                1e15,
+                "USDS amount received differs too much from specified"
+            );
+            assertEq(
+                trade.calculatedAmount, usdc_balance_before - usdc_balance_after
+            );
+        } else {
+            assertEq(specifiedAmount, usdc_balance_before - usdc_balance_after);
+            assertApproxEqAbs(
+                trade.calculatedAmount,
+                usds_balance_after - usds_balance_before,
+                1e15,
                 "USDS calculation differs too much from actual"
             );
         }
     }
-
 
     // USDS -> USDC | SELL SIDE PASS | BUY SIDE PASS
     function testSwapFuzzUsdsForUsdc(uint256 specifiedAmount, bool isBuy)
@@ -484,7 +489,7 @@ contract SkySwapAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
         if (side == OrderSide.Buy) {
             // When buying USDC, specifiedAmount is in USDC (6 decimals)
             vm.assume(specifiedAmount < limits[1]);
-            
+
             deal(USDS_ADDRESS, address(this), 10e50);
             USDS.approve(address(adapter), 10e50);
         } else {
@@ -498,8 +503,9 @@ contract SkySwapAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
         uint256 usds_balance_before = USDS.balanceOf(address(this));
         uint256 usdc_balance_before = USDC.balanceOf(address(this));
 
-        Trade memory trade =
-            adapter.swap(PAIR, USDS_ADDRESS, USDC_ADDRESS, side, specifiedAmount);
+        Trade memory trade = adapter.swap(
+            PAIR, USDS_ADDRESS, USDC_ADDRESS, side, specifiedAmount
+        );
 
         uint256 usds_balance_after = USDS.balanceOf(address(this));
         uint256 usdc_balance_after = USDC.balanceOf(address(this));
@@ -519,7 +525,6 @@ contract SkySwapAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
         }
     }
 
-
     //////////////////////////// USDS-sUSDS ////////////////////////////
 
     // USDS -> sUSDS | SELL SIDE PASS | BUY SIDE PASS
@@ -533,34 +538,38 @@ contract SkySwapAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
 
         if (side == OrderSide.Buy) {
             vm.assume(specifiedAmount < limits[1]);
-            
+
             deal(USDS_ADDRESS, address(this), 10e50);
             USDS.approve(address(adapter), 10e50);
         } else {
             vm.assume(specifiedAmount < limits[0]);
-            
+
             deal(USDS_ADDRESS, address(this), specifiedAmount);
             USDS.approve(address(adapter), specifiedAmount);
         }
-        
+
         uint256 usds_balance_before = USDS.balanceOf(address(this));
         uint256 sUsds_balance_before = SUSDS.balanceOf(address(this));
 
-        Trade memory trade =
-            adapter.swap(PAIR, USDS_ADDRESS, SUSDS_ADDRESS, side, specifiedAmount);
+        Trade memory trade = adapter.swap(
+            PAIR, USDS_ADDRESS, SUSDS_ADDRESS, side, specifiedAmount
+        );
 
         uint256 usds_balance_after = USDS.balanceOf(address(this));
         uint256 sUsds_balance_after = SUSDS.balanceOf(address(this));
 
         if (side == OrderSide.Buy) {
-            assertEq(specifiedAmount, sUsds_balance_after - sUsds_balance_before);
+            assertEq(
+                specifiedAmount, sUsds_balance_after - sUsds_balance_before
+            );
             assertEq(
                 trade.calculatedAmount, usds_balance_before - usds_balance_after
             );
         } else {
             assertEq(specifiedAmount, usds_balance_before - usds_balance_after);
             assertEq(
-                trade.calculatedAmount, sUsds_balance_after - sUsds_balance_before
+                trade.calculatedAmount,
+                sUsds_balance_after - sUsds_balance_before
             );
         }
     }
@@ -577,21 +586,22 @@ contract SkySwapAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
 
         if (side == OrderSide.Buy) {
             vm.assume(specifiedAmount < limits[1]);
-            
+
             deal(SUSDS_ADDRESS, address(this), 10e50);
             SUSDS.approve(address(adapter), 10e50);
         } else {
             vm.assume(specifiedAmount < limits[0]);
-            
+
             deal(SUSDS_ADDRESS, address(this), specifiedAmount);
             SUSDS.approve(address(adapter), specifiedAmount);
         }
-        
+
         uint256 sUsds_balance_before = SUSDS.balanceOf(address(this));
         uint256 usds_balance_before = USDS.balanceOf(address(this));
 
-        Trade memory trade =
-            adapter.swap(PAIR, SUSDS_ADDRESS, USDS_ADDRESS, side, specifiedAmount);
+        Trade memory trade = adapter.swap(
+            PAIR, SUSDS_ADDRESS, USDS_ADDRESS, side, specifiedAmount
+        );
 
         uint256 sUsds_balance_after = SUSDS.balanceOf(address(this));
         uint256 usds_balance_after = USDS.balanceOf(address(this));
@@ -599,16 +609,18 @@ contract SkySwapAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
         if (side == OrderSide.Buy) {
             assertEq(specifiedAmount, usds_balance_after - usds_balance_before);
             assertEq(
-                trade.calculatedAmount, sUsds_balance_before - sUsds_balance_after
+                trade.calculatedAmount,
+                sUsds_balance_before - sUsds_balance_after
             );
         } else {
-            assertEq(specifiedAmount, sUsds_balance_before - sUsds_balance_after);
+            assertEq(
+                specifiedAmount, sUsds_balance_before - sUsds_balance_after
+            );
             assertEq(
                 trade.calculatedAmount, usds_balance_after - usds_balance_before
             );
         }
     }
-
 
     //////////////////////////// MKR-SKY ////////////////////////////
 
@@ -632,7 +644,7 @@ contract SkySwapAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
             deal(MKR_ADDRESS, address(this), specifiedAmount);
             MKR.approve(address(adapter), specifiedAmount);
         }
-        
+
         uint256 mkr_balance_before = MKR.balanceOf(address(this));
         uint256 sky_balance_before = SKY.balanceOf(address(this));
 
@@ -643,7 +655,6 @@ contract SkySwapAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
         uint256 sky_balance_after = SKY.balanceOf(address(this));
 
         if (side == OrderSide.Buy) {
-
             uint256 skyReceived = sky_balance_after - sky_balance_before;
             assertApproxEqAbs(
                 specifiedAmount,
@@ -682,7 +693,7 @@ contract SkySwapAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
             deal(SKY_ADDRESS, address(this), specifiedAmount);
             SKY.approve(address(adapter), specifiedAmount);
         }
-        
+
         uint256 sky_balance_before = SKY.balanceOf(address(this));
         uint256 mkr_balance_before = MKR.balanceOf(address(this));
 
@@ -711,12 +722,14 @@ contract SkySwapAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
         }
     }
 
-    ////////////////////////////////////////// Get Limits ///////////////////////////////////////
+    ////////////////////////////////////////// Get Limits
+    // ///////////////////////////////////////
 
     function testGetLimitsSkyProtocolPairs() public view {
         for (uint256 i = 0; i < NUM_PAIRS; i++) {
             TokenPair memory pair = pairs[i];
-            uint256[] memory limits = adapter.getLimits(PAIR, pair.token0, pair.token1);
+            uint256[] memory limits =
+                adapter.getLimits(PAIR, pair.token0, pair.token1);
             console.log("pair", pair.token0, pair.token1);
             console.log("limits", limits[0], limits[1]);
             assertEq(limits.length, 2);
