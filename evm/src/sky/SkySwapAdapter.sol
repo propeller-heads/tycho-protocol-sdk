@@ -22,6 +22,13 @@ contract SkySwapAdapter is ISwapAdapter {
     using SafeERC20 for IERC20;
     using SafeERC20 for ISavingsDai;
 
+    struct Pairs {
+        address token0;
+        address token1;
+    }
+
+    mapping(bytes32 => Pairs) public pairs;
+
     uint256 private constant PRECISION = 10 ** 18;
     uint256 private constant MKR_TO_SKY_RATE = 24000;
     uint256 private constant RESERVE_FACTOR = 10;
@@ -102,6 +109,31 @@ contract SkySwapAdapter is ISwapAdapter {
         usdc = IERC20(usdc_);
         mkr = IERC20(mkr_);
         sky = IERC20(sky_);
+
+        pairs[bytes32(bytes20(address(sDai)))] = Pairs(
+            address(dai),
+            address(sDai)
+        );
+        pairs[bytes32(bytes20(address(daiLitePSM)))] = Pairs(
+            address(dai),
+            address(usdc)
+        );
+        pairs[bytes32(bytes20(address(daiUsdsConverter)))] = Pairs(
+            address(dai),
+            address(usds)
+        );
+        pairs[bytes32(bytes20(address(usdsPsmWrapper)))] = Pairs(
+            address(usds),
+            address(usdc)
+        );
+        pairs[bytes32(bytes20(address(sUsds)))] = Pairs(
+            address(usds),
+            address(sUsds)
+        );
+        pairs[bytes32(bytes20(address(mkrSkyConverter)))] = Pairs(
+            address(mkr),
+            address(sky)
+        );
     }
 
     /**
@@ -342,17 +374,38 @@ contract SkySwapAdapter is ISwapAdapter {
         capabilities[3] = Capability.ConstantPrice;
     }
 
+    /// @notice Returns all supported tokens for a pool
     function getTokens(
         bytes32 poolId
     ) external view returns (address[] memory tokens) {
-        revert NotImplemented("SkySwapAdapter.getTokens");
+        Pairs memory pair = pairs[poolId];
+        if (pair.token0 == address(0)) {
+            revert Unavailable("Sky: Invalid pool ID");
+        }
+
+        tokens = new address[](2);
+        tokens[0] = pair.token0;
+        tokens[1] = pair.token1;
     }
 
+    /// @notice Returns all pool IDs
     function getPoolIds(
         uint256 offset,
         uint256 limit
-    ) external view returns (bytes32[] memory ids) {
-        revert NotImplemented("SkySwapAdapter.getPoolIds");
+    ) external view returns (bytes32[] memory poolIds) {
+        bytes32[] memory allPoolIds = new bytes32[](6);
+        allPoolIds[0] = bytes32(bytes20(address(sDai)));
+        allPoolIds[1] = bytes32(bytes20(address(daiLitePSM)));
+        allPoolIds[2] = bytes32(bytes20(address(daiUsdsConverter)));
+        allPoolIds[3] = bytes32(bytes20(address(usdsPsmWrapper)));
+        allPoolIds[4] = bytes32(bytes20(address(sUsds)));
+        allPoolIds[5] = bytes32(bytes20(address(mkrSkyConverter)));
+
+        uint256 length = offset + limit > 6 ? 6 - offset : limit;
+        poolIds = new bytes32[](length);
+        for (uint256 i = 0; i < length; i++) {
+            poolIds[i] = allPoolIds[i + offset];
+        }
     }
 
     /**
