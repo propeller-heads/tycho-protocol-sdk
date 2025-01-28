@@ -354,18 +354,21 @@ pub fn map_protocol_changes(
         .for_each(|(_, (tx, balances))| {
             let builder = transaction_changes
                 .entry(tx.index)
-                .or_insert_with(|| TransactionChangesBuilder::new(&tx));
+                .or_insert_with(|| TransactionChangesBuilder::new(tx));
 
             substreams::log::info!("balance changes for tx: 0x{:?}", hex::encode(&tx.hash));
 
             let mut vault_contract_tlv_changes = InterimContractChange::new(VAULT_ADDRESS, false);
+            let max_balance = BigInt::from(2u64).pow(150) - BigInt::from(1);
             balances
                 .values()
                 .for_each(|token_bc_map| {
                     token_bc_map.values().for_each(|bc| {
                         builder.add_balance_change(bc);
-                        vault_contract_tlv_changes
-                            .upsert_token_balance(bc.token.as_slice(), bc.balance.as_slice());
+                        vault_contract_tlv_changes.upsert_token_balance(
+                            bc.token.as_slice(),
+                            &max_balance.to_signed_bytes_be(),
+                        );
                     })
                 });
             builder.add_contract_changes(&vault_contract_tlv_changes);

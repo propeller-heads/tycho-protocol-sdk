@@ -19,6 +19,13 @@ use tycho_substreams::{
     abi::erc20::events::Transfer, attributes::json_serialize_bigint_list, prelude::*,
 };
 
+type TokenConfig = Vec<(Vec<u8>, substreams::scalar::BigInt, Vec<u8>, bool)>;
+pub fn check_erc4626(tokens: &TokenConfig) -> bool {
+    tokens
+        .iter()
+        .any(|token| token.1 == BigInt::from(1)) // WITH_RATE == 1
+}
+
 pub fn address_map(
     pool_factory_address: &[u8],
     log: &Log,
@@ -33,6 +40,7 @@ pub fn address_map(
                 ..
             } = WeightedPoolCreate::match_and_decode(call)?;
             let WeightedPoolCreated { pool } = WeightedPoolCreated::match_and_decode(log)?;
+            let is_erc4626 = check_erc4626(&token_config);
             let tokens = token_config
                 .into_iter()
                 .map(|t| t.0)
@@ -50,6 +58,7 @@ pub fn address_map(
                         ),
                         ("fee", &swap_fee_percentage.to_signed_bytes_be()),
                         ("manual_updates", &[1u8]),
+                        ("erc4626", &[is_erc4626 as u8]),
                     ])
                     .as_swap_type("balancer_v3_pool", ImplementationType::Vm),
             )
@@ -58,11 +67,11 @@ pub fn address_map(
             let StablePoolCreate { tokens: token_config, swap_fee_percentage, .. } =
                 StablePoolCreate::match_and_decode(call)?;
             let StablePoolCreated { pool } = StablePoolCreated::match_and_decode(log)?;
+            let is_erc4626 = check_erc4626(&token_config);
             let tokens = token_config
                 .into_iter()
                 .map(|t| t.0)
                 .collect::<Vec<_>>();
-
             Some(
                 ProtocolComponent::new(&format!("0x{}", hex::encode(&pool)))
                     .with_contracts(&[pool.to_owned(), VAULT_ADDRESS.to_vec()])
@@ -72,6 +81,7 @@ pub fn address_map(
                         ("bpt", &pool),
                         ("fee", &swap_fee_percentage.to_signed_bytes_be()),
                         ("manual_updates", &[1u8]),
+                        ("erc4626", &[is_erc4626 as u8]),
                     ])
                     .as_swap_type("balancer_v3_pool", ImplementationType::Vm),
             )
