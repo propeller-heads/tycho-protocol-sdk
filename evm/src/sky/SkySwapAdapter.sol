@@ -25,6 +25,7 @@ contract SkySwapAdapter is ISwapAdapter {
 
     uint256 private constant PRECISION = 10 ** 18;
     uint256 private constant MKR_TO_SKY_RATE = 24000;
+    uint256 private constant RESERVE_FACTOR = 10;
 
     /**
      * @dev SavingsDai swaps DAI <-> sDAI.
@@ -494,9 +495,6 @@ contract SkySwapAdapter is ISwapAdapter {
             }
         } else if (isDaiUsdcPair(sellToken, buyToken)) {
             if (sellToken == address(usdc)) {
-                // gem is USDC, daiLitePSM.dec() returns gem decimals = 6
-                // To get 1 unit of gem (USDC), we need to multiply by 10^6
-                // to18ConversionFactor = 10 ** (18 - gem.decimals())
                 uint256 daiOutWad = 10 ** daiLitePSM.dec() *
                     daiLitePSM.to18ConversionFactor();
                 uint256 fee;
@@ -520,9 +518,6 @@ contract SkySwapAdapter is ISwapAdapter {
         } else if (isDaiUsdsPair(sellToken, buyToken)) {
             return Fraction(PRECISION, PRECISION);
         } else if (isUsdsUsdcPair(sellToken, buyToken)) {
-            // gem is USDC, usdsPsmWrapper.dec() returns gem decimals = 6
-            // To get 1 unit of gem (USDC), we need to multiply by 10^6
-            // to18ConversionFactor = 10 ** (18 - gem.decimals())
             if (sellToken == address(usdc)) {
                 uint256 usdsOutWad = 10 ** usdsPsmWrapper.dec() *
                     usdsPsmWrapper.to18ConversionFactor();
@@ -561,7 +556,7 @@ contract SkySwapAdapter is ISwapAdapter {
                 return Fraction(PRECISION, mkrSkyConverter.rate() * PRECISION);
             }
         }
-        return Fraction(0, 0); // Default return for unreachable path
+        return Fraction(0, 0);
     }
 
     /// @inheritdoc ISwapAdapter
@@ -575,34 +570,30 @@ contract SkySwapAdapter is ISwapAdapter {
         // DAI <-> sDAI
         if (isDaiSDaiPair(sellToken, buyToken)) {
             if (sellToken == address(dai)) {
-                limits[0] = 3 * (10 ** 24);
-                limits[1] = limits[0];
+                limits[0] = dai.totalSupply() / RESERVE_FACTOR;
+                limits[1] = sDai.previewDeposit(limits[0]);
             } else {
                 uint256 totalAssets = sDai.totalAssets();
-                limits[0] = sDai.previewWithdraw(totalAssets);
-                limits[1] = totalAssets;
+                limits[0] = sDai.previewWithdraw(totalAssets / RESERVE_FACTOR);
+                limits[1] = totalAssets / RESERVE_FACTOR;
             }
             return limits;
         }
 
-        // DAI <-> USDC
-        // DAI is in DssLitePsm
-        // USDC is in DssLitePsm.pocket()
-        if (isDaiUsdcPair(sellToken, buyToken)) {
+        // DAI <-> USDC & USDS <-> USDC
+        if (isDaiUsdcPair(sellToken, buyToken) || isUsdsUsdcPair(sellToken, buyToken)) {
             if (sellToken == address(usdc)) {
-                // When selling USDC, we need DAI in the PSM to cover it
-                // Convert DAI balance to USDC terms (accounting for decimals)
+                uint256 daiBalanceLitePSM = dai.balanceOf(address(daiLitePSM));
                 limits[0] =
-                    dai.balanceOf(address(daiLitePSM)) /
-                    (daiLitePSM.to18ConversionFactor() * 10);
-                limits[1] = dai.balanceOf(address(daiLitePSM)) / 10;
+                    daiBalanceLitePSM /
+                    (daiLitePSM.to18ConversionFactor() * RESERVE_FACTOR);
+                limits[1] = daiBalanceLitePSM / RESERVE_FACTOR;
             } else {
-                // When selling DAI, we need USDC in the PSM's pocket to cover it
-                uint256 usdcBalance = usdc.balanceOf(daiLitePSM.pocket());
+                uint256 usdcBalancePocket = usdc.balanceOf(daiLitePSM.pocket());
                 limits[0] =
-                    (usdcBalance * daiLitePSM.to18ConversionFactor()) /
-                    10; // Convert to DAI decimals
-                limits[1] = usdc.balanceOf(daiLitePSM.pocket()) / 10;
+                    (usdcBalancePocket * daiLitePSM.to18ConversionFactor()) /
+                    RESERVE_FACTOR;
+                limits[1] = usdcBalancePocket / RESERVE_FACTOR;
             }
 
             return limits;
@@ -614,32 +605,11 @@ contract SkySwapAdapter is ISwapAdapter {
             uint256 usdsTotalSupply = usds.totalSupply();
 
             if (daiTotalSupply <= usdsTotalSupply) {
-                limits[0] = daiTotalSupply / 100;
+                limits[0] = daiTotalSupply / RESERVE_FACTOR;
                 limits[1] = limits[0];
             } else {
-                limits[0] = usdsTotalSupply / 100;
+                limits[0] = usdsTotalSupply / RESERVE_FACTOR;
                 limits[1] = limits[0];
-            }
-
-            return limits;
-        }
-
-        // USDS <-> USDC
-        if (isUsdsUsdcPair(sellToken, buyToken)) {
-            if (sellToken == address(usdc)) {
-                // When selling USDC, we need DAI in the PSM to cover it
-                // Convert DAI balance to USDC terms (accounting for decimals)
-                limits[0] =
-                    dai.balanceOf(address(daiLitePSM)) /
-                    (daiLitePSM.to18ConversionFactor() * 10);
-                limits[1] = dai.balanceOf(address(daiLitePSM)) / 10;
-            } else {
-                // When selling DAI, we need USDC in the PSM's pocket to cover it
-                uint256 usdcBalance = usdc.balanceOf(daiLitePSM.pocket());
-                limits[0] =
-                    (usdcBalance * daiLitePSM.to18ConversionFactor()) /
-                    10; // Convert to DAI decimals
-                limits[1] = usdc.balanceOf(daiLitePSM.pocket()) / 10;
             }
 
             return limits;
@@ -651,11 +621,11 @@ contract SkySwapAdapter is ISwapAdapter {
             uint256 totalAssets = sUsds.totalAssets();
 
             if (sellToken == address(usds)) {
-                limits[0] = usdsTotalSupply / 100;
+                limits[0] = usdsTotalSupply / RESERVE_FACTOR;
                 limits[1] = sUsds.previewDeposit(limits[0]);
             } else {
-                limits[0] = sUsds.previewRedeem(totalAssets / 100);
-                limits[1] = totalAssets / 100;
+                limits[0] = sUsds.previewRedeem(totalAssets / RESERVE_FACTOR);
+                limits[1] = totalAssets / RESERVE_FACTOR;
             }
             return limits;
         }
@@ -663,10 +633,10 @@ contract SkySwapAdapter is ISwapAdapter {
         // MKR <-> SKY
         if (isMkrSkyPair(sellToken, buyToken)) {
             if (sellToken == address(mkr)) {
-                limits[0] = mkr.totalSupply() / 100;
+                limits[0] = mkr.totalSupply() / RESERVE_FACTOR;
                 limits[1] = limits[0] * MKR_TO_SKY_RATE;
             } else {
-                limits[0] = sky.totalSupply() / 100;
+                limits[0] = sky.totalSupply() / RESERVE_FACTOR;
                 limits[1] = limits[0] / MKR_TO_SKY_RATE;
             }
             return limits;
