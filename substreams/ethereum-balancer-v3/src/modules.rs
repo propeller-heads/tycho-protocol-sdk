@@ -11,6 +11,7 @@ use std::collections::HashMap;
 use substreams::{
     hex, log,
     pb::substreams::StoreDeltas,
+    scalar::BigInt,
     store::{
         StoreAddBigInt, StoreGet, StoreGetProto, StoreNew, StoreSetIfNotExists,
         StoreSetIfNotExistsProto,
@@ -24,6 +25,7 @@ use tycho_substreams::{
 pub const VAULT_ADDRESS: &[u8] = &hex!("bA1333333333a1BA1108E8412f11850A5C319bA9");
 pub const VAULT_EXTENSION_ADDRESS: &[u8; 20] = &hex!("0E8B07657D719B86e06bF0806D6729e3D528C9A9");
 pub const BATCH_ROUTER_ADDRESS: &[u8; 20] = &hex!("136f1efcc3f8f88516b9e94110d56fdbfb1778d1");
+pub const PERMIT_2_ADDRESS: &[u8; 20] = &hex!("000000000022D473030F116dDEE9F6B43aC78BA3");
 
 #[substreams::handlers::map]
 pub fn map_components(block: eth::v2::Block) -> Result<BlockTransactionProtocolComponents> {
@@ -36,13 +38,8 @@ pub fn map_components(block: eth::v2::Block) -> Result<BlockTransactionProtocolC
                 let components = tx
                     .logs_with_calls()
                     .filter_map(|(log, call)| {
-                        pool_factories::address_map(
-                            call.call.address.as_slice(),
-                            log,
-                            call.call,
-                            tx,
-                        )
-                        .or_else(|| pool_factories::buffer_map(log, tx))
+                        pool_factories::address_map(call.call.address.as_slice(), log, call.call)
+                            .or_else(|| pool_factories::buffer_map(log, tx))
                     })
                     .collect::<Vec<_>>();
 
@@ -314,6 +311,11 @@ pub fn map_protocol_changes(
             change: ChangeType::Creation.into(),
         },
         Attribute {
+            name: "stateless_contract_addr_2".into(),
+            value: address_to_bytes_with_0x(PERMIT_2_ADDRESS),
+            change: ChangeType::Creation.into(),
+        },
+        Attribute {
             name: "update_marker".to_string(),
             value: vec![1u8],
             change: ChangeType::Creation.into(),
@@ -348,18 +350,28 @@ pub fn map_protocol_changes(
     // this  block. Then, these balance changes are merged onto the existing map of tx contract
     // changes,  inserting a new one if it doesn't exist.
     aggregate_balances_changes(balance_store, deltas)
-        .into_iter()
+        .iter()
         .for_each(|(_, (tx, balances))| {
             let builder = transaction_changes
                 .entry(tx.index)
-                .or_insert_with(|| TransactionChangesBuilder::new(&tx));
+                .or_insert_with(|| TransactionChangesBuilder::new(tx));
+
+            substreams::log::info!("balance changes for tx: 0x{:?}", hex::encode(&tx.hash));
+
+            let mut vault_contract_tlv_changes = InterimContractChange::new(VAULT_ADDRESS, false);
+            let max_balance = BigInt::from(2u64).pow(150) - BigInt::from(1);
             balances
                 .values()
                 .for_each(|token_bc_map| {
-                    token_bc_map
-                        .values()
-                        .for_each(|bc| builder.add_balance_change(bc))
+                    token_bc_map.values().for_each(|bc| {
+                        builder.add_balance_change(bc);
+                        vault_contract_tlv_changes.upsert_token_balance(
+                            bc.token.as_slice(),
+                            &max_balance.to_signed_bytes_be(),
+                        );
+                    })
                 });
+            builder.add_contract_changes(&vault_contract_tlv_changes);
         });
 
     // Extract and insert any storage changes that happened for any of the components.
@@ -382,6 +394,7 @@ pub fn map_protocol_changes(
                 .changed_contracts()
                 .map(|e| e.to_vec())
                 .collect::<Vec<_>>();
+
             addresses
                 .into_iter()
                 .for_each(|address| {
