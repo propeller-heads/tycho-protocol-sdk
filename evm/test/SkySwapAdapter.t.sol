@@ -324,4 +324,156 @@ contract SkySwapAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
         );
         verifySwap(pair.token0, pair.token1, result, specifiedAmount, side);
     }
+
+    function testPriceKeepDaiSDai() public {
+        uint256[] memory amounts = new uint256[](TEST_ITERATIONS);
+        uint256 amountConstant_ = 10 ** 18;
+
+        for (uint256 i = 1; i < TEST_ITERATIONS; i++) {
+            amounts[i] = amountConstant_ * i;
+        }
+
+        TokenPair memory pair = TokenPair({
+            token0: DAI_ADDRESS,
+            token1: SDAI_ADDRESS,
+            converter: SDAI_ADDRESS
+        });
+
+        Fraction[] memory prices = adapter.price(
+            pair.poolId,
+            pair.token0,
+            pair.token1,
+            amounts
+        );
+
+        for (uint256 i = 1; i < TEST_ITERATIONS - 1; i++) {
+            assertEq(
+                FractionMath.compareFractions(prices[i], prices[i + 1]),
+                0
+            );
+            assertGt(prices[i].denominator, 0);
+            assertGt(prices[i + 1].denominator, 0);
+        }
+    }
+
+    function testPriceAfterSwapEqPriceBeforeSwap(
+        address sellToken,
+        address buyToken,
+        OrderSide side,
+        uint256 specifiedAmount
+    ) internal {
+        bytes32 poolId = adapter.getPoolId(sellToken, buyToken);
+        uint256[] memory limits = adapter.getLimits(
+            poolId,
+            sellToken,
+            buyToken
+        );
+
+        vm.assume(specifiedAmount < limits[0] && specifiedAmount > 1);
+
+        uint256[] memory specifiedAmount_ = new uint256[](1);
+        specifiedAmount_[0] = specifiedAmount;
+
+        Fraction[] memory priceBeforeSwap = adapter.price(
+            poolId,
+            sellToken,
+            buyToken,
+            specifiedAmount_
+        );
+
+        deal(sellToken, address(this), specifiedAmount);
+        IERC20(sellToken).approve(address(adapter), specifiedAmount);
+
+        Trade memory trade = adapter.swap(
+            poolId,
+            sellToken,
+            buyToken,
+            side,
+            specifiedAmount
+        );
+
+        assertEq(
+            FractionMath.compareFractions(priceBeforeSwap[0], trade.price),
+            0
+        );
+    }
+
+    // Test each pair
+    function testPriceAfterSwapEqPriceBeforeSwapDaiSDai(
+        uint256 specifiedAmount
+    ) public {
+        testPriceAfterSwapEqPriceBeforeSwap(
+            DAI_ADDRESS,
+            SDAI_ADDRESS,
+            OrderSide.Sell,
+            specifiedAmount
+        );
+    }
+
+    function testPriceAfterSwapEqPriceBeforeSwapDaiUsdc(
+        uint256 specifiedAmount
+    ) public {
+        testPriceAfterSwapEqPriceBeforeSwap(
+            DAI_ADDRESS,
+            USDC_ADDRESS,
+            OrderSide.Sell,
+            specifiedAmount
+        );
+    }
+
+    function executeIncreasingSwaps(
+        address sellToken,
+        address buyToken,
+        OrderSide side
+    ) internal {
+        uint256 amountConstant_ = 10 ** 18;
+        bytes32 poolId = adapter.getPoolId(sellToken, buyToken);
+
+        uint256[] memory amounts = new uint256[](TEST_ITERATIONS);
+        for (uint256 i = 1; i < TEST_ITERATIONS; i++) {
+            amounts[i] = amountConstant_ * i;
+        }
+
+        Trade[] memory trades = new Trade[](TEST_ITERATIONS);
+        uint256 beforeSwap;
+        for (uint256 i = 1; i < TEST_ITERATIONS; i++) {
+            beforeSwap = vm.snapshot();
+
+            deal(sellToken, address(this), type(uint256).max);
+            IERC20(sellToken).approve(address(adapter), type(uint256).max);
+
+            trades[i] = adapter.swap(
+                poolId,
+                sellToken,
+                buyToken,
+                side,
+                amounts[i]
+            );
+            vm.revertTo(beforeSwap);
+        }
+
+        for (uint256 i = 1; i < TEST_ITERATIONS - 1; i++) {
+            assertLe(
+                trades[i].calculatedAmount,
+                trades[i + 1].calculatedAmount
+            );
+            assertLe(trades[i].gasUsed, trades[i + 1].gasUsed);
+            assertEq(
+                FractionMath.compareFractions(
+                    trades[i].price,
+                    trades[i + 1].price
+                ),
+                0
+            );
+        }
+    }
+
+    // Test increasing swaps for each pair
+    function testSwapSellIncreasingDaiUsdc() public {
+        executeIncreasingSwaps(DAI_ADDRESS, USDC_ADDRESS, OrderSide.Sell);
+    }
+
+    function testSwapBuyIncreasingDaiUsdc() public {
+        executeIncreasingSwaps(DAI_ADDRESS, USDC_ADDRESS, OrderSide.Buy);
+    }
 }
