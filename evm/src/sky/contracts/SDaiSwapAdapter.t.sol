@@ -3,9 +3,9 @@ pragma solidity ^0.8.13;
 
 import "forge-std/Test.sol";
 import "src/interfaces/ISwapAdapterTypes.sol";
-import "./AdapterTest.sol";
+import "../../../test/AdapterTest.sol";
 import "src/libraries/FractionMath.sol";
-import "src/sDai/sDaiSwapAdapter.sol";
+import "./sDaiSwapAdapter.sol";
 
 /// @title sDaiSwapAdapterTest
 
