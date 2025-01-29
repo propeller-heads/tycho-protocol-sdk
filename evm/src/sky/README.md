@@ -28,8 +28,6 @@
 - [Codebase](https://github.com/makerdao/dss-lite-psm)
 - See swap example at https://swap.cow.fi/#/1/swap/DAI/USDC
 
-![1000-DAI-to-USDC](./media/1000-DAI-to-USDC.png)
-
 ### Features
 - Enables users to trade DAI with other stablecoins like USDC (referred to as "gems") at **fixed exchange ratios and fees**.
 - A lightweight PSM implementation.
