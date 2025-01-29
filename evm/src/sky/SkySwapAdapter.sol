@@ -22,12 +22,12 @@ contract SkySwapAdapter is ISwapAdapter {
     using SafeERC20 for IERC20;
     using SafeERC20 for ISavingsDai;
 
-    struct Pairs {
+    struct Pair {
         address token0;
         address token1;
     }
 
-    mapping(bytes32 => Pairs) public pairs;
+    mapping(bytes32 => Pair) public pairs;
 
     uint256 private constant PRECISION = 10 ** 18;
     uint256 private constant MKR_TO_SKY_RATE = 24000;
@@ -110,27 +110,27 @@ contract SkySwapAdapter is ISwapAdapter {
         mkr = IERC20(mkr_);
         sky = IERC20(sky_);
 
-        pairs[bytes32(bytes20(address(sDai)))] = Pairs(
+        pairs[bytes32(bytes20(address(sDai)))] = Pair(
             address(dai),
             address(sDai)
         );
-        pairs[bytes32(bytes20(address(daiLitePSM)))] = Pairs(
+        pairs[bytes32(bytes20(address(daiLitePSM)))] = Pair(
             address(dai),
             address(usdc)
         );
-        pairs[bytes32(bytes20(address(daiUsdsConverter)))] = Pairs(
+        pairs[bytes32(bytes20(address(daiUsdsConverter)))] = Pair(
             address(dai),
             address(usds)
         );
-        pairs[bytes32(bytes20(address(usdsPsmWrapper)))] = Pairs(
+        pairs[bytes32(bytes20(address(usdsPsmWrapper)))] = Pair(
             address(usds),
             address(usdc)
         );
-        pairs[bytes32(bytes20(address(sUsds)))] = Pairs(
+        pairs[bytes32(bytes20(address(sUsds)))] = Pair(
             address(usds),
             address(sUsds)
         );
-        pairs[bytes32(bytes20(address(mkrSkyConverter)))] = Pairs(
+        pairs[bytes32(bytes20(address(mkrSkyConverter)))] = Pair(
             address(mkr),
             address(sky)
         );
@@ -378,7 +378,7 @@ contract SkySwapAdapter is ISwapAdapter {
     function getTokens(
         bytes32 poolId
     ) external view returns (address[] memory tokens) {
-        Pairs memory pair = pairs[poolId];
+        Pair memory pair = pairs[poolId];
         if (pair.token0 == address(0)) {
             revert Unavailable("Sky: Invalid pool ID");
         }
