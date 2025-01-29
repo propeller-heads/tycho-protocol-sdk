@@ -241,6 +241,8 @@ contract SkySwapAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
         }
     }
 
+//////////////////////////////////////// testSwapFuzz ////////////////////////////////////////    
+
     // DAI <-> sDAI (Pair 0)
     function testSwapFuzzDaiSDai(uint256 specifiedAmount, bool isBuy) public {
         TokenPair memory pair = pairs[0];
@@ -325,6 +327,9 @@ contract SkySwapAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
         verifySwap(pair.token0, pair.token1, result, specifiedAmount, side);
     }
 
+//////////////////////////////////////// testpriceKeep ////////////////////////////////////////  
+
+    // DAI -> sDAI (Pair 0)
     function testPriceKeepDaiSDai() public {
         uint256[] memory amounts = new uint256[](TEST_ITERATIONS);
 
@@ -351,6 +356,7 @@ contract SkySwapAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
         }
     }
 
+    // sDAI -> Dai (Pair 0)
     function testPriceKeepSDaiDai() public {
         uint256[] memory amounts = new uint256[](TEST_ITERATIONS);
 
@@ -377,27 +383,266 @@ contract SkySwapAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
         }
     }
 
-    function testPriceAfterSwapEqPriceBeforeSwapSellDaiSDai(
-        uint256 specifiedAmount
-    ) public {
-        testPriceAfterSwapEqPriceBeforeSwap(
+    // DAI -> USDC (Pair 1)
+    function testPriceKeepDaiUsdc() public {
+        uint256[] memory amounts = new uint256[](TEST_ITERATIONS);
+        uint256 amountConstant_ = 10 ** 18;
+
+        for (uint256 i = 1; i < TEST_ITERATIONS; i++) {
+            amounts[i] = amountConstant_ * i;
+        }
+
+        Fraction[] memory prices = adapter.price(
+            PAIR,
             DAI_ADDRESS,
-            SDAI_ADDRESS,
-            OrderSide.Sell,
-            specifiedAmount
+            USDC_ADDRESS,
+            amounts
         );
+
+        for (uint256 i = 1; i < TEST_ITERATIONS - 1; i++) {
+            assertEq(
+                FractionMath.compareFractions(prices[i], prices[i + 1]),
+                0
+            );
+            assertGt(prices[i].denominator, 0);
+            assertGt(prices[i + 1].denominator, 0);
+        }
     }
 
-    function testPriceAfterSwapEqPriceBeforeSwapSellSDaiForDai(
-        uint256 specifiedAmount
-    ) public {
-        testPriceAfterSwapEqPriceBeforeSwap(
-            SDAI_ADDRESS,
+    // USDC -> DAI (Pair 1)
+    function testPriceKeepUsdcDai() public {
+        uint256[] memory amounts = new uint256[](TEST_ITERATIONS);
+        uint256 amountConstant_ = 10 ** 18;
+
+        for (uint256 i = 1; i < TEST_ITERATIONS; i++) {
+            amounts[i] = amountConstant_ * i;
+        }
+
+        Fraction[] memory prices = adapter.price(
+            PAIR,
+            USDC_ADDRESS,
             DAI_ADDRESS,
-            OrderSide.Sell,
-            specifiedAmount
+            amounts
         );
+
+        for (uint256 i = 1; i < TEST_ITERATIONS - 1; i++) {
+            assertEq(
+                FractionMath.compareFractions(prices[i], prices[i + 1]),
+                0
+            );
+            assertGt(prices[i].denominator, 0);
+            assertGt(prices[i + 1].denominator, 0);
+        }
     }
+
+    // DAI -> USDS (Pair 2)
+    function testPriceKeepDaiUsds() public {
+        uint256[] memory amounts = new uint256[](TEST_ITERATIONS);
+        uint256 amountConstant_ = 10 ** 18;
+
+        for (uint256 i = 1; i < TEST_ITERATIONS; i++) {
+            amounts[i] = amountConstant_ * i;
+        }
+
+        Fraction[] memory prices = adapter.price(
+            PAIR,
+            DAI_ADDRESS,
+            USDS_ADDRESS,
+            amounts
+        );
+
+        for (uint256 i = 1; i < TEST_ITERATIONS - 1; i++) {
+            assertEq(
+                FractionMath.compareFractions(prices[i], prices[i + 1]),
+                0
+            );
+            assertGt(prices[i].denominator, 0);
+            assertGt(prices[i + 1].denominator, 0);
+        }
+    }
+
+    // USDS -> DAI (Pair 2)
+    function testPriceKeepUsdsDai() public {
+        uint256[] memory amounts = new uint256[](TEST_ITERATIONS);
+        uint256 amountConstant_ = 10 ** 18;
+
+        for (uint256 i = 1; i < TEST_ITERATIONS; i++) {
+            amounts[i] = amountConstant_ * i;
+        }
+
+        Fraction[] memory prices = adapter.price(
+            PAIR,
+            USDS_ADDRESS,
+            DAI_ADDRESS,
+            amounts
+        );
+
+        for (uint256 i = 1; i < TEST_ITERATIONS - 1; i++) {
+            assertEq(
+                FractionMath.compareFractions(prices[i], prices[i + 1]),
+                0
+            );
+            assertGt(prices[i].denominator, 0);
+            assertGt(prices[i + 1].denominator, 0);
+        }
+    }
+
+    // USDS -> USDC (Pair 3)
+    function testPriceKeepUsdsUsdc() public {
+        uint256[] memory amounts = new uint256[](TEST_ITERATIONS);
+        uint256 amountConstant_ = 10 ** 18;
+
+        for (uint256 i = 1; i < TEST_ITERATIONS; i++) {
+            amounts[i] = amountConstant_ * i;
+        }
+
+        Fraction[] memory prices = adapter.price(
+            PAIR,
+            USDS_ADDRESS,
+            USDC_ADDRESS,
+            amounts
+        );
+
+        for (uint256 i = 1; i < TEST_ITERATIONS - 1; i++) {
+            assertEq(
+                FractionMath.compareFractions(prices[i], prices[i + 1]),
+                0
+            );
+            assertGt(prices[i].denominator, 0);
+            assertGt(prices[i + 1].denominator, 0);
+        }
+    }
+    // USDC -> USDS (Pair 3)
+    function testPriceKeepUsdcUsds() public {
+        uint256[] memory amounts = new uint256[](TEST_ITERATIONS);
+        uint256 amountConstant_ = 10 ** 18;
+
+        for (uint256 i = 1; i < TEST_ITERATIONS; i++) {
+            amounts[i] = amountConstant_ * i;
+        }
+
+        Fraction[] memory prices = adapter.price(
+            PAIR,
+            USDC_ADDRESS,
+            USDS_ADDRESS,
+            amounts
+        );
+
+        for (uint256 i = 1; i < TEST_ITERATIONS - 1; i++) {
+            assertEq(
+                FractionMath.compareFractions(prices[i], prices[i + 1]),
+                0
+            );
+            assertGt(prices[i].denominator, 0);
+            assertGt(prices[i + 1].denominator, 0);
+        }
+    }
+
+    // USDS -> sUSDS (Pair 4)
+    function testPriceKeepUsdsSUsds() public {
+        uint256[] memory amounts = new uint256[](TEST_ITERATIONS);
+        uint256 amountConstant_ = 10 ** 18;
+
+        for (uint256 i = 1; i < TEST_ITERATIONS; i++) {
+            amounts[i] = amountConstant_ * i;
+        }
+
+        Fraction[] memory prices = adapter.price(
+            PAIR,
+            USDS_ADDRESS,
+            SUSDS_ADDRESS,
+            amounts
+        );
+
+        for (uint256 i = 1; i < TEST_ITERATIONS - 1; i++) {
+            assertEq(
+                FractionMath.compareFractions(prices[i], prices[i + 1]),
+                0
+            );
+            assertGt(prices[i].denominator, 0);
+            assertGt(prices[i + 1].denominator, 0);
+        }
+    }
+
+    // sUSDS -> USDS (Pair 4)
+    function testPriceKeepSUsdsUsds() public {
+        uint256[] memory amounts = new uint256[](TEST_ITERATIONS);
+        uint256 amountConstant_ = 10 ** 18;
+
+        for (uint256 i = 1; i < TEST_ITERATIONS; i++) {
+            amounts[i] = amountConstant_ * i;
+        }
+
+        Fraction[] memory prices = adapter.price(
+            PAIR,
+            SUSDS_ADDRESS,
+            USDS_ADDRESS,
+            amounts
+        );
+
+        for (uint256 i = 1; i < TEST_ITERATIONS - 1; i++) {
+            assertEq(
+                FractionMath.compareFractions(prices[i], prices[i + 1]),
+                0
+            );
+            assertGt(prices[i].denominator, 0);
+            assertGt(prices[i + 1].denominator, 0);
+        }
+    }
+
+    // MKR -> SKY (Pair 5)
+    function testPriceKeepMkrSky() public {
+        uint256[] memory amounts = new uint256[](TEST_ITERATIONS);
+        uint256 amountConstant_ = 10 ** 18;
+
+        for (uint256 i = 1; i < TEST_ITERATIONS; i++) {
+            amounts[i] = amountConstant_ * i;
+        }
+
+        Fraction[] memory prices = adapter.price(
+            PAIR,
+            MKR_ADDRESS,
+            SKY_ADDRESS,
+            amounts
+        );
+
+        for (uint256 i = 1; i < TEST_ITERATIONS - 1; i++) {
+            assertEq(
+                FractionMath.compareFractions(prices[i], prices[i + 1]),
+                0
+            );
+            assertGt(prices[i].denominator, 0);
+            assertGt(prices[i + 1].denominator, 0);
+        }
+    }
+
+    // SKY -> MKR (Pair 5)
+    function testPriceKeepSkyMkr() public {
+        uint256[] memory amounts = new uint256[](TEST_ITERATIONS);
+        uint256 amountConstant_ = 10 ** 18;
+
+        for (uint256 i = 1; i < TEST_ITERATIONS; i++) {
+            amounts[i] = amountConstant_ * i;
+        }
+
+        Fraction[] memory prices = adapter.price(
+            PAIR,
+            SKY_ADDRESS,
+            MKR_ADDRESS,
+            amounts
+        );
+
+        for (uint256 i = 1; i < TEST_ITERATIONS - 1; i++) {
+            assertEq(
+                FractionMath.compareFractions(prices[i], prices[i + 1]),
+                0
+            );
+            assertGt(prices[i].denominator, 0);
+            assertGt(prices[i + 1].denominator, 0);
+        }
+    }
+
+    //////////////////////////////////////// testPriceAfterSwapEqPriceBeforeSwap ////////////////////////////////////////  
 
     function testPriceAfterSwapEqPriceBeforeSwap(
         address sellToken,
@@ -435,187 +680,31 @@ contract SkySwapAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
         );
     }
 
-    // Price Keep tests for DAI-USDC
-    function testPriceKeepDaiUsdc() public {
-        uint256[] memory amounts = new uint256[](TEST_ITERATIONS);
-        uint256 amountConstant_ = 10 ** 18;
-
-        for (uint256 i = 1; i < TEST_ITERATIONS; i++) {
-            amounts[i] = amountConstant_ * i;
-        }
-
-        Fraction[] memory prices = adapter.price(
-            PAIR,
+    // DAI -> sDAI (Pair 0)
+    function testPriceAfterSwapEqPriceBeforeSwapSellDaiSDai(
+        uint256 specifiedAmount
+    ) public {
+        testPriceAfterSwapEqPriceBeforeSwap(
             DAI_ADDRESS,
-            USDC_ADDRESS,
-            amounts
+            SDAI_ADDRESS,
+            OrderSide.Sell,
+            specifiedAmount
         );
-
-        for (uint256 i = 1; i < TEST_ITERATIONS - 1; i++) {
-            assertEq(
-                FractionMath.compareFractions(prices[i], prices[i + 1]),
-                0
-            );
-            assertGt(prices[i].denominator, 0);
-            assertGt(prices[i + 1].denominator, 0);
-        }
     }
 
-    function testPriceKeepUsdcDai() public {
-        uint256[] memory amounts = new uint256[](TEST_ITERATIONS);
-        uint256 amountConstant_ = 10 ** 18;
-
-        for (uint256 i = 1; i < TEST_ITERATIONS; i++) {
-            amounts[i] = amountConstant_ * i;
-        }
-
-        Fraction[] memory prices = adapter.price(
-            PAIR,
-            USDC_ADDRESS,
+    // sDAI -> Dai (Pair 0)
+    function testPriceAfterSwapEqPriceBeforeSwapSellSDaiDai(
+        uint256 specifiedAmount
+    ) public {
+        testPriceAfterSwapEqPriceBeforeSwap(
+            SDAI_ADDRESS,
             DAI_ADDRESS,
-            amounts
+            OrderSide.Sell,
+            specifiedAmount
         );
-
-        for (uint256 i = 1; i < TEST_ITERATIONS - 1; i++) {
-            assertEq(
-                FractionMath.compareFractions(prices[i], prices[i + 1]),
-                0
-            );
-            assertGt(prices[i].denominator, 0);
-            assertGt(prices[i + 1].denominator, 0);
-        }
     }
 
-    // Price Keep tests for DAI-USDS
-    function testPriceKeepDaiUsds() public {
-        uint256[] memory amounts = new uint256[](TEST_ITERATIONS);
-        uint256 amountConstant_ = 10 ** 18;
-
-        for (uint256 i = 1; i < TEST_ITERATIONS; i++) {
-            amounts[i] = amountConstant_ * i;
-        }
-
-        Fraction[] memory prices = adapter.price(
-            PAIR,
-            DAI_ADDRESS,
-            USDS_ADDRESS,
-            amounts
-        );
-
-        for (uint256 i = 1; i < TEST_ITERATIONS - 1; i++) {
-            assertEq(
-                FractionMath.compareFractions(prices[i], prices[i + 1]),
-                0
-            );
-            assertGt(prices[i].denominator, 0);
-            assertGt(prices[i + 1].denominator, 0);
-        }
-    }
-
-    function testPriceKeepUsdsDai() public {
-        uint256[] memory amounts = new uint256[](TEST_ITERATIONS);
-        uint256 amountConstant_ = 10 ** 18;
-
-        for (uint256 i = 1; i < TEST_ITERATIONS; i++) {
-            amounts[i] = amountConstant_ * i;
-        }
-
-        Fraction[] memory prices = adapter.price(
-            PAIR,
-            USDS_ADDRESS,
-            DAI_ADDRESS,
-            amounts
-        );
-
-        for (uint256 i = 1; i < TEST_ITERATIONS - 1; i++) {
-            assertEq(
-                FractionMath.compareFractions(prices[i], prices[i + 1]),
-                0
-            );
-            assertGt(prices[i].denominator, 0);
-            assertGt(prices[i + 1].denominator, 0);
-        }
-    }
-
-    // Price Keep tests for USDS-USDC
-    function testPriceKeepUsdsUsdc() public {
-        uint256[] memory amounts = new uint256[](TEST_ITERATIONS);
-        uint256 amountConstant_ = 10 ** 18;
-
-        for (uint256 i = 1; i < TEST_ITERATIONS; i++) {
-            amounts[i] = amountConstant_ * i;
-        }
-
-        Fraction[] memory prices = adapter.price(
-            PAIR,
-            USDS_ADDRESS,
-            USDC_ADDRESS,
-            amounts
-        );
-
-        for (uint256 i = 1; i < TEST_ITERATIONS - 1; i++) {
-            assertEq(
-                FractionMath.compareFractions(prices[i], prices[i + 1]),
-                0
-            );
-            assertGt(prices[i].denominator, 0);
-            assertGt(prices[i + 1].denominator, 0);
-        }
-    }
-
-    // Price Keep tests for USDS-sUSDS
-    function testPriceKeepUsdsSUsds() public {
-        uint256[] memory amounts = new uint256[](TEST_ITERATIONS);
-        uint256 amountConstant_ = 10 ** 18;
-
-        for (uint256 i = 1; i < TEST_ITERATIONS; i++) {
-            amounts[i] = amountConstant_ * i;
-        }
-
-        Fraction[] memory prices = adapter.price(
-            PAIR,
-            USDS_ADDRESS,
-            SUSDS_ADDRESS,
-            amounts
-        );
-
-        for (uint256 i = 1; i < TEST_ITERATIONS - 1; i++) {
-            assertEq(
-                FractionMath.compareFractions(prices[i], prices[i + 1]),
-                0
-            );
-            assertGt(prices[i].denominator, 0);
-            assertGt(prices[i + 1].denominator, 0);
-        }
-    }
-
-    // Price Keep tests for MKR-SKY
-    function testPriceKeepMkrSky() public {
-        uint256[] memory amounts = new uint256[](TEST_ITERATIONS);
-        uint256 amountConstant_ = 10 ** 18;
-
-        for (uint256 i = 1; i < TEST_ITERATIONS; i++) {
-            amounts[i] = amountConstant_ * i;
-        }
-
-        Fraction[] memory prices = adapter.price(
-            PAIR,
-            MKR_ADDRESS,
-            SKY_ADDRESS,
-            amounts
-        );
-
-        for (uint256 i = 1; i < TEST_ITERATIONS - 1; i++) {
-            assertEq(
-                FractionMath.compareFractions(prices[i], prices[i + 1]),
-                0
-            );
-            assertGt(prices[i].denominator, 0);
-            assertGt(prices[i + 1].denominator, 0);
-        }
-    }
-
-    // Price before/after swap tests for each pair
+    // DAI -> USDC (Pair 1)
     function testPriceAfterSwapEqPriceBeforeSwapDaiUsdc(
         uint256 specifiedAmount
     ) public {
@@ -627,6 +716,19 @@ contract SkySwapAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
         );
     }
 
+    // USDC -> DAI (Pair 1)
+    function testPriceAfterSwapEqPriceBeforeSwapUsdcDai(
+        uint256 specifiedAmount
+    ) public {
+        testPriceAfterSwapEqPriceBeforeSwap(
+            USDC_ADDRESS,
+            DAI_ADDRESS,
+            OrderSide.Sell,
+            specifiedAmount
+        );
+    }
+
+    // DAI -> USDS (Pair 2)
     function testPriceAfterSwapEqPriceBeforeSwapDaiUsds(
         uint256 specifiedAmount
     ) public {
@@ -638,6 +740,19 @@ contract SkySwapAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
         );
     }
 
+    // USDS -> DAI (pair 2)
+    function testPriceAfterSwapEqPriceBeforeSwapUsdsDai(
+        uint256 specifiedAmount
+    ) public {
+        testPriceAfterSwapEqPriceBeforeSwap(
+            USDS_ADDRESS,
+            DAI_ADDRESS,
+            OrderSide.Sell,
+            specifiedAmount
+        );
+    }
+
+    // USDS -> USDC (Pair 3)
     function testPriceAfterSwapEqPriceBeforeSwapUsdsUsdc(
         uint256 specifiedAmount
     ) public {
@@ -649,6 +764,19 @@ contract SkySwapAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
         );
     }
 
+    // USDC -> USDS (Pair 3)
+    function testPriceAfterSwapEqPriceBeforeSwapUsdcUsds(
+        uint256 specifiedAmount
+    ) public {
+        testPriceAfterSwapEqPriceBeforeSwap(
+            USDC_ADDRESS,
+            USDS_ADDRESS,
+            OrderSide.Sell,
+            specifiedAmount
+        );
+    }
+
+    // USDS -> sUSDS (Pair 4)
     function testPriceAfterSwapEqPriceBeforeSwapUsdsSUsds(
         uint256 specifiedAmount
     ) public {
@@ -660,6 +788,19 @@ contract SkySwapAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
         );
     }
 
+    // sUSDS -> USDS (Pair 4)
+    function testPriceAfterSwapEqPriceBeforeSwapSUsdsUsds(
+        uint256 specifiedAmount
+    ) public {
+        testPriceAfterSwapEqPriceBeforeSwap(
+            SUSDS_ADDRESS,
+            USDS_ADDRESS,
+            OrderSide.Sell,
+            specifiedAmount
+        );
+    }
+
+    // MKR -> SKY (Pair 5)
     function testPriceAfterSwapEqPriceBeforeSwapMkrSky(
         uint256 specifiedAmount
     ) public {
@@ -671,42 +812,26 @@ contract SkySwapAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
         );
     }
 
-    // Add increasing swap tests for remaining pairs
-    function testSwapSellIncreasingDaiUsds() public {
-        executeIncreasingSwaps(DAI_ADDRESS, USDS_ADDRESS, OrderSide.Sell, 10 ** 18);
+    // SKY -> MKR (Pair 5)
+    function testPriceAfterSwapEqPriceBeforeSwapSkyMkr(
+        uint256 specifiedAmount
+    ) public {
+        testPriceAfterSwapEqPriceBeforeSwap(
+            SKY_ADDRESS,
+            MKR_ADDRESS,
+            OrderSide.Sell,
+            specifiedAmount
+        );
     }
 
-    function testSwapBuyIncreasingDaiUsds() public {
-        executeIncreasingSwaps(DAI_ADDRESS, USDS_ADDRESS, OrderSide.Buy, 10 ** 18);
-    }
+///////////////////// test execute increasing swaps //////////////////////////////
 
-    function testSwapSellIncreasingUsdsUsdc() public {
-        executeIncreasingSwaps(USDS_ADDRESS, USDC_ADDRESS, OrderSide.Sell, 10 ** 18);
-    }
-
-    function testSwapBuyIncreasingUsdsUsdc() public {
-        executeIncreasingSwaps(USDS_ADDRESS, USDC_ADDRESS, OrderSide.Buy, 10 ** 6);
-    }
-
-    function testSwapSellIncreasingUsdsSUsds() public {
-        executeIncreasingSwaps(USDS_ADDRESS, SUSDS_ADDRESS, OrderSide.Sell, 10 ** 18);
-    }
-
-    function testSwapBuyIncreasingUsdsSUsds() public {
-        executeIncreasingSwaps(USDS_ADDRESS, SUSDS_ADDRESS, OrderSide.Buy, 10 ** 18);
-    }
-
-    function testSwapSellIncreasingMkrSky() public {
-        executeIncreasingSwaps(MKR_ADDRESS, SKY_ADDRESS, OrderSide.Sell, 10 ** 18);
-    }
-
-    function testSwapBuyIncreasingMkrSky() public {
-        executeIncreasingSwaps(MKR_ADDRESS, SKY_ADDRESS, OrderSide.Buy, 10 ** 18);
-    }
-
-    /// @notice price is constant for any amount of DAI token we selling
-    function executeIncreasingSwaps(address sellToken, address buyToken, OrderSide side, uint256 startingAmount) internal {
-
+    function executeIncreasingSwaps(
+        address sellToken,
+        address buyToken,
+        OrderSide side,
+        uint256 startingAmount
+    ) internal {
         uint256[] memory amounts = new uint256[](TEST_ITERATIONS);
 
         for (uint256 i = 1; i < TEST_ITERATIONS; i++) {
@@ -718,23 +843,272 @@ contract SkySwapAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
         for (uint256 i = 1; i < TEST_ITERATIONS; i++) {
             beforeSwap = vm.snapshot();
 
-            deal(sellToken, address(this), type(uint256).max);
-            IERC20(sellToken).approve(address(adapter), type(uint256).max);
+            deal(sellToken, address(this), 10 ** 50);
+            IERC20(sellToken).approve(address(adapter), 10 ** 50);
 
-            trades[i] =
-                adapter.swap(PAIR, sellToken, buyToken, side, amounts[i]);
+            trades[i] = adapter.swap(
+                PAIR,
+                sellToken,
+                buyToken,
+                side,
+                amounts[i]
+            );
             vm.revertTo(beforeSwap);
         }
 
         for (uint256 i = 1; i < TEST_ITERATIONS - 1; i++) {
-            assertLe(trades[i].calculatedAmount, trades[i + 1].calculatedAmount);
+            assertLe(
+                trades[i].calculatedAmount,
+                trades[i + 1].calculatedAmount
+            );
             assertLe(trades[i].gasUsed, trades[i + 1].gasUsed);
             assertEq(
                 FractionMath.compareFractions(
-                    trades[i].price, trades[i + 1].price
+                    trades[i].price,
+                    trades[i + 1].price
                 ),
                 0
             );
         }
+    }
+
+    // DAI -> sDAI | Sell | (Pair 0)
+    function testSwapSellIncreasingDaiSDai() public {
+        executeIncreasingSwaps(
+            DAI_ADDRESS,
+            SDAI_ADDRESS,
+            OrderSide.Sell,
+            10 ** 18
+        );
+    }
+
+    // DAI -> sDAI | Buy | (Pair 0)
+    function testSwapBuyIncreasingDaiSDai() public {
+        executeIncreasingSwaps(
+            DAI_ADDRESS,
+            SDAI_ADDRESS,
+            OrderSide.Buy,
+            10 ** 18
+        );
+    }
+
+    // DAI -> USDC | Sell | (Pair 1)
+    function testSwapSellIncreasingDaiUsdc() public {
+        executeIncreasingSwaps(
+            DAI_ADDRESS,
+            USDC_ADDRESS,
+            OrderSide.Sell,
+            10 ** 18
+        );
+    }
+
+    // DAI -> USDC | Buy | (Pair 1)
+    function testSwapBuyIncreasingDaiUsdc() public {
+        executeIncreasingSwaps(
+            DAI_ADDRESS,
+            USDC_ADDRESS,
+            OrderSide.Buy,
+            10 ** 6
+        );
+    }   
+
+    // DAI -> USDS | Sell | (Pair 2)
+    function testSwapSellIncreasingDaiUsds() public {
+        executeIncreasingSwaps(
+            DAI_ADDRESS,
+            USDS_ADDRESS,
+            OrderSide.Sell,
+            10 ** 18
+        );
+    }
+
+    // DAI -> USDS | Buy | (Pair 2)
+    function testSwapBuyIncreasingDaiUsds() public {
+        executeIncreasingSwaps(
+            DAI_ADDRESS,
+            USDS_ADDRESS,
+            OrderSide.Buy,
+            10 ** 18
+        );
+    }
+
+    // USDS -> USDC | Sell | (Pair 3)
+    function testSwapSellIncreasingUsdsUsdc() public {
+        executeIncreasingSwaps(
+            USDS_ADDRESS,
+            USDC_ADDRESS,
+            OrderSide.Sell,
+            10 ** 18
+        );
+    }
+
+    // USDS -> USDC | Buy | (Pair 3)
+    function testSwapBuyIncreasingUsdsUsdc() public {
+        executeIncreasingSwaps(
+            USDS_ADDRESS,
+            USDC_ADDRESS,
+            OrderSide.Buy,
+            10 ** 6
+        );
+    }
+
+    // USDS -> sUSDS | Sell | (Pair 4)
+    function testSwapSellIncreasingUsdsSUsds() public {
+        executeIncreasingSwaps(
+            USDS_ADDRESS,
+            SUSDS_ADDRESS,
+            OrderSide.Sell,
+            10 ** 18
+        );
+    }
+
+    // USDS -> sUSDS | Buy | (Pair 4)
+    function testSwapBuyIncreasingUsdsSUsds() public {
+        executeIncreasingSwaps(
+            USDS_ADDRESS,
+            SUSDS_ADDRESS,
+            OrderSide.Buy,
+            10 ** 18
+        );
+    }
+
+    // MKR -> SKY | Sell | (Pair 5)
+    function testSwapSellIncreasingMkrSky() public {
+        executeIncreasingSwaps(
+            MKR_ADDRESS,
+            SKY_ADDRESS,
+            OrderSide.Sell,
+            10 ** 18
+        );
+    }
+
+    // MKR -> SKY | Buy | (Pair 5)
+    function testSwapBuyIncreasingMkrSky() public {
+        executeIncreasingSwaps(
+            MKR_ADDRESS,
+            SKY_ADDRESS,
+            OrderSide.Buy,
+            10 ** 18
+        );
+    }
+
+    // sDAI -> DAI | Sell | (Pair 0)
+    function testSwapSellIncreasingSDaiDai() public {
+        executeIncreasingSwaps(
+            SDAI_ADDRESS,
+            DAI_ADDRESS,
+            OrderSide.Sell,
+            10 ** 18
+        );
+    }
+
+    // sDAI -> DAI | Buy | (Pair 0)
+    function testSwapBuyIncreasingSDaiDai() public {
+        executeIncreasingSwaps(
+            SDAI_ADDRESS,
+            DAI_ADDRESS,
+            OrderSide.Buy,
+            10 ** 18
+        );
+    }
+
+    // USDC -> DAI | Sell | (Pair 1)
+    function testSwapSellIncreasingUsdcDai() public {
+        executeIncreasingSwaps(
+            USDC_ADDRESS,
+            DAI_ADDRESS,
+            OrderSide.Sell,
+            10 ** 6
+        );
+    }
+
+    // USDC -> DAI | Buy | (Pair 1)
+    function testSwapBuyIncreasingUsdcDai() public {
+        executeIncreasingSwaps(
+            USDC_ADDRESS,
+            DAI_ADDRESS,
+            OrderSide.Buy,
+            10 ** 18
+        );
+    }
+
+    // USDS -> DAI | Sell | (Pair 2)
+    function testSwapSellIncreasingUsdsDai() public {
+        executeIncreasingSwaps(
+            USDS_ADDRESS,
+            DAI_ADDRESS,
+            OrderSide.Sell,
+            10 ** 18
+        );
+    }
+
+    // USDS -> DAI | Buy | (Pair 2)
+    function testSwapBuyIncreasingUsdsDai() public {
+        executeIncreasingSwaps(
+            USDS_ADDRESS,
+            DAI_ADDRESS,
+            OrderSide.Buy,
+            10 ** 18
+        );
+    }
+
+    // USDC -> USDS | Sell | (Pair 3)
+    function testSwapSellIncreasingUsdcUsds() public {
+        executeIncreasingSwaps(
+            USDC_ADDRESS,
+            USDS_ADDRESS,
+            OrderSide.Sell,
+            10 ** 6
+        );
+    }
+
+    // USDC -> USDS | Buy | (Pair 3)
+    function testSwapBuyIncreasingUsdcUsds() public {
+        executeIncreasingSwaps(
+            USDC_ADDRESS,
+            USDS_ADDRESS,
+            OrderSide.Buy,
+            10 ** 18
+        );
+    }
+
+    // sUSDS -> USDS | Sell | (Pair 4)
+    function testSwapSellIncreasingSUsdsUsds() public {
+        executeIncreasingSwaps(
+            SUSDS_ADDRESS,
+            USDS_ADDRESS,
+            OrderSide.Sell,
+            10 ** 18
+        );
+    }
+
+    // sUSDS -> USDS | Buy | (Pair 4)
+    function testSwapBuyIncreasingSUsdsUsds() public {
+        executeIncreasingSwaps(
+            SUSDS_ADDRESS,
+            USDS_ADDRESS,
+            OrderSide.Buy,
+            10 ** 18
+        );
+    }
+
+    // SKY -> MKR | Sell | (Pair 5)
+    function testSwapSellIncreasingSkyMkr() public {
+        executeIncreasingSwaps(
+            SKY_ADDRESS,
+            MKR_ADDRESS,
+            OrderSide.Sell,
+            10 ** 18
+        );
+    }
+
+    // SKY -> MKR | Buy | (Pair 5)
+    function testSwapBuyIncreasingSkyMkr() public {
+        executeIncreasingSwaps(
+            SKY_ADDRESS,
+            MKR_ADDRESS,
+            OrderSide.Buy,
+            10 ** 18
+        );
     }
 }
