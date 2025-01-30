@@ -356,9 +356,7 @@ pub fn map_protocol_changes(
                 .entry(tx.index)
                 .or_insert_with(|| TransactionChangesBuilder::new(tx));
 
-            substreams::log::info!("balance changes for tx: 0x{:?}", hex::encode(&tx.hash));
-
-            let mut vault_contract_tlv_changes = InterimContractChange::new(VAULT_ADDRESS, false);
+            let mut vault_contract_tlv_changes = InterimContractChange::new(VAULT_ADDRESS, true);
             let max_balance = BigInt::from(2u64).pow(150) - BigInt::from(1);
             balances
                 .values()
