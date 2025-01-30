@@ -14,7 +14,7 @@ protobuf:
 binaries:
   default:
     type: wasm/rust-v1
-    file: ../target/wasm32-unknown-unknown/release/ethereum_template.wasm
+    file: ../target/wasm32-unknown-unknown/release/ethereum_template_singleton.wasm
 
 network: mainnet
 networks:
@@ -26,19 +26,25 @@ networks:
       store_balances: 1
       map_protocol_changes: 1
     params:
-      map_protocol_components: "vault_address=0000000000000000000000"
-      map_relative_component_balance: "vault_address=0000000000000000000000"
-      map_protocol_changes: "vault_address=0000000000000000000000"
+      map_protocol_components: "vault_address=0000"
+      map_relative_component_balance: "vault_address=0000"
+      map_protocol_changes: "vault_address=0000"
+
+params:
+  map_protocol_components: "vault_address=0000"
+  map_relative_component_balance: "vault_address=0000"
+  map_protocol_changes: "vault_address=0000"
 
 modules:
   - name: map_protocol_components
     kind: map
     inputs:
+      - params: string
       - source: sf.ethereum.type.v2.Block
     output:
       type: proto:tycho.evm.v1.BlockTransactionProtocolComponents
 
-  - name: store_protocol_components
+  - name: store_protocol_tokens
     kind: store
     updatePolicy: set
     valueType: string
@@ -48,12 +54,13 @@ modules:
   - name: map_relative_component_balance
     kind: map
     inputs:
+      - params: string
       - source: sf.ethereum.type.v2.Block
-      - store: store_components
+      - store: store_protocol_tokens
     output:
       type: proto:tycho.evm.v1.BlockBalanceDeltas
 
-  - name: store_balances
+  - name: store_component_balances
     kind: store
     updatePolicy: add
     valueType: bigint
@@ -63,11 +70,11 @@ modules:
   - name: map_protocol_changes
     kind: map
     inputs:
+      - params: string
       - source: sf.ethereum.type.v2.Block
       - map: map_protocol_components
       - map: map_relative_component_balance
-      - store: store_components
-      - store: store_balances
+      - store: store_component_balances
         mode: deltas
     output:
       type: proto:tycho.evm.v1.BlockChanges

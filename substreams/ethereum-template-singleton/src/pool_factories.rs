@@ -4,7 +4,6 @@ use tycho_substreams::models::{ChangeType, FinancialType, ImplementationType, Pr
 
 
 #[derive(Deserialize)]
-#[serde(transparent)]
 pub struct DeploymentConfig {
     #[serde(with = "hex::serde")]
     pub vault_address: Vec<u8>,
@@ -46,5 +45,17 @@ pub fn maybe_create_component(
         })
     } else {
         None
+    }
+}
+
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    #[test]
+    fn test_decode_config() {
+        let config: DeploymentConfig = serde_qs::from_str("vault_address=0001").unwrap();
+
+        assert_eq!(config.vault_address, [0u8, 1u8]);
     }
 }

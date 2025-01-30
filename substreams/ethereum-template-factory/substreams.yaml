@@ -14,7 +14,10 @@ protobuf:
 binaries:
   default:
     type: wasm/rust-v1
-    file: ../target/wasm32-unknown-unknown/release/ethereum_template.wasm
+    file: ../target/wasm32-unknown-unknown/release/ethereum_template_factory.wasm
+
+
+network: mainnet
 
 modules:
   - name: map_protocol_components
@@ -38,7 +41,7 @@ modules:
     initialBlock: 1
     inputs:
       - source: sf.ethereum.type.v2.Block
-      - store: store_components
+      - store: store_protocol_components
     output:
       type: proto:tycho.evm.v1.BlockBalanceDeltas
 
@@ -52,12 +55,12 @@ modules:
 
   - name: map_protocol_changes
     kind: map
-    initialBlock: 0
+    initialBlock: 1
     inputs:
       - source: sf.ethereum.type.v2.Block
       - map: map_protocol_components
       - map: map_relative_component_balance
-      - store: store_components
+      - store: store_protocol_components
       - store: store_balances
         mode: deltas
     output:
