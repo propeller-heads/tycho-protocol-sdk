@@ -66,8 +66,7 @@ contract SkySwapAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
     bytes32 constant DAI_USDC_PAIR = bytes32(bytes20(DAI_LITE_PSM_ADDRESS));
     bytes32 constant DAI_USDS_PAIR =
         bytes32(bytes20(DAI_USDS_CONVERTER_ADDRESS));
-    bytes32 constant USDS_USDC_PAIR =
-        bytes32(bytes20(USDS_PSM_WRAPPER_ADDRESS));
+    bytes32 constant USDS_USDC_PAIR = bytes32(bytes20(USDS_PSM_WRAPPER_ADDRESS));
     bytes32 constant USDS_SUSDS_PAIR = bytes32(bytes20(SUSDS_ADDRESS));
     bytes32 constant MKR_SKY_PAIR = bytes32(bytes20(MKR_SKY_CONVERTER_ADDRESS));
 
@@ -126,11 +125,7 @@ contract SkySwapAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
         uint256 specifiedAmount,
         OrderSide side
     ) internal {
-        uint256[] memory limits = adapter.getLimits(
-            poolId,
-            sellToken,
-            buyToken
-        );
+        uint256[] memory limits = adapter.getLimits(poolId, sellToken, buyToken);
         uint256 limitIndex = side == OrderSide.Buy ? 1 : 0;
         vm.assume(specifiedAmount < limits[limitIndex]);
 
@@ -156,13 +151,8 @@ contract SkySwapAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
         result.sellBalanceBefore = IERC20(sellToken).balanceOf(address(this));
         result.buyBalanceBefore = IERC20(buyToken).balanceOf(address(this));
 
-        result.trade = adapter.swap(
-            poolId,
-            sellToken,
-            buyToken,
-            side,
-            specifiedAmount
-        );
+        result.trade =
+            adapter.swap(poolId, sellToken, buyToken, side, specifiedAmount);
 
         result.sellBalanceAfter = IERC20(sellToken).balanceOf(address(this));
         result.buyBalanceAfter = IERC20(buyToken).balanceOf(address(this));
@@ -176,12 +166,9 @@ contract SkySwapAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
         uint256 specifiedAmount,
         OrderSide side
     ) internal {
-        bool needsApprox = sellToken == USDC_ADDRESS ||
-            buyToken == USDC_ADDRESS ||
-            sellToken == MKR_ADDRESS ||
-            buyToken == MKR_ADDRESS ||
-            sellToken == SKY_ADDRESS ||
-            buyToken == SKY_ADDRESS;
+        bool needsApprox = sellToken == USDC_ADDRESS || buyToken == USDC_ADDRESS
+            || sellToken == MKR_ADDRESS || buyToken == MKR_ADDRESS
+            || sellToken == SKY_ADDRESS || buyToken == SKY_ADDRESS;
 
         uint256 tolerance = needsApprox ? 1e15 : 0;
 
@@ -248,11 +235,7 @@ contract SkySwapAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
                 side
             );
             verifySwap(
-                pairs[i].token0,
-                pairs[i].token1,
-                result,
-                specifiedAmount,
-                side
+                pairs[i].token0, pairs[i].token1, result, specifiedAmount, side
             );
 
             // Reverse direction
@@ -271,11 +254,7 @@ contract SkySwapAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
                 side
             );
             verifySwap(
-                pairs[i].token1,
-                pairs[i].token0,
-                result,
-                specifiedAmount,
-                side
+                pairs[i].token1, pairs[i].token0, result, specifiedAmount, side
             );
         }
     }
@@ -291,27 +270,18 @@ contract SkySwapAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
         (address token0, address token1) = adapter.pairs(pairId);
 
         // Set initial amount based on token decimals
-        uint256 initialAmount = (token0 == USDC_ADDRESS ||
-            token1 == USDC_ADDRESS)
-            ? 10 ** 6
-            : 10 ** 18;
+        uint256 initialAmount = (
+            token0 == USDC_ADDRESS || token1 == USDC_ADDRESS
+        ) ? 10 ** 6 : 10 ** 18;
 
         for (uint256 i = 1; i < TEST_ITERATIONS; i++) {
             amounts[i] = initialAmount * i;
         }
 
-        Fraction[] memory prices = adapter.price(
-            pairId,
-            token0,
-            token1,
-            amounts
-        );
-        Fraction[] memory pricesInverse = adapter.price(
-            pairId,
-            token1,
-            token0,
-            amounts
-        );
+        Fraction[] memory prices =
+            adapter.price(pairId, token0, token1, amounts);
+        Fraction[] memory pricesInverse =
+            adapter.price(pairId, token1, token0, amounts);
 
         for (uint256 i = 1; i < TEST_ITERATIONS - 1; i++) {
             assertGt(prices[i].denominator, 0);
@@ -326,8 +296,7 @@ contract SkySwapAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
             );
             assertEq(
                 FractionMath.compareFractions(
-                    pricesInverse[i],
-                    pricesInverse[i + 1]
+                    pricesInverse[i], pricesInverse[i + 1]
                 ),
                 0,
                 "Inverse price not constant"
@@ -339,30 +308,18 @@ contract SkySwapAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
         for (uint256 i = 0; i < pairs.length; i++) {
             // Forward direction
             testPriceAfterSwapEqPriceBeforeSwap(
-                pairs[i].token0,
-                pairs[i].token1,
-                OrderSide.Buy,
-                10 ** 18
+                pairs[i].token0, pairs[i].token1, OrderSide.Buy, 10 ** 18
             );
             testPriceAfterSwapEqPriceBeforeSwap(
-                pairs[i].token0,
-                pairs[i].token1,
-                OrderSide.Sell,
-                10 ** 18
+                pairs[i].token0, pairs[i].token1, OrderSide.Sell, 10 ** 18
             );
 
             // Reverse direction
             testPriceAfterSwapEqPriceBeforeSwap(
-                pairs[i].token1,
-                pairs[i].token0,
-                OrderSide.Buy,
-                10 ** 18
+                pairs[i].token1, pairs[i].token0, OrderSide.Buy, 10 ** 18
             );
             testPriceAfterSwapEqPriceBeforeSwap(
-                pairs[i].token1,
-                pairs[i].token0,
-                OrderSide.Sell,
-                10 ** 18
+                pairs[i].token1, pairs[i].token0, OrderSide.Sell, 10 ** 18
             );
         }
     }
@@ -377,8 +334,8 @@ contract SkySwapAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
         bytes32 poolId;
         for (uint256 i = 0; i < pairs.length; i++) {
             if (
-                (pairs[i].token0 == sellToken && pairs[i].token1 == buyToken) ||
-                (pairs[i].token1 == sellToken && pairs[i].token0 == buyToken)
+                (pairs[i].token0 == sellToken && pairs[i].token1 == buyToken)
+                    || (pairs[i].token1 == sellToken && pairs[i].token0 == buyToken)
             ) {
                 poolId = pairs[i].id;
                 break;
@@ -387,11 +344,7 @@ contract SkySwapAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
         require(poolId != bytes32(0), "Pool not found");
 
         // Ensure amount is within limits
-        uint256[] memory limits = adapter.getLimits(
-            poolId,
-            sellToken,
-            buyToken
-        );
+        uint256[] memory limits = adapter.getLimits(poolId, sellToken, buyToken);
         uint256 limitIndex = side == OrderSide.Buy ? 1 : 0;
         specifiedAmount = specifiedAmount % limits[limitIndex];
         if (specifiedAmount == 0) specifiedAmount = 1;
@@ -399,25 +352,16 @@ contract SkySwapAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
         uint256[] memory amounts = new uint256[](1);
         amounts[0] = specifiedAmount;
 
-        Fraction[] memory priceBeforeSwap = adapter.price(
-            poolId,
-            sellToken,
-            buyToken,
-            amounts
-        );
+        Fraction[] memory priceBeforeSwap =
+            adapter.price(poolId, sellToken, buyToken, amounts);
 
         // Deal tokens based on token type
         uint256 dealAmount = side == OrderSide.Buy ? 10 ** 50 : specifiedAmount;
         deal(sellToken, address(this), dealAmount);
         IERC20(sellToken).approve(address(adapter), dealAmount);
 
-        Trade memory trade = adapter.swap(
-            poolId,
-            sellToken,
-            buyToken,
-            side,
-            specifiedAmount
-        );
+        Trade memory trade =
+            adapter.swap(poolId, sellToken, buyToken, side, specifiedAmount);
 
         assertEq(
             FractionMath.compareFractions(priceBeforeSwap[0], trade.price),
@@ -437,11 +381,8 @@ contract SkySwapAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
 
     function testGetCapabilities() public {
         for (uint256 i = 0; i < pairs.length; i++) {
-            Capability[] memory capabilities = adapter.getCapabilities(
-                pairs[i].id,
-                address(0),
-                address(0)
-            );
+            Capability[] memory capabilities =
+                adapter.getCapabilities(pairs[i].id, address(0), address(0));
             assertTrue(capabilities.length == 5 || capabilities.length == 6);
         }
     }
