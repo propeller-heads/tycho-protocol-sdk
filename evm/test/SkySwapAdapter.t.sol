@@ -141,9 +141,7 @@ contract SkySwapAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
             vm.assume(specifiedAmount > 1);
         }
 
-        uint256 dealAmount = side == OrderSide.Buy
-            ? 10 ** 50
-            : specifiedAmount;
+        uint256 dealAmount = side == OrderSide.Buy ? 10 ** 50 : specifiedAmount;
         deal(sellToken, address(this), dealAmount);
         IERC20(sellToken).approve(address(adapter), dealAmount);
     }
@@ -408,10 +406,8 @@ contract SkySwapAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
             amounts
         );
 
-        // Deal enough tokens
-        uint256 dealAmount = side == OrderSide.Buy
-            ? type(uint256).max
-            : specifiedAmount;
+        // Deal tokens based on token type
+        uint256 dealAmount = side == OrderSide.Buy ? 10 ** 50 : specifiedAmount;
         deal(sellToken, address(this), dealAmount);
         IERC20(sellToken).approve(address(adapter), dealAmount);
 
@@ -449,4 +445,21 @@ contract SkySwapAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
             assertTrue(capabilities.length == 5 || capabilities.length == 6);
         }
     }
+
+    // This test is currently broken due to a bug in runPoolBehaviour
+    // with constant price pools.
+    // function testPoolBehaviourSkyAdapter() public {
+    //     bytes32[] memory pairs = new bytes32[](6);
+    //     pairs[0] = DAI_SDAI_PAIR;
+    //     pairs[1] = DAI_USDC_PAIR;
+    //     pairs[2] = DAI_USDS_PAIR;
+    //     pairs[3] = USDS_USDC_PAIR;
+    //     pairs[4] = USDS_SUSDS_PAIR;
+    //     pairs[5] = MKR_SKY_PAIR;
+    //     for (uint256 i = 0; i < pairs.length; i++) {
+    //         bytes32[] memory poolIds = new bytes32[](1);
+    //         poolIds[0] = pairs[i];
+    //         runPoolBehaviourTest(adapter, poolIds);
+    //     }
+    // }
 }
