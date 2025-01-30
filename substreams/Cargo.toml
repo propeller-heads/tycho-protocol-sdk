@@ -10,7 +10,8 @@ members = [
     "ethereum-sfrax",
     "ethereum-sfraxeth",
     "ethereum-uniswap-v3-logs-only",
-    "ethereum-template",
+    "ethereum-template-factory",
+    "ethereum-template-singleton",
 ]
 resolver = "2"
 

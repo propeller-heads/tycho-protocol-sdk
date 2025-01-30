@@ -301,7 +301,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "ethereum-template"
+name = "ethereum-template-factory"
 version = "0.1.0"
 dependencies = [
  "anyhow",
@@ -314,7 +314,25 @@ dependencies = [
  "serde-sibor",
  "substreams",
  "substreams-ethereum",
- "tycho-substreams 0.2.0 (git+https://github.com/propeller-heads/tycho-protocol-sdk.git?rev=b8aeaa3)",
+ "tycho-substreams 0.2.0 (git+https://github.com/propeller-heads/tycho-protocol-sdk.git?rev=3c08359)",
+]
+
+[[package]]
+name = "ethereum-template-singleton"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "ethabi 18.0.0",
+ "hex",
+ "itertools 0.10.5",
+ "num-bigint",
+ "prost 0.11.9",
+ "serde",
+ "serde-sibor",
+ "serde_qs",
+ "substreams",
+ "substreams-ethereum",
+ "tycho-substreams 0.2.0 (git+https://github.com/propeller-heads/tycho-protocol-sdk.git?rev=3c08359)",
 ]
 
 [[package]]
@@ -464,6 +482,9 @@ name = "hex"
 version = "0.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7f24254aa9a54b5c858eaee2f5bccdb46aaf0e486a595ed5fd8f86ba55232a70"
+dependencies = [
+ "serde",
+]
 
 [[package]]
 name = "hex-literal"
@@ -1367,6 +1388,22 @@ dependencies = [
 [[package]]
 name = "tycho-substreams"
 version = "0.2.0"
+dependencies = [
+ "ethabi 18.0.0",
+ "hex",
+ "itertools 0.12.1",
+ "num-bigint",
+ "prost 0.11.9",
+ "serde",
+ "serde_json",
+ "substreams",
+ "substreams-ethereum",
+]
+
+[[package]]
+name = "tycho-substreams"
+version = "0.2.0"
+source = "git+https://github.com/propeller-heads/tycho-protocol-sdk.git?rev=3c08359#3c08359cf112e15c137dd5256b8dc8e9cd6c1626"
 dependencies = [
  "ethabi 18.0.0",
  "hex",
