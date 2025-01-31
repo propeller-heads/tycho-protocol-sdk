@@ -12,6 +12,10 @@ protobuf:
   importPaths:
     - ./proto/v1
     - ../../proto/
+  excludePaths:
+    - sf/ethereum
+    - sf/substreams
+    - google
 
 binaries:
   default:
