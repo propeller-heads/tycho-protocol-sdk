@@ -17,6 +17,12 @@
 
 
 ## Substream
+### Substream References
+- bancor-adapter-and-substream: https://github.com/propeller-heads/tycho-protocol-sdk/tree/sdk-fixes/bancor-adapter-and-substream
+- balancer-v3-adapter-and-substream: https://github.com/propeller-heads/tycho-protocol-sdk/tree/feature/balancer-v3-adapter-and-substream
+- sdai-adapter-and-substream: https://github.com/propeller-heads/tycho-protocol-sdk/tree/sdai-adapter-and-substream
+
+---
 ## sdai
 - address: 0x83F20F44975D03b1b09e64809B757c47f942BEeA
 - initial_block_number: 16428133

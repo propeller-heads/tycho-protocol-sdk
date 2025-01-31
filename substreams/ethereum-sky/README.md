@@ -37,4 +37,13 @@ This module gets you only events that matched.
 
 This module gets you only calls that matched.
 
+## Sky Substreams Events broke down by contract
+
+- sdai
+- dai_usds_converter
+- dai_lite_psm
+- usds_psm_wrapper
+- susds
+- mkr_sky_converter
+
 
