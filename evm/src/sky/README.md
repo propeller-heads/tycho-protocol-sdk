@@ -16,6 +16,61 @@
     - 0xBDcFCA946b6CDd965f99a839e4435Bcdc1bc470B
 
 
+## Substream
+### Substream References
+- bancor-adapter-and-substream: https://github.com/propeller-heads/tycho-protocol-sdk/tree/sdk-fixes/bancor-adapter-and-substream
+- balancer-v3-adapter-and-substream: https://github.com/propeller-heads/tycho-protocol-sdk/tree/feature/balancer-v3-adapter-and-substream
+- sdai-adapter-and-substream: https://github.com/propeller-heads/tycho-protocol-sdk/tree/sdai-adapter-and-substream
+
+---
+## sdai
+- address: 0x83F20F44975D03b1b09e64809B757c47f942BEeA
+- initial_block_number: 16428133
+- Age: Jan-17-2023 05:52:11 PM UTC
+- creation_tx: 0xa2f51048265f2fe9ffaf69b94cb5a2a4113be49bdecd2040d530dd6f68facc42
+- contract_creator: 0x3249936bDdF8bF739d3f06d26C40EEfC81029BD1 (MakerDAO: Deployer)
+
+## dai_usds_converter
+- address: 0x3225737a9Bbb6473CB4a45b7244ACa2BeFdB276A
+- initial_block_number: 20663734
+- Age: Sep-02-2024 03:19:35 PM UTC
+- creation_tx: 0xb63d6f4cfb9945130ab32d914aaaafbad956be3718176771467b4154f9afab61
+- contract_creator: 0x4Ec216c476175a236BD70026b984D4adECa0cfb8 (Sky: Deployer)
+
+## dai_lite_psm
+- address: 0xf6e72Db5454dd049d0788e411b06CfAF16853042
+- initial_block_number: 20283666
+- Age: Jul-11-2024 01:48:47 PM UTC
+- creation_tx: 0x61e5d04f14d1fea9c505fb4dc9b6cf6e97bc83f2076b53cb7e92d0a2e88b6bbd
+- contract_creator: 0xb27B6fa77D7FBf3C1BD34B0f7DA59b39D3DB0f7e
+
+## usds_psm_wrapper
+- address: 0xA188EEC8F81263234dA3622A406892F3D630f98c
+- initial_block_number: 20668728
+- Age: Sep-03-2024 08:02:59 AM UTC
+- creation_tx: 0x43ddae74123936f6737b78fcf785547f7f6b7b27e280fe7fbf98c81b3c018585
+- contract_creator: 0x4E65a603a9170fa572E276D1B70D6295D433bAc5
+
+## susds
+- address: 0xa3931d71877C0E7a3148CB7Eb4463524FEc27fbD
+- initial_block_number: 20677434
+- Age: Sep-03-2024 08:02:59 AM UTC
+- creation_tx: 0xe1be00c4ea3c21cf536b98ac082a5bba8485cf75d6b2b94f4d6e3edd06472c00
+- contract_creator: 0xD6ec7a1b1f4c42C5208fF68b2436Fab8CC593fB7 (Sky Deployer 6)
+
+## mkr_sky_converter
+- address: 0xBDcFCA946b6CDd965f99a839e4435Bcdc1bc470B
+- initial_block_number: 20663740
+- Age: Sep-02-2024 03:20:47 PM UTC
+- creation_tx: 0xbd89595dadba76ffb243cb446a355cfb833c1ea3cefbe427349f5b4644d5fa02
+- contract_creator: 0x4Ec216c476175a236BD70026b984D4adECa0cfb8 (Sky: Deployer)
+
+## usdc
+- address: 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48
+- initial_block_number: 6082465
+- Age: Aug-03-2018 07:28:24 PM UTC
+- creation_tx: 0xe7e0fe390354509cd08c9a0168536938600ddc552b3f7cb96030ebef62e75895
+- contract_creator: 0x95Ba4cF87D6723ad9C0Db21737D862bE80e93911 (Circle: Deployer)
 
 ## DAI <-> USDC | DAI LitePSM-USDC @ Ethereum | Integration
 > Supports DAI <-> USDC conversion. <br>
