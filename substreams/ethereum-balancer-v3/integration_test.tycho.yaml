@@ -1,0 +1,81 @@
+substreams_yaml_path: ./substreams.yaml
+protocol_type_names:
+  - "balancer_v3_pool"
+adapter_contract: "BalancerV3SwapAdapter"
+adapter_build_signature: "constructor(address,address,address,address)"
+adapter_build_args: "0xbA1333333333a1BA1108E8412f11850A5C319bA9,0x136f1EFcC3f8f88516B9E94110D56FDBfB1778d1,0x000000000022D473030F116dDEE9F6B43aC78BA3,0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2"
+skip_balance_check: true 
+
+# vault address for v3 needed for the router contract
+initialized_accounts:
+  - "0xbA1333333333a1BA1108E8412f11850A5C319bA9"
+  - "0x0E8B07657D719B86e06bF0806D6729e3D528C9A9"
+  - "0x136f1EFcC3f8f88516B9E94110D56FDBfB1778d1"
+  - "0xbe7be04807762bc433911dd927fd54a385fa91d6"
+
+tests:
+  - name: test_stable_pool_creation
+    start_block: 21374757
+    stop_block: 21374767 
+    expected_components:
+      - id: "0xc4ce391d82d164c166df9c8336ddf84206b2f812"
+        tokens:
+          - "0x0FE906e030a44eF24CA8c7dC7B7c53A6C4F00ce9"
+          - "0x775F661b0bD1739349b9A2A3EF60be277c5d2D29"
+        static_attributes:
+          fee: "0x5af3107a4000"
+          pool_type: "0x537461626c65506f6f6c466163746f7279"
+          bpt: "0xc4ce391d82d164c166df9c8336ddf84206b2f812"
+          manual_updates: "0x01"
+        skip_simulation: true
+        creation_tx: "0xecfe638ea155e78ca2698bea0bee5f86c2f77abe3e9dc93ed19ab6e674165b95"
+
+  - name: test_weighted_pool_creation
+    start_block: 21701410
+    stop_block: 21701420 
+    expected_components:
+      - id: "0x4Fd081923824D6AbdaCc862d8449e124A8634b12"
+        tokens:
+          - "0x249ca82617ec3dfb2589c4c17ab7ec9765350a18"
+          - "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2"
+        static_attributes:
+          normalized_weights: "0x5b22307830623161326263326563353030303030222c22307830326336386166306262313430303030225d"
+          manual_updates: "0x01"
+          pool_type: "0x5765696768746564506f6f6c466163746f7279"
+          fee: "0x038d7ea4c68000"
+        skip_simulation: true
+        creation_tx: "0xaf0f8da4b7b148f156605673c6ac56657f67c47001aadd5b3b64d6cb787daad4"
+
+  - name: test_swap_g_usdc
+    start_block: 21389576 
+    stop_block: 21389676
+    expected_components:
+      - id: "0xf91c11BA4220b7a72E1dc5E92f2b48D3fdF62726"
+        tokens:
+          - "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"
+          - "0x440017A1b021006d556d7fc06A54c32E42Eb745B"
+        static_attributes:
+          normalized_weights: "0x5b22307830366630356235396433623230303030222c22307830366630356235396433623230303030225d"
+          manual_updates: "0x01"
+          pool_type: "0x5765696768746564506f6f6c466163746f7279"
+          fee: "0x0aa87bee538000"
+        skip_simulation: false
+        creation_tx: "0x50a58ca41af90029a67bc7f4305cceb1e85800246f9c559fa74d8625ddfe14ed"
+
+  - name: test_swap_weth_ethx
+    start_block: 21374920
+    stop_block: 21374929 
+    initialized_accounts:
+      - "0xbe7be04807762bc433911dd927fd54a385fa91d6"
+    expected_components:
+      - id: "0x4AB7aB316D43345009B2140e0580B072eEc7DF16"
+        tokens:
+          - "0x0bfc9d54Fc184518A81162F8fB99c2eACa081202"
+          - "0xA35b1B31Ce002FBF2058D22F30f95D405200A15b"
+        static_attributes:
+          bpt: "0x4ab7ab316d43345009b2140e0580b072eec7df16"
+          pool_type: "0x537461626c65506f6f6c466163746f7279"
+          fee: "0x016bcc41e90000"
+          manual_updates: "0x01"
+        skip_simulation: false
+        creation_tx: "0x6e8aea6ed4e566709c35cbb4298f89eac74ba5c39f64927a47b07de204dc8c9a"
