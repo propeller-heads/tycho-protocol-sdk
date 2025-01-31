@@ -1,0 +1,55 @@
+specVersion: v0.1.0
+package:
+  name: ethereum_sky
+  version: v0.1.0
+
+imports:
+    ethcommon: https://spkg.io/streamingfast/ethereum-common-v0.3.0.spkg
+
+protobuf:
+  files:
+    - contract.proto
+  importPaths:
+    - ./proto
+  excludePaths:
+    - sf/substreams
+    - google
+
+binaries:
+  default:
+    type: wasm/rust-v1
+    file: ./target/wasm32-unknown-unknown/release/substreams.wasm
+
+modules:
+
+  - name: map_events
+    kind: map
+    initialBlock: 6082465
+    blockFilter:
+      module: ethcommon:index_events
+      query:
+        string: evt_addr:0x83f20f44975d03b1b09e64809b757c47f942beea || evt_addr:0x3225737a9bbb6473cb4a45b7244aca2befdb276a || evt_addr:0xf6e72db5454dd049d0788e411b06cfaf16853042 || evt_addr:0xa188eec8f81263234da3622a406892f3d630f98c || evt_addr:0xa3931d71877c0e7a3148cb7eb4463524fec27fbd || evt_addr:0xbdcfca946b6cdd965f99a839e4435bcdc1bc470b || evt_addr:0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48
+    inputs:
+      - source: sf.ethereum.type.v2.Block
+    output:
+      type: proto:contract.v1.Events
+  - name: map_calls
+    kind: map
+    initialBlock: 6082465
+    blockFilter:
+      module: ethcommon:index_calls
+      query:
+        string: call_to:0x83f20f44975d03b1b09e64809b757c47f942beea || call_to:0x3225737a9bbb6473cb4a45b7244aca2befdb276a || call_to:0xf6e72db5454dd049d0788e411b06cfaf16853042 || call_to:0xa188eec8f81263234da3622a406892f3d630f98c || call_to:0xa3931d71877c0e7a3148cb7eb4463524fec27fbd || call_to:0xbdcfca946b6cdd965f99a839e4435bcdc1bc470b || call_to:0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48
+    inputs:
+      - source: sf.ethereum.type.v2.Block
+    output:
+      type: proto:contract.v1.Calls
+  - name: map_events_calls
+    kind: map
+    initialBlock: 6082465
+    inputs:
+      - map: map_events
+      - map: map_calls
+    output:
+      type: proto:contract.v1.EventsCalls
+network: mainnet
