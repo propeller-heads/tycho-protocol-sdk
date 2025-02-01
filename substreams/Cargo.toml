@@ -12,6 +12,7 @@ members = [
     "ethereum-uniswap-v3-logs-only",
     "ethereum-template-factory",
     "ethereum-template-singleton",
+    "ethereum-ekubo",
 ]
 resolver = "2"
 
