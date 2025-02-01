@@ -5,6 +5,7 @@ members = [
     "crates/tycho-substreams",
     "crates/substreams-helper",
     "ethereum-ambient",
+    "ethereum-ekubo",
     "ethereum-uniswap-v2",
     "ethereum-uniswap-v3",
     "ethereum-sfrax",
