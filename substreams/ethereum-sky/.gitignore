@@ -9,3 +9,7 @@ sink-data/
 
 # The spkg packed by the subtreams cli
 *.spkg
+
+# local substreams for testing and comparing
+balancer-v3-substream
+sdai-substream
