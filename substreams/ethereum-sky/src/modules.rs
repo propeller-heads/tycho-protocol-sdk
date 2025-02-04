@@ -3,6 +3,7 @@ use crate::events;
 use anyhow::Result;
 use itertools::Itertools;
 use std::collections::HashMap;
+use substreams::pb::substreams::module::input::store;
 use substreams::{
     hex,
     pb::substreams::StoreDeltas,
@@ -52,7 +53,6 @@ pub fn map_components(block: eth::v2::Block) -> Result<BlockTransactionProtocolC
             components.push(
                 ProtocolComponent::at_contract(DAI_USDS_CONVERTER_ADDRESS, &tx.into())
                     .with_tokens(&[DAI_TOKEN_ADDRESS, USDS_TOKEN_ADDRESS])
-                    .with_creation_tx(&tx_hash)
                     .as_swap_type("dai_usds_converter", ImplementationType::Vm),
             );
         }
@@ -62,7 +62,6 @@ pub fn map_components(block: eth::v2::Block) -> Result<BlockTransactionProtocolC
             components.push(
                 ProtocolComponent::at_contract(DAI_LITE_PSM_ADDRESS, &tx.into())
                     .with_tokens(&[DAI_TOKEN_ADDRESS, USDS_TOKEN_ADDRESS])
-                    .with_creation_tx(&tx_hash)
                     .as_swap_type("dai_lite_psm", ImplementationType::Vm),
             );
         }
@@ -72,7 +71,6 @@ pub fn map_components(block: eth::v2::Block) -> Result<BlockTransactionProtocolC
             components.push(
                 ProtocolComponent::at_contract(USDS_PSM_WRAPPER_ADDRESS, &tx.into())
                     .with_tokens(&[USDS_TOKEN_ADDRESS, SUSDS_TOKEN_ADDRESS])
-                    .with_creation_tx(&tx_hash)
                     .as_swap_type("usds_psm_wrapper", ImplementationType::Vm),
             );
         }
@@ -82,7 +80,6 @@ pub fn map_components(block: eth::v2::Block) -> Result<BlockTransactionProtocolC
             components.push(
                 ProtocolComponent::at_contract(SUSDS_ADDRESS, &tx.into())
                     .with_tokens(&[USDS_TOKEN_ADDRESS, SUSDS_TOKEN_ADDRESS])
-                    .with_creation_tx(&tx_hash)
                     .as_swap_type("susds_staking", ImplementationType::Vm),
             );
         }
@@ -92,7 +89,6 @@ pub fn map_components(block: eth::v2::Block) -> Result<BlockTransactionProtocolC
             components.push(
                 ProtocolComponent::at_contract(MKR_SKY_CONVERTER_ADDRESS, &tx.into())
                     .with_tokens(&[MKR_TOKEN_ADDRESS, SKY_TOKEN_ADDRESS])
-                    .with_creation_tx(&tx_hash)
                     .as_swap_type("mkr_sky_converter", ImplementationType::Vm),
             );
         }
@@ -132,204 +128,166 @@ pub fn store_components(map: BlockTransactionProtocolComponents, store: StoreSet
 #[substreams::handlers::map]
 pub fn map_relative_balances(
     block: eth::v2::Block,
-    components_store: StoreGetString,
-) -> Result<BlockBalanceDeltas> {
-    let mut tx_balance_changes = Vec::new();
+    store: StoreGetString,
+) -> Result<BlockBalanceDeltas, anyhow::Error> {
+    let balance_deltas = block
+        .logs()
+        .filter(|log| {
+            log.address() == DAI_USDS_CONVERTER_ADDRESS
+                || log.address() == DAI_LITE_PSM_ADDRESS
+                || log.address() == USDS_PSM_WRAPPER_ADDRESS
+                || log.address() == SUSDS_ADDRESS
+                || log.address() == MKR_SKY_CONVERTER_ADDRESS
+        })
+        .flat_map(|vault_log| {
+            let mut deltas = Vec::new();
 
-    // Process each transaction in the block
-    for tx in block.transactions() {
-        let mut balance_changes = Vec::new();
-
-        // Process each log in the transaction
-        for log in tx.logs() {
-            // Check if this log is from a tracked component
-            if let Some(component_id) =
-                components_store.get_last(format!("pool:{}", hex::encode(&log.address)))
+            if let Some(ev) =
+                abi::dai_usds_converter_contract::events::DaiToUsds::match_and_decode(vault_log.log)
             {
-                // Handle sDAI events
-                if log.address == SDAI_VAULT_ADDRESS {
-                    if let Some(event) = abi::sdai_contract::events::Deposit::match_and_decode(log)
-                    {
-                        balance_changes.extend(
-                            extract_contract_changes_builder()
-                                .component_id(&component_id)
-                                .token(DAI_TOKEN_ADDRESS)
-                                .add_from_user(&event.sender, event.assets)
-                                .build(),
-                        );
-                    }
-                    if let Some(event) = abi::sdai_contract::events::Withdraw::match_and_decode(log)
-                    {
-                        balance_changes.extend(
-                            extract_contract_changes_builder()
-                                .component_id(&component_id)
-                                .token(DAI_TOKEN_ADDRESS)
-                                .sub_from_user(&event.sender, event.assets)
-                                .build(),
-                        );
-                    }
+                let component_id = format!("0x{}", hex::encode(DAI_USDS_CONVERTER_ADDRESS));
+                if store
+                    .get_last(format!("pool:{}", &component_id[..42]))
+                    .is_some()
+                {
+                    deltas.extend_from_slice(&[
+                        BalanceDelta {
+                            ord: vault_log.ordinal(),
+                            tx: Some(vault_log.receipt.transaction.into()),
+                            token: DAI_TOKEN_ADDRESS.to_vec(),
+                            delta: ev.wad.to_signed_bytes_be(),
+                            component_id: component_id.clone().as_bytes().to_vec(),
+                        },
+                        BalanceDelta {
+                            ord: vault_log.ordinal(),
+                            tx: Some(vault_log.receipt.transaction.into()),
+                            token: USDS_TOKEN_ADDRESS.to_vec(),
+                            delta: ev.wad.neg().to_signed_bytes_be(),
+                            component_id: component_id.clone().as_bytes().to_vec(),
+                        },
+                    ]);
                 }
-
-                // Handle DAI-USDS Converter events
-                if log.address == DAI_USDS_CONVERTER_ADDRESS {
-                    if let Some(event) =
-                        abi::dai_usds_converter_contract::events::DaiToUsds::match_and_decode(log)
-                    {
-                        balance_changes.extend(
-                            extract_contract_changes_builder()
-                                .component_id(&component_id)
-                                .token(DAI_TOKEN_ADDRESS)
-                                .add_from_user(&event.caller, event.wad)
-                                .token(USDS_TOKEN_ADDRESS)
-                                .sub_from_user(&event.caller, event.wad)
-                                .build(),
-                        );
-                    }
-                    if let Some(event) =
-                        abi::dai_usds_converter_contract::events::UsdsToDai::match_and_decode(log)
-                    {
-                        balance_changes.extend(
-                            extract_contract_changes_builder()
-                                .component_id(&component_id)
-                                .token(USDS_TOKEN_ADDRESS)
-                                .add_from_user(&event.caller, event.wad)
-                                .token(DAI_TOKEN_ADDRESS)
-                                .sub_from_user(&event.caller, event.wad)
-                                .build(),
-                        );
-                    }
-                }
-
-                // Handle MKR-SKY Converter events
-                if log.address == MKR_SKY_CONVERTER_ADDRESS {
-                    if let Some(event) =
-                        abi::mkr_sky_converter_contract::events::MkrToSky::match_and_decode(log)
-                    {
-                        balance_changes.extend(
-                            extract_contract_changes_builder()
-                                .component_id(&component_id)
-                                .token(MKR_TOKEN_ADDRESS)
-                                .add_from_user(&event.caller, event.mkr_amt)
-                                .token(SKY_TOKEN_ADDRESS)
-                                .sub_from_user(&event.caller, event.sky_amt)
-                                .build(),
-                        );
-                    }
-                    if let Some(event) =
-                        abi::mkr_sky_converter_contract::events::SkyToMkr::match_and_decode(log)
-                    {
-                        balance_changes.extend(
-                            extract_contract_changes_builder()
-                                .component_id(&component_id)
-                                .token(SKY_TOKEN_ADDRESS)
-                                .add_from_user(&event.caller, event.sky_amt)
-                                .token(MKR_TOKEN_ADDRESS)
-                                .sub_from_user(&event.caller, event.mkr_amt)
-                                .build(),
-                        );
-                    }
-                }
-
-                // Handle DAI Lite PSM events
-                if log.address == DAI_LITE_PSM_ADDRESS {
-                    if let Some(event) =
-                        abi::dai_lite_psm_contract::events::BuyGem::match_and_decode(log)
-                    {
-                        balance_changes.extend(
-                            extract_contract_changes_builder()
-                                .component_id(&component_id)
-                                .token(DAI_TOKEN_ADDRESS)
-                                .add_from_user(&event.owner, event.value)
-                                .token(USDS_TOKEN_ADDRESS)
-                                .sub_from_user(&event.owner, event.value.sub(event.fee))
-                                .build(),
-                        );
-                    }
-                    if let Some(event) =
-                        abi::dai_lite_psm_contract::events::SellGem::match_and_decode(log)
-                    {
-                        balance_changes.extend(
-                            extract_contract_changes_builder()
-                                .component_id(&component_id)
-                                .token(USDS_TOKEN_ADDRESS)
-                                .add_from_user(&event.owner, event.value)
-                                .token(DAI_TOKEN_ADDRESS)
-                                .sub_from_user(&event.owner, event.value.sub(event.fee))
-                                .build(),
-                        );
-                    }
-                }
-
-                // Handle USDS PSM Wrapper events
-                if log.address == USDS_PSM_WRAPPER_ADDRESS {
-                    if let Some(event) =
-                        abi::usds_psm_wrapper_contract::events::BuyGem::match_and_decode(log)
-                    {
-                        balance_changes.extend(
-                            extract_contract_changes_builder()
-                                .component_id(&component_id)
-                                .token(USDS_TOKEN_ADDRESS)
-                                .add_from_user(&event.usr, event.gem_amt)
-                                .token(SUSDS_TOKEN_ADDRESS)
-                                .sub_from_user(&event.usr, event.usds_in_wad)
-                                .build(),
-                        );
-                    }
-                    if let Some(event) =
-                        abi::usds_psm_wrapper_contract::events::SellGem::match_and_decode(log)
-                    {
-                        balance_changes.extend(
-                            extract_contract_changes_builder()
-                                .component_id(&component_id)
-                                .token(SUSDS_TOKEN_ADDRESS)
-                                .add_from_user(&event.usr, event.usds_out_wad)
-                                .token(USDS_TOKEN_ADDRESS)
-                                .sub_from_user(&event.usr, event.gem_amt)
-                                .build(),
-                        );
-                    }
-                }
-
-                // Handle sUSDS events
-                if log.address == SUSDS_ADDRESS {
-                    if let Some(event) = abi::susds_contract::events::Deposit::match_and_decode(log)
-                    {
-                        balance_changes.extend(
-                            extract_contract_changes_builder()
-                                .component_id(&component_id)
-                                .token(USDS_TOKEN_ADDRESS)
-                                .add_from_user(&event.sender, event.assets)
-                                .token(SUSDS_TOKEN_ADDRESS)
-                                .sub_from_user(&event.owner, event.shares)
-                                .build(),
-                        );
-                    }
-                    if let Some(event) =
-                        abi::susds_contract::events::Withdraw::match_and_decode(log)
-                    {
-                        balance_changes.extend(
-                            extract_contract_changes_builder()
-                                .component_id(&component_id)
-                                .token(SUSDS_TOKEN_ADDRESS)
-                                .add_from_user(&event.sender, event.shares)
-                                .token(USDS_TOKEN_ADDRESS)
-                                .sub_from_user(&event.receiver, event.assets)
-                                .build(),
-                        );
-                    }
-                }
+            } else if let Some(ev) =
+                abi::dai_usds_converter_contract::events::UsdsToDai::match_and_decode(vault_log.log)
+            {
+                let component_id = format!("0x{}", hex::encode(DAI_USDS_CONVERTER_ADDRESS));
+                // Handle UsdsToDai event
             }
-        }
 
-        if !balance_changes.is_empty() {
-            tx_balance_changes.push(TransactionBalanceDeltas {
-                tx: Some(tx.into()),
-                balance_changes: aggregate_balances_changes(balance_changes),
-            });
-        }
-    }
+            deltas
+        })
+        .collect::<Vec<_>>();
 
-    Ok(BlockBalanceDeltas { tx_balance_deltas: tx_balance_changes })
+    Ok(BlockBalanceDeltas { balance_deltas })
+}
+
+/// Store balances for each token in each component
+#[substreams::handlers::store]
+pub fn store_balances(deltas: BlockBalanceDeltas, store: StoreAddBigInt) {
+    tycho_substreams::balances::store_balance_changes(deltas, store);
+}
+
+#[substreams::handlers::map]
+pub fn map_protocol_changes(
+    block: eth::v2::Block,
+    grouped_components: BlockTransactionProtocolComponents,
+    deltas: BlockBalanceDeltas,
+    components_store: StoreGetString,
+    balance_store: StoreDeltas,
+) -> Result<BlockChanges> {
+    let mut transaction_changes: HashMap<_, TransactionChangesBuilder> = HashMap::new();
+
+    // Process components
+    grouped_components
+        .tx_components
+        .iter()
+        .for_each(|tx_component| {
+            let tx = tx_component.tx.as_ref().unwrap();
+            let builder = transaction_changes
+                .entry(tx.index)
+                .or_insert_with(|| TransactionChangesBuilder::new(tx));
+
+            tx_component
+                .components
+                .iter()
+                .for_each(|component| {
+                    // Each component is its own balance owner
+                    let default_attributes = vec![
+                        Attribute {
+                            name: "balance_owner".to_string(),
+                            value: hex::decode(&component.id[2..42]).unwrap(), // Use component's own address
+                            change: ChangeType::Creation.into(),
+                        },
+                        Attribute {
+                            name: "update_marker".to_string(),
+                            value: vec![1u8],
+                            change: ChangeType::Creation.into(),
+                        },
+                    ];
+
+                    builder.add_protocol_component(component);
+                    let entity_change = EntityChanges {
+                        component_id: component.id.clone(),
+                        attributes: default_attributes,
+                    };
+                    builder.add_entity_change(&entity_change)
+                });
+        });
+
+    // Process balance changes
+    aggregate_balances_changes(balance_store, deltas)
+        .into_iter()
+        .for_each(|(_, (tx, balances))| {
+            let builder = transaction_changes
+                .entry(tx.index)
+                .or_insert_with(|| TransactionChangesBuilder::new(&tx));
+            balances
+                .values()
+                .for_each(|token_bc_map| {
+                    token_bc_map
+                        .values()
+                        .for_each(|bc| builder.add_balance_change(bc))
+                });
+        });
+
+    // Extract contract changes
+    extract_contract_changes_builder(
+        &block,
+        |addr| {
+            components_store
+                .get_last(format!("pool:0x{0}", hex::encode(addr)))
+                .is_some()
+        },
+        &mut transaction_changes,
+    );
+
+    // Mark updated components
+    transaction_changes
+        .iter_mut()
+        .for_each(|(_, change)| {
+            let addresses = change
+                .changed_contracts()
+                .map(|e| e.to_vec())
+                .collect::<Vec<_>>();
+            addresses
+                .into_iter()
+                .for_each(|address| {
+                    let id = components_store
+                        .get_last(format!("pool:0x{}", hex::encode(address)))
+                        .unwrap();
+                    change.mark_component_as_updated(&id);
+                })
+        });
+
+    // Sort and build final changes
+    Ok(BlockChanges {
+        block: Some((&block).into()),
+        changes: transaction_changes
+            .drain()
+            .sorted_unstable_by_key(|(index, _)| *index)
+            .filter_map(|(_, builder)| builder.build())
+            .collect::<Vec<_>>(),
+    })
 }
 
 fn is_deployment_tx(tx: &eth::v2::TransactionTrace, contract_address: &[u8]) -> bool {
@@ -347,13 +305,4 @@ fn is_deployment_tx(tx: &eth::v2::TransactionTrace, contract_address: &[u8]) -> 
         return deployed_address.as_slice() == contract_address;
     }
     false
-}
-
-#[substreams::handlers::map]
-pub fn map_events(blk: eth::Block) -> Result<contract::Events, substreams::errors::Error> {
-    let mut events = contract::Events::default();
-    events::map_sdai_events(&blk, &mut events);
-    events::map_dai_usds_converter_events(&blk, &mut events);
-    // ... other event mappings
-    Ok(events)
 }

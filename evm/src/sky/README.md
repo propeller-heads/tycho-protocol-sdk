@@ -15,6 +15,33 @@
 - MKR <-> SKY (MKR SKY Converter @ Ethereum)
     - 0xBDcFCA946b6CDd965f99a839e4435Bcdc1bc470B
 
+DAI <-> USDC
+- Route [DAI LitePSM-USDC @ Ethereum](https://developers.sky.money/modules/litepsm#dai-litepsm-usdc-ethereum)
+- [Codebase](https://github.com/makerdao/dss-lite-psm)
+
+USDS <-> USDC
+- Route: [USDS LitePSMWrapper-USDC @ Ethereum](https://developers.sky.money/modules/litepsm#usds-litepsmwrapper-usdc-ethereum)
+- [Codebase](https://github.com/makerdao/usds-wrappers/blob/dev/src/UsdsPsmWrapper.sol)
+- USDS LitePSMWrapper-USDC: 0xA188EEC8F81263234dA3622A406892F3D630f98c
+
+DAI <-> USDS
+- Route [DAI-USDS Converter @ Ethereum](https://developers.sky.money/modules/usds#dai-usds-converter-ethereum)
+- [Codebase](https://github.com/makerdao/usds/blob/dev/src/DaiUsds.sol)
+- DAI-USDS Converter: 0x3225737a9Bbb6473CB4a45b7244ACa2BeFdB276A
+
+USDS <-> sUSDS
+- Route [sUSDS Token and Vault @ Ethereum](https://developers.sky.money/modules/susds-savings-usds#susds-token-and-vault-ethereum)
+- [Codebase](https://github.com/makerdao/sdai/tree/susds)
+- sUSDS Token & Vault: 0xa3931d71877C0E7a3148CB7Eb4463524FEc27fbD
+
+MKR <-> SKY
+- Route [MKR-SKY Converter @ Ethereum](https://developers.sky.money/modules/sky#mkr-sky-converter-ethereum)
+- [Codebase](https://github.com/makerdao/sky/blob/dev/src/MkrSky.sol)
+- MKR SKY Converter: 0xBDcFCA946b6CDd965f99a839e4435Bcdc1bc470B
+
+
+
+
 
 ## Substream
 ### Substream References

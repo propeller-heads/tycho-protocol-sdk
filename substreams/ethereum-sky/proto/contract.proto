@@ -190,7 +190,7 @@ message Sdai_ApproveCall {
     bool call_success = 5;
     bytes spender = 6;
     string value = 7;
-    bool output_param0 = 8;
+    string output_param0 = 8;
 }
 message Sdai_DecreaseAllowanceCall {
     string call_tx_hash = 1;

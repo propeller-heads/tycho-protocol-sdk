@@ -1,9 +1,9 @@
 mod abi;
 mod pb;
 mod modules;
-mod calls;
 mod events;
 
+/*
 use hex_literal::hex;
 
 substreams_ethereum::init!();
@@ -35,12 +35,4 @@ pub const SUSDS_DEPLOY_TX: &str =
     "0xe1be00c4ea3c21cf536b98ac082a5bba8485cf75d6b2b94f4d6e3edd06472c00";
 pub const MKR_SKY_CONVERTER_DEPLOY_TX: &str =
     "0xbd89595dadba76ffb243cb446a355cfb833c1ea3cefbe427349f5b4644d5fa02";
-
-// Re-export the main handlers
-pub use modules::{
-    map_components, 
-    map_relative_balances, 
-    store_components,
-    map_events,
-};
-
+*/
