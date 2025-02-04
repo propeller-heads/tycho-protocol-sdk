@@ -1,7 +1,6 @@
 mod abi;
 mod pb;
 mod modules;
-mod calls;
 mod events;
 
 use hex_literal::hex;
