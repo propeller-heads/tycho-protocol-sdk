@@ -244,7 +244,7 @@ class TestRunner:
                         error_msgs.append(
                             f"Pool {pool_id} failed simulations: {', '.join(failures_)}"
                         )
-                    raise ValueError(". ".join(error_msgs))
+                    return TestResult.Failed(step=step, message="/n".join(error_msgs))
                 print(f"\n✅ {step} passed.\n")
             else:
                 print(f"\nℹ️ {step} skipped")
@@ -297,6 +297,16 @@ class TestRunner:
         )
 
         decoded = decoder.decode_snapshot(snapshot_message, block)
+
+        for component in protocol_components:
+            if component.id not in decoded:
+                failed_simulations[component.id] = [
+                    SimulationFailure(
+                        pool_id=component.id,
+                        sell_token=component.tokens[0].hex(),
+                        buy_token=component.tokens[1].hex(),
+                        error="Pool not found in decoded state.")
+                ]
 
         for pool_state in decoded.values():
             pool_id = pool_state.id_
