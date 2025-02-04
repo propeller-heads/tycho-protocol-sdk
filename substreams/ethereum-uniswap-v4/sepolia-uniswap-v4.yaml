@@ -1,7 +1,7 @@
 specVersion: v0.1.0
 package:
   name: "ethereum_uniswap_v4"
-  version: v0.1.0
+  version: v0.1.1
 
 protobuf:
   files:
@@ -56,13 +56,21 @@ modules:
     valueType: int64
     inputs:
       - map: map_events
-  
+
+  - name: store_pool_current_sqrt_price
+    kind: store
+    initialBlock: 6894393
+    updatePolicy: set
+    valueType: bigint
+    inputs:
+      - map: map_events
+
   - name: map_balance_changes
     kind: map
     initialBlock: 6894393
     inputs:
       - map: map_events
-      - store: store_pool_current_tick
+      - store: store_pool_current_sqrt_price
     output:
       type: proto:tycho.evm.v1.BlockBalanceDeltas
 
