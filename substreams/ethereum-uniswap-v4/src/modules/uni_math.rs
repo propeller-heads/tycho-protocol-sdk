@@ -6,39 +6,38 @@ use std::ops::Shr;
 /// Function: modifyLiquidity
 ///
 /// # Arguments
+/// * `current_sqrt_price` - Current square root price
 /// * `tick_lower` - Lower tick of the position
 /// * `tick_upper` - Upper tick of the position
 /// * `liquidity_delta` - Amount of liquidity to add/remove
-/// * `sqrt_price_x96` - Current square root price
 ///
 /// # Returns
-/// * `Result<(U256, U256), Box<dyn Error>>` - Token amounts (amount0, amount1)
+/// * `Result<(BigInt, BigInt), String>` - Token amounts (amount0, amount1)
 pub fn calculate_token_amounts(
-    current_tick: i32,
+    current_sqrt_price: BigInt,
     tick_lower: i32,
     tick_upper: i32,
     liquidity_delta: i128,
 ) -> Result<(BigInt, BigInt), String> {
-    let sqrt_price_x96: BigInt = get_sqrt_ratio_at_tick(current_tick)?;
     let sqrt_price_lower_x96: BigInt = get_sqrt_ratio_at_tick(tick_lower)?;
     let sqrt_price_upper_x96: BigInt = get_sqrt_ratio_at_tick(tick_upper)?;
 
     // Calculate amounts based on current price relative to the range
-    let (amount0, amount1) = if sqrt_price_x96 <= sqrt_price_lower_x96 {
+    let (amount0, amount1) = if current_sqrt_price < sqrt_price_lower_x96 {
         // Current price is below the range: position in token0
         let amount0 =
             get_amount_0_delta_signed(sqrt_price_lower_x96, sqrt_price_upper_x96, liquidity_delta)?;
         (amount0, BigInt::from(0))
-    } else if current_tick < tick_upper {
+    } else if current_sqrt_price < sqrt_price_upper_x96 {
         // Current price is within the range: position in both tokens
         let amount0 = get_amount_0_delta_signed(
-            sqrt_price_x96.clone(),
+            current_sqrt_price.clone(),
             sqrt_price_upper_x96,
             liquidity_delta,
         )?;
 
         let amount1 =
-            get_amount_1_delta_signed(sqrt_price_lower_x96, sqrt_price_x96, liquidity_delta)?;
+            get_amount_1_delta_signed(sqrt_price_lower_x96, current_sqrt_price, liquidity_delta)?;
 
         (amount0, amount1)
     } else {
@@ -436,13 +435,27 @@ mod tests {
 
     #[test]
     fn test_calculate_token_amounts_works() {
-        let current_tick = 0;
+        let current_sqrtprice = BigInt::from(79228162514264337593543950336_i128); //SQRT_PRICE at tick 0 boundary
         let tick_lower = -887270;
         let tick_upper = 887270;
         let liquidity_delta = 2779504125;
         let (amount0, amount1) =
-            calculate_token_amounts(current_tick, tick_lower, tick_upper, liquidity_delta).unwrap();
+            calculate_token_amounts(current_sqrtprice, tick_lower, tick_upper, liquidity_delta)
+                .unwrap();
         assert_eq!(amount0, BigInt::from(2779504125_u128));
         assert_eq!(amount1, BigInt::from(2779504125_u128));
+    }
+
+    #[test]
+    fn test_calculate_token_amounts_2() {
+        let current_sqrtprice = BigInt::from(17189630842187678489986852982138_i128);
+        let tick_lower = -138200;
+        let tick_upper = 107600;
+        let liquidity_delta = -79381057257465377800177;
+        let (amount0, amount1) =
+            calculate_token_amounts(current_sqrtprice, tick_lower, tick_upper, liquidity_delta)
+                .unwrap();
+        assert_eq!(amount0, BigInt::from(-445577797388351_i128));
+        assert_eq!(amount1, BigInt::from(-17222724212376326765220041_i128));
     }
 }

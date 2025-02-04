@@ -11,15 +11,15 @@ use crate::{
     },
 };
 use substreams::{
-    prelude::{StoreGet, StoreGetInt64},
+    prelude::StoreGet,
     scalar::BigInt,
-    store::{StoreAddBigInt, StoreNew},
+    store::{StoreAddBigInt, StoreGetBigInt, StoreNew},
 };
 
 #[substreams::handlers::map]
 pub fn map_balance_changes(
     events: Events,
-    pools_current_tick_store: StoreGetInt64,
+    pools_current_sqrt_price_store: StoreGetBigInt,
 ) -> Result<BlockBalanceDeltas, anyhow::Error> {
     let balance_deltas = events
         .pool_events
@@ -27,19 +27,14 @@ pub fn map_balance_changes(
         .filter(PoolEvent::can_introduce_balance_changes)
         .map(|e| {
             (
-                pools_current_tick_store
+                pools_current_sqrt_price_store
                     .get_at(e.log_ordinal, format!("pool:{0}", &e.pool_id))
-                    .unwrap_or(0),
+                    .unwrap_or(BigInt::zero()),
                 e,
             )
         })
-        .filter_map(|(current_tick, event)| {
-            event_to_balance_deltas(
-                // Should never fail because we are converting back a value that was originally i32
-                TryInto::<i32>::try_into(current_tick)
-                    .expect("Failed to convert current tick to i32"),
-                event,
-            )
+        .filter_map(|(current_sqrt_price, event)| {
+            event_to_balance_deltas(current_sqrt_price, event)
         })
         .flatten()
         .collect();
@@ -52,12 +47,15 @@ pub fn store_pools_balances(balances_deltas: BlockBalanceDeltas, store: StoreAdd
     tycho_substreams::balances::store_balance_changes(balances_deltas, store);
 }
 
-fn event_to_balance_deltas(current_tick: i32, event: PoolEvent) -> Option<Vec<BalanceDelta>> {
+fn event_to_balance_deltas(
+    current_sqrt_price: BigInt,
+    event: PoolEvent,
+) -> Option<Vec<BalanceDelta>> {
     let address = event.pool_id.as_bytes().to_vec();
     match event.r#type.unwrap() {
         pool_event::Type::ModifyLiquidity(e) => {
             let (delta0, delta1) =
-                get_amount_delta(current_tick, e.tick_lower, e.tick_upper, e.liquidity_delta);
+                get_amount_delta(current_sqrt_price, e.tick_lower, e.tick_upper, e.liquidity_delta);
             Some(vec![
                 BalanceDelta {
                     token: hex::decode(
@@ -145,7 +143,7 @@ impl PoolEvent {
 }
 
 fn get_amount_delta(
-    current_tick: i32,
+    current_sqrt_price: BigInt,
     tick_lower: i32,
     tick_upper: i32,
     liquidity_delta: String,
@@ -157,7 +155,7 @@ fn get_amount_delta(
         .expect("Failed to parse liquidity delta");
 
     let (amount0, amount1) =
-        calculate_token_amounts(current_tick, tick_lower, tick_upper, liquidity_delta)
+        calculate_token_amounts(current_sqrt_price.into(), tick_lower, tick_upper, liquidity_delta)
             .expect("Failed to calculate token amounts from liquidity delta");
     (BigInt::from(amount0), BigInt::from(amount1))
 }

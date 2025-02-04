@@ -14,6 +14,9 @@ mod map_events;
 #[path = "4_store_current_tick.rs"]
 mod store_current_tick;
 
+#[path = "4_store_current_sqrtprice.rs"]
+mod store_current_sqrtprice;
+
 #[path = "5_map_store_balance_changes.rs"]
 mod map_store_balance_changes;
 
