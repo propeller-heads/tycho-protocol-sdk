@@ -90,12 +90,20 @@ fn event_to_balance_deltas(
         }
 
         pool_event::Type::Swap(e) => {
-            let delta0 = BigInt::from_str(&e.amount0)
+            let mut delta0 = BigInt::from_str(&e.amount0)
                 .unwrap()
                 .neg();
-            let delta1 = BigInt::from_str(&e.amount1)
+            let mut delta1 = BigInt::from_str(&e.amount1)
                 .unwrap()
                 .neg();
+
+            // Remove fees
+            if delta0 > BigInt::zero() {
+                delta0 = delta0.clone() - ((delta0 * e.fee + BigInt::from(500_000)) / 1000000); // adding BigInt::from(500_000) for rounding instead of truncating
+            }
+            if delta1 > BigInt::zero() {
+                delta1 = delta1.clone() - ((delta1 * e.fee + BigInt::from(500_000)) / 1000000); // adding BigInt::from(500_000) for rounding instead of truncating
+            }
 
             Some(vec![
                 BalanceDelta {
