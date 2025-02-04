@@ -332,6 +332,115 @@ pub fn map_relative_balances(
     Ok(BlockBalanceDeltas { tx_balance_deltas: tx_balance_changes })
 }
 
+/// Store balances for each token in each component
+#[substreams::handlers::store]
+pub fn store_balances(deltas: BlockBalanceDeltas, store: StoreAddBigInt) {
+    tycho_substreams::balances::store_balance_changes(deltas, store);
+}
+
+#[substreams::handlers::map]
+pub fn map_protocol_changes(
+    block: eth::v2::Block,
+    grouped_components: BlockTransactionProtocolComponents,
+    deltas: BlockBalanceDeltas,
+    components_store: StoreGetString,
+    balance_store: StoreDeltas,
+) -> Result<BlockChanges> {
+    let mut transaction_changes: HashMap<_, TransactionChangesBuilder> = HashMap::new();
+
+    // Process components
+    grouped_components
+        .tx_components
+        .iter()
+        .for_each(|tx_component| {
+            let tx = tx_component.tx.as_ref().unwrap();
+            let builder = transaction_changes
+                .entry(tx.index)
+                .or_insert_with(|| TransactionChangesBuilder::new(tx));
+
+            tx_component
+                .components
+                .iter()
+                .for_each(|component| {
+                    // Each component is its own balance owner
+                    let default_attributes = vec![
+                        Attribute {
+                            name: "balance_owner".to_string(),
+                            value: hex::decode(&component.id[2..42]).unwrap(), // Use component's own address
+                            change: ChangeType::Creation.into(),
+                        },
+                        Attribute {
+                            name: "update_marker".to_string(),
+                            value: vec![1u8],
+                            change: ChangeType::Creation.into(),
+                        },
+                    ];
+
+                    builder.add_protocol_component(component);
+                    let entity_change = EntityChanges {
+                        component_id: component.id.clone(),
+                        attributes: default_attributes,
+                    };
+                    builder.add_entity_change(&entity_change)
+                });
+        });
+
+    // Process balance changes
+    aggregate_balances_changes(balance_store, deltas)
+        .into_iter()
+        .for_each(|(_, (tx, balances))| {
+            let builder = transaction_changes
+                .entry(tx.index)
+                .or_insert_with(|| TransactionChangesBuilder::new(&tx));
+            balances
+                .values()
+                .for_each(|token_bc_map| {
+                    token_bc_map
+                        .values()
+                        .for_each(|bc| builder.add_balance_change(bc))
+                });
+        });
+
+    // Extract contract changes
+    extract_contract_changes_builder(
+        &block,
+        |addr| {
+            components_store
+                .get_last(format!("pool:0x{0}", hex::encode(addr)))
+                .is_some()
+        },
+        &mut transaction_changes,
+    );
+
+    // Mark updated components
+    transaction_changes
+        .iter_mut()
+        .for_each(|(_, change)| {
+            let addresses = change
+                .changed_contracts()
+                .map(|e| e.to_vec())
+                .collect::<Vec<_>>();
+            addresses
+                .into_iter()
+                .for_each(|address| {
+                    let id = components_store
+                        .get_last(format!("pool:0x{}", hex::encode(address)))
+                        .unwrap();
+                    change.mark_component_as_updated(&id);
+                })
+        });
+
+    // Sort and build final changes
+    Ok(BlockChanges {
+        block: Some((&block).into()),
+        changes: transaction_changes
+            .drain()
+            .sorted_unstable_by_key(|(index, _)| *index)
+            .filter_map(|(_, builder)| builder.build())
+            .collect::<Vec<_>>(),
+    })
+}
+
 fn is_deployment_tx(tx: &eth::v2::TransactionTrace, contract_address: &[u8]) -> bool {
     let created_accounts = tx
         .calls
@@ -352,8 +461,29 @@ fn is_deployment_tx(tx: &eth::v2::TransactionTrace, contract_address: &[u8]) -> 
 #[substreams::handlers::map]
 pub fn map_events(blk: eth::Block) -> Result<contract::Events, substreams::errors::Error> {
     let mut events = contract::Events::default();
+
+    // Map events for each contract
     events::map_sdai_events(&blk, &mut events);
     events::map_dai_usds_converter_events(&blk, &mut events);
-    // ... other event mappings
+    events::map_dai_lite_psm_events(&blk, &mut events);
+    events::map_usds_psm_wrapper_events(&blk, &mut events);
+    events::map_susds_events(&blk, &mut events);
+    events::map_mkr_sky_converter_events(&blk, &mut events);
+
     Ok(events)
+}
+
+#[substreams::handlers::map]
+pub fn map_calls(blk: eth::Block) -> Result<contract::Calls, substreams::errors::Error> {
+    let mut calls = contract::Calls::default();
+
+    // Map calls for each contract
+    crate::calls::map_sdai_calls(&blk, &mut calls);
+    crate::calls::map_dai_usds_converter_calls(&blk, &mut calls);
+    crate::calls::map_dai_lite_psm_calls(&blk, &mut calls);
+    crate::calls::map_usds_psm_wrapper_calls(&blk, &mut calls);
+    crate::calls::map_susds_calls(&blk, &mut calls);
+    crate::calls::map_mkr_sky_converter_calls(&blk, &mut calls);
+
+    Ok(calls)
 }
