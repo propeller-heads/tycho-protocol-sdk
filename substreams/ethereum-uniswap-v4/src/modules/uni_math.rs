@@ -314,6 +314,7 @@ fn get_amount_1_delta(
 mod tests {
     use super::*;
     use num_bigint::BigInt;
+    use rstest::rstest;
     use std::str::FromStr;
     const MIN_TICK: i32 = -887272;
 
@@ -433,29 +434,36 @@ mod tests {
         assert_eq!(amount_0_up, amount_0_down + 1);
     }
 
-    #[test]
-    fn test_calculate_token_amounts_works() {
-        let current_sqrtprice = BigInt::from(79228162514264337593543950336_i128); //SQRT_PRICE at tick 0 boundary
-        let tick_lower = -887270;
-        let tick_upper = 887270;
-        let liquidity_delta = 2779504125;
+    #[rstest]
+    #[case(
+        BigInt::from(79228162514264337593543950336_i128),
+        -887270,
+        887270,
+        2779504125,
+        BigInt::from(2779504125_u128),
+        BigInt::from(2779504125_u128)
+    )]
+    #[case(
+        BigInt::from(17189630842187678489986852982138_i128),
+        -138200,
+        107600,
+        -79381057257465377800177,
+        BigInt::from(-445577797388351_i128),
+        BigInt::from(-17222724212376326765220041_i128)
+    )]
+    fn test_calculate_token_amounts(
+        #[case] current_sqrtprice: BigInt,
+        #[case] tick_lower: i32,
+        #[case] tick_upper: i32,
+        #[case] liquidity_delta: i128,
+        #[case] expected_amount0: BigInt,
+        #[case] expected_amount1: BigInt,
+    ) {
         let (amount0, amount1) =
             calculate_token_amounts(current_sqrtprice, tick_lower, tick_upper, liquidity_delta)
                 .unwrap();
-        assert_eq!(amount0, BigInt::from(2779504125_u128));
-        assert_eq!(amount1, BigInt::from(2779504125_u128));
-    }
 
-    #[test]
-    fn test_calculate_token_amounts_2() {
-        let current_sqrtprice = BigInt::from(17189630842187678489986852982138_i128);
-        let tick_lower = -138200;
-        let tick_upper = 107600;
-        let liquidity_delta = -79381057257465377800177;
-        let (amount0, amount1) =
-            calculate_token_amounts(current_sqrtprice, tick_lower, tick_upper, liquidity_delta)
-                .unwrap();
-        assert_eq!(amount0, BigInt::from(-445577797388351_i128));
-        assert_eq!(amount1, BigInt::from(-17222724212376326765220041_i128));
+        assert_eq!(amount0, expected_amount0);
+        assert_eq!(amount1, expected_amount1);
     }
 }
