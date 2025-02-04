@@ -110,7 +110,10 @@ class TestRunner:
             )
 
             result = self.tycho_runner.run_with_rpc_server(
-                self.validate_state, test.expected_components, test.stop_block
+                self.validate_state,
+                test.expected_components,
+                test.stop_block,
+                test.initialized_accounts or [],
             )
 
             if result.success:
@@ -131,6 +134,7 @@ class TestRunner:
         self,
         expected_components: List[ProtocolComponentWithTestConfig],
         stop_block: int,
+        initialized_accounts: List[str],
     ) -> TestResult:
         """Validate the current protocol state against the expected state."""
         protocol_components = self.tycho_rpc_client.get_protocol_components(
@@ -184,21 +188,33 @@ class TestRunner:
                                 f"Balance mismatch for {comp_id}:{token} at block {stop_block}: got {node_balance} "
                                 f"from rpc call and {tycho_balance} from Substreams"
                             )
-            contract_states = self.tycho_rpc_client.get_contract_state(
-                ContractStateParams(
-                    contract_ids=[
-                        ContractId(chain=self._chain, address=a)
-                        for component in protocol_components
-                        for a in component.contract_ids
-                    ]
-                )
-            )
-            filtered_components = [
-                pc
-                for pc in protocol_components
-                if pc.id
-                in [c.id for c in expected_components if c.skip_simulation is False]
+
+            # Loads from Tycho-Indexer the state of all the contracts that are related to the protocol components.
+            filtered_components = []
+            simulation_components = [
+                c.id for c in expected_components if c.skip_simulation is False
             ]
+
+            related_contracts = set()
+            for account in self.config.initialized_accounts:
+                related_contracts.add(HexBytes(account))
+            for account in initialized_accounts:
+                related_contracts.add(HexBytes(account))
+
+            # Filter out components that are not set to be used for the simulation
+            for component in protocol_components:
+                if component.id in simulation_components:
+                    for a in component.contract_ids:
+                        related_contracts.add(a)
+                    filtered_components.append(component)
+
+            related_contracts = [
+                ContractId(chain=self._chain, address=a) for a in related_contracts
+            ]
+
+            contract_states = self.tycho_rpc_client.get_contract_state(
+                ContractStateParams(contract_ids=related_contracts)
+            )
             simulation_failures = self.simulate_get_amount_out(
                 stop_block, protocol_states, filtered_components, contract_states
             )
