@@ -30,6 +30,3 @@ regex = "1.8"
 lto = true
 opt-level = 's'
 strip = "debuginfo"
-
-# Files/directories to exclude from compilation
-exclude = ["balancer-v3-substream/*", "sdai-substream/*"]
