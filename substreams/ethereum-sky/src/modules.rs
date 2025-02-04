@@ -1,4 +1,5 @@
 use crate::abi;
+use crate::events;
 use anyhow::Result;
 use itertools::Itertools;
 use std::collections::HashMap;
@@ -346,4 +347,13 @@ fn is_deployment_tx(tx: &eth::v2::TransactionTrace, contract_address: &[u8]) -> 
         return deployed_address.as_slice() == contract_address;
     }
     false
+}
+
+#[substreams::handlers::map]
+pub fn map_events(blk: eth::Block) -> Result<contract::Events, substreams::errors::Error> {
+    let mut events = contract::Events::default();
+    events::map_sdai_events(&blk, &mut events);
+    events::map_dai_usds_converter_events(&blk, &mut events);
+    // ... other event mappings
+    Ok(events)
 }
