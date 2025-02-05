@@ -13,6 +13,10 @@ env:
 jobs:
   tests:
     uses: propeller-heads/tycho-protocol-sdk/.github/workflows/python-tests.yaml@chore/workflow-fixes
+    secrets:
+      role-to-assume: ${{ secrets.ROLE_TO_ASSUME }}
+      aws-region: ${{ secrets.AWS_REGION }}
+      domain-owner: ${{ secrets.DOMAIN_OWNER }}
 
   formatting:
     name: Formatting
