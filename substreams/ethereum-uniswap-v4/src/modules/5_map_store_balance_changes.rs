@@ -97,12 +97,28 @@ fn event_to_balance_deltas(
                 .unwrap()
                 .neg();
 
-            // Remove fees
+            // Adjusting deltas to exclude collected fees.
+            // Collected fees are not considered part of the component balance since they aren't
+            // accounted for during swaps. Thus, they should be excluded from the Total Value Locked
+            // (TVL).
+            // To achieve this, we subtract the fee portion from each delta.
+
+            // We perform integer division and round to the nearest integer based on the
+            // remainder. If the remainder is at least half of the divisor, we
+            // round up.
+            let bips_divisor = BigInt::from(1_000_000);
+            let half_divisor = BigInt::from(500_000);
             if delta0 > BigInt::zero() {
-                delta0 = delta0.clone() - ((delta0 * e.fee + BigInt::from(500_000)) / 1000000); // adding BigInt::from(500_000) for rounding instead of truncating
+                let fee_part = delta0.clone() * e.fee;
+                let (quotient, remainder) = fee_part.div_rem(&bips_divisor);
+                delta0 =
+                    delta0 - if remainder >= half_divisor { quotient + 1u32 } else { quotient };
             }
             if delta1 > BigInt::zero() {
-                delta1 = delta1.clone() - ((delta1 * e.fee + BigInt::from(500_000)) / 1000000); // adding BigInt::from(500_000) for rounding instead of truncating
+                let fee_part = delta1.clone() * e.fee;
+                let (quotient, remainder) = fee_part.div_rem(&bips_divisor);
+                delta1 =
+                    delta1 - if remainder >= half_divisor { quotient + 1u32 } else { quotient };
             }
 
             Some(vec![
