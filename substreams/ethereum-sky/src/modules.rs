@@ -1,9 +1,7 @@
 use crate::abi;
-use crate::events;
 use anyhow::Result;
 use itertools::Itertools;
 use std::collections::HashMap;
-use substreams::pb::substreams::module::input::store;
 use substreams::{
     hex,
     pb::substreams::StoreDeltas,
@@ -27,18 +25,6 @@ pub const SUSDS_TOKEN_ADDRESS: &[u8] = &hex!("a3931d71877C0E7a3148CB7Eb4463524FE
 pub const MKR_TOKEN_ADDRESS: &[u8] = &hex!("9f8F72aA9304c8B593d555F12eF6589cC3A579A2");
 pub const SKY_TOKEN_ADDRESS: &[u8] = &hex!("56072C95FAA701256059aa122697B133aDEd9279");
 
-// Add deployment transaction constants
-pub const DAI_USDS_CONVERTER_DEPLOY_TX: &str =
-    "0xb63d6f4cfb9945130ab32d914aaaafbad956be3718176771467b4154f9afab61";
-pub const DAI_LITE_PSM_DEPLOY_TX: &str =
-    "0x61e5d04f14d1fea9c505fb4dc9b6cf6e97bc83f2076b53cb7e92d0a2e88b6bbd";
-pub const USDS_PSM_WRAPPER_DEPLOY_TX: &str =
-    "0x43ddae74123936f6737b78fcf785547f7f6b7b27e280fe7fbf98c81b3c018585";
-pub const SUSDS_DEPLOY_TX: &str =
-    "0xe1be00c4ea3c21cf536b98ac082a5bba8485cf75d6b2b94f4d6e3edd06472c00";
-pub const MKR_SKY_CONVERTER_DEPLOY_TX: &str =
-    "0xbd89595dadba76ffb243cb446a355cfb833c1ea3cefbe427349f5b4644d5fa02";
-
 #[substreams::handlers::map]
 pub fn map_components(block: eth::v2::Block) -> Result<BlockTransactionProtocolComponents> {
     let mut tx_components = Vec::new();
@@ -46,7 +32,6 @@ pub fn map_components(block: eth::v2::Block) -> Result<BlockTransactionProtocolC
     // Check for deployment transactions of our tracked contracts
     for tx in block.transactions() {
         let mut components = Vec::new();
-        let tx_hash = hex::encode(&tx.hash);
 
         // Check DAI-USDS Converter
         if is_deployment_tx(tx, DAI_USDS_CONVERTER_ADDRESS) {
@@ -129,7 +114,7 @@ pub fn store_components(map: BlockTransactionProtocolComponents, store: StoreSet
 pub fn map_relative_balances(
     block: eth::v2::Block,
     store: StoreGetString,
-) -> Result<BlockBalanceDeltas, anyhow::Error> {
+) -> Result<BlockBalanceDeltas> {
     let balance_deltas = block
         .logs()
         .filter(|log| {
@@ -142,6 +127,7 @@ pub fn map_relative_balances(
         .flat_map(|vault_log| {
             let mut deltas = Vec::new();
 
+            // 1. DAI-USDS Converter Events
             if let Some(ev) =
                 abi::dai_usds_converter_contract::events::DaiToUsds::match_and_decode(vault_log.log)
             {
@@ -171,7 +157,255 @@ pub fn map_relative_balances(
                 abi::dai_usds_converter_contract::events::UsdsToDai::match_and_decode(vault_log.log)
             {
                 let component_id = format!("0x{}", hex::encode(DAI_USDS_CONVERTER_ADDRESS));
-                // Handle UsdsToDai event
+                if store
+                    .get_last(format!("pool:{}", &component_id[..42]))
+                    .is_some()
+                {
+                    deltas.extend_from_slice(&[
+                        BalanceDelta {
+                            ord: vault_log.ordinal(),
+                            tx: Some(vault_log.receipt.transaction.into()),
+                            token: USDS_TOKEN_ADDRESS.to_vec(),
+                            delta: ev.wad.to_signed_bytes_be(),
+                            component_id: component_id.clone().as_bytes().to_vec(),
+                        },
+                        BalanceDelta {
+                            ord: vault_log.ordinal(),
+                            tx: Some(vault_log.receipt.transaction.into()),
+                            token: DAI_TOKEN_ADDRESS.to_vec(),
+                            delta: ev.wad.neg().to_signed_bytes_be(),
+                            component_id: component_id.clone().as_bytes().to_vec(),
+                        },
+                    ]);
+                }
+            } else if let Some(ev) =
+                abi::dai_lite_psm_contract::events::BuyGem::match_and_decode(vault_log.log)
+            {
+                let (component_id, token_in, token_out) =
+                    if vault_log.receipt.transaction.to == USDS_PSM_WRAPPER_ADDRESS {
+                        (
+                            format!("0x{}", hex::encode(USDS_PSM_WRAPPER_ADDRESS)),
+                            USDS_TOKEN_ADDRESS, // USDS is spent
+                            USDC_TOKEN_ADDRESS, // USDC is received
+                        )
+                    } else {
+                        (
+                            format!("0x{}", hex::encode(DAI_LITE_PSM_ADDRESS)),
+                            DAI_TOKEN_ADDRESS,  // DAI is spent
+                            USDC_TOKEN_ADDRESS, // USDC is received
+                        )
+                    };
+
+                if store
+                    .get_last(format!("pool:{}", &component_id[..42]))
+                    .is_some()
+                {
+                    deltas.extend_from_slice(&[
+                        BalanceDelta {
+                            ord: vault_log.ordinal(),
+                            tx: Some(vault_log.receipt.transaction.into()),
+                            token: token_in.to_vec(),
+                            delta: ev.value.to_signed_bytes_be(),
+                            component_id: component_id.clone().as_bytes().to_vec(),
+                        },
+                        BalanceDelta {
+                            ord: vault_log.ordinal(),
+                            tx: Some(vault_log.receipt.transaction.into()),
+                            token: token_out.to_vec(),
+                            delta: ev.value.neg().to_signed_bytes_be(),
+                            component_id: component_id.clone().as_bytes().to_vec(),
+                        },
+                    ]);
+                }
+            } else if let Some(ev) =
+                abi::dai_lite_psm_contract::events::SellGem::match_and_decode(vault_log.log)
+            {
+                let (component_id, token_in, token_out) =
+                    if vault_log.receipt.transaction.to == USDS_PSM_WRAPPER_ADDRESS {
+                        (
+                            format!("0x{}", hex::encode(USDS_PSM_WRAPPER_ADDRESS)),
+                            USDC_TOKEN_ADDRESS, // USDC is spent
+                            USDS_TOKEN_ADDRESS, // USDS is received
+                        )
+                    } else {
+                        (
+                            format!("0x{}", hex::encode(DAI_LITE_PSM_ADDRESS)),
+                            USDC_TOKEN_ADDRESS, // USDC is spent
+                            DAI_TOKEN_ADDRESS,  // DAI is received
+                        )
+                    };
+
+                if store
+                    .get_last(format!("pool:{}", &component_id[..42]))
+                    .is_some()
+                {
+                    deltas.extend_from_slice(&[
+                        BalanceDelta {
+                            ord: vault_log.ordinal(),
+                            tx: Some(vault_log.receipt.transaction.into()),
+                            token: token_in.to_vec(),
+                            delta: ev.value.to_signed_bytes_be(),
+                            component_id: component_id.clone().as_bytes().to_vec(),
+                        },
+                        BalanceDelta {
+                            ord: vault_log.ordinal(),
+                            tx: Some(vault_log.receipt.transaction.into()),
+                            token: token_out.to_vec(),
+                            delta: ev.value.neg().to_signed_bytes_be(),
+                            component_id: component_id.clone().as_bytes().to_vec(),
+                        },
+                    ]);
+                }
+            } else if let Some(ev) =
+                abi::susds_contract::events::Deposit::match_and_decode(vault_log.log)
+            {
+                let component_id = format!("0x{}", hex::encode(SUSDS_ADDRESS));
+                if store
+                    .get_last(format!("pool:{}", &component_id[..42]))
+                    .is_some()
+                {
+                    deltas.extend_from_slice(&[
+                        BalanceDelta {
+                            ord: vault_log.ordinal(),
+                            tx: Some(vault_log.receipt.transaction.into()),
+                            token: USDS_TOKEN_ADDRESS.to_vec(),
+                            delta: ev.assets.to_signed_bytes_be(),
+                            component_id: component_id.clone().as_bytes().to_vec(),
+                        },
+                        BalanceDelta {
+                            ord: vault_log.ordinal(),
+                            tx: Some(vault_log.receipt.transaction.into()),
+                            token: SUSDS_TOKEN_ADDRESS.to_vec(),
+                            delta: ev.shares.neg().to_signed_bytes_be(),
+                            component_id: component_id.clone().as_bytes().to_vec(),
+                        },
+                    ]);
+                }
+            } else if let Some(ev) =
+                abi::susds_contract::events::Withdraw::match_and_decode(vault_log.log)
+            {
+                let component_id = format!("0x{}", hex::encode(SUSDS_ADDRESS));
+                if store
+                    .get_last(format!("pool:{}", &component_id[..42]))
+                    .is_some()
+                {
+                    deltas.extend_from_slice(&[
+                        BalanceDelta {
+                            ord: vault_log.ordinal(),
+                            tx: Some(vault_log.receipt.transaction.into()),
+                            token: USDS_TOKEN_ADDRESS.to_vec(),
+                            delta: ev.assets.neg().to_signed_bytes_be(),
+                            component_id: component_id.clone().as_bytes().to_vec(),
+                        },
+                        BalanceDelta {
+                            ord: vault_log.ordinal(),
+                            tx: Some(vault_log.receipt.transaction.into()),
+                            token: SUSDS_TOKEN_ADDRESS.to_vec(),
+                            delta: ev.shares.to_signed_bytes_be(),
+                            component_id: component_id.clone().as_bytes().to_vec(),
+                        },
+                    ]);
+                }
+            } else if let Some(ev) =
+                abi::mkr_sky_converter_contract::events::MkrToSky::match_and_decode(vault_log.log)
+            {
+                let component_id = format!("0x{}", hex::encode(MKR_SKY_CONVERTER_ADDRESS));
+                if store
+                    .get_last(format!("pool:{}", &component_id[..42]))
+                    .is_some()
+                {
+                    deltas.extend_from_slice(&[
+                        BalanceDelta {
+                            ord: vault_log.ordinal(),
+                            tx: Some(vault_log.receipt.transaction.into()),
+                            token: MKR_TOKEN_ADDRESS.to_vec(),
+                            delta: ev.mkr_amt.to_signed_bytes_be(),
+                            component_id: component_id.clone().as_bytes().to_vec(),
+                        },
+                        BalanceDelta {
+                            ord: vault_log.ordinal(),
+                            tx: Some(vault_log.receipt.transaction.into()),
+                            token: SKY_TOKEN_ADDRESS.to_vec(),
+                            delta: ev.sky_amt.neg().to_signed_bytes_be(),
+                            component_id: component_id.clone().as_bytes().to_vec(),
+                        },
+                    ]);
+                }
+            } else if let Some(ev) =
+                abi::mkr_sky_converter_contract::events::SkyToMkr::match_and_decode(vault_log.log)
+            {
+                let component_id = format!("0x{}", hex::encode(MKR_SKY_CONVERTER_ADDRESS));
+                if store
+                    .get_last(format!("pool:{}", &component_id[..42]))
+                    .is_some()
+                {
+                    deltas.extend_from_slice(&[
+                        BalanceDelta {
+                            ord: vault_log.ordinal(),
+                            tx: Some(vault_log.receipt.transaction.into()),
+                            token: SKY_TOKEN_ADDRESS.to_vec(),
+                            delta: ev.sky_amt.to_signed_bytes_be(),
+                            component_id: component_id.clone().as_bytes().to_vec(),
+                        },
+                        BalanceDelta {
+                            ord: vault_log.ordinal(),
+                            tx: Some(vault_log.receipt.transaction.into()),
+                            token: MKR_TOKEN_ADDRESS.to_vec(),
+                            delta: ev.mkr_amt.neg().to_signed_bytes_be(),
+                            component_id: component_id.clone().as_bytes().to_vec(),
+                        },
+                    ]);
+                }
+            } else if let Some(ev) =
+                abi::sdai_contract::events::Deposit::match_and_decode(vault_log.log)
+            {
+                let component_id = format!("0x{}", hex::encode(SDAI_VAULT_ADDRESS));
+                if store
+                    .get_last(format!("pool:{}", &component_id[..42]))
+                    .is_some()
+                {
+                    deltas.extend_from_slice(&[
+                        BalanceDelta {
+                            ord: vault_log.ordinal(),
+                            tx: Some(vault_log.receipt.transaction.into()),
+                            token: DAI_TOKEN_ADDRESS.to_vec(),
+                            delta: ev.assets.to_signed_bytes_be(),
+                            component_id: component_id.clone().as_bytes().to_vec(),
+                        },
+                        BalanceDelta {
+                            ord: vault_log.ordinal(),
+                            tx: Some(vault_log.receipt.transaction.into()),
+                            token: SDAI_VAULT_ADDRESS.to_vec(),
+                            delta: ev.shares.neg().to_signed_bytes_be(),
+                            component_id: component_id.clone().as_bytes().to_vec(),
+                        },
+                    ]);
+                }
+            } else if let Some(ev) =
+                abi::sdai_contract::events::Withdraw::match_and_decode(vault_log.log)
+            {
+                let component_id = format!("0x{}", hex::encode(SDAI_VAULT_ADDRESS));
+                if store
+                    .get_last(format!("pool:{}", &component_id[..42]))
+                    .is_some()
+                {
+                    deltas.extend_from_slice(&[
+                        BalanceDelta {
+                            ord: vault_log.ordinal(),
+                            tx: Some(vault_log.receipt.transaction.into()),
+                            token: DAI_TOKEN_ADDRESS.to_vec(),
+                            delta: ev.assets.neg().to_signed_bytes_be(),
+                            component_id: component_id.clone().as_bytes().to_vec(),
+                        },
+                        BalanceDelta {
+                            ord: vault_log.ordinal(),
+                            tx: Some(vault_log.receipt.transaction.into()),
+                            token: SDAI_VAULT_ADDRESS.to_vec(),
+                            delta: ev.shares.to_signed_bytes_be(),
+                            component_id: component_id.clone().as_bytes().to_vec(),
+                        },
+                    ]);
+                }
             }
 
             deltas

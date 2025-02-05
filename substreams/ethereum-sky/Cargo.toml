@@ -11,7 +11,7 @@ crate-type = ["cdylib"]
 substreams = "0.5.22"
 substreams-ethereum = "0.9.9"
 prost = "0.11"
-prost-types = "0.12.3"
+prost-types = "0.11"
 hex-literal = "0.4.1"
 ethabi = "18.0.0"
 hex = "0.4.3"
@@ -34,3 +34,6 @@ strip = "debuginfo"
 # Required so that ethabi > ethereum-types build correctly under wasm32-unknown-unknown
 [target.wasm32-unknown-unknown.dependencies]
 getrandom = { version = "0.2", features = ["custom"] }
+
+[workspace.toolchain]
+channel = "nightly-2024-02-01"
