@@ -1,0 +1,1004 @@
+[
+    {
+      "type": "constructor",
+      "inputs": [
+        {
+          "name": "core",
+          "type": "address",
+          "internalType": "contract ICore"
+        },
+        {
+          "name": "_oracleToken",
+          "type": "address",
+          "internalType": "address"
+        }
+      ],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "afterCollectFees",
+      "inputs": [
+        {
+          "name": "",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "",
+          "type": "tuple",
+          "internalType": "struct PoolKey",
+          "components": [
+            {
+              "name": "token0",
+              "type": "address",
+              "internalType": "address"
+            },
+            {
+              "name": "token1",
+              "type": "address",
+              "internalType": "address"
+            },
+            {
+              "name": "fee",
+              "type": "uint128",
+              "internalType": "uint128"
+            },
+            {
+              "name": "tickSpacing",
+              "type": "uint32",
+              "internalType": "uint32"
+            },
+            {
+              "name": "extension",
+              "type": "address",
+              "internalType": "address"
+            }
+          ]
+        },
+        {
+          "name": "",
+          "type": "bytes32",
+          "internalType": "bytes32"
+        },
+        {
+          "name": "",
+          "type": "tuple",
+          "internalType": "struct Bounds",
+          "components": [
+            {
+              "name": "lower",
+              "type": "int32",
+              "internalType": "int32"
+            },
+            {
+              "name": "upper",
+              "type": "int32",
+              "internalType": "int32"
+            }
+          ]
+        },
+        {
+          "name": "",
+          "type": "uint128",
+          "internalType": "uint128"
+        },
+        {
+          "name": "",
+          "type": "uint128",
+          "internalType": "uint128"
+        }
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "afterInitializePool",
+      "inputs": [
+        {
+          "name": "",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "",
+          "type": "tuple",
+          "internalType": "struct PoolKey",
+          "components": [
+            {
+              "name": "token0",
+              "type": "address",
+              "internalType": "address"
+            },
+            {
+              "name": "token1",
+              "type": "address",
+              "internalType": "address"
+            },
+            {
+              "name": "fee",
+              "type": "uint128",
+              "internalType": "uint128"
+            },
+            {
+              "name": "tickSpacing",
+              "type": "uint32",
+              "internalType": "uint32"
+            },
+            {
+              "name": "extension",
+              "type": "address",
+              "internalType": "address"
+            }
+          ]
+        },
+        {
+          "name": "",
+          "type": "int32",
+          "internalType": "int32"
+        },
+        {
+          "name": "",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "afterSwap",
+      "inputs": [
+        {
+          "name": "",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "",
+          "type": "tuple",
+          "internalType": "struct PoolKey",
+          "components": [
+            {
+              "name": "token0",
+              "type": "address",
+              "internalType": "address"
+            },
+            {
+              "name": "token1",
+              "type": "address",
+              "internalType": "address"
+            },
+            {
+              "name": "fee",
+              "type": "uint128",
+              "internalType": "uint128"
+            },
+            {
+              "name": "tickSpacing",
+              "type": "uint32",
+              "internalType": "uint32"
+            },
+            {
+              "name": "extension",
+              "type": "address",
+              "internalType": "address"
+            }
+          ]
+        },
+        {
+          "name": "",
+          "type": "tuple",
+          "internalType": "struct SwapParameters",
+          "components": [
+            {
+              "name": "amount",
+              "type": "int128",
+              "internalType": "int128"
+            },
+            {
+              "name": "isToken1",
+              "type": "bool",
+              "internalType": "bool"
+            },
+            {
+              "name": "sqrtRatioLimit",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "skipAhead",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
+          ]
+        },
+        {
+          "name": "",
+          "type": "int128",
+          "internalType": "int128"
+        },
+        {
+          "name": "",
+          "type": "int128",
+          "internalType": "int128"
+        }
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "afterUpdatePosition",
+      "inputs": [
+        {
+          "name": "",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "",
+          "type": "tuple",
+          "internalType": "struct PoolKey",
+          "components": [
+            {
+              "name": "token0",
+              "type": "address",
+              "internalType": "address"
+            },
+            {
+              "name": "token1",
+              "type": "address",
+              "internalType": "address"
+            },
+            {
+              "name": "fee",
+              "type": "uint128",
+              "internalType": "uint128"
+            },
+            {
+              "name": "tickSpacing",
+              "type": "uint32",
+              "internalType": "uint32"
+            },
+            {
+              "name": "extension",
+              "type": "address",
+              "internalType": "address"
+            }
+          ]
+        },
+        {
+          "name": "",
+          "type": "tuple",
+          "internalType": "struct UpdatePositionParameters",
+          "components": [
+            {
+              "name": "salt",
+              "type": "bytes32",
+              "internalType": "bytes32"
+            },
+            {
+              "name": "bounds",
+              "type": "tuple",
+              "internalType": "struct Bounds",
+              "components": [
+                {
+                  "name": "lower",
+                  "type": "int32",
+                  "internalType": "int32"
+                },
+                {
+                  "name": "upper",
+                  "type": "int32",
+                  "internalType": "int32"
+                }
+              ]
+            },
+            {
+              "name": "liquidityDelta",
+              "type": "int128",
+              "internalType": "int128"
+            }
+          ]
+        },
+        {
+          "name": "",
+          "type": "int128",
+          "internalType": "int128"
+        },
+        {
+          "name": "",
+          "type": "int128",
+          "internalType": "int128"
+        }
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "beforeCollectFees",
+      "inputs": [
+        {
+          "name": "",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "",
+          "type": "tuple",
+          "internalType": "struct PoolKey",
+          "components": [
+            {
+              "name": "token0",
+              "type": "address",
+              "internalType": "address"
+            },
+            {
+              "name": "token1",
+              "type": "address",
+              "internalType": "address"
+            },
+            {
+              "name": "fee",
+              "type": "uint128",
+              "internalType": "uint128"
+            },
+            {
+              "name": "tickSpacing",
+              "type": "uint32",
+              "internalType": "uint32"
+            },
+            {
+              "name": "extension",
+              "type": "address",
+              "internalType": "address"
+            }
+          ]
+        },
+        {
+          "name": "",
+          "type": "bytes32",
+          "internalType": "bytes32"
+        },
+        {
+          "name": "",
+          "type": "tuple",
+          "internalType": "struct Bounds",
+          "components": [
+            {
+              "name": "lower",
+              "type": "int32",
+              "internalType": "int32"
+            },
+            {
+              "name": "upper",
+              "type": "int32",
+              "internalType": "int32"
+            }
+          ]
+        }
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "beforeInitializePool",
+      "inputs": [
+        {
+          "name": "",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "key",
+          "type": "tuple",
+          "internalType": "struct PoolKey",
+          "components": [
+            {
+              "name": "token0",
+              "type": "address",
+              "internalType": "address"
+            },
+            {
+              "name": "token1",
+              "type": "address",
+              "internalType": "address"
+            },
+            {
+              "name": "fee",
+              "type": "uint128",
+              "internalType": "uint128"
+            },
+            {
+              "name": "tickSpacing",
+              "type": "uint32",
+              "internalType": "uint32"
+            },
+            {
+              "name": "extension",
+              "type": "address",
+              "internalType": "address"
+            }
+          ]
+        },
+        {
+          "name": "",
+          "type": "int32",
+          "internalType": "int32"
+        }
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "beforeSwap",
+      "inputs": [
+        {
+          "name": "",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "poolKey",
+          "type": "tuple",
+          "internalType": "struct PoolKey",
+          "components": [
+            {
+              "name": "token0",
+              "type": "address",
+              "internalType": "address"
+            },
+            {
+              "name": "token1",
+              "type": "address",
+              "internalType": "address"
+            },
+            {
+              "name": "fee",
+              "type": "uint128",
+              "internalType": "uint128"
+            },
+            {
+              "name": "tickSpacing",
+              "type": "uint32",
+              "internalType": "uint32"
+            },
+            {
+              "name": "extension",
+              "type": "address",
+              "internalType": "address"
+            }
+          ]
+        },
+        {
+          "name": "params",
+          "type": "tuple",
+          "internalType": "struct SwapParameters",
+          "components": [
+            {
+              "name": "amount",
+              "type": "int128",
+              "internalType": "int128"
+            },
+            {
+              "name": "isToken1",
+              "type": "bool",
+              "internalType": "bool"
+            },
+            {
+              "name": "sqrtRatioLimit",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "skipAhead",
+              "type": "uint256",
+              "internalType": "uint256"
+            }
+          ]
+        }
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "beforeUpdatePosition",
+      "inputs": [
+        {
+          "name": "",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "poolKey",
+          "type": "tuple",
+          "internalType": "struct PoolKey",
+          "components": [
+            {
+              "name": "token0",
+              "type": "address",
+              "internalType": "address"
+            },
+            {
+              "name": "token1",
+              "type": "address",
+              "internalType": "address"
+            },
+            {
+              "name": "fee",
+              "type": "uint128",
+              "internalType": "uint128"
+            },
+            {
+              "name": "tickSpacing",
+              "type": "uint32",
+              "internalType": "uint32"
+            },
+            {
+              "name": "extension",
+              "type": "address",
+              "internalType": "address"
+            }
+          ]
+        },
+        {
+          "name": "params",
+          "type": "tuple",
+          "internalType": "struct UpdatePositionParameters",
+          "components": [
+            {
+              "name": "salt",
+              "type": "bytes32",
+              "internalType": "bytes32"
+            },
+            {
+              "name": "bounds",
+              "type": "tuple",
+              "internalType": "struct Bounds",
+              "components": [
+                {
+                  "name": "lower",
+                  "type": "int32",
+                  "internalType": "int32"
+                },
+                {
+                  "name": "upper",
+                  "type": "int32",
+                  "internalType": "int32"
+                }
+              ]
+            },
+            {
+              "name": "liquidityDelta",
+              "type": "int128",
+              "internalType": "int128"
+            }
+          ]
+        }
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "extrapolateSnapshot",
+      "inputs": [
+        {
+          "name": "token",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "atTime",
+          "type": "uint64",
+          "internalType": "uint64"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "secondsPerLiquidityCumulative",
+          "type": "uint160",
+          "internalType": "uint160"
+        },
+        {
+          "name": "tickCumulative",
+          "type": "int64",
+          "internalType": "int64"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "findPreviousSnapshot",
+      "inputs": [
+        {
+          "name": "token",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "time",
+          "type": "uint64",
+          "internalType": "uint64"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "count",
+          "type": "uint256",
+          "internalType": "uint256"
+        },
+        {
+          "name": "index",
+          "type": "uint256",
+          "internalType": "uint256"
+        },
+        {
+          "name": "snapshot",
+          "type": "tuple",
+          "internalType": "struct Oracle.Snapshot",
+          "components": [
+            {
+              "name": "secondsSinceOffset",
+              "type": "uint32",
+              "internalType": "uint32"
+            },
+            {
+              "name": "secondsPerLiquidityCumulative",
+              "type": "uint160",
+              "internalType": "uint160"
+            },
+            {
+              "name": "tickCumulative",
+              "type": "int64",
+              "internalType": "int64"
+            }
+          ]
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "getExtrapolatedSnapshotsForSortedTimestamps",
+      "inputs": [
+        {
+          "name": "token",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "timestamps",
+          "type": "uint64[]",
+          "internalType": "uint64[]"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "observations",
+          "type": "tuple[]",
+          "internalType": "struct Oracle.Observation[]",
+          "components": [
+            {
+              "name": "secondsPerLiquidityCumulative",
+              "type": "uint160",
+              "internalType": "uint160"
+            },
+            {
+              "name": "tickCumulative",
+              "type": "int64",
+              "internalType": "int64"
+            }
+          ]
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "getPoolKey",
+      "inputs": [
+        {
+          "name": "token",
+          "type": "address",
+          "internalType": "address"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "",
+          "type": "tuple",
+          "internalType": "struct PoolKey",
+          "components": [
+            {
+              "name": "token0",
+              "type": "address",
+              "internalType": "address"
+            },
+            {
+              "name": "token1",
+              "type": "address",
+              "internalType": "address"
+            },
+            {
+              "name": "fee",
+              "type": "uint128",
+              "internalType": "uint128"
+            },
+            {
+              "name": "tickSpacing",
+              "type": "uint32",
+              "internalType": "uint32"
+            },
+            {
+              "name": "extension",
+              "type": "address",
+              "internalType": "address"
+            }
+          ]
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "oracleToken",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "address",
+          "internalType": "address"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "secondsSinceOffset",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint32",
+          "internalType": "uint32"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "secondsSinceOffsetToTimestamp",
+      "inputs": [
+        {
+          "name": "sso",
+          "type": "uint32",
+          "internalType": "uint32"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint64",
+          "internalType": "uint64"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "sload",
+      "inputs": [
+        {
+          "name": "slot",
+          "type": "bytes32",
+          "internalType": "bytes32"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "",
+          "type": "bytes32",
+          "internalType": "bytes32"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "snapshotCount",
+      "inputs": [
+        {
+          "name": "token",
+          "type": "address",
+          "internalType": "address"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "count",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "snapshots",
+      "inputs": [
+        {
+          "name": "token",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "index",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "secondsSinceOffset",
+          "type": "uint32",
+          "internalType": "uint32"
+        },
+        {
+          "name": "secondsPerLiquidityCumulative",
+          "type": "uint160",
+          "internalType": "uint160"
+        },
+        {
+          "name": "tickCumulative",
+          "type": "int64",
+          "internalType": "int64"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "timestampOffset",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint64",
+          "internalType": "uint64"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "tload",
+      "inputs": [
+        {
+          "name": "slot",
+          "type": "bytes32",
+          "internalType": "bytes32"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "",
+          "type": "bytes32",
+          "internalType": "bytes32"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "event",
+      "name": "SnapshotEvent",
+      "inputs": [
+        {
+          "name": "token",
+          "type": "address",
+          "indexed": false,
+          "internalType": "address"
+        },
+        {
+          "name": "index",
+          "type": "uint256",
+          "indexed": false,
+          "internalType": "uint256"
+        },
+        {
+          "name": "timestamp",
+          "type": "uint64",
+          "indexed": false,
+          "internalType": "uint64"
+        },
+        {
+          "name": "secondsPerLiquidityCumulative",
+          "type": "uint160",
+          "indexed": false,
+          "internalType": "uint160"
+        },
+        {
+          "name": "tickCumulative",
+          "type": "int64",
+          "indexed": false,
+          "internalType": "int64"
+        }
+      ],
+      "anonymous": false
+    },
+    {
+      "type": "error",
+      "name": "BoundsMustBeMaximum",
+      "inputs": []
+    },
+    {
+      "type": "error",
+      "name": "CallPointNotImplemented",
+      "inputs": []
+    },
+    {
+      "type": "error",
+      "name": "CoreOnly",
+      "inputs": []
+    },
+    {
+      "type": "error",
+      "name": "EndTimeLessThanStartTime",
+      "inputs": []
+    },
+    {
+      "type": "error",
+      "name": "FeeMustBeZero",
+      "inputs": []
+    },
+    {
+      "type": "error",
+      "name": "FutureTime",
+      "inputs": []
+    },
+    {
+      "type": "error",
+      "name": "NoPreviousSnapshotExists",
+      "inputs": [
+        {
+          "name": "token",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "time",
+          "type": "uint64",
+          "internalType": "uint64"
+        }
+      ]
+    },
+    {
+      "type": "error",
+      "name": "PairsWithOracleTokenOnly",
+      "inputs": []
+    },
+    {
+      "type": "error",
+      "name": "TickSpacingMustBeMaximum",
+      "inputs": []
+    },
+    {
+      "type": "error",
+      "name": "TimestampsNotSorted",
+      "inputs": []
+    },
+    {
+      "type": "error",
+      "name": "ZeroTimestampsProvided",
+      "inputs": []
+    }
+  ]
+  
