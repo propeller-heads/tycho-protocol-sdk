@@ -11,6 +11,13 @@ on:
         required: false
         type: number
         default: 15
+    secrets:
+      role-to-assume:
+        required: true
+      aws-region:
+        required: true
+      domain-owner:
+        required: true
 
 jobs:
   test-python:
@@ -25,9 +32,9 @@ jobs:
       - name: Setup Env
         uses: ./.github/actions/setup_env
         with:
-          role-to-assume: ${{ secrets.ROLE_TO_ASSUME }}
-          aws-region: ${{ secrets.AWS_REGION }}
-          domain-owner: ${{ secrets.DOMAIN_OWNER }}
+          role-to-assume: ${{ secrets.role-to-assume }}
+          aws-region: ${{ secrets.aws-region }}
+          domain-owner: ${{ secrets.domain-owner }}
 
       - name: Test with pytest
         id: tests
