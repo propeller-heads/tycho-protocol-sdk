@@ -24,7 +24,6 @@ from tycho_indexer_client.dto import (
     HexBytes,
     ResponseAccount,
     Snapshot,
-    ContractId,
 )
 from tycho_indexer_client.rpc_client import TychoRPCClient
 
@@ -217,15 +216,23 @@ class TestRunner:
                 related_contracts.add(HexBytes(account))
 
             # Filter out components that are not set to be used for the simulation
+            component_related_contracts = set()
             for component in protocol_components:
                 if component.id in simulation_components:
                     for a in component.contract_ids:
-                        related_contracts.add(a)
+                        component_related_contracts.add(a)
                     filtered_components.append(component)
 
-            related_contracts = [
-                ContractId(chain=self._chain, address=a) for a in related_contracts
-            ]
+            # Check if any of the initialized contracts are not listed as component contract dependencies
+            unspecified_contracts = related_contracts - component_related_contracts
+            if len(unspecified_contracts):
+                print(
+                    f"⚠️ The following initialized contracts are not listed as component contract dependencies: {unspecified_contracts}. "
+                    f"Please ensure that, if they are required for this component's simulation, they are specified under the Protocol Component's contract field."
+                )
+
+            related_contracts.update(component_related_contracts)
+            related_contracts = [a.hex() for a in related_contracts]
 
             contract_states = self.tycho_rpc_client.get_contract_state(
                 ContractStateParams(contract_ids=related_contracts)
@@ -305,7 +312,8 @@ class TestRunner:
                         pool_id=component.id,
                         sell_token=component.tokens[0].hex(),
                         buy_token=component.tokens[1].hex(),
-                        error="Pool not found in decoded state.")
+                        error="Pool not found in decoded state.",
+                    )
                 ]
 
         for pool_state in decoded.values():
