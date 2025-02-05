@@ -49,7 +49,7 @@ jobs:
           aws-region: ${{ secrets.aws-region }}
 
       - name: Install Dependencies
-        if: ${{ steps.env-cache.outputs.cache-hit != 'true' }}
+        #if: ${{ steps.env-cache.outputs.cache-hit != 'true' }}
         run: |
           aws codeartifact login --tool pip --domain propeller --domain-owner ${{secrets.domain-owner}} --repository protosim
           python -m pip install --upgrade pip
