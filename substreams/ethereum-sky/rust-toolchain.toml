@@ -1,4 +1,4 @@
 [toolchain]
-channel = "nightly-2024-02-01"  # Or another recent nightly version
+channel = "1.75"
+components = ["rustfmt"]
 targets = ["wasm32-unknown-unknown"]
-profile = "minimal"
