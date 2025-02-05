@@ -12,9 +12,6 @@ protobuf:
   importPaths:
     - ../../proto
     - proto
-  excludePaths:
-    - sf/substreams
-    - google
 
 binaries:
   default:
@@ -24,7 +21,7 @@ binaries:
 modules:
   - name: map_components
     kind: map
-    initialBlock: 16428133  # sDAI deployment block (earliest component)
+    initialBlock: 20283666
     inputs:
       - source: sf.ethereum.type.v2.Block
     output:
@@ -32,15 +29,15 @@ modules:
 
   - name: store_components
     kind: store
-    initialBlock: 16428133
-    updatePolicy: set_if_not_exists
-    valueType: proto:tycho.evm.v1.ProtocolComponents
+    initialBlock: 20283666
+    updatePolicy: set
+    valueType: string
     inputs:
       - map: map_components
 
   - name: map_relative_balances
     kind: map
-    initialBlock: 16428133
+    initialBlock: 20283666
     inputs:
       - source: sf.ethereum.type.v2.Block
       - store: store_components
@@ -49,7 +46,7 @@ modules:
 
   - name: store_balances
     kind: store
-    initialBlock: 16428133
+    initialBlock: 20283666
     updatePolicy: add
     valueType: bigint
     inputs:
@@ -57,7 +54,7 @@ modules:
 
   - name: map_protocol_changes
     kind: map
-    initialBlock: 16428133
+    initialBlock: 20283666
     inputs:
       - source: sf.ethereum.type.v2.Block
       - map: map_components

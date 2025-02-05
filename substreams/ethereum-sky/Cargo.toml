@@ -4,7 +4,7 @@ version = "0.2.4"
 edition = "2021"
 
 [lib]
-name = "ethereum_balancer_v2"
+name = "ethereum_sky"
 crate-type = ["cdylib"]
 
 [dependencies]
@@ -26,14 +26,6 @@ anyhow = "1"
 substreams-ethereum = "0.9"
 regex = "1.8"
 
-[profile.release]
-lto = true
-opt-level = 's'
-strip = "debuginfo"
-
 # Required so that ethabi > ethereum-types build correctly under wasm32-unknown-unknown
 [target.wasm32-unknown-unknown.dependencies]
 getrandom = { version = "0.2", features = ["custom"] }
-
-[workspace.toolchain]
-channel = "nightly-2024-02-01"
