@@ -2,8 +2,8 @@ use crate::abi;
 use crate::events;
 use anyhow::Result;
 use itertools::Itertools;
-use substreams::pb::substreams::module::input::store;
 use std::collections::HashMap;
+use substreams::pb::substreams::module::input::store;
 use substreams::{
     hex,
     pb::substreams::StoreDeltas,
@@ -128,7 +128,7 @@ pub fn store_components(map: BlockTransactionProtocolComponents, store: StoreSet
 #[substreams::handlers::map]
 pub fn map_relative_balances(
     block: eth::v2::Block,
-    components_store: StoreGetString,
+    store: StoreGetString,
 ) -> Result<BlockBalanceDeltas, anyhow::Error> {
     let balance_deltas = block
         .logs()
@@ -142,15 +142,39 @@ pub fn map_relative_balances(
         .flat_map(|vault_log| {
             let mut deltas = Vec::new();
 
-            if let Some(ev) = abi::dai_usds_converter_contract::events::DaiToUsds::match_and_decode(vault_log.log) {
-                let component_id = format!("0x{}", hex::encode(ev.caller));
+            if let Some(ev) =
+                abi::dai_usds_converter_contract::events::DaiToUsds::match_and_decode(vault_log.log)
+            {
+                let component_id = format!("0x{}", hex::encode(DAI_USDS_CONVERTER_ADDRESS));
+                if store
+                    .get_last(format!("pool:{}", &component_id[..42]))
+                    .is_some()
+                {
+                    deltas.extend_from_slice(&[
+                        BalanceDelta {
+                            ord: vault_log.ordinal(),
+                            tx: Some(vault_log.receipt.transaction.into()),
+                            token: DAI_TOKEN_ADDRESS.to_vec(),
+                            delta: ev.wad.to_signed_bytes_be(),
+                            component_id: component_id.clone().as_bytes().to_vec(),
+                        },
+                        BalanceDelta {
+                            ord: vault_log.ordinal(),
+                            tx: Some(vault_log.receipt.transaction.into()),
+                            token: USDS_TOKEN_ADDRESS.to_vec(),
+                            delta: ev.wad.neg().to_signed_bytes_be(),
+                            component_id: component_id.clone().as_bytes().to_vec(),
+                        },
+                    ]);
+                }
+            } else if let Some(ev) =
+                abi::dai_usds_converter_contract::events::UsdsToDai::match_and_decode(vault_log.log)
+            {
+                let component_id = format!("0x{}", hex::encode(DAI_USDS_CONVERTER_ADDRESS));
+                // Handle UsdsToDai event
             }
 
-            if store
-            .get_last(format!("pool:{}", &component_id[..42]))
-            .is_some() {
-                
-            }
+            deltas
         })
         .collect::<Vec<_>>();
 
