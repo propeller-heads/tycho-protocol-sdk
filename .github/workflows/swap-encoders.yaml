@@ -12,7 +12,7 @@ env:
 
 jobs:
   tests:
-    uses: propeller-heads/tycho-protocol-sdk/.github/workflows/python-tests.yaml@main
+    uses: propeller-heads/tycho-protocol-sdk/.github/workflows/python-tests.yaml@chore/workflow-fixes
 
   formatting:
     name: Formatting
