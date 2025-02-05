@@ -25,6 +25,20 @@ pub const SUSDS_TOKEN_ADDRESS: &[u8] = &hex!("a3931d71877C0E7a3148CB7Eb4463524FE
 pub const MKR_TOKEN_ADDRESS: &[u8] = &hex!("9f8F72aA9304c8B593d555F12eF6589cC3A579A2");
 pub const SKY_TOKEN_ADDRESS: &[u8] = &hex!("56072C95FAA701256059aa122697B133aDEd9279");
 
+/*
+// Add deployment transaction constants
+pub const DAI_USDS_CONVERTER_DEPLOY_TX: &str =
+    "b63d6f4cfb9945130ab32d914aaaafbad956be3718176771467b4154f9afab61";
+pub const DAI_LITE_PSM_DEPLOY_TX: &str =
+    "61e5d04f14d1fea9c505fb4dc9b6cf6e97bc83f2076b53cb7e92d0a2e88b6bbd";
+pub const USDS_PSM_WRAPPER_DEPLOY_TX: &str =
+    "43ddae74123936f6737b78fcf785547f7f6b7b27e280fe7fbf98c81b3c018585";
+pub const SUSDS_DEPLOY_TX: &str =
+    "e1be00c4ea3c21cf536b98ac082a5bba8485cf75d6b2b94f4d6e3edd06472c00";
+pub const MKR_SKY_CONVERTER_DEPLOY_TX: &str =
+    "bd89595dadba76ffb243cb446a355cfb833c1ea3cefbe427349f5b4644d5fa02";
+*/
+
 #[substreams::handlers::map]
 pub fn map_components(block: eth::v2::Block) -> Result<BlockTransactionProtocolComponents> {
     let mut tx_components = Vec::new();
@@ -32,6 +46,14 @@ pub fn map_components(block: eth::v2::Block) -> Result<BlockTransactionProtocolC
     // Check for deployment transactions of our tracked contracts
     for tx in block.transactions() {
         let mut components = Vec::new();
+
+        if is_deployment_tx(tx, SDAI_VAULT_ADDRESS) {
+            components.push(
+                ProtocolComponent::at_contract(SDAI_VAULT_ADDRESS, &tx.into())
+                    .with_tokens(&[DAI_TOKEN_ADDRESS, SDAI_VAULT_ADDRESS])
+                    .as_swap_type("sdai_vault", ImplementationType::Vm),
+            );
+        }
 
         // Check DAI-USDS Converter
         if is_deployment_tx(tx, DAI_USDS_CONVERTER_ADDRESS) {
@@ -525,18 +547,26 @@ pub fn map_protocol_changes(
 }
 
 fn is_deployment_tx(tx: &eth::v2::TransactionTrace, contract_address: &[u8]) -> bool {
-    let created_accounts = tx
-        .calls
-        .iter()
-        .flat_map(|call| {
-            call.account_creations
-                .iter()
-                .map(|ac| ac.account.to_owned())
-        })
-        .collect::<Vec<_>>();
+    match contract_address {
+        SDAI_VAULT_ADDRESS => {
+            tx.hash == hex!("a2f51048265f2fe9ffaf69b94cb5a2a4113be49bdecd2040d530dd6f68facc42")
+        }
 
-    if let Some(deployed_address) = created_accounts.first() {
-        return deployed_address.as_slice() == contract_address;
+        DAI_USDS_CONVERTER_ADDRESS => {
+            tx.hash == hex!("b63d6f4cfb9945130ab32d914aaaafbad956be3718176771467b4154f9afab61")
+        }
+        DAI_LITE_PSM_ADDRESS => {
+            tx.hash == hex!("61e5d04f14d1fea9c505fb4dc9b6cf6e97bc83f2076b53cb7e92d0a2e88b6bbd")
+        }
+        USDS_PSM_WRAPPER_ADDRESS => {
+            tx.hash == hex!("43ddae74123936f6737b78fcf785547f7f6b7b27e280fe7fbf98c81b3c018585")
+        }
+        SUSDS_ADDRESS => {
+            tx.hash == hex!("e1be00c4ea3c21cf536b98ac082a5bba8485cf75d6b2b94f4d6e3edd06472c00")
+        }
+        MKR_SKY_CONVERTER_ADDRESS => {
+            tx.hash == hex!("bd89595dadba76ffb243cb446a355cfb833c1ea3cefbe427349f5b4644d5fa02")
+        }
+        _ => false,
     }
-    false
 }
