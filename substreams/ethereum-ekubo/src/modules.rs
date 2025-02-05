@@ -11,6 +11,7 @@ use tycho_substreams::balances::aggregate_balances_changes;
 use tycho_substreams::contract::extract_contract_changes_builder;
 use tycho_substreams::prelude::*;
 use itertools::Itertools;
+use substreams::hex;
 use crate::pool_factories;
 use crate::pool_factories::{hash_pool_key, DeploymentConfig};
 use crate::abi::core::events as core_events;
@@ -110,14 +111,14 @@ fn map_relative_component_balance(params: String, block: eth::v2::Block) -> Resu
                                 ord: log.ordinal,
                                 tx: Some(tx.into()),
                                 token: ev.pool_key.0.clone(),
-                                delta: ev.delta0.to_signed_bytes_be(),
+                                delta: adjust_delta_by_fee(&ev.delta0, &ev.pool_key.3).to_signed_bytes_be(),
                                 component_id: pool_id.clone().into(),
                             },
                             BalanceDelta {
                                 ord: log.ordinal,
                                 tx: Some(tx.into()),
                                 token: ev.pool_key.1.clone(),
-                                delta: ev.delta1.to_signed_bytes_be(),
+                                delta: adjust_delta_by_fee(&ev.delta1, &ev.pool_key.3).to_signed_bytes_be(),
                                 component_id: pool_id.into(),
                             }
                         ]
@@ -148,6 +149,16 @@ fn map_relative_component_balance(params: String, block: eth::v2::Block) -> Resu
         .collect::<Vec<_>>();
 
     Ok(BlockBalanceDeltas { balance_deltas: res })
+}
+
+
+fn adjust_delta_by_fee(delta: &BigInt, fee: &BigInt) -> BigInt {
+    if delta < &BigInt::zero() {
+        let denom = BigInt::from_signed_bytes_be(&hex!("0100000000000000000000000000000000"));
+        (delta * denom.clone()) / (denom - fee)
+    } else {
+        delta.clone()
+    }
 }
 
 /// Aggregates relative balances values into absolute values
