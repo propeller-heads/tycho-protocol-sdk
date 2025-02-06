@@ -7,19 +7,34 @@ import "openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
 contract MockSGOETH is ERC4626 {
     bool public isBufferInitialized;
 
-    constructor(IERC20 _asset) ERC4626(_asset) ERC20("Staked GOETH", "sGOETH") {}
+    constructor(IERC20 _asset)
+        ERC4626(_asset)
+        ERC20("Staked GOETH", "sGOETH")
+    {}
 
     function _decimals() internal pure returns (uint8) {
         return 18;
     }
 
     // Override convertToShares to implement 1:1 conversion for testing
-    function convertToShares(uint256 assets) public view virtual override returns (uint256) {
+    function convertToShares(uint256 assets)
+        public
+        view
+        virtual
+        override
+        returns (uint256)
+    {
         return assets;
     }
 
     // Override convertToAssets to implement 1:1 conversion for testing
-    function convertToAssets(uint256 shares) public view virtual override returns (uint256) {
+    function convertToAssets(uint256 shares)
+        public
+        view
+        virtual
+        override
+        returns (uint256)
+    {
         return shares;
     }
 }

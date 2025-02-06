@@ -14,12 +14,24 @@ contract MockSETHx is ERC4626 {
     }
 
     // Override convertToShares to implement 1:1 conversion for testing
-    function convertToShares(uint256 assets) public view virtual override returns (uint256) {
+    function convertToShares(uint256 assets)
+        public
+        view
+        virtual
+        override
+        returns (uint256)
+    {
         return assets;
     }
 
     // Override convertToAssets to implement 1:1 conversion for testing
-    function convertToAssets(uint256 shares) public view virtual override returns (uint256) {
+    function convertToAssets(uint256 shares)
+        public
+        view
+        virtual
+        override
+        returns (uint256)
+    {
         return shares;
     }
-} 
+}
