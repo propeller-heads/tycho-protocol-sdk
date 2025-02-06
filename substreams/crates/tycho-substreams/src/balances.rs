@@ -88,7 +88,6 @@ pub fn store_balance_changes(deltas: BlockBalanceDeltas, store: impl StoreAdd<Bi
         });
 }
 
-// tx_aggregate_balances[tx_hash] = (tx, component_balance_changes[component_id][token_id])
 type TxAggregatedBalances =
     HashMap<Vec<u8>, (Transaction, HashMap<Vec<u8>, HashMap<Vec<u8>, BalanceChange>>)>;
 
