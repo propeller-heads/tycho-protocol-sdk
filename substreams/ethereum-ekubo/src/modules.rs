@@ -74,14 +74,14 @@ fn map_relative_component_balance(params: String, block: eth::v2::Block) -> Resu
                                 ord: log.ordinal,
                                 tx: Some(tx.into()),
                                 token: ev.pool_key.0.clone(),
-                                delta: ev.delta0.to_signed_bytes_be(),
+                                delta: adjust_delta_by_fee(&ev.delta0, &ev.pool_key.3).to_signed_bytes_be(),
                                 component_id: pool_id.clone().into(),
                             },
                             BalanceDelta {
                                 ord: log.ordinal,
                                 tx: Some(tx.into()),
                                 token: ev.pool_key.1.clone(),
-                                delta: ev.delta1.to_signed_bytes_be(),
+                                delta: adjust_delta_by_fee(&ev.delta1, &ev.pool_key.3).to_signed_bytes_be(),
                                 component_id: pool_id.into(),
                             }
                         ]
@@ -111,14 +111,14 @@ fn map_relative_component_balance(params: String, block: eth::v2::Block) -> Resu
                                 ord: log.ordinal,
                                 tx: Some(tx.into()),
                                 token: ev.pool_key.0.clone(),
-                                delta: adjust_delta_by_fee(&ev.delta0, &ev.pool_key.3).to_signed_bytes_be(),
+                                delta: ev.delta0.to_signed_bytes_be(),
                                 component_id: pool_id.clone().into(),
                             },
                             BalanceDelta {
                                 ord: log.ordinal,
                                 tx: Some(tx.into()),
                                 token: ev.pool_key.1.clone(),
-                                delta: adjust_delta_by_fee(&ev.delta1, &ev.pool_key.3).to_signed_bytes_be(),
+                                delta: &ev.delta1.to_signed_bytes_be(),
                                 component_id: pool_id.into(),
                             }
                         ]
