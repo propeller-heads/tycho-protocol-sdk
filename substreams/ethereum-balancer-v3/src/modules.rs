@@ -1,10 +1,7 @@
 use crate::{
-    abi::{
-        stable_pool_factory_contract,
-        vault_contract::events::{
-            LiquidityAdded, LiquidityAddedToBuffer, LiquidityRemoved, LiquidityRemovedFromBuffer,
-            Swap, Unwrap, Wrap,
-        },
+    abi::vault_contract::events::{
+        LiquidityAdded, LiquidityAddedToBuffer, LiquidityRemoved, LiquidityRemovedFromBuffer, Swap,
+        Unwrap, Wrap,
     },
     pool_factories,
 };
