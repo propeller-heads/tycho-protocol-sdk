@@ -303,26 +303,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ethereum-sfrax"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "ethabi 17.2.0",
- "getrandom",
- "hex",
- "hex-literal 0.4.1",
- "itertools 0.12.1",
- "num-bigint",
- "num-traits",
- "prost 0.11.9",
- "prost-types 0.11.9",
- "regex",
- "substreams 0.5.22",
- "substreams-ethereum",
- "tycho-substreams",
-]
-
-[[package]]
 name = "ethereum-sfraxeth"
 version = "0.1.0"
 dependencies = [
@@ -1314,41 +1294,7 @@ dependencies = [
  "prost-build",
  "prost-types 0.11.9",
  "substreams-macro",
- "thiserror",
-]
-
-[[package]]
-name = "substreams"
-version = "0.6.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5bb63116b90d4c174114fb237a8916dd995c939874f7576333990a44d78b642a"
-dependencies = [
- "anyhow",
- "bigdecimal",
- "hex",
- "hex-literal 0.3.4",
- "num-bigint",
- "num-integer",
- "num-traits",
- "pad",
- "pest",
- "pest_derive",
- "prost 0.13.4",
- "prost-build 0.13.4",
- "prost-types 0.13.4",
- "substreams-macro 0.6.0",
  "thiserror 1.0.69",
-]
-
-[[package]]
-name = "substreams-database-change"
-version = "2.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "06fe88d25f4c3d56fc2a92583708dc34822ea99fb3f96609f9d684f717974b27"
-dependencies = [
- "prost 0.13.4",
- "prost-types 0.13.4",
- "substreams 0.6.0",
 ]
 
 [[package]]
@@ -1501,8 +1447,8 @@ dependencies = [
  "pad",
  "prost 0.11.9",
  "prost-types 0.12.6",
- "substreams 0.5.22",
- "substreams-entity-change 1.3.2",
+ "substreams",
+ "substreams-entity-change",
  "substreams-ethereum",
  "thiserror 1.0.69",
  "tiny-keccak",
