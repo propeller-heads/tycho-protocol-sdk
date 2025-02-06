@@ -47,7 +47,9 @@ pub fn map_components(block: eth::v2::Block) -> Result<BlockTransactionProtocolC
     for tx in block.transactions() {
         let mut components = Vec::new();
 
+        // Check each contract deployment
         if is_deployment_tx(tx, SDAI_VAULT_ADDRESS) {
+            substreams::log::info!("Found sDAI Vault deployment tx: {}", hex::encode(&tx.hash));
             components.push(
                 ProtocolComponent::at_contract(SDAI_VAULT_ADDRESS, &tx.into())
                     .with_tokens(&[DAI_TOKEN_ADDRESS, SDAI_VAULT_ADDRESS])
@@ -57,6 +59,7 @@ pub fn map_components(block: eth::v2::Block) -> Result<BlockTransactionProtocolC
 
         // Check DAI-USDS Converter
         if is_deployment_tx(tx, DAI_USDS_CONVERTER_ADDRESS) {
+            substreams::log::info!("Found DAI-USDS Converter deployment tx: {}", hex::encode(&tx.hash));
             components.push(
                 ProtocolComponent::at_contract(DAI_USDS_CONVERTER_ADDRESS, &tx.into())
                     .with_tokens(&[DAI_TOKEN_ADDRESS, USDS_TOKEN_ADDRESS])
@@ -66,6 +69,7 @@ pub fn map_components(block: eth::v2::Block) -> Result<BlockTransactionProtocolC
 
         // Check DAI Lite PSM
         if is_deployment_tx(tx, DAI_LITE_PSM_ADDRESS) {
+            substreams::log::info!("Found DAI Lite PSM deployment tx: {}", hex::encode(&tx.hash));
             components.push(
                 ProtocolComponent::at_contract(DAI_LITE_PSM_ADDRESS, &tx.into())
                     .with_tokens(&[DAI_TOKEN_ADDRESS, USDS_TOKEN_ADDRESS])
@@ -75,6 +79,7 @@ pub fn map_components(block: eth::v2::Block) -> Result<BlockTransactionProtocolC
 
         // Check USDS PSM Wrapper
         if is_deployment_tx(tx, USDS_PSM_WRAPPER_ADDRESS) {
+            substreams::log::info!("Found USDS PSM Wrapper deployment tx: {}", hex::encode(&tx.hash));
             components.push(
                 ProtocolComponent::at_contract(USDS_PSM_WRAPPER_ADDRESS, &tx.into())
                     .with_tokens(&[USDS_TOKEN_ADDRESS, SUSDS_TOKEN_ADDRESS])
@@ -84,15 +89,17 @@ pub fn map_components(block: eth::v2::Block) -> Result<BlockTransactionProtocolC
 
         // Check sUSD Staking
         if is_deployment_tx(tx, SUSDS_ADDRESS) {
+            substreams::log::info!("Found sUSD Staking deployment tx: {}", hex::encode(&tx.hash));
             components.push(
                 ProtocolComponent::at_contract(SUSDS_ADDRESS, &tx.into())
                     .with_tokens(&[USDS_TOKEN_ADDRESS, SUSDS_TOKEN_ADDRESS])
-                    .as_swap_type("susds_staking", ImplementationType::Vm),
+                    .as_swap_type("susds_vault", ImplementationType::Vm),
             );
         }
 
         // Check MKR-SKY Converter
         if is_deployment_tx(tx, MKR_SKY_CONVERTER_ADDRESS) {
+            substreams::log::info!("Found MKR-SKY Converter deployment tx: {}", hex::encode(&tx.hash));
             components.push(
                 ProtocolComponent::at_contract(MKR_SKY_CONVERTER_ADDRESS, &tx.into())
                     .with_tokens(&[MKR_TOKEN_ADDRESS, SKY_TOKEN_ADDRESS])
@@ -107,28 +114,28 @@ pub fn map_components(block: eth::v2::Block) -> Result<BlockTransactionProtocolC
 
     Ok(BlockTransactionProtocolComponents { tx_components })
 }
-/*
-If we have a component with:
-- Contract address: 0x3225737a9Bbb6473CB4a45b7244ACa2BeFdB276A (DAI_USDS_CONVERTER)
-- Component ID: 0x3225737a9Bbb6473CB4a45b7244ACa2BeFdB276A (same as address in this case)
 
-The store will create an entry:
-Key: "pool:0x3225737a9Bbb6473CB4a45b7244ACa2BeFdB276A"
-Value: "0x3225737a9Bbb6473CB4a45b7244ACa2BeFdB276A"
-
-The [..42] in the key format ensures we only use the contract address part
-(0x + 40 hex chars = 42 chars) if the ID contains additional data.
-*/
-/// Simply stores the `ProtocolComponent`s with the pool address as the key and the pool id as value
 #[substreams::handlers::store]
 pub fn store_components(map: BlockTransactionProtocolComponents, store: StoreSetString) {
+    substreams::log::info!("Processing {} transactions with components", map.tx_components.len());
+
     map.tx_components
         .into_iter()
         .for_each(|tx_pc| {
+            substreams::log::info!("Transaction has {} components", tx_pc.components.len());
+
             tx_pc
                 .components
                 .into_iter()
-                .for_each(|pc| store.set(0, format!("pool:{0}", &pc.id[..42]), &pc.id))
+                .for_each(|pc| {
+                    let key = format!("pool:{}", &pc.id[..42]);
+                    substreams::log::info!(
+                        "Storing component with key: {}, value: {}",
+                        key,
+                        &pc.id
+                    );
+                    store.set(0, key, &pc.id);
+                });
         });
 }
 
