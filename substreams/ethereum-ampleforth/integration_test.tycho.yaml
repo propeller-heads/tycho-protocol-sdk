@@ -1,0 +1,22 @@
+substreams_yaml_path: ./substreams.yaml
+
+adapter_contract: "AmpleforthSwapAdapter"
+adapter_build_signature: "constructor()"
+adapter_build_args: ""
+
+skip_balance_check: false
+
+protocol_type_names:
+  - "wampl_wrapper"
+
+tests:
+  - name: test_wampl_vault_creation
+    start_block: 13275716
+    stop_block: 13280716 # +5000, covers some mints and a rebase
+    expected_components:
+      - id: "0xedb171c18ce90b633db442f2a6f72874093b49ef" # WAMPL
+        tokens:
+          - "0xd46ba6d942050d489dbd938a2c909a5d5039a161" # AMPL
+          - "0xedb171c18ce90b633db442f2a6f72874093b49ef" # WAMPL
+        creation_tx: "0xf37df22be0e3dfe035f6db5fa98a1fb14d58c1be7908167b9962cbe24d7f6bf7"
+        skip_simulation: false
