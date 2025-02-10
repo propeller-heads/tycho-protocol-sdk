@@ -33,17 +33,13 @@ pub fn map_components(block: eth::v2::Block) -> Result<BlockTransactionProtocolC
             .filter_map(|tx| {
                 let mut components = vec![];
                 if tx.hash == WSTETH_CREATION_TX {
-                    components.extend([ProtocolComponent::at_contract(
-                        WSTETH_ADDRESS.as_slice(),
-                        &tx.into(),
-                    )
-                    .with_tokens(&[LIDO_STETH_ADDRESS, WSTETH_ADDRESS])
-                    .as_swap_type("lido_vault", ImplementationType::Vm)]);
+                    components.extend([ProtocolComponent::at_contract(WSTETH_ADDRESS.as_slice())
+                        .with_tokens(&[LIDO_STETH_ADDRESS, WSTETH_ADDRESS])
+                        .as_swap_type("lido_vault", ImplementationType::Vm)]);
                 }
                 if tx.hash == LIDO_STETH_CREATION_TX {
                     components.extend([ProtocolComponent::at_contract(
                         LIDO_STETH_ADDRESS.as_slice(),
-                        &tx.into(),
                     )
                     .with_tokens(&[ETH_ADDRESS, LIDO_STETH_ADDRESS])
                     .as_swap_type("lido_vault", ImplementationType::Vm)]);
