@@ -1,26 +1,49 @@
-use anyhow::{Ok, Result};
-use regex::Regex;
-use std::fs;
+use anyhow::Result;
+use std::{fs, io::Write};
 use substreams_ethereum::Abigen;
 
-fn main() -> Result<(), anyhow::Error> {
-    let file_names =
-        ["abi/pool_contract.abi.json", "abi/eeth_contract.abi.json", "abi/erc20.abi.json"];
-    let file_output_names =
-        ["src/abi/pool_contract.rs", "src/abi/eeth_contract.rs", "src/abi/erc20.rs"];
+fn main() -> Result<()> {
+    let abi_folder = "abi";
+    let output_folder = "src/abi";
 
-    let regex = Regex::new(r#"("\w+"\s?:\s?")_(\w+")"#).unwrap();
+    let abis = fs::read_dir(abi_folder)?;
 
-    for (i, f) in file_names.iter().enumerate() {
-        let contents = fs::read_to_string(f).expect("Should have been able to read the file");
+    let mut files = abis.collect::<Result<Vec<_>, _>>()?;
 
-        // sanitize fields and attributes starting with an underscore
-        let sanitized_abi_file = regex.replace_all(contents.as_str(), "${1}u_${2}");
+    // Sort the files by their name
+    files.sort_by_key(|a| a.file_name());
+    let mut mod_rs_content = String::new();
+    mod_rs_content.push_str("#![allow(clippy::all)]\n");
 
-        Abigen::from_bytes("Contract", sanitized_abi_file.as_bytes())?
+    for file in files {
+        let file = file;
+        let file_name = file.file_name();
+        let file_name = file_name.to_string_lossy();
+
+        if !file_name.ends_with(".json") {
+            continue;
+        }
+
+        let contract_name = file_name.split('.').next().unwrap();
+
+        let input_path = format!("{}/{}", abi_folder, file_name);
+        let output_path = format!("{}/{}.rs", output_folder, contract_name);
+
+        mod_rs_content.push_str(&format!("pub mod {};\n", contract_name));
+
+        if std::path::Path::new(&output_path).exists() {
+            continue;
+        }
+
+        Abigen::new(contract_name, &input_path)?
             .generate()?
-            .write_to_file(file_output_names[i])?;
+            .write_to_file(&output_path)?;
     }
+
+    let mod_rs_path = format!("{}/mod.rs", output_folder);
+    let mut mod_rs_file = fs::File::create(mod_rs_path)?;
+
+    mod_rs_file.write_all(mod_rs_content.as_bytes())?;
 
     Ok(())
 }

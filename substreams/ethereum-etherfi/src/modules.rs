@@ -28,13 +28,13 @@ pub fn map_components(
                 let mut components: Vec<ProtocolComponent> = vec![];
                 if tx.hash == LIQUIDITY_POOL_CREATION_HASH {
                     components.push(
-                        ProtocolComponent::at_contract(&LIQUIDITY_POOL_ADDRESS, &tx.into())
+                        ProtocolComponent::at_contract(&LIQUIDITY_POOL_ADDRESS)
                             .with_tokens(&[EETH_ADDRESS, ETH_ADDRESS])
                             .as_swap_type("etherfi_liquidity_pool", ImplementationType::Vm),
                     )
                 } else if tx.hash == WEETH_CREATION_HASH {
                     components.push(
-                        ProtocolComponent::at_contract(&WEETH_ADDRESS, &tx.into())
+                        ProtocolComponent::at_contract(&WEETH_ADDRESS)
                             .with_tokens(&[EETH_ADDRESS, WEETH_ADDRESS])
                             .as_swap_type("etherfi_weeth_pool", ImplementationType::Vm),
                     )
@@ -212,7 +212,9 @@ pub fn map_relative_balances(
             // weETH transfer:
             // Mint: Contract Balance becomes += eETH, += weETH, Burn: Contract Balance becomes -=
             // eETH, -= weETH
-            else if let Some(ev) = abi::erc20::events::Transfer::match_and_decode(log.log) {
+            else if let Some(ev) =
+                tycho_substreams::abi::erc20::events::Transfer::match_and_decode(log.log)
+            {
                 if store
                     .get_last(format!("pool:{}", weeth_hex))
                     .is_some()
@@ -307,9 +309,13 @@ pub fn map_protocol_changes(
             let builder = transaction_changes
                 .entry(tx.index)
                 .or_insert_with(|| TransactionChangesBuilder::new(&tx));
-            balances.values().for_each(|bc| {
-                builder.add_balance_change(bc);
-            });
+            balances
+                .values()
+                .for_each(|token_bc_map| {
+                    token_bc_map
+                        .values()
+                        .for_each(|bc| builder.add_balance_change(bc))
+                });
         });
 
     // Extract and insert any storage changes that happened for any of the components.
