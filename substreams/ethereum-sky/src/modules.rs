@@ -5,7 +5,10 @@ use std::collections::HashMap;
 use substreams::{
     hex,
     pb::substreams::StoreDeltas,
-    store::{StoreAddBigInt, StoreGet, StoreGetString, StoreNew, StoreSet, StoreSetString},
+    scalar::BigInt,
+    store::{
+        StoreAdd, StoreAddBigInt, StoreGet, StoreGetString, StoreNew, StoreSet, StoreSetString,
+    },
 };
 use substreams_ethereum::{pb::eth, Event};
 use tycho_substreams::{
@@ -59,7 +62,10 @@ pub fn map_components(block: eth::v2::Block) -> Result<BlockTransactionProtocolC
 
         // Check DAI-USDS Converter
         if is_deployment_tx(tx, DAI_USDS_CONVERTER_ADDRESS) {
-            substreams::log::info!("Found DAI-USDS Converter deployment tx: {}", hex::encode(&tx.hash));
+            substreams::log::info!(
+                "Found DAI-USDS Converter deployment tx: {}",
+                hex::encode(&tx.hash)
+            );
             components.push(
                 ProtocolComponent::at_contract(DAI_USDS_CONVERTER_ADDRESS, &tx.into())
                     .with_tokens(&[DAI_TOKEN_ADDRESS, USDS_TOKEN_ADDRESS])
@@ -79,7 +85,10 @@ pub fn map_components(block: eth::v2::Block) -> Result<BlockTransactionProtocolC
 
         // Check USDS PSM Wrapper
         if is_deployment_tx(tx, USDS_PSM_WRAPPER_ADDRESS) {
-            substreams::log::info!("Found USDS PSM Wrapper deployment tx: {}", hex::encode(&tx.hash));
+            substreams::log::info!(
+                "Found USDS PSM Wrapper deployment tx: {}",
+                hex::encode(&tx.hash)
+            );
             components.push(
                 ProtocolComponent::at_contract(USDS_PSM_WRAPPER_ADDRESS, &tx.into())
                     .with_tokens(&[USDS_TOKEN_ADDRESS, SUSDS_TOKEN_ADDRESS])
@@ -99,7 +108,10 @@ pub fn map_components(block: eth::v2::Block) -> Result<BlockTransactionProtocolC
 
         // Check MKR-SKY Converter
         if is_deployment_tx(tx, MKR_SKY_CONVERTER_ADDRESS) {
-            substreams::log::info!("Found MKR-SKY Converter deployment tx: {}", hex::encode(&tx.hash));
+            substreams::log::info!(
+                "Found MKR-SKY Converter deployment tx: {}",
+                hex::encode(&tx.hash)
+            );
             components.push(
                 ProtocolComponent::at_contract(MKR_SKY_CONVERTER_ADDRESS, &tx.into())
                     .with_tokens(&[MKR_TOKEN_ADDRESS, SKY_TOKEN_ADDRESS])
@@ -144,14 +156,25 @@ pub fn map_relative_balances(
     block: eth::v2::Block,
     store: StoreGetString,
 ) -> Result<BlockBalanceDeltas> {
+    substreams::log::info!("Processing block {}", block.number);
+
     let balance_deltas = block
         .logs()
         .filter(|log| {
-            log.address() == DAI_USDS_CONVERTER_ADDRESS
+            let is_relevant = log.address() == DAI_USDS_CONVERTER_ADDRESS
                 || log.address() == DAI_LITE_PSM_ADDRESS
                 || log.address() == USDS_PSM_WRAPPER_ADDRESS
                 || log.address() == SUSDS_ADDRESS
-                || log.address() == MKR_SKY_CONVERTER_ADDRESS
+                || log.address() == MKR_SKY_CONVERTER_ADDRESS;
+
+            if is_relevant {
+                substreams::log::info!(
+                    "Found relevant log from address: 0x{}",
+                    hex::encode(log.address())
+                );
+            }
+
+            is_relevant
         })
         .flat_map(|vault_log| {
             let mut deltas = Vec::new();
@@ -165,6 +188,7 @@ pub fn map_relative_balances(
                     .get_last(format!("pool:{}", &component_id[..42]))
                     .is_some()
                 {
+                    substreams::log::info!("DAI-USDS Converter event: {}", ev.wad);
                     deltas.extend_from_slice(&[
                         BalanceDelta {
                             ord: vault_log.ordinal(),
@@ -446,8 +470,37 @@ pub fn map_relative_balances(
 
 /// Store balances for each token in each component
 #[substreams::handlers::store]
-pub fn store_balances(deltas: BlockBalanceDeltas, store: StoreAddBigInt) {
-    tycho_substreams::balances::store_balance_changes(deltas, store);
+pub fn store_balances(block: eth::v2::Block, deltas: BlockBalanceDeltas, store: StoreAddBigInt) {
+    for delta in deltas.balance_deltas {
+        let component_id = hex::encode(&delta.component_id);
+        let start_block = match component_id.as_str() {
+            "83F20F44975D03b1b09e64809B757c47f942BEeA" => 16_932_340, // sDAI
+            "3225737a9Bbb6473CB4a45b7244ACa2BeFdB276A" => 20_770_195, // DAI-USDS
+            "f6e72Db5454dd049d0788e411b06CfAF16853042" => 20_535_921, // DAI Lite PSM
+            "A188EEC8F81263234dA3622A406892F3D630f98c" => 20_791_763, // USDS PSM
+            "a3931d71877C0E7a3148CB7Eb4463524FEc27fbD" => 20_771_188, // sUSDS
+            "BDcFCA946b6CDd965f99a839e4435Bcdc1bc470B" => 20_770_588, // MKR-SKY
+            _ => 0,
+        };
+
+        if block.number >= start_block {
+            let key = format!(
+                "balance:{}:{}:{}",
+                hex::encode(&delta.token),
+                hex::encode(&delta.component_id),
+                block.number
+            );
+            store.add(delta.ord, key, BigInt::from_signed_bytes_be(&delta.delta));
+
+            substreams::log::info!(
+                "Storing balance at block {} - Token: 0x{}, Component: {}, Delta: {}",
+                block.number,
+                hex::encode(&delta.token),
+                component_id,
+                hex::encode(&delta.delta)
+            );
+        }
+    }
 }
 
 #[substreams::handlers::map]

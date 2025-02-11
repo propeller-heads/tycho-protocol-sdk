@@ -21,7 +21,7 @@ binaries:
 modules:
   - name: map_components
     kind: map
-    initialBlock: 20283666
+    initialBlock: 20663734
     inputs:
       - source: sf.ethereum.type.v2.Block
     output:
@@ -29,7 +29,7 @@ modules:
 
   - name: store_components
     kind: store
-    initialBlock: 20283666
+    initialBlock: 20663734
     updatePolicy: set
     valueType: string
     inputs:
@@ -37,7 +37,7 @@ modules:
 
   - name: map_relative_balances
     kind: map
-    initialBlock: 20283666
+    initialBlock: 20663734
     inputs:
       - source: sf.ethereum.type.v2.Block
       - store: store_components
@@ -46,15 +46,16 @@ modules:
 
   - name: store_balances
     kind: store
-    initialBlock: 20283666
+    initialBlock: 20663734
     updatePolicy: add
     valueType: bigint
     inputs:
+      - source: sf.ethereum.type.v2.Block
       - map: map_relative_balances
 
   - name: map_protocol_changes
     kind: map
-    initialBlock: 20283666
+    initialBlock: 20663734
     inputs:
       - source: sf.ethereum.type.v2.Block
       - map: map_components
