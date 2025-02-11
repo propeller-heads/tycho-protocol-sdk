@@ -11,7 +11,7 @@ import {ERC20} from "openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
 import "src/libraries/FractionMath.sol";
 
 /// @dev custom RESERVE_LIMIT_FACTOR for limits for this adapter(underestimate)
-uint256 constant RESERVE_LIMIT_FACTOR = 10;
+uint256 constant RESERVE_LIMIT_FACTOR = 2;
 
 /// @title Curve Finance Adapter
 /// @dev This contract supports both CryptoSwap and StableSwap Curve pools
@@ -58,8 +58,7 @@ contract CurveAdapter is ISwapAdapter {
 
         bool isEthPool; // pool is native ETH pool
         PoolCoins memory coins = getCoins(sellParams.poolAddress);
-        sellParams.isInt128Pool =
-            isInt128Pool(sellParams.poolAddress, coins.addresses[0]);
+        sellParams.isInt128Pool = isInt128Pool(sellParams.poolAddress, coins);
 
         /// @dev Support for Native ETH pools, ETH pools cannot be Meta
         /// therefore we can directly access coins without using underlying
@@ -125,7 +124,7 @@ contract CurveAdapter is ISwapAdapter {
             bool isEthPool; // pool is native ETH pool
             PoolCoins memory coins = getCoins(sellParams.poolAddress);
             sellParams.isInt128Pool =
-                isInt128Pool(sellParams.poolAddress, coins.addresses[0]);
+                isInt128Pool(sellParams.poolAddress, coins);
 
             /// @dev Support for Native ETH pools, ETH pools cannot be Meta
             /// therefore we can directly access coins without using underlying
@@ -415,6 +414,37 @@ contract CurveAdapter is ISwapAdapter {
                 sellToken.safeIncreaseAllowance(
                     sellParams.poolAddress, sellParams.specifiedAmount
                 );
+                // @dev if available try to swap with use_eth set to true.
+                try ICurveCryptoSwapPoolEth(sellParams.poolAddress).exchange(
+                    sellTokenIndexUint,
+                    buyTokenIndexUint,
+                    sellParams.specifiedAmount,
+                    0,
+                    true,
+                    address(this)
+                ) {
+                    // @dev we can't use catch here because some Curve pool have
+                    // a fallback function implemented. So this call succeed
+                    // without doing anything.
+                    if (sellParams.buyToken == ETH_ADDRESS) {
+                        calculatedAmount =
+                            address(this).balance - buyTokenBalBefore;
+                        (bool sent,) = address(msg.sender).call{
+                            value: calculatedAmount
+                        }("");
+                        require(sent, "Eth transfer failed");
+                    } else {
+                        calculatedAmount = buyToken.balanceOf(address(this))
+                            - buyTokenBalBefore;
+                        buyToken.safeTransfer(
+                            address(msg.sender), calculatedAmount
+                        );
+                    }
+                    if (calculatedAmount > 0) {
+                        return calculatedAmount;
+                    }
+                } catch {}
+                // @dev else use the generic interface.
                 ICurveCryptoSwapPool(sellParams.poolAddress).exchange(
                     sellTokenIndexUint,
                     buyTokenIndexUint,
@@ -438,23 +468,26 @@ contract CurveAdapter is ISwapAdapter {
     /// @dev Check whether a pool supports int128 inputs or uint256(excluded
     /// custom)
     /// @param poolAddress address of the pool
-    /// @param coin0 address of the first coin in the pool
-    function isInt128Pool(address poolAddress, address coin0)
+    /// @param coins list of coin addresses in the pool
+    function isInt128Pool(address poolAddress, PoolCoins memory coins)
         internal
         view
         returns (bool)
     {
-        uint256 sampleAmount = coin0 == ETH_ADDRESS
-            ? poolAddress.balance
-            : IERC20(coin0).balanceOf(poolAddress);
+        // @dev We avoid using ETH/WETH as a token here because it might create
+        // a requirement to index WETH when it's not needed.
+        uint256 sampleTokenIndex = (
+            coins.addresses[0] == ETH_ADDRESS
+                || coins.addresses[0] == WETH_ADDRESS
+        ) ? 1 : 0;
+        uint256 sampleAmount =
+            IERC20(coins.addresses[sampleTokenIndex]).balanceOf(poolAddress);
 
-        /// @dev fix for custom pools using ETH balance when coin0 is WETH
-        if (coin0 == WETH_ADDRESS && sampleAmount == 0) {
-            sampleAmount = poolAddress.balance;
-        }
-
-        try ICurveCryptoSwapPool(poolAddress).get_dy(0, 1, sampleAmount / 10)
-        returns (uint256) {
+        try ICurveCryptoSwapPool(poolAddress).get_dy(
+            sampleTokenIndex == 0 ? 0 : 1,
+            sampleTokenIndex == 0 ? 1 : 0,
+            sampleAmount / 10
+        ) returns (uint256) {
             return false;
         } catch {
             return true;
