@@ -83,7 +83,14 @@ When `sellGem` is called, we should:
 3. Add USDS amount to `0xA188EEC8F81263234dA3622A406892F3D630f98c` component balance
 2. subtract USDS amount from `0xA188EEC8F81263234dA3622A406892F3D630f98c` component balance
 
+When `buyGem` is called, we should:
+1. add USDS amount to `0xA188EEC8F81263234dA3622A406892F3D630f98c` component balance
+2. subtract USDS amount from `0xA188EEC8F81263234dA3622A406892F3D630f98c` component balance
+3. add DAI amount to `0xf6e72Db5454dd049d0788e411b06CfAF16853042` component balance
+4. subtract USDC amount from `0x37305B1cD40574E4C5Ce33f8e8306Be057fD7341` component balance
 
+
+## susds
 
 ## Sky Substreams Events broke down by contract
 
