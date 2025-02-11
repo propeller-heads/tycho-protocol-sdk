@@ -37,6 +37,61 @@ This module gets you only events that matched.
 
 This module gets you only calls that matched.
 
+# Substreams implementation details
+
+## dai_usds_converter
+1. `daiToUsds` -> DAI are sent to `dai_usds_converter` contract
+2. DAI are sent to dai vault
+3. DAI are burned
+4. USDS are minted
+5. USDS are sent to user
+
+### Questions
+How do we want to track the balance here? 
+In theory interactions with `dai_usds_converter` are alway delta neutral.
+When `daiToUsds` is called, we should: 
+1. add DAI amount to component balance
+2. subtract DAI amount from component balance since they get burned
+3. add USDS amount to component balance since they get minted
+4. subtract USDS amount from component balance since they get transferred to user
+
+When `usdsToDai` is called, we should:
+1. add USDS amount to component balance
+2. subtract USDS amount from component balance since they get burned
+3. add DAI amount to component balance since they are minted
+4. subtract DAI amount from component balance since they get transferred to user
+
+## dai_lite_psm
+When `buyGem` is called, we should:
+1. add DAI amount to `0xf6e72Db5454dd049d0788e411b06CfAF16853042` component balance
+2. subtract USDC amount from `0x37305B1cD40574E4C5Ce33f8e8306Be057fD7341` component balance
+
+When `sellGem` is called, we should:
+1. add USDC amount to `0x37305B1cD40574E4C5Ce33f8e8306Be057fD7341` component balance
+2. subtract DAI amount from `0xf6e72Db5454dd049d0788e411b06CfAF16853042` component balance
+
+When `Fill` event is emitted, we should:
+1. add `ev.wad` to `0xf6e72Db5454dd049d0788e411b06CfAF16853042` component balance
+
+When `Trim` event is emitted, we should:
+1. subtract `ev.wad` (DAI)from `0xf6e72Db5454dd049d0788e411b06CfAF16853042` component balance
+
+## usds_psm_wrapper
+When `sellGem` is called, we should:
+1. add USDC amount to `0x37305B1cD40574E4C5Ce33f8e8306Be057fD7341` component balance
+2. subtract DAI amount from `0xf6e72Db5454dd049d0788e411b06CfAF16853042` component balance
+3. Add USDS amount to `0xA188EEC8F81263234dA3622A406892F3D630f98c` component balance
+2. subtract USDS amount from `0xA188EEC8F81263234dA3622A406892F3D630f98c` component balance
+
+When `buyGem` is called, we should:
+1. add USDS amount to `0xA188EEC8F81263234dA3622A406892F3D630f98c` component balance
+2. subtract USDS amount from `0xA188EEC8F81263234dA3622A406892F3D630f98c` component balance
+3. add DAI amount to `0xf6e72Db5454dd049d0788e411b06CfAF16853042` component balance
+4. subtract USDC amount from `0x37305B1cD40574E4C5Ce33f8e8306Be057fD7341` component balance
+
+
+## susds
+
 ## Sky Substreams Events broke down by contract
 
 - sdai
@@ -66,12 +121,13 @@ This module gets you only calls that matched.
 - address: 0x3225737a9Bbb6473CB4a45b7244ACa2BeFdB276A
 - initial_block_number: 20,663,734
 - creation_tx: 0xb63d6f4cfb9945130ab32d914aaaafbad956be3718176771467b4154f9afab61
-- first_tx_block_number: 20,770,195
+- first_tx_block_number: 
 - first_tx (Deposit): 0x371f1f6e26604915c10a88368ebcf3d6132ec2b2d38a7d33bd196f224d9c2efb
 - difference_creation_tx_first_tx: 106,461
 
 # dai_lite_psm
 > This contract contains DAI, DOES NOT contain USDC (Gem)
+> USDC balance is held in 0x37305B1cD40574E4C5Ce33f8e8306Be057fD7341
 - address: 0xf6e72Db5454dd049d0788e411b06CfAF16853042
 - initial_block_number: 20,283,666
 - creation_tx: 0x61e5d04f14d1fea9c505fb4dc9b6cf6e97bc83f2076b53cb7e92d0a2e88b6bbd
@@ -240,3 +296,31 @@ Shares (sDai) are added to totalSupply and user balance.
 - Age: Sep-02-2024 03:20:47 PM UTC
 - creation_tx: 0xbd89595dadba76ffb243cb446a355cfb833c1ea3cefbe427349f5b4644d5fa02
 - contract_creator: 0x4Ec216c476175a236BD70026b984D4adECa0cfb8 (Sky: Deployer)
+
+# Substreams implementation details
+
+## dai_usds_converter
+1. `daiToUsds` -> DAI are sent to `dai_usds_converter` contract
+2. DAI are sent to dai vault
+3. DAI are burned
+4. USDS are minted
+5. USDS are sent to user
+
+### Questions
+How do we want to track the balance here? 
+In theory interactions with `dai_usds_converter` are alway delta neutral.
+When `daiToUsds` is called, we should: 
+1. add DAI amount to component balance
+2. subtract DAI amount from component balance since they get burned
+3. add USDS amount to component balance since they get minted
+4. subtract USDS amount from component balance since they get transferred to user
+
+When `usdsToDai` is called, we should:
+1. add USDS amount to component balance
+2. subtract USDS amount from component balance since they get burned
+3. add DAI amount to component balance since they are minted
+4. subtract DAI amount from component balance since they get transferred to user
+
+
+## usds_psm_wrapper
+
