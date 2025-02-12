@@ -15,7 +15,6 @@ use std::collections::HashMap;
 use substreams::{
     hex, log,
     pb::substreams::StoreDeltas,
-    scalar::BigInt,
     store::{
         StoreAddBigInt, StoreGet, StoreGetProto, StoreNew, StoreSetIfNotExists,
         StoreSetIfNotExistsProto,
