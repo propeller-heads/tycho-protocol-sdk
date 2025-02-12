@@ -4,12 +4,7 @@ adapter_build_signature: "constructor(address,address,address,address,address)"
 adapter_build_args: "0x83F20F44975D03b1b09e64809B757c47f942BEeA,0x3225737a9Bbb6473CB4a45b7244ACa2BeFdB276A,0xA188EEC8F81263234dA3622A406892F3D630f98c,0xa3931d71877C0E7a3148CB7Eb4463524FEc27fbD,0xBDcFCA946b6CDd965f99a839e4435Bcdc1bc470B"
 # Whether or not the testing script should skip checking balances of the protocol components.
 # If set to `true` please always add a reason why it's skipped.
-skip_balance_check: false
-# A list of accounts that need to be indexed to run the tests properly.
-# Usually used when there is a global component required by all pools and created before the tested range of blocks. For example a factory or a vault.
-# Please note that this component needs to be indexed by your substreams module, this feature is only for testing purpose.
-# Also please always add a reason why this account is needed for your tests.
-# This will be applied to each test.
+skip_balance_check: true #Balances are kept separately
 initialized_accounts:
   - "0x83F20F44975D03b1b09e64809B757c47f942BEeA"  # sDAI Vault
   - "0x3225737a9Bbb6473CB4a45b7244ACa2BeFdB276A"  # DAI-USDS Converter
@@ -34,7 +29,7 @@ tests:
     stop_block: 16428134
     # A list of expected component indexed in the block range. Each component must match perfectly the `ProtocolComponent` indexed by your subtreams module.
     expected_components:
-      - id: "0x83F20F44975D03b1b09e64809B757c47f942BEeA"
+      - id: "0x83f20f44975d03b1b09e64809b757c47f942beea"
         tokens:
           - "0x6B175474E89094C44Da98b954EedeAC495271d0F"  # DAI
           - "0x83F20F44975D03b1b09e64809B757c47f942BEeA"  # sDAI
@@ -47,7 +42,7 @@ tests:
     start_block: 20663733
     stop_block: 20663735
     expected_components:
-      - id: "0x3225737a9Bbb6473CB4a45b7244ACa2BeFdB276A"
+      - id: "0x3225737a9bbb6473cb4a45b7244aca2befdb276a"
         tokens:
           - "0x6B175474E89094C44Da98b954EedeAC495271d0F"  # DAI
           - "0xdC035D45d973E3EC169d2276DDab16f1e407384F"  # USDS
@@ -58,7 +53,7 @@ tests:
     start_block: 20283665
     stop_block: 20283667
     expected_components:
-      - id: "0xf6e72Db5454dd049d0788e411b06CfAF16853042"
+      - id: "0xf6e72db5454dd049d0788e411b06cfaf16853042"
         tokens:
           - "0x6B175474E89094C44Da98b954EedeAC495271d0F"  # DAI
           - "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"  # USDC
@@ -69,7 +64,7 @@ tests:
     start_block: 20668727
     stop_block: 20668729
     expected_components:
-      - id: "0xA188EEC8F81263234dA3622A406892F3D630f98c"
+      - id: "0xa188eec8f81263234da3622a406892f3d630f98c"
         tokens:
           - "0xdC035D45d973E3EC169d2276DDab16f1e407384F"  # USDS
           - "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"  # USDC
@@ -80,7 +75,7 @@ tests:
     start_block: 20677433
     stop_block: 20677435
     expected_components:
-      - id: "0xa3931d71877C0E7a3148CB7Eb4463524FEc27fbD"
+      - id: "0xa3931d71877c0e7a3148cb7eb4463524fec27fbd"
         tokens:
           - "0xdC035D45d973E3EC169d2276DDab16f1e407384F"  # USDS
           - "0xa3931d71877C0E7a3148CB7Eb4463524FEc27fbD"  # sUSDS
@@ -91,7 +86,7 @@ tests:
     start_block: 20663739
     stop_block: 20663741
     expected_components:
-      - id: "0xBDcFCA946b6CDd965f99a839e4435Bcdc1bc470B"
+      - id: "0xbdcfca946b6cdd965f99a839e4435bcdc1bc470b"
         tokens:
           - "0x9f8F72aA9304c8B593d555F12eF6589cC3A579A2"  # MKR
           - "0x56072C95FAA701256059aa122697B133aDEd9279"  # SKY
