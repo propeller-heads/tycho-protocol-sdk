@@ -1,12 +1,16 @@
 use crate::{
-    abi::vault_contract::events::{
-        LiquidityAdded, LiquidityAddedToBuffer, LiquidityRemoved, LiquidityRemovedFromBuffer, Swap,
-        Unwrap, Wrap,
+    abi::vault_contract::{
+        events::{
+            LiquidityAdded, LiquidityAddedToBuffer, LiquidityRemoved, LiquidityRemovedFromBuffer,
+            Swap, Unwrap, Wrap,
+        },
+        functions::{Erc4626BufferWrapOrUnwrap, SendTo, Settle},
     },
     pool_factories,
 };
 use anyhow::Result;
 use itertools::Itertools;
+use keccak_hash::keccak;
 use std::collections::HashMap;
 use substreams::{
     hex, log,
@@ -17,7 +21,10 @@ use substreams::{
         StoreSetIfNotExistsProto,
     },
 };
-use substreams_ethereum::{pb::eth, Event};
+use substreams_ethereum::{
+    pb::eth::{self, v2::StorageChange},
+    Event, Function,
+};
 use tycho_substreams::{
     balances::aggregate_balances_changes, contract::extract_contract_changes_builder, prelude::*,
 };
@@ -350,19 +357,30 @@ pub fn map_protocol_changes(
                 .entry(tx.index)
                 .or_insert_with(|| TransactionChangesBuilder::new(tx));
 
-            let mut vault_contract_tlv_changes = InterimContractChange::new(VAULT_ADDRESS, false);
-            let max_balance = BigInt::from(2u64).pow(150) - BigInt::from(1);
             balances
                 .values()
                 .for_each(|token_bc_map| {
                     token_bc_map.values().for_each(|bc| {
                         builder.add_balance_change(bc);
-                        vault_contract_tlv_changes.upsert_token_balance(
-                            bc.token.as_slice(),
-                            &max_balance.to_signed_bytes_be(),
-                        );
                     })
                 });
+        });
+
+    // Extract token balances for balancer v3 vault
+    block
+        .transaction_traces
+        .iter()
+        .for_each(|tx| {
+            let mut vault_contract_tlv_changes = InterimContractChange::new(VAULT_ADDRESS, false);
+            let tycho_tx = Transaction::from(tx);
+            let builder = transaction_changes
+                .entry(tx.index.into())
+                .or_insert_with(|| TransactionChangesBuilder::new(&tycho_tx));
+            let vault_balance_change_per_tx = get_vault_reserves(tx, &components_store);
+            for (token_addr, serialized_balance) in vault_balance_change_per_tx {
+                vault_contract_tlv_changes
+                    .upsert_token_balance(token_addr.as_slice(), serialized_balance.as_slice());
+            }
             builder.add_contract_changes(&vault_contract_tlv_changes);
         });
 
@@ -422,4 +440,64 @@ fn address_to_bytes_with_0x(address: &[u8; 20]) -> Vec<u8> {
 /// Converts address bytes into a string containing a leading `0x`.
 fn address_to_string_with_0x(address: &[u8]) -> String {
     format!("0x{}", hex::encode(address))
+}
+
+// function needed to match reservesOf in vault storage, which by definition
+// they should always be equal to the `token.balanceOf(this)` except during unlock
+fn get_vault_reserves(
+    transaction: &eth::v2::TransactionTrace,
+    store: &StoreGetProto<ProtocolComponent>,
+) -> HashMap<Vec<u8>, Vec<u8>> {
+    // reservesOf mapping for the current block Address -> Balance
+    let mut reserves_of = HashMap::<Vec<u8>, Vec<u8>>::new();
+    for call in &transaction.calls {
+        if let Some(Settle { token, .. }) = Settle::match_and_decode(call) {
+            for change in &call.storage_changes {
+                add_change_if_accounted(&mut reserves_of, change, token.as_slice());
+            }
+        }
+        if let Some(SendTo { token, .. }) = SendTo::match_and_decode(call) {
+            for change in &call.storage_changes {
+                add_change_if_accounted(&mut reserves_of, change, token.as_slice());
+            }
+        }
+        if let Some(Erc4626BufferWrapOrUnwrap { params }) =
+            Erc4626BufferWrapOrUnwrap::match_and_decode(call)
+        {
+            for change in &call.storage_changes {
+                let wrapped_token = params.2.clone();
+                let component_id = format!("0x{}", hex::encode(&wrapped_token));
+                if let Some(component) = store.get_last(component_id) {
+                    let underlying_token = component.tokens[1].clone();
+                    add_change_if_accounted(&mut reserves_of, change, wrapped_token.as_slice());
+                    add_change_if_accounted(&mut reserves_of, change, underlying_token.as_slice());
+                }
+            }
+        }
+    }
+    reserves_of
+}
+
+fn add_change_if_accounted(
+    reserves_of: &mut HashMap<Vec<u8>, Vec<u8>>,
+    change: &StorageChange,
+    token_address: &[u8],
+) {
+    let slot_key = get_storage_key_for_token(token_address);
+    // record changes happening on vault contract at reserves_of storage key
+    if change.key == slot_key && change.address == VAULT_ADDRESS {
+        reserves_of.insert(token_address.to_vec(), change.new_value.clone());
+    }
+}
+
+// token_addr -> keccak256(abi.encode(token_address, 8)) as 8 is the order in which reserves of are
+// declared
+fn get_storage_key_for_token(token_address: &[u8]) -> Vec<u8> {
+    let mut input = [0u8; 64];
+    input[12..32].copy_from_slice(token_address);
+    input[63] = 8u8;
+    let result = keccak(input.as_slice())
+        .as_bytes()
+        .to_vec();
+    result
 }
