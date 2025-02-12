@@ -84,7 +84,13 @@ contract SkySwapAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
             DAI_USDS_CONVERTER_ADDRESS,
             USDS_PSM_WRAPPER_ADDRESS,
             SUSDS_ADDRESS,
-            MKR_SKY_CONVERTER_ADDRESS
+            MKR_SKY_CONVERTER_ADDRESS,
+            DAI_LITE_PSM_ADDRESS,
+            USDC_ADDRESS,
+            MKR_ADDRESS,
+            SKY_ADDRESS,
+            DAI_ADDRESS,
+            USDS_ADDRESS
         );
 
         // Initialize pairs array
