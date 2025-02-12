@@ -15,8 +15,7 @@ use tycho_substreams::{
     balances::aggregate_balances_changes, contract::extract_contract_changes_builder, prelude::*,
 };
 
-pub const DAI_VAULT_ADDRESS: &[u8] = &hex!("83F20F44975D03b1b09e64809B757c47f942BEeA");
-pub const USDS_VAULT_ADDRESS: &[u8] = &hex!("dC035D45d973E3EC169d2276DDab16f1e407384F");
+pub const POCKET_ADDRESS: &[u8] = &hex!("83F20F44975D03b1b09e64809B757c47f942BEeA");
 pub const SDAI_VAULT_ADDRESS: &[u8] = &hex!("83F20F44975D03b1b09e64809B757c47f942BEeA");
 pub const DAI_USDS_CONVERTER_ADDRESS: &[u8] = &hex!("3225737a9Bbb6473CB4a45b7244ACa2BeFdB276A");
 pub const DAI_LITE_PSM_ADDRESS: &[u8] = &hex!("f6e72Db5454dd049d0788e411b06CfAF16853042");
@@ -194,15 +193,9 @@ pub fn map_relative_balances(
                 {
                     substreams::log::info!("DAI-USDS Converter event: {}", ev.wad);
                     deltas.extend_from_slice(&[
+                        // Here we are pretending DAI is burned and USDS is minted to user
                         // In reality DAI is sent to DAI vault (0x3225737a9Bbb6473CB4a45b7244ACa2BeFdB276A)
                         // and then burned (sent from DAI vault to 0x0000000000000000000000000000000000000000)
-                        BalanceDelta {
-                            ord: vault_log.ordinal(),
-                            tx: Some(vault_log.receipt.transaction.into()),
-                            token: DAI_TOKEN_ADDRESS.to_vec(),
-                            delta: ev.wad.to_signed_bytes_be(),
-                            component_id: component_id.clone().as_bytes().to_vec(),
-                        },
                         BalanceDelta {
                             ord: vault_log.ordinal(),
                             tx: Some(vault_log.receipt.transaction.into()),
@@ -216,13 +209,6 @@ pub fn map_relative_balances(
                             tx: Some(vault_log.receipt.transaction.into()),
                             token: USDS_TOKEN_ADDRESS.to_vec(),
                             delta: ev.wad.to_signed_bytes_be(),
-                            component_id: component_id.clone().as_bytes().to_vec(),
-                        },
-                        BalanceDelta {
-                            ord: vault_log.ordinal(),
-                            tx: Some(vault_log.receipt.transaction.into()),
-                            token: USDS_TOKEN_ADDRESS.to_vec(),
-                            delta: ev.wad.neg().to_signed_bytes_be(),
                             component_id: component_id.clone().as_bytes().to_vec(),
                         },
                     ]);
@@ -242,13 +228,6 @@ pub fn map_relative_balances(
                             ord: vault_log.ordinal(),
                             tx: Some(vault_log.receipt.transaction.into()),
                             token: USDS_TOKEN_ADDRESS.to_vec(),
-                            delta: ev.wad.to_signed_bytes_be(),
-                            component_id: component_id.clone().as_bytes().to_vec(),
-                        },
-                        BalanceDelta {
-                            ord: vault_log.ordinal(),
-                            tx: Some(vault_log.receipt.transaction.into()),
-                            token: USDS_TOKEN_ADDRESS.to_vec(),
                             delta: ev.wad.neg().to_signed_bytes_be(),
                             component_id: component_id.clone().as_bytes().to_vec(),
                         },
@@ -259,97 +238,135 @@ pub fn map_relative_balances(
                             token: DAI_TOKEN_ADDRESS.to_vec(),
                             delta: ev.wad.to_signed_bytes_be(),
                             component_id: component_id.clone().as_bytes().to_vec(),
-                        },
-                        BalanceDelta {
-                            ord: vault_log.ordinal(),
-                            tx: Some(vault_log.receipt.transaction.into()),
-                            token: DAI_TOKEN_ADDRESS.to_vec(),
-                            delta: ev.wad.neg().to_signed_bytes_be(),
-                            component_id: component_id.clone().as_bytes().to_vec(),
-                        },
+                        }
                     ]);
                 }
             } else if let Some(ev) =
-            // Probably here is better to keep the 2 components separated, che tx https://etherscan.io/tx/0x93ffeb937f37231979c640e63e7018c99f86ac42db5e50ec9d8e7c79e14efbec
                 abi::dai_lite_psm_contract::events::BuyGem::match_and_decode(vault_log.log)
             {
-                let (component_id, token_in, token_out) =
-                    if vault_log.receipt.transaction.to == USDS_PSM_WRAPPER_ADDRESS {
-                        (
-                            format!("0x{}", hex::encode(USDS_PSM_WRAPPER_ADDRESS)),
-                            USDS_TOKEN_ADDRESS, // USDS is received from user
-                            USDC_TOKEN_ADDRESS, // USDC is sent to user
-                        )
-                    } else {
-                        (
-                            format!("0x{}", hex::encode(DAI_LITE_PSM_ADDRESS)),
-                            DAI_TOKEN_ADDRESS,  // DAI is received from user
-                            USDC_TOKEN_ADDRESS, // USDC is sent to user
-                        )
-                    };
+                if vault_log.receipt.transaction.to == DAI_LITE_PSM_ADDRESS {
+                    let component_id = format!("0x{}", hex::encode(DAI_LITE_PSM_ADDRESS));
 
-                if store
-                    .get_last(format!("pool:{}", &component_id[..42]))
-                    .is_some()
-                {
-                    deltas.extend_from_slice(&[
-                        // In case token_in is DAI, DAI is sent to dai_lite_psm_contract, so we add the delta to the component
-                        BalanceDelta {
-                            ord: vault_log.ordinal(),
-                            tx: Some(vault_log.receipt.transaction.into()),
-                            token: token_in.to_vec(),
-                            delta: ev.value.to_signed_bytes_be(),
-                            component_id: component_id.clone().as_bytes().to_vec(),
-                        },
-                        // Token_out is USDC, USDC is sent from EOA (0x37305B1cD40574E4C5Ce33f8e8306Be057fD7341) to user
-                        // Here we are pretending the balance is kept in the dai_lite_psm_contract component
-                        BalanceDelta {
-                            ord: vault_log.ordinal(),
-                            tx: Some(vault_log.receipt.transaction.into()),
-                            token: token_out.to_vec(),
-                            delta: ev.value.neg().to_signed_bytes_be(),
-                            component_id: component_id.clone().as_bytes().to_vec(),
-                        },
-                    ]);
+                    if store
+                        .get_last(format!("pool:{}", &component_id[..42]))
+                        .is_some()
+                    {
+                        let dai_in_amount = &ev.value + &ev.fee; // Total DAI paid including fee
+                        let usdc_out_amount = &ev.value - &ev.fee; // USDC amount
+                        deltas.extend_from_slice(&[
+                            // Here we are pretending DAI is burned and USDC is minted to user
+                            BalanceDelta {
+                                ord: vault_log.ordinal(),
+                                tx: Some(vault_log.receipt.transaction.into()),
+                                token: DAI_TOKEN_ADDRESS.to_vec(),
+                                delta: dai_in_amount.neg().to_signed_bytes_be(),
+                                component_id: component_id.clone().as_bytes().to_vec(),
+                            },
+                            BalanceDelta {
+                                ord: vault_log.ordinal(),
+                                tx: Some(vault_log.receipt.transaction.into()),
+                                token: USDC_TOKEN_ADDRESS.to_vec(),
+                                delta: usdc_out_amount.to_signed_bytes_be(),
+                                component_id: component_id.clone().as_bytes().to_vec(),
+                            },
+                        ]);
+                    }
                 }
             } else if let Some(ev) =
                 abi::dai_lite_psm_contract::events::SellGem::match_and_decode(vault_log.log)
             {
-                let (component_id, token_in, token_out) =
-                    if vault_log.receipt.transaction.to == USDS_PSM_WRAPPER_ADDRESS {
-                        (
-                            format!("0x{}", hex::encode(USDS_PSM_WRAPPER_ADDRESS)),
-                            USDC_TOKEN_ADDRESS, // USDC is spent
-                            USDS_TOKEN_ADDRESS, // USDS is received
-                        )
-                    } else {
-                        (
-                            format!("0x{}", hex::encode(DAI_LITE_PSM_ADDRESS)),
-                            USDC_TOKEN_ADDRESS, // USDC is spent
-                            DAI_TOKEN_ADDRESS,  // DAI is received
-                        )
-                    };
+                if vault_log.receipt.transaction.to == DAI_LITE_PSM_ADDRESS {
+                    let component_id = format!("0x{}", hex::encode(DAI_LITE_PSM_ADDRESS));
 
-                if store
-                    .get_last(format!("pool:{}", &component_id[..42]))
-                    .is_some()
-                {
-                    deltas.extend_from_slice(&[
-                        BalanceDelta {
-                            ord: vault_log.ordinal(),
-                            tx: Some(vault_log.receipt.transaction.into()),
-                            token: token_in.to_vec(),
-                            delta: ev.value.to_signed_bytes_be(),
-                            component_id: component_id.clone().as_bytes().to_vec(),
-                        },
-                        BalanceDelta {
-                            ord: vault_log.ordinal(),
-                            tx: Some(vault_log.receipt.transaction.into()),
-                            token: token_out.to_vec(),
-                            delta: ev.value.neg().to_signed_bytes_be(),
-                            component_id: component_id.clone().as_bytes().to_vec(),
-                        },
-                    ]);
+                    if store
+                        .get_last(format!("pool:{}", &component_id[..42]))
+                        .is_some()
+                    {
+                        let usdc_in_amount = &ev.value + &ev.fee; // Total USDC paid including fee
+                        let dai_out_amount = &ev.value - &ev.fee; // DAI amount after fee deduction
+                        deltas.extend_from_slice(&[
+                            // Here we are pretending USDC is burned and DAI is minted to user
+                            BalanceDelta {
+                                ord: vault_log.ordinal(),
+                                tx: Some(vault_log.receipt.transaction.into()),
+                                token: USDC_TOKEN_ADDRESS.to_vec(),
+                                delta: usdc_in_amount.neg().to_signed_bytes_be(),
+                                component_id: component_id.clone().as_bytes().to_vec(),
+                            },
+                            BalanceDelta {
+                                ord: vault_log.ordinal(),
+                                tx: Some(vault_log.receipt.transaction.into()),
+                                token: DAI_TOKEN_ADDRESS.to_vec(),
+                                delta: dai_out_amount
+                                    .neg()
+                                    .to_signed_bytes_be(),
+                                component_id: component_id.clone().as_bytes().to_vec(),
+                            },
+                        ]);
+                    }
+                }
+            } else if let Some(ev) =
+                abi::dai_lite_psm_contract::events::BuyGem::match_and_decode(vault_log.log)
+            {
+                if vault_log.receipt.transaction.to == USDS_PSM_WRAPPER_ADDRESS {
+                    let component_id = format!("0x{}", hex::encode(USDS_PSM_WRAPPER_ADDRESS));
+
+                    if store
+                        .get_last(format!("pool:{}", &component_id[..42]))
+                        .is_some()
+                    {
+                        let usds_in_amount = &ev.value + &ev.fee; // Total USDS paid including fee
+                        let usdc_out_amount = &ev.value - &ev.fee; // USDC amount
+                        deltas.extend_from_slice(&[
+                            // Here we are pretending USDS is burned and USDC is minted
+                            BalanceDelta {
+                                ord: vault_log.ordinal(),
+                                tx: Some(vault_log.receipt.transaction.into()),
+                                token: USDS_TOKEN_ADDRESS.to_vec(),
+                                delta: usds_in_amount.neg().to_signed_bytes_be(), // Total USDS including fee
+                                component_id: component_id.clone().as_bytes().to_vec(),
+                            },
+                            BalanceDelta {
+                                ord: vault_log.ordinal(),
+                                tx: Some(vault_log.receipt.transaction.into()),
+                                token: USDC_TOKEN_ADDRESS.to_vec(),
+                                delta: usdc_out_amount.to_signed_bytes_be(), // USDC amount
+                                component_id: component_id.clone().as_bytes().to_vec(),
+                            },
+                        ]);
+                    }
+                }
+            } else if let Some(ev) =
+                abi::dai_lite_psm_contract::events::SellGem::match_and_decode(vault_log.log)
+            {
+                if vault_log.receipt.transaction.to == USDS_PSM_WRAPPER_ADDRESS {
+                    let component_id = format!("0x{}", hex::encode(USDS_PSM_WRAPPER_ADDRESS));
+
+                    if store
+                        .get_last(format!("pool:{}", &component_id[..42]))
+                        .is_some()
+                    {
+                        let usds_out_amount = &ev.value - &ev.fee; // USDS amount after fee deduction
+                        let usdc_in_amount = &ev.value + &ev.fee; // Total USDC paid including fee
+                        deltas.extend_from_slice(&[
+                            // Here we are pretending USDC is burned and USDS is minted
+                            BalanceDelta {
+                                ord: vault_log.ordinal(),
+                                tx: Some(vault_log.receipt.transaction.into()),
+                                token: USDC_TOKEN_ADDRESS.to_vec(),
+                                delta: usdc_in_amount.neg().to_signed_bytes_be(), // USDC amount
+                                component_id: component_id.clone().as_bytes().to_vec(),
+                            },
+                            BalanceDelta {
+                                ord: vault_log.ordinal(),
+                                tx: Some(vault_log.receipt.transaction.into()),
+                                token: USDS_TOKEN_ADDRESS.to_vec(),
+                                delta: usds_out_amount
+                                    .to_signed_bytes_be(), // USDS amount minus fee
+                                component_id: component_id.clone().as_bytes().to_vec(),
+                            },
+                        ]);
+                    }
                 }
             } else if let Some(ev) =
                 abi::susds_contract::events::Deposit::match_and_decode(vault_log.log)
