@@ -66,11 +66,4 @@ modules:
     output:
       type: proto:tycho.evm.v1.BlockChanges
 
-  - name: store_psm_fees
-    kind: store
-    inputs:
-      - source: sf.ethereum.type.v2.Block
-    output:
-      type: bigint
-
 network: mainnet
