@@ -58,7 +58,7 @@ pub fn store_components(map: BlockTransactionProtocolComponents, store: StoreSet
 }
 
 /// Since the `PoolBalanceChanged` and `Swap` events administer only deltas, we need to leverage a
-/// map and a  store to be able to tally up final balances for tokens in a pool.
+/// map and a store to be able to tally up final balances for tokens in a pool.
 #[substreams::handlers::map]
 pub fn map_relative_balances(
     block: eth::v2::Block,
