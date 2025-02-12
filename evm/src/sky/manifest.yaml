@@ -1,0 +1,56 @@
+# information about the author helps us reach out in case of issues.
+author:
+  name: Mattia Papa
+  email: m.papa@shadowycreators.com
+
+# Protocol Constants
+constants:
+  # The expected average gas cost of a swap
+  protocol_gas: 150000
+  # Minimum capabilities we can expect, individual pools may extend these
+  capabilities:
+    - SellOrder
+    - BuyOrder
+    - PriceFunction
+    - ConstantPrice
+
+# The file containing the adapter contract
+contract: SkySwapAdapter.sol
+
+# Deployment instances used to generate chain specific bytecode.
+instances:
+  - chain:
+      name: mainnet
+      id: 1
+    arguments:
+      - "0x83F20F44975D03b1b09e64809B757c47f942BEeA"  # sDAI
+      - "0xf6e72Db5454dd049d0788e411b06CfAF16853042"  # daiLitePSM
+      - "0x3225737a9Bbb6473CB4a45b7244ACa2BeFdB276A"  # daiUsdsConverter
+      - "0xA188EEC8F81263234dA3622A406892F3D630f98c"  # usdsPsmWrapper
+      - "0xa3931d71877C0E7a3148CB7Eb4463524FEc27fbD"  # sUSDS
+      - "0xBDcFCA946b6CDd965f99a839e4435Bcdc1bc470B"  # mkrSkyConverter
+      - "0x6B175474E89094C44Da98b954EedeAC495271d0F"  # DAI
+      - "0xdC035D45d973E3EC169d2276DDab16f1e407384F"  # USDS
+      - "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"  # USDC
+      - "0x9f8F72aA9304c8B593d555F12eF6589cC3A579A2"  # MKR
+      - "0x56072C95FAA701256059aa122697B133aDEd9279"  # SKY
+
+# Test cases for each pair
+tests:
+  instances:
+    # DAI <-> sDAI
+    - pool_id: "0x83F20F44975D03b1b09e64809B757c47f942BEeA"
+      sell_token: "0x6B175474E89094C44Da98b954EedeAC495271d0F"
+      buy_token: "0x83F20F44975D03b1b09e64809B757c47f942BEeA"
+      block: 21678075
+      chain:
+        name: mainnet
+        id: 1
+    # DAI <-> USDC
+    - pool_id: "0xf6e72Db5454dd049d0788e411b06CfAF16853042"
+      sell_token: "0x6B175474E89094C44Da98b954EedeAC495271d0F"
+      buy_token: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"
+      block: 21678075
+      chain:
+        name: mainnet
+        id: 1
