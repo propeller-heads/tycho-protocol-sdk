@@ -95,19 +95,25 @@ contract SkySwapAdapter is ISwapAdapter {
         address daiUsdsConverter_,
         address usdsPsmWrapper_,
         address sUsds_,
-        address mkrSkyConverter_
+        address mkrSkyConverter_,
+        address daiLitePSM_,
+        address usdc_,
+        address mkr_,
+        address sky_,
+        address dai_,
+        address usds_
     ) {
         sDai = ISavingsDai(savingsDai_);
         daiUsdsConverter = IDaiUsdsConverter(daiUsdsConverter_);
         usdsPsmWrapper = IUsdsPsmWrapper(usdsPsmWrapper_);
-        daiLitePSM = IDssLitePSM(usdsPsmWrapper.psm());
+        daiLitePSM = IDssLitePSM(daiLitePSM_);
         sUsds = ISUsds(sUsds_);
         mkrSkyConverter = IMkrSkyConverter(mkrSkyConverter_);
-        dai = IERC20(sDai.asset());
-        usds = IERC20(daiUsdsConverter.usds());
-        usdc = IERC20(daiLitePSM.gem());
-        mkr = IERC20(mkrSkyConverter.mkr());
-        sky = IERC20(mkrSkyConverter.sky());
+        dai = IERC20(dai_);
+        usds = IERC20(usds_);
+        usdc = IERC20(usdc_);
+        mkr = IERC20(mkr_);
+        sky = IERC20(sky_);
 
         pairs[bytes32(bytes20(address(sDai)))] =
             Pair(address(dai), address(sDai));
