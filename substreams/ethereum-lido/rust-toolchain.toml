@@ -1,2 +1,5 @@
 [toolchain]
-channel = "nightly"
+channel = "1.83.0"
+components = [ "rustfmt" ]
+targets = [ "wasm32-unknown-unknown" ]
+
