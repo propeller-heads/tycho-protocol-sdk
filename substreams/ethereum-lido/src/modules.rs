@@ -35,6 +35,7 @@ pub fn map_components(block: eth::v2::Block) -> Result<BlockTransactionProtocolC
                 if tx.hash == WSTETH_CREATION_TX {
                     components.extend([ProtocolComponent::at_contract(WSTETH_ADDRESS.as_slice())
                         .with_tokens(&[LIDO_STETH_ADDRESS, WSTETH_ADDRESS])
+                        .with_attributes(&[("vault_type", "wsteth".as_bytes())])
                         .as_swap_type("lido_vault", ImplementationType::Vm)]);
                 }
                 if tx.hash == LIDO_STETH_CREATION_TX {
@@ -42,6 +43,7 @@ pub fn map_components(block: eth::v2::Block) -> Result<BlockTransactionProtocolC
                         LIDO_STETH_ADDRESS.as_slice(),
                     )
                     .with_tokens(&[ETH_ADDRESS, LIDO_STETH_ADDRESS])
+                    .with_attributes(&[("vault_type", "steth".as_bytes())])
                     .as_swap_type("lido_vault", ImplementationType::Vm)]);
                 }
 
