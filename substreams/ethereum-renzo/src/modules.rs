@@ -43,8 +43,7 @@ pub fn map_components(
                         ProtocolComponent::new(
                             // according to the general logic used in other components this should be ETH_ADDRESS, 
                             // however using RESTAKE_MANAGER_ADDRESS to make integration tests pass
-                            &format!("0x{}", hex::encode(RESTAKE_MANAGER_ADDRESS)),
-                            &tx.into(),
+                            &format!("0x{}", hex::encode(RESTAKE_MANAGER_ADDRESS))
                         )
                         .with_contracts(&[RESTAKE_MANAGER_ADDRESS.as_slice()])
                         .with_tokens(&[ETH_ADDRESS.as_slice(), EZETH_ADDRESS.as_slice()])
@@ -61,7 +60,6 @@ pub fn map_components(
                             Some(
                                 ProtocolComponent::new(
                                     &format!("0x{}", hex::encode(&ev.token)),
-                                    &tx.into(),
                                 )
                                 .with_contracts(&[RESTAKE_MANAGER_ADDRESS.as_slice()])
                                 .with_tokens(&[ev.token.as_slice(), EZETH_ADDRESS.as_slice()])
