@@ -449,31 +449,39 @@ fn get_vault_reserves(
 ) -> HashMap<Vec<u8>, Vec<u8>> {
     // reservesOf mapping for the current block Address -> Balance
     let mut reserves_of = HashMap::<Vec<u8>, Vec<u8>>::new();
-    for call in &transaction.calls {
-        if let Some(Settle { token, .. }) = Settle::match_and_decode(call) {
-            for change in &call.storage_changes {
-                add_change_if_accounted(&mut reserves_of, change, token.as_slice());
-            }
-        }
-        if let Some(SendTo { token, .. }) = SendTo::match_and_decode(call) {
-            for change in &call.storage_changes {
-                add_change_if_accounted(&mut reserves_of, change, token.as_slice());
-            }
-        }
-        if let Some(Erc4626BufferWrapOrUnwrap { params }) =
-            Erc4626BufferWrapOrUnwrap::match_and_decode(call)
-        {
-            for change in &call.storage_changes {
-                let wrapped_token = params.2.clone();
-                let component_id = format!("0x{}", hex::encode(&wrapped_token));
-                if let Some(component) = store.get_last(component_id) {
-                    let underlying_token = component.tokens[1].clone();
-                    add_change_if_accounted(&mut reserves_of, change, wrapped_token.as_slice());
-                    add_change_if_accounted(&mut reserves_of, change, underlying_token.as_slice());
+    transaction
+        .calls
+        .iter()
+        .filter(|call| !call.state_reverted)
+        .for_each(|call| {
+            if let Some(Settle { token, .. }) = Settle::match_and_decode(call) {
+                for change in &call.storage_changes {
+                    add_change_if_accounted(&mut reserves_of, change, token.as_slice());
                 }
             }
-        }
-    }
+            if let Some(SendTo { token, .. }) = SendTo::match_and_decode(call) {
+                for change in &call.storage_changes {
+                    add_change_if_accounted(&mut reserves_of, change, token.as_slice());
+                }
+            }
+            if let Some(Erc4626BufferWrapOrUnwrap { params }) =
+                Erc4626BufferWrapOrUnwrap::match_and_decode(call)
+            {
+                for change in &call.storage_changes {
+                    let wrapped_token = params.2.clone();
+                    let component_id = format!("0x{}", hex::encode(&wrapped_token));
+                    if let Some(component) = store.get_last(component_id) {
+                        let underlying_token = component.tokens[1].clone();
+                        add_change_if_accounted(&mut reserves_of, change, wrapped_token.as_slice());
+                        add_change_if_accounted(
+                            &mut reserves_of,
+                            change,
+                            underlying_token.as_slice(),
+                        );
+                    }
+                }
+            }
+        });
     reserves_of
 }
 
@@ -485,7 +493,10 @@ fn add_change_if_accounted(
     let slot_key = get_storage_key_for_token(token_address);
     // record changes happening on vault contract at reserves_of storage key
     if change.key == slot_key && change.address == VAULT_ADDRESS {
-        reserves_of.insert(token_address.to_vec(), change.new_value.clone());
+        reserves_of
+            .entry(token_address.to_vec())
+            .and_modify(|value| *value = change.new_value.clone())
+            .or_insert(change.new_value.clone());
     }
 }
 
