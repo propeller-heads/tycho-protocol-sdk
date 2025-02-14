@@ -376,9 +376,9 @@ pub fn map_protocol_changes(
                 .entry(tx.index.into())
                 .or_insert_with(|| TransactionChangesBuilder::new(&tycho_tx));
             let vault_balance_change_per_tx = get_vault_reserves(tx, &components_store);
-            for (token_addr, serialized_balance) in vault_balance_change_per_tx {
+            for (token_addr, reserve_value) in vault_balance_change_per_tx {
                 vault_contract_tlv_changes
-                    .upsert_token_balance(token_addr.as_slice(), serialized_balance.as_slice());
+                    .upsert_token_balance(token_addr.as_slice(), reserve_value.value.as_slice());
             }
             builder.add_contract_changes(&vault_contract_tlv_changes);
         });
@@ -446,9 +446,9 @@ fn address_to_string_with_0x(address: &[u8]) -> String {
 fn get_vault_reserves(
     transaction: &eth::v2::TransactionTrace,
     store: &StoreGetProto<ProtocolComponent>,
-) -> HashMap<Vec<u8>, Vec<u8>> {
+) -> HashMap<Vec<u8>, ReserveValue> {
     // reservesOf mapping for the current block Address -> Balance
-    let mut reserves_of = HashMap::<Vec<u8>, Vec<u8>>::new();
+    let mut reserves_of = HashMap::new();
     transaction
         .calls
         .iter()
@@ -485,18 +485,30 @@ fn get_vault_reserves(
     reserves_of
 }
 
+struct ReserveValue {
+    ordinal: u64,
+    value: Vec<u8>,
+}
+
 fn add_change_if_accounted(
-    reserves_of: &mut HashMap<Vec<u8>, Vec<u8>>,
+    reserves_of: &mut HashMap<Vec<u8>, ReserveValue>,
     change: &StorageChange,
     token_address: &[u8],
 ) {
     let slot_key = get_storage_key_for_token(token_address);
     // record changes happening on vault contract at reserves_of storage key
     if change.key == slot_key && change.address == VAULT_ADDRESS {
-        reserves_of
-            .entry(token_address.to_vec())
-            .and_modify(|value| *value = change.new_value.clone())
-            .or_insert(change.new_value.clone());
+        reserves_of.entry(token_address.to_vec())
+            .and_modify(|v| {
+                if v.ordinal < change.ordinal {
+                    v.value = change.new_value.clone();
+                    v.ordinal = change.ordinal;
+                }
+            })
+            .or_insert(ReserveValue {
+                value: change.new_value.clone(),
+                ordinal: change.ordinal,
+            });
     }
 }
 
