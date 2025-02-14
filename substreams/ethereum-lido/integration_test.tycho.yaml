@@ -4,27 +4,36 @@ protocol_type_names:
 adapter_contract: "LidoAdapter"
 adapter_build_signature: "constructor(address,address)"
 adapter_build_args: "0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0,0xe19fc582dd93FA876CF4061Eb5456F310144F57b"
-skip_balance_check: true
+skip_balance_check: true # this is not working as the components_id are itself token addresses and not traditional pools
+initialized_accounts:
+  - "0x17144556fd3424EDC8Fc8A4C940B2D04936d17eb" 
+  - "0xb8ffc3cd6e7cf5a098a1c92f48009765b24088dc"
+  - "0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0"
+  - "0xe19fc582dd93FA876CF4061Eb5456F310144F57b"
 
 tests:
   - name: lido_steth_component
     start_block: 11473216
-    stop_block: 11473316
+    stop_block: 11473236
     expected_components:
       - id: "0xae7ab96520de3a18e5e111b5eaab095312d7fe84"
         tokens:
           - "0x0000000000000000000000000000000000000000"
           - "0xae7ab96520de3a18e5e111b5eaab095312d7fe84"
-        skip_simulation: true
+        static_attributes:
+          vault_type: "0x7374657468"
+        skip_simulation: true 
         creation_tx: "0x3feabd79e8549ad68d1827c074fa7123815c80206498946293d5373a160fd866"
 
   - name: lido_wsteth_component
     start_block: 11888477
-    stop_block: 11888577
+    stop_block: 11888820
     expected_components:
       - id: "0x7f39c581f595b53c5cb19bd0b3f8da6c935e2ca0"
         tokens:
           - "0xae7ab96520de3a18e5e111b5eaab095312d7fe84"
           - "0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0"
-        skip_simulation: true
+        static_attributes:
+          vault_type: "0x777374657468"
+        skip_simulation: true 
         creation_tx: "0xaf2c1a501d2b290ef1e84ddcfc7beb3406f8ece2c46dee14e212e8233654ff05"
