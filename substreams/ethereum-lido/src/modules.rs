@@ -86,6 +86,7 @@ pub fn map_relative_balances(
 
     // parse non reverted calls
     block.transactions().for_each(|tx| {
+        let wst_component_id = format!("0x{}", hex::encode(WSTETH_ADDRESS));
         // the following 2 lines will extract all mint and burn wstETH balance deltas, mint will
         // have a positive sign (corresponding to a wrap operation) and burn will have a
         // negative sign (corresponding to an unwrap operation)
@@ -101,6 +102,7 @@ pub fn map_relative_balances(
                 bd.delta = BigInt::from_signed_bytes_be(bd.delta.as_slice())
                     .neg()
                     .to_signed_bytes_be();
+                bd.component_id = wst_component_id.as_bytes().to_vec();
             });
         // match the corresponding wstETH variation with a equal variation of stETH
         let steth_balance_deltas = wsteth_balance_deltas
@@ -111,7 +113,6 @@ pub fn map_relative_balances(
             })
             .collect::<Vec<_>>();
 
-        let wst_component_id = format!("0x{}", hex::encode(WSTETH_ADDRESS));
         if components_store
             .get_last(format!("pool:{}", &wst_component_id[..42]))
             .is_some()
@@ -131,8 +132,6 @@ pub fn map_relative_balances(
                             .get_last(format!("pool:{}", &component_id[..42]))
                             .is_some()
                         {
-                            // signed deltas, accounts for the rewards + withdrawals
-                            // finalization
                             let delta_eth = post_total_ether - pre_total_ether;
                             balance_deltas.extend_from_slice(&[
                                 BalanceDelta {
@@ -140,57 +139,69 @@ pub fn map_relative_balances(
                                     tx: Some(tx.into()),
                                     token: LIDO_STETH_ADDRESS.to_vec(),
                                     delta: delta_eth.to_signed_bytes_be(),
-                                    component_id: LIDO_STETH_ADDRESS.to_vec(),
+                                    component_id: component_id.as_bytes().to_vec(),
                                 },
                                 BalanceDelta {
                                     ord: log.ordinal,
                                     tx: Some(tx.into()),
                                     token: ETH_ADDRESS.to_vec(),
                                     delta: delta_eth.to_signed_bytes_be(),
-                                    component_id: LIDO_STETH_ADDRESS.to_vec(),
+                                    component_id: component_id.as_bytes().to_vec(),
                                 },
                             ])
                         }
                     }
                     if let Some(Submitted { amount, .. }) = Submitted::match_and_decode(log) {
-                        balance_deltas.extend_from_slice(&[
-                            BalanceDelta {
-                                ord: log.ordinal,
-                                tx: Some(tx.into()),
-                                token: LIDO_STETH_ADDRESS.to_vec(),
-                                delta: amount.to_signed_bytes_be(),
-                                component_id: LIDO_STETH_ADDRESS.to_vec(),
-                            },
-                            BalanceDelta {
-                                ord: log.ordinal,
-                                tx: Some(tx.into()),
-                                token: ETH_ADDRESS.to_vec(),
-                                delta: amount.to_signed_bytes_be(),
-                                component_id: LIDO_STETH_ADDRESS.to_vec(),
-                            },
-                        ]);
+                        let component_id = format!("0x{}", hex::encode(LIDO_STETH_ADDRESS));
+                        if components_store
+                            .get_last(format!("pool:{}", &component_id[..42]))
+                            .is_some()
+                        {
+                            balance_deltas.extend_from_slice(&[
+                                BalanceDelta {
+                                    ord: log.ordinal,
+                                    tx: Some(tx.into()),
+                                    token: LIDO_STETH_ADDRESS.to_vec(),
+                                    delta: amount.to_signed_bytes_be(),
+                                    component_id: component_id.as_bytes().to_vec(),
+                                },
+                                BalanceDelta {
+                                    ord: log.ordinal,
+                                    tx: Some(tx.into()),
+                                    token: ETH_ADDRESS.to_vec(),
+                                    delta: amount.to_signed_bytes_be(),
+                                    component_id: component_id.as_bytes().to_vec(),
+                                },
+                            ]);
+                        }
                     }
                 }
                 if log.address == WITHDRAWAL_QUEUE_ADDRESS {
                     if let Some(WithdrawalClaimed { amount_of_eth, .. }) =
                         WithdrawalClaimed::match_and_decode(log)
                     {
-                        balance_deltas.extend_from_slice(&[
-                            BalanceDelta {
-                                ord: log.ordinal,
-                                tx: Some(tx.into()),
-                                token: LIDO_STETH_ADDRESS.to_vec(),
-                                delta: amount_of_eth.neg().to_signed_bytes_be(),
-                                component_id: LIDO_STETH_ADDRESS.to_vec(),
-                            },
-                            BalanceDelta {
-                                ord: log.ordinal,
-                                tx: Some(tx.into()),
-                                token: ETH_ADDRESS.to_vec(),
-                                delta: amount_of_eth.neg().to_signed_bytes_be(),
-                                component_id: LIDO_STETH_ADDRESS.to_vec(),
-                            },
-                        ]);
+                        let component_id = format!("0x{}", hex::encode(LIDO_STETH_ADDRESS));
+                        if components_store
+                            .get_last(format!("pool:{}", &component_id[..42]))
+                            .is_some()
+                        {
+                            balance_deltas.extend_from_slice(&[
+                                BalanceDelta {
+                                    ord: log.ordinal,
+                                    tx: Some(tx.into()),
+                                    token: LIDO_STETH_ADDRESS.to_vec(),
+                                    delta: amount_of_eth.neg().to_signed_bytes_be(),
+                                    component_id: component_id.as_bytes().to_vec(),
+                                },
+                                BalanceDelta {
+                                    ord: log.ordinal,
+                                    tx: Some(tx.into()),
+                                    token: ETH_ADDRESS.to_vec(),
+                                    delta: amount_of_eth.neg().to_signed_bytes_be(),
+                                    component_id: component_id.as_bytes().to_vec(),
+                                },
+                            ]);
+                        }
                     }
                 }
             });
@@ -224,23 +235,16 @@ pub fn map_protocol_changes(
     //  sort them at the very end.
     let mut transaction_changes: HashMap<_, TransactionChangesBuilder> = HashMap::new();
 
-    // `ProtocolComponents` are gathered from `map_pools_created` which just need a bit of work to
-    //   convert into `TransactionChanges`
     let default_attributes = vec![
-        Attribute {
-            name: "update_marker".to_string(),
-            value: vec![1u8],
-            change: ChangeType::Creation.into(),
-        },
         Attribute {
             // proxy
             name: "stateless_contract_addr_0".into(),
-            value: address_to_bytes_with_0x(&hex!("17144556fd3424EDC8Fc8A4C940B2D04936d17eb")),
+            value: address_to_utf8_vec(&hex!("17144556fd3424EDC8Fc8A4C940B2D04936d17eb")),
             change: ChangeType::Creation.into(),
         },
         Attribute {
             name: "stateless_contract_addr_1".to_string(),
-            value: address_to_bytes_with_0x(&hex!("b8ffc3cd6e7cf5a098a1c92f48009765b24088dc")),
+            value: address_to_utf8_vec(&hex!("b8ffc3cd6e7cf5a098a1c92f48009765b24088dc")),
             change: ChangeType::Creation.into(),
         },
     ];
@@ -298,26 +302,6 @@ pub fn map_protocol_changes(
         &mut transaction_changes,
     );
 
-    transaction_changes
-        .iter_mut()
-        .for_each(|(_, change)| {
-            // this indirection is necessary due to borrowing rules.
-            let addresses = change
-                .changed_contracts()
-                .map(|e| e.to_vec())
-                .collect::<Vec<_>>();
-            addresses
-                .into_iter()
-                .for_each(|address| {
-                    // We reconstruct the component_id from the address here
-                    let id = components_store
-                        .get_last(format!("pool:0x{}", hex::encode(address)))
-                        .unwrap(); // Shouldn't happen because we filter by known components in
-                                   // `extract_contract_changes_builder`
-                    change.mark_component_as_updated(&id);
-                })
-        });
-
     // Process all `transaction_changes` for final output in the `BlockChanges`,
     //  sorted by transaction index (the key).
     Ok(BlockChanges {
@@ -329,12 +313,8 @@ pub fn map_protocol_changes(
             .collect::<Vec<_>>(),
     })
 }
-/// Converts address bytes into a Vec<u8> containing a leading `0x`.
-fn address_to_bytes_with_0x(address: &[u8; 20]) -> Vec<u8> {
-    address_to_string_with_0x(address).into_bytes()
-}
 
-/// Converts address bytes into a string containing a leading `0x`.
-fn address_to_string_with_0x(address: &[u8]) -> String {
-    format!("0x{}", hex::encode(address))
+/// Converts address bytes into a Vec<u8> containing a leading `0x`.
+fn address_to_utf8_vec(address: &[u8; 20]) -> Vec<u8> {
+    format!("0x{}", hex::encode(address)).into_bytes()
 }
