@@ -1,6 +1,6 @@
 use crate::abi::{
-    self,
-    lido::events::{TokenRebased, Transfer, TransferShares},
+    lido::events::{Submitted, TokenRebased},
+    withdrawal_queue::events::WithdrawalClaimed,
 };
 use anyhow::Result;
 use itertools::Itertools;
@@ -8,14 +8,21 @@ use std::collections::HashMap;
 use substreams::{
     hex,
     pb::substreams::StoreDeltas,
+    scalar::BigInt,
     store::{StoreAddBigInt, StoreGet, StoreGetString, StoreNew, StoreSet, StoreSetString},
 };
-use substreams_ethereum::{pb::eth, Event, Function};
+use substreams_ethereum::{
+    pb::eth::{self},
+    Event,
+};
 use tycho_substreams::{
-    abi::erc20::events::Transfer as ERC20Transfer, balances::aggregate_balances_changes,
-    contract::extract_contract_changes_builder, prelude::*,
+    balances::{aggregate_balances_changes, extract_balance_deltas_from_tx},
+    contract::extract_contract_changes_builder,
+    prelude::*,
 };
 
+const ZERO_ADDRESS: [u8; 20] = hex!("0000000000000000000000000000000000000000");
+const WITHDRAWAL_QUEUE_ADDRESS: [u8; 20] = hex!("889edC2eDab5f40e902b864aD4d7AdE8E412F9B1");
 const WSTETH_ADDRESS: [u8; 20] = hex!("7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0"); //wstETH
 const LIDO_STETH_ADDRESS: [u8; 20] = hex!("ae7ab96520DE3A18E5e111B5EaAb095312D7fE84"); //stETH
 const ETH_ADDRESS: [u8; 20] = hex!("0000000000000000000000000000000000000000"); //ETH
@@ -75,136 +82,66 @@ pub fn map_relative_balances(
     block: eth::v2::Block,
     components_store: StoreGetString,
 ) -> Result<BlockBalanceDeltas, anyhow::Error> {
-    let balance_deltas = block
-        .transactions()
-        .flat_map(|tx| {
-            let mut deltas = Vec::new();
-            tx.logs_with_calls()
-                .for_each(|(log, call)| {
-                    // Wrap function
-                    if !call.call.state_reverted && tx.to == WSTETH_ADDRESS {
-                        if let (Some(unwrap_call), Ok(output_amount)) = (
-                            abi::wsteth_contract::functions::Unwrap::match_and_decode(call),
-                            abi::wsteth_contract::functions::Unwrap::output(&call.call.return_data),
-                        ) {
-                            let delta_wst_eth = unwrap_call.u_wst_eth_amount;
-                            let delta_st_eth = output_amount.neg();
-                            deltas.extend_from_slice(&[
-                                // increase stEth balance in the wsteth component
-                                BalanceDelta {
-                                    ord: call.call.begin_ordinal,
-                                    tx: Some(tx.into()),
-                                    token: LIDO_STETH_ADDRESS.to_vec(),
-                                    delta: delta_st_eth.to_signed_bytes_be(),
-                                    component_id: WSTETH_ADDRESS.to_vec(),
-                                },
-                                // remove stEth balance from the eth component
-                                BalanceDelta {
-                                    ord: call.call.begin_ordinal,
-                                    tx: Some(tx.into()),
-                                    token: ETH_ADDRESS.to_vec(),
-                                    delta: delta_st_eth.neg().to_signed_bytes_be(),
-                                    component_id: LIDO_STETH_ADDRESS.to_vec(),
-                                },
-                                // add wstEth balance to the wstEth component
-                                BalanceDelta {
-                                    ord: call.call.begin_ordinal,
-                                    tx: Some(tx.into()),
-                                    token: WSTETH_ADDRESS.to_vec(),
-                                    delta: delta_wst_eth.to_signed_bytes_be(),
-                                    component_id: WSTETH_ADDRESS.to_vec(),
-                                },
-                            ])
-                        }
-                        if let (Some(unwrap_call), Ok(output_amount)) = (
-                            abi::wsteth_contract::functions::Unwrap::match_and_decode(call),
-                            abi::wsteth_contract::functions::Unwrap::output(&call.call.return_data),
-                        ) {
-                            let delta_wst_eth = unwrap_call.u_wst_eth_amount;
-                            let delta_st_eth = output_amount;
-                            deltas.extend_from_slice(&[
-                                // WSTETH_component.stEth -= delta_st_eth
-                                BalanceDelta {
-                                    ord: call.call.begin_ordinal,
-                                    tx: Some(tx.into()),
-                                    token: LIDO_STETH_ADDRESS.to_vec(),
-                                    delta: delta_st_eth.neg().to_signed_bytes_be(),
-                                    component_id: WSTETH_ADDRESS.to_vec(),
-                                },
-                                // WSTETH_component.wstEth -= delta_wst_eth
-                                BalanceDelta {
-                                    ord: call.call.begin_ordinal,
-                                    tx: Some(tx.into()),
-                                    token: WSTETH_ADDRESS.to_vec(),
-                                    delta: delta_wst_eth.neg().to_signed_bytes_be(),
-                                    component_id: WSTETH_ADDRESS.to_vec(),
-                                },
-                                // STETH_component.stEth += delta_st_eth
-                                BalanceDelta {
-                                    ord: call.call.begin_ordinal,
-                                    tx: Some(tx.into()),
-                                    token: LIDO_STETH_ADDRESS.to_vec(),
-                                    delta: delta_st_eth.to_signed_bytes_be(),
-                                    component_id: LIDO_STETH_ADDRESS.to_vec(),
-                                },
-                            ])
-                        }
-                    }
-                    // process logs
-                    if log.address == LIDO_STETH_ADDRESS {
-                        if let Some(TokenRebased {
-                            pre_total_ether,
-                            post_total_ether,
-                            pre_total_shares,
-                            post_total_shares,
-                            ..
-                        }) = TokenRebased::match_and_decode(log)
-                        {
-                            let component_id = format!("0x{}", hex::encode(LIDO_STETH_ADDRESS));
-                            if components_store
-                                .get_last(format!("pool:{}", &component_id[..42]))
-                                .is_some()
-                            {
-                                // signed deltas, accounts for the rewards + withdrawals
-                                // finalization
-                                let delta_eth = post_total_ether - pre_total_ether;
-                                let delta_shares = post_total_shares - pre_total_shares;
-                                deltas.extend_from_slice(&[
-                                    // STETH_component.stEth += delta_shares
-                                    BalanceDelta {
-                                        ord: log.ordinal,
-                                        tx: Some(tx.into()),
-                                        token: LIDO_STETH_ADDRESS.to_vec(),
-                                        delta: delta_shares.to_signed_bytes_be(),
-                                        component_id: LIDO_STETH_ADDRESS.to_vec(),
-                                    },
-                                    // STETH_component.eth += delta_eth
-                                    BalanceDelta {
-                                        ord: log.ordinal,
-                                        tx: Some(tx.into()),
-                                        token: ETH_ADDRESS.to_vec(),
-                                        delta: delta_eth.to_signed_bytes_be(),
-                                        component_id: LIDO_STETH_ADDRESS.to_vec(),
-                                    },
-                                ])
-                            }
-                        }
-                        // Transfer Shares due to Submit function
-                        if let Some(TransferShares { shares_value: delta_shares, .. }) =
-                            TransferShares::match_and_decode(log)
-                        {
-                            let delta_eth = tx
-                                .receipt
-                                .as_ref()
-                                .unwrap()
-                                .logs
-                                .iter()
-                                .find_map(Transfer::match_and_decode)
-                                .map(|transfer| transfer.value)
-                                .unwrap(); // events are emitted in the same tx
+    let mut balance_deltas = Vec::new();
 
-                            deltas.extend_from_slice(&[
-                                // STETH_component.eth += delta_eth
+    // parse non reverted calls
+    block.transactions().for_each(|tx| {
+        // the following 2 lines will extract all mint and burn wstETH balance deltas, mint will
+        // have a positive sign (corresponding to a wrap operation) and burn will have a
+        // negative sign (corresponding to an unwrap operation)
+        let mut wsteth_balance_deltas =
+            extract_balance_deltas_from_tx(tx, |log_addr, from_or_to_addr| {
+                log_addr == WSTETH_ADDRESS && from_or_to_addr == ZERO_ADDRESS
+            });
+        // change the sign due to extract balance logic mint (from = address(0) should have a
+        // positive sign) opposite holds for burn (to = address(0))
+        wsteth_balance_deltas
+            .iter_mut()
+            .for_each(|bd| {
+                bd.delta = BigInt::from_signed_bytes_be(bd.delta.as_slice())
+                    .neg()
+                    .to_signed_bytes_be();
+            });
+        // match the corresponding wstETH variation with a equal variation of stETH
+        let steth_balance_deltas = wsteth_balance_deltas
+            .iter()
+            .map(|balance_delta| BalanceDelta {
+                token: LIDO_STETH_ADDRESS.to_vec(),
+                ..balance_delta.clone()
+            })
+            .collect::<Vec<_>>();
+
+        let wst_component_id = format!("0x{}", hex::encode(WSTETH_ADDRESS));
+        if components_store
+            .get_last(format!("pool:{}", &wst_component_id[..42]))
+            .is_some()
+        {
+            balance_deltas.extend_from_slice(steth_balance_deltas.as_slice());
+            balance_deltas.extend_from_slice(wsteth_balance_deltas.as_slice());
+        }
+
+        tx.logs_with_calls()
+            .for_each(|(log, _)| {
+                if log.address == LIDO_STETH_ADDRESS {
+                    if let Some(TokenRebased { pre_total_ether, post_total_ether, .. }) =
+                        TokenRebased::match_and_decode(log)
+                    {
+                        let component_id = format!("0x{}", hex::encode(LIDO_STETH_ADDRESS));
+                        if components_store
+                            .get_last(format!("pool:{}", &component_id[..42]))
+                            .is_some()
+                        {
+                            // signed deltas, accounts for the rewards + withdrawals
+                            // finalization
+                            let delta_eth = post_total_ether - pre_total_ether;
+                            balance_deltas.extend_from_slice(&[
+                                BalanceDelta {
+                                    ord: log.ordinal,
+                                    tx: Some(tx.into()),
+                                    token: LIDO_STETH_ADDRESS.to_vec(),
+                                    delta: delta_eth.to_signed_bytes_be(),
+                                    component_id: LIDO_STETH_ADDRESS.to_vec(),
+                                },
                                 BalanceDelta {
                                     ord: log.ordinal,
                                     tx: Some(tx.into()),
@@ -212,74 +149,53 @@ pub fn map_relative_balances(
                                     delta: delta_eth.to_signed_bytes_be(),
                                     component_id: LIDO_STETH_ADDRESS.to_vec(),
                                 },
-                                // STETH_component.stEth += delta_shares
-                                BalanceDelta {
-                                    ord: log.ordinal,
-                                    tx: Some(tx.into()),
-                                    token: LIDO_STETH_ADDRESS.to_vec(),
-                                    delta: delta_shares.to_signed_bytes_be(),
-                                    component_id: LIDO_STETH_ADDRESS.to_vec(),
-                                },
-                            ]);
-
-                            // there might be the case where the tx is a receive callback in the
-                            // wsteth contract, this triggers a stake and a wrap (i.e. autowrap ETH)
-                            if tx.to == WSTETH_ADDRESS {
-                                // delta shares already constructed, we need to find the wstETH
-                                // minted in the openzeppelin _mint function that deposit a Transfer
-                                // event
-                                let delta_wst_eth = tx
-                                    .receipt
-                                    .as_ref()
-                                    .unwrap()
-                                    .logs
-                                    .iter()
-                                    .find_map(|log| {
-                                        ERC20Transfer::match_and_decode(log).map(|transfer| {
-                                            if transfer.from == vec![0u8; 20] {
-                                                Some(transfer)
-                                            } else {
-                                                None
-                                            }
-                                        })
-                                    })
-                                    .flatten()
-                                    .map(|transfer| transfer.value)
-                                    .unwrap();
-
-                                deltas.extend_from_slice(&[
-                                    // STETH_component.stEth -= delta_shares
-                                    BalanceDelta {
-                                        ord: log.ordinal,
-                                        tx: Some(tx.into()),
-                                        token: LIDO_STETH_ADDRESS.to_vec(),
-                                        delta: delta_shares.neg().to_signed_bytes_be(),
-                                        component_id: LIDO_STETH_ADDRESS.to_vec(),
-                                    },
-                                    // WSTETH_component.stEth += delta_shares
-                                    BalanceDelta {
-                                        ord: log.ordinal,
-                                        tx: Some(tx.into()),
-                                        token: LIDO_STETH_ADDRESS.to_vec(),
-                                        delta: delta_shares.to_signed_bytes_be(),
-                                        component_id: WSTETH_ADDRESS.to_vec(),
-                                    },
-                                    // WSTETH_component.wstEth += delta_wst_eth
-                                    BalanceDelta {
-                                        ord: log.ordinal,
-                                        tx: Some(tx.into()),
-                                        token: WSTETH_ADDRESS.to_vec(),
-                                        delta: delta_wst_eth.to_signed_bytes_be(),
-                                        component_id: WSTETH_ADDRESS.to_vec(),
-                                    },
-                                ]);
-                            }
+                            ])
                         }
                     }
-                });
-            deltas
-        })
-        .collect_vec();
+                    if let Some(Submitted { amount, .. }) = Submitted::match_and_decode(log) {
+                        balance_deltas.extend_from_slice(&[
+                            BalanceDelta {
+                                ord: log.ordinal,
+                                tx: Some(tx.into()),
+                                token: LIDO_STETH_ADDRESS.to_vec(),
+                                delta: amount.to_signed_bytes_be(),
+                                component_id: LIDO_STETH_ADDRESS.to_vec(),
+                            },
+                            BalanceDelta {
+                                ord: log.ordinal,
+                                tx: Some(tx.into()),
+                                token: ETH_ADDRESS.to_vec(),
+                                delta: amount.to_signed_bytes_be(),
+                                component_id: LIDO_STETH_ADDRESS.to_vec(),
+                            },
+                        ]);
+                    }
+                }
+                if log.address == WITHDRAWAL_QUEUE_ADDRESS {
+                    if let Some(WithdrawalClaimed { amount_of_eth, .. }) =
+                        WithdrawalClaimed::match_and_decode(log)
+                    {
+                        balance_deltas.extend_from_slice(&[
+                            BalanceDelta {
+                                ord: log.ordinal,
+                                tx: Some(tx.into()),
+                                token: LIDO_STETH_ADDRESS.to_vec(),
+                                delta: amount_of_eth.neg().to_signed_bytes_be(),
+                                component_id: LIDO_STETH_ADDRESS.to_vec(),
+                            },
+                            BalanceDelta {
+                                ord: log.ordinal,
+                                tx: Some(tx.into()),
+                                token: ETH_ADDRESS.to_vec(),
+                                delta: amount_of_eth.neg().to_signed_bytes_be(),
+                                component_id: LIDO_STETH_ADDRESS.to_vec(),
+                            },
+                        ]);
+                    }
+                }
+            });
+    });
+
     Ok(BlockBalanceDeltas { balance_deltas })
 }
 
