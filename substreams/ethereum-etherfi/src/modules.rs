@@ -1,9 +1,11 @@
 use crate::{
     abi,
-    consts::{self, ADDRESS_ZERO, LIQUIDITY_POOL_CREATION_HASH, WEETH_CREATION_HASH},
+    consts::{
+        ADDRESS_ZERO, EETH_ADDRESS, ETH_ADDRESS, LIQUIDITY_POOL_ADDRESS,
+        LIQUIDITY_POOL_CREATION_HASH, WEETH_ADDRESS, WEETH_CREATION_HASH,
+    },
 };
 use anyhow::Result;
-use consts::{EETH_ADDRESS, ETH_ADDRESS, LIQUIDITY_POOL_ADDRESS, WEETH_ADDRESS};
 use itertools::Itertools;
 use std::collections::HashMap;
 use substreams::{
@@ -21,18 +23,32 @@ use tycho_substreams::{
 pub fn map_components(
     block: eth::v2::Block,
 ) -> Result<BlockTransactionProtocolComponents, anyhow::Error> {
+    substreams::log::info!("Processing block {}", block.number);
+
     Ok(BlockTransactionProtocolComponents {
         tx_components: block
             .transactions()
             .filter_map(|tx| {
                 let mut components: Vec<ProtocolComponent> = vec![];
+
+                // Log transaction hash to help debug
+                let tx_hash = format!("0x{}", hex::encode(&tx.hash));
+                let lp_hash = format!("0x{}", hex::encode(&LIQUIDITY_POOL_CREATION_HASH));
+                let weeth_hash = format!("0x{}", hex::encode(&WEETH_CREATION_HASH));
+
+                substreams::log::info!("Checking tx: {}", tx_hash);
+
                 if tx.hash == LIQUIDITY_POOL_CREATION_HASH {
+                    substreams::log::info!("Found Liquidity Pool creation tx: {}", tx_hash);
+                    substreams::log::info!("Liquidity Pool creation hash: {}", lp_hash);
                     components.push(
                         ProtocolComponent::at_contract(&LIQUIDITY_POOL_ADDRESS)
                             .with_tokens(&[EETH_ADDRESS, ETH_ADDRESS])
                             .as_swap_type("etherfi_liquidity_pool", ImplementationType::Vm),
                     )
                 } else if tx.hash == WEETH_CREATION_HASH {
+                    substreams::log::info!("Found WeETH creation tx: {}", tx_hash);
+                    substreams::log::info!("WeETH creation hash: {}", weeth_hash);
                     components.push(
                         ProtocolComponent::at_contract(&WEETH_ADDRESS)
                             .with_tokens(&[EETH_ADDRESS, WEETH_ADDRESS])
@@ -272,8 +288,36 @@ pub fn map_protocol_changes(
     grouped_components: BlockTransactionProtocolComponents,
     deltas: BlockBalanceDeltas,
     components_store: StoreGetString,
-    balance_store: StoreDeltas, // Note, this map module is using the `deltas` mode for the store.
+    balance_store: StoreDeltas,
 ) -> Result<BlockChanges, anyhow::Error> {
+    // Add logging for components
+    for tx_component in &grouped_components.tx_components {
+        for component in &tx_component.components {
+            let id = format!("0x{}", hex::encode(&component.id));
+            substreams::log::info!("Found component with id: {}", id);
+        }
+    }
+
+    // Add logging for store queries
+    let lp_key = format!("pool:0x{}", hex::encode(&LIQUIDITY_POOL_ADDRESS));
+    let weeth_key = format!("pool:0x{}", hex::encode(&WEETH_ADDRESS));
+
+    substreams::log::info!("Checking store for LP key: {}", lp_key);
+    substreams::log::info!(
+        "LP exists in store: {}",
+        components_store
+            .get_last(&lp_key)
+            .is_some()
+    );
+
+    substreams::log::info!("Checking store for WeETH key: {}", weeth_key);
+    substreams::log::info!(
+        "WeETH exists in store: {}",
+        components_store
+            .get_last(&weeth_key)
+            .is_some()
+    );
+
     // We merge contract changes by transaction (identified by transaction index) making it easy to
     //  sort them at the very end.
     let mut transaction_changes: HashMap<_, TransactionChangesBuilder> = HashMap::new();
@@ -349,5 +393,7 @@ pub fn map_protocol_changes(
 }
 
 fn store_component(store: &StoreSetProto<ProtocolComponent>, component: &ProtocolComponent) {
-    store.set(1, format!("pool:{}", component.id), component);
+    let key = format!("pool:0x{}", hex::encode(&component.id));
+    substreams::log::info!("Storing component with key: {}", key);
+    store.set(1, key, component);
 }

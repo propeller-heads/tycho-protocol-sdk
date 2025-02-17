@@ -6,6 +6,9 @@
 - Deployment tx hash: 0x491b823bc15ced4c54f0ed5a235d39e478f8aae3ad02eb553924b40ad9859e10
 - Deployment block: 17664317
 - Standard: EIP-1967 Transparent Proxy
+- First Deposit tx hash: 0x2e92d04a5da978f13e55c73fe95cfecb4e4124f95c88ce82972665a4145ff769
+- First Deposit block: 19891386
+- Difference Deposit block - Deployment block: 2227069
 
 **Liquidity Pool Implementation**
 
@@ -19,6 +22,8 @@
 - Deployment tx hash: 0xa034bdf7ec3b407125fcfbb786d908b0bcfd9976f2fbaf489776ba58b9db61ac
 - Deployment block: 17664336
 - Standard: EIP-1967 Transparent Proxy
+- First Wrap tx hash: 0x8ea192ac34be87bc004f83db69f62e2b92bc41937799b43feeac9a148bc66f62
+- First Wrap block: 20287009
 
 **weETH Implementation**
 
