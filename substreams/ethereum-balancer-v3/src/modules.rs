@@ -498,17 +498,15 @@ fn add_change_if_accounted(
     let slot_key = get_storage_key_for_token(token_address);
     // record changes happening on vault contract at reserves_of storage key
     if change.key == slot_key && change.address == VAULT_ADDRESS {
-        reserves_of.entry(token_address.to_vec())
+        reserves_of
+            .entry(token_address.to_vec())
             .and_modify(|v| {
                 if v.ordinal < change.ordinal {
                     v.value = change.new_value.clone();
                     v.ordinal = change.ordinal;
                 }
             })
-            .or_insert(ReserveValue {
-                value: change.new_value.clone(),
-                ordinal: change.ordinal,
-            });
+            .or_insert(ReserveValue { value: change.new_value.clone(), ordinal: change.ordinal });
     }
 }
 
