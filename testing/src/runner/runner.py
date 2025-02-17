@@ -210,7 +210,7 @@ class TestRunner:
             ]
 
             related_contracts = set()
-            for account in self.config.initialized_accounts:
+            for account in self.config.initialized_accounts or []:
                 related_contracts.add(HexBytes(account))
             for account in initialized_accounts:
                 related_contracts.add(HexBytes(account))
