@@ -14,9 +14,11 @@ target/
 
 __pycache__
 
-substreams/ethereum-template/Cargo.lock
+substreams/ethereum-template-factory/Cargo.lock
 
 .DS_Store
 
 tycho-indexer
 substreams/my_substream
+testing/tycho-client/build/*
+testing/tycho-client/*.egg-info
