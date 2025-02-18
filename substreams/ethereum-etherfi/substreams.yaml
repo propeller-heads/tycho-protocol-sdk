@@ -62,4 +62,4 @@ modules:
       - store: store_balances
         mode: deltas  # This is the key property that simplifies `BalanceChange` handling
     output:
-      type: proto:tycho.evm.v1.BlockContractChanges
+      type: proto:tycho.evm.v1.BlockChanges

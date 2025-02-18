@@ -15,9 +15,9 @@ skip_balance_check: true
 
 # A list of accounts that need to be indexed to run the tests properly.
 # Usually used when there is a global component required by all pools and created before the tested range of blocks.
-initialized_accounts:
-  - "0x308861A430be4cce5502d0A12724771Fc6DaF216" # Liquidity pool component for initialization
-  - "0xCd5fE23C85820F7B72D0926FC9b05b43E359b7ee" # WeETH component for initialization
+# initialized_accounts:
+#   - "0x308861A430be4cce5502d0A12724771Fc6DaF216" # Liquidity pool component for initialization
+#   - "0xCd5fE23C85820F7B72D0926FC9b05b43E359b7ee" # WeETH component for initialization
 
 # A list of protocol types names created by your Substreams module.
 protocol_type_names:

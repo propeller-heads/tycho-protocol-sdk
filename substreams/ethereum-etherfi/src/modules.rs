@@ -290,33 +290,16 @@ pub fn map_protocol_changes(
     components_store: StoreGetString,
     balance_store: StoreDeltas,
 ) -> Result<BlockChanges, anyhow::Error> {
-    // Add logging for components
-    for tx_component in &grouped_components.tx_components {
-        for component in &tx_component.components {
-            let id = format!("0x{}", hex::encode(&component.id));
-            substreams::log::info!("Found component with id: {}", id);
-        }
-    }
-
     // Add logging for store queries
-    let lp_key = format!("pool:0x{}", hex::encode(&LIQUIDITY_POOL_ADDRESS));
-    let weeth_key = format!("pool:0x{}", hex::encode(&WEETH_ADDRESS));
 
-    substreams::log::info!("Checking store for LP key: {}", lp_key);
-    substreams::log::info!(
-        "LP exists in store: {}",
-        components_store
-            .get_last(&lp_key)
-            .is_some()
-    );
 
-    substreams::log::info!("Checking store for WeETH key: {}", weeth_key);
-    substreams::log::info!(
-        "WeETH exists in store: {}",
-        components_store
-            .get_last(&weeth_key)
-            .is_some()
-    );
+    // substreams::log::info!("Checking store for WeETH key: {}", weeth_key);
+    // substreams::log::info!(
+    //     "WeETH exists in store: {}",
+    //     components_store
+    //         .get_last(&weeth_key)
+    //         .is_some()
+    // );
 
     // We merge contract changes by transaction (identified by transaction index) making it easy to
     //  sort them at the very end.
@@ -385,15 +368,11 @@ pub fn map_protocol_changes(
             .collect::<Vec<_>>(),
     };
 
-    for change in &block_changes.changes {
-        substreams::log::info!("🚨 Balance changes {:?}", change.balance_changes);
-        substreams::log::info!("🚨 Component changes {:?}", change.component_changes);
-    }
     Ok(block_changes)
 }
 
 fn store_component(store: &StoreSetProto<ProtocolComponent>, component: &ProtocolComponent) {
-    let key = format!("pool:0x{}", hex::encode(&component.id));
+    let key = format!("pool:{}", component.id.clone());
     substreams::log::info!("Storing component with key: {}", key);
     store.set(1, key, component);
 }
