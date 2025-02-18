@@ -1,0 +1,566 @@
+syntax = "proto3";
+
+import "google/protobuf/timestamp.proto";
+
+package contract.v1;
+
+message Events {
+    repeated RestakeManager_AdminChanged restake_manager_admin_changeds = 1;
+    repeated RestakeManager_BeaconUpgraded restake_manager_beacon_upgradeds = 2;
+    repeated RestakeManager_CollateralTokenAdded restake_manager_collateral_token_addeds = 3;
+    repeated RestakeManager_CollateralTokenRemoved restake_manager_collateral_token_removeds = 4;
+    repeated RestakeManager_CollateralTokenTvlUpdated restake_manager_collateral_token_tvl_updateds = 5;
+    repeated RestakeManager_Deposit restake_manager_deposits = 6;
+    repeated RestakeManager_Initialized restake_manager_initializeds = 7;
+    repeated RestakeManager_OperatorDelegatorAdded restake_manager_operator_delegator_addeds = 8;
+    repeated RestakeManager_OperatorDelegatorAllocationUpdated restake_manager_operator_delegator_allocation_updateds = 9;
+    repeated RestakeManager_OperatorDelegatorRemoved restake_manager_operator_delegator_removeds = 10;
+    repeated RestakeManager_Upgraded restake_manager_upgradeds = 11;
+    repeated RestakeManager_UserWithdrawCompleted restake_manager_user_withdraw_completeds = 12;
+    repeated RestakeManager_UserWithdrawStarted restake_manager_user_withdraw_starteds = 13;
+    repeated WithdrawalContract_AdminChanged withdrawal_contract_admin_changeds = 14;
+    repeated WithdrawalContract_BeaconUpgraded withdrawal_contract_beacon_upgradeds = 15;
+    repeated WithdrawalContract_CoolDownPeriodUpdated withdrawal_contract_cool_down_period_updateds = 16;
+    repeated WithdrawalContract_Erc20BufferFilled withdrawal_contract_erc20_buffer_filleds = 17;
+    repeated WithdrawalContract_EthBufferFilled withdrawal_contract_eth_buffer_filleds = 18;
+    repeated WithdrawalContract_Initialized withdrawal_contract_initializeds = 19;
+    repeated WithdrawalContract_Paused withdrawal_contract_pauseds = 20;
+    repeated WithdrawalContract_QueueFilled withdrawal_contract_queue_filleds = 21;
+    repeated WithdrawalContract_Unpaused withdrawal_contract_unpauseds = 22;
+    repeated WithdrawalContract_Upgraded withdrawal_contract_upgradeds = 23;
+    repeated WithdrawalContract_WithdrawBufferTargetUpdated withdrawal_contract_withdraw_buffer_target_updateds = 24;
+    repeated WithdrawalContract_WithdrawRequestClaimed withdrawal_contract_withdraw_request_claimeds = 25;
+    repeated WithdrawalContract_WithdrawRequestCreated withdrawal_contract_withdraw_request_createds = 26;
+}
+message Calls {
+    repeated RestakeManager_AddCollateralTokenCall restake_manager_call_add_collateral_tokens = 1;
+    repeated RestakeManager_AddOperatorDelegatorCall restake_manager_call_add_operator_delegators = 2;
+    repeated RestakeManager_AdminCall restake_manager_call_admins = 3;
+    repeated RestakeManager_ChangeAdminCall restake_manager_call_change_admins = 4;
+    repeated RestakeManager_Deposit1call restake_manager_call_deposit_1s = 5;
+    repeated RestakeManager_Deposit2call restake_manager_call_deposit_2s = 6;
+    repeated RestakeManager_DepositEth1call restake_manager_call_deposit_eth_1s = 7;
+    repeated RestakeManager_DepositEth2call restake_manager_call_deposit_eth_2s = 8;
+    repeated RestakeManager_DepositTokenRewardsFromProtocolCall restake_manager_call_deposit_token_rewards_from_protocols = 9;
+    repeated RestakeManager_ImplementationCall restake_manager_call_implementations = 10;
+    repeated RestakeManager_InitializeCall restake_manager_call_initializes = 11;
+    repeated RestakeManager_RemoveCollateralTokenCall restake_manager_call_remove_collateral_tokens = 12;
+    repeated RestakeManager_RemoveOperatorDelegatorCall restake_manager_call_remove_operator_delegators = 13;
+    repeated RestakeManager_SetOperatorDelegatorAllocationCall restake_manager_call_set_operator_delegator_allocations = 14;
+    repeated RestakeManager_SetPausedCall restake_manager_call_set_pauseds = 15;
+    repeated RestakeManager_SetTokenTvlLimitCall restake_manager_call_set_token_tvl_limits = 16;
+    repeated RestakeManager_StakeEthInOperatorDelegatorCall restake_manager_call_stake_eth_in_operator_delegators = 17;
+    repeated RestakeManager_UpgradeToCall restake_manager_call_upgrade_tos = 18;
+    repeated RestakeManager_UpgradeToAndCallCall restake_manager_call_upgrade_to_and_calls = 19;
+    repeated WithdrawalContract_AdminCall withdrawal_contract_call_admins = 20;
+    repeated WithdrawalContract_ChangeAdminCall withdrawal_contract_call_change_admins = 21;
+    repeated WithdrawalContract_ClaimCall withdrawal_contract_call_claims = 22;
+    repeated WithdrawalContract_FillErc20WithdrawBufferCall withdrawal_contract_call_fill_erc20_withdraw_buffers = 23;
+    repeated WithdrawalContract_FillEthWithdrawBufferCall withdrawal_contract_call_fill_eth_withdraw_buffers = 24;
+    repeated WithdrawalContract_ImplementationCall withdrawal_contract_call_implementations = 25;
+    repeated WithdrawalContract_InitializeCall withdrawal_contract_call_initializes = 26;
+    repeated WithdrawalContract_PauseCall withdrawal_contract_call_pauses = 27;
+    repeated WithdrawalContract_UnpauseCall withdrawal_contract_call_unpauses = 28;
+    repeated WithdrawalContract_UpdateCoolDownPeriodCall withdrawal_contract_call_update_cool_down_periods = 29;
+    repeated WithdrawalContract_UpdateWithdrawBufferTargetCall withdrawal_contract_call_update_withdraw_buffer_targets = 30;
+    repeated WithdrawalContract_UpgradeToCall withdrawal_contract_call_upgrade_tos = 31;
+    repeated WithdrawalContract_UpgradeToAndCallCall withdrawal_contract_call_upgrade_to_and_calls = 32;
+    repeated WithdrawalContract_WithdrawCall withdrawal_contract_call_withdraws = 33;
+}
+message EventsCalls {
+    Events events = 1;
+    Calls calls = 2;
+}
+message RestakeManager_AdminChanged {
+    string evt_tx_hash = 1;
+    uint32 evt_index = 2;
+    google.protobuf.Timestamp evt_block_time = 3;
+    uint64 evt_block_number = 4;
+    bytes previous_admin = 5;
+    bytes new_admin = 6;
+}
+message RestakeManager_BeaconUpgraded {
+    string evt_tx_hash = 1;
+    uint32 evt_index = 2;
+    google.protobuf.Timestamp evt_block_time = 3;
+    uint64 evt_block_number = 4;
+    bytes beacon = 5;
+}
+message RestakeManager_CollateralTokenAdded {
+    string evt_tx_hash = 1;
+    uint32 evt_index = 2;
+    google.protobuf.Timestamp evt_block_time = 3;
+    uint64 evt_block_number = 4;
+    bytes token = 5;
+}
+message RestakeManager_CollateralTokenRemoved {
+    string evt_tx_hash = 1;
+    uint32 evt_index = 2;
+    google.protobuf.Timestamp evt_block_time = 3;
+    uint64 evt_block_number = 4;
+    bytes token = 5;
+}
+message RestakeManager_CollateralTokenTvlUpdated {
+    string evt_tx_hash = 1;
+    uint32 evt_index = 2;
+    google.protobuf.Timestamp evt_block_time = 3;
+    uint64 evt_block_number = 4;
+    bytes token = 5;
+    string tvl = 6;
+}
+message RestakeManager_Deposit {
+    string evt_tx_hash = 1;
+    uint32 evt_index = 2;
+    google.protobuf.Timestamp evt_block_time = 3;
+    uint64 evt_block_number = 4;
+    bytes depositor = 5;
+    bytes token = 6;
+    string amount = 7;
+    string ez_eth_minted = 8;
+    string referral_id = 9;
+}
+message RestakeManager_Initialized {
+    string evt_tx_hash = 1;
+    uint32 evt_index = 2;
+    google.protobuf.Timestamp evt_block_time = 3;
+    uint64 evt_block_number = 4;
+    uint64 version = 5;
+}
+message RestakeManager_OperatorDelegatorAdded {
+    string evt_tx_hash = 1;
+    uint32 evt_index = 2;
+    google.protobuf.Timestamp evt_block_time = 3;
+    uint64 evt_block_number = 4;
+    bytes od = 5;
+}
+message RestakeManager_OperatorDelegatorAllocationUpdated {
+    string evt_tx_hash = 1;
+    uint32 evt_index = 2;
+    google.protobuf.Timestamp evt_block_time = 3;
+    uint64 evt_block_number = 4;
+    bytes od = 5;
+    string allocation = 6;
+}
+message RestakeManager_OperatorDelegatorRemoved {
+    string evt_tx_hash = 1;
+    uint32 evt_index = 2;
+    google.protobuf.Timestamp evt_block_time = 3;
+    uint64 evt_block_number = 4;
+    bytes od = 5;
+}
+message RestakeManager_Upgraded {
+    string evt_tx_hash = 1;
+    uint32 evt_index = 2;
+    google.protobuf.Timestamp evt_block_time = 3;
+    uint64 evt_block_number = 4;
+    bytes implementation = 5;
+}
+message RestakeManager_UserWithdrawCompleted {
+    string evt_tx_hash = 1;
+    uint32 evt_index = 2;
+    google.protobuf.Timestamp evt_block_time = 3;
+    uint64 evt_block_number = 4;
+    bytes withdrawal_root = 5;
+    bytes withdrawer = 6;
+    bytes token = 7;
+    string amount = 8;
+    string ez_eth_burned = 9;
+}
+message RestakeManager_UserWithdrawStarted {
+    string evt_tx_hash = 1;
+    uint32 evt_index = 2;
+    google.protobuf.Timestamp evt_block_time = 3;
+    uint64 evt_block_number = 4;
+    bytes withdrawal_root = 5;
+    bytes withdrawer = 6;
+    bytes token = 7;
+    string amount = 8;
+    string ez_eth_to_burn = 9;
+}
+  
+message RestakeManager_AddCollateralTokenCall {
+    string call_tx_hash = 1;
+    google.protobuf.Timestamp call_block_time = 2;
+    uint64 call_block_number = 3;
+    uint64 call_ordinal = 4;
+    bool call_success = 5;
+    bytes u_new_collateral_token = 6;
+}
+message RestakeManager_AddOperatorDelegatorCall {
+    string call_tx_hash = 1;
+    google.protobuf.Timestamp call_block_time = 2;
+    uint64 call_block_number = 3;
+    uint64 call_ordinal = 4;
+    bool call_success = 5;
+    bytes u_new_operator_delegator = 6;
+    string u_allocation_basis_points = 7;
+}
+message RestakeManager_AdminCall {
+    string call_tx_hash = 1;
+    google.protobuf.Timestamp call_block_time = 2;
+    uint64 call_block_number = 3;
+    uint64 call_ordinal = 4;
+    bool call_success = 5;
+    bytes output_admin = 6;
+}
+message RestakeManager_ChangeAdminCall {
+    string call_tx_hash = 1;
+    google.protobuf.Timestamp call_block_time = 2;
+    uint64 call_block_number = 3;
+    uint64 call_ordinal = 4;
+    bool call_success = 5;
+    bytes new_admin = 6;
+}
+message RestakeManager_Deposit1call {
+    string call_tx_hash = 1;
+    google.protobuf.Timestamp call_block_time = 2;
+    uint64 call_block_number = 3;
+    uint64 call_ordinal = 4;
+    bool call_success = 5;
+    bytes u_collateral_token = 6;
+    string u_amount = 7;
+    string u_referral_id = 8;
+}
+message RestakeManager_Deposit2call {
+    string call_tx_hash = 1;
+    google.protobuf.Timestamp call_block_time = 2;
+    uint64 call_block_number = 3;
+    uint64 call_ordinal = 4;
+    bool call_success = 5;
+    bytes u_collateral_token = 6;
+    string u_amount = 7;
+}
+message RestakeManager_DepositEth1call {
+    string call_tx_hash = 1;
+    google.protobuf.Timestamp call_block_time = 2;
+    uint64 call_block_number = 3;
+    uint64 call_ordinal = 4;
+    bool call_success = 5;
+    string u_referral_id = 6;
+}
+message RestakeManager_DepositEth2call {
+    string call_tx_hash = 1;
+    google.protobuf.Timestamp call_block_time = 2;
+    uint64 call_block_number = 3;
+    uint64 call_ordinal = 4;
+    bool call_success = 5;
+}
+message RestakeManager_DepositTokenRewardsFromProtocolCall {
+    string call_tx_hash = 1;
+    google.protobuf.Timestamp call_block_time = 2;
+    uint64 call_block_number = 3;
+    uint64 call_ordinal = 4;
+    bool call_success = 5;
+    bytes u_token = 6;
+    string u_amount = 7;
+}
+message RestakeManager_ImplementationCall {
+    string call_tx_hash = 1;
+    google.protobuf.Timestamp call_block_time = 2;
+    uint64 call_block_number = 3;
+    uint64 call_ordinal = 4;
+    bool call_success = 5;
+    bytes output_implementation = 6;
+}
+message RestakeManager_InitializeCall {
+    string call_tx_hash = 1;
+    google.protobuf.Timestamp call_block_time = 2;
+    uint64 call_block_number = 3;
+    uint64 call_ordinal = 4;
+    bool call_success = 5;
+    bytes u_role_manager = 6;
+    bytes u_ez_eth = 7;
+    bytes u_renzo_oracle = 8;
+    bytes u_strategy_manager = 9;
+    bytes u_delegation_manager = 10;
+    bytes u_deposit_queue = 11;
+}
+message RestakeManager_RemoveCollateralTokenCall {
+    string call_tx_hash = 1;
+    google.protobuf.Timestamp call_block_time = 2;
+    uint64 call_block_number = 3;
+    uint64 call_ordinal = 4;
+    bool call_success = 5;
+    bytes u_collateral_token_to_remove = 6;
+}
+message RestakeManager_RemoveOperatorDelegatorCall {
+    string call_tx_hash = 1;
+    google.protobuf.Timestamp call_block_time = 2;
+    uint64 call_block_number = 3;
+    uint64 call_ordinal = 4;
+    bool call_success = 5;
+    bytes u_operator_delegator_to_remove = 6;
+}
+message RestakeManager_SetOperatorDelegatorAllocationCall {
+    string call_tx_hash = 1;
+    google.protobuf.Timestamp call_block_time = 2;
+    uint64 call_block_number = 3;
+    uint64 call_ordinal = 4;
+    bool call_success = 5;
+    bytes u_operator_delegator = 6;
+    string u_allocation_basis_points = 7;
+}
+message RestakeManager_SetPausedCall {
+    string call_tx_hash = 1;
+    google.protobuf.Timestamp call_block_time = 2;
+    uint64 call_block_number = 3;
+    uint64 call_ordinal = 4;
+    bool call_success = 5;
+    bool u_paused = 6;
+}
+message RestakeManager_SetTokenTvlLimitCall {
+    string call_tx_hash = 1;
+    google.protobuf.Timestamp call_block_time = 2;
+    uint64 call_block_number = 3;
+    uint64 call_ordinal = 4;
+    bool call_success = 5;
+    bytes u_token = 6;
+    string u_limit = 7;
+}
+message RestakeManager_StakeEthInOperatorDelegatorCall {
+    string call_tx_hash = 1;
+    google.protobuf.Timestamp call_block_time = 2;
+    uint64 call_block_number = 3;
+    uint64 call_ordinal = 4;
+    bool call_success = 5;
+    bytes operator_delegator = 6;
+    bytes pubkey = 7;
+    bytes signature = 8;
+    bytes deposit_data_root = 9;
+}
+message RestakeManager_UpgradeToCall {
+    string call_tx_hash = 1;
+    google.protobuf.Timestamp call_block_time = 2;
+    uint64 call_block_number = 3;
+    uint64 call_ordinal = 4;
+    bool call_success = 5;
+    bytes new_implementation = 6;
+}
+message RestakeManager_UpgradeToAndCallCall {
+    string call_tx_hash = 1;
+    google.protobuf.Timestamp call_block_time = 2;
+    uint64 call_block_number = 3;
+    uint64 call_ordinal = 4;
+    bool call_success = 5;
+    bytes new_implementation = 6;
+    bytes data = 7;
+}
+message WithdrawalContract_AdminChanged {
+    string evt_tx_hash = 1;
+    uint32 evt_index = 2;
+    google.protobuf.Timestamp evt_block_time = 3;
+    uint64 evt_block_number = 4;
+    bytes previous_admin = 5;
+    bytes new_admin = 6;
+}
+message WithdrawalContract_BeaconUpgraded {
+    string evt_tx_hash = 1;
+    uint32 evt_index = 2;
+    google.protobuf.Timestamp evt_block_time = 3;
+    uint64 evt_block_number = 4;
+    bytes beacon = 5;
+}
+message WithdrawalContract_CoolDownPeriodUpdated {
+    string evt_tx_hash = 1;
+    uint32 evt_index = 2;
+    google.protobuf.Timestamp evt_block_time = 3;
+    uint64 evt_block_number = 4;
+    string old_cool_down_period = 5;
+    string new_cool_down_period = 6;
+}
+message WithdrawalContract_Erc20BufferFilled {
+    string evt_tx_hash = 1;
+    uint32 evt_index = 2;
+    google.protobuf.Timestamp evt_block_time = 3;
+    uint64 evt_block_number = 4;
+    bytes asset = 5;
+    string amount = 6;
+}
+message WithdrawalContract_EthBufferFilled {
+    string evt_tx_hash = 1;
+    uint32 evt_index = 2;
+    google.protobuf.Timestamp evt_block_time = 3;
+    uint64 evt_block_number = 4;
+    string amount = 5;
+}
+message WithdrawalContract_Initialized {
+    string evt_tx_hash = 1;
+    uint32 evt_index = 2;
+    google.protobuf.Timestamp evt_block_time = 3;
+    uint64 evt_block_number = 4;
+    uint64 version = 5;
+}
+message WithdrawalContract_Paused {
+    string evt_tx_hash = 1;
+    uint32 evt_index = 2;
+    google.protobuf.Timestamp evt_block_time = 3;
+    uint64 evt_block_number = 4;
+    bytes account = 5;
+}
+message WithdrawalContract_QueueFilled {
+    string evt_tx_hash = 1;
+    uint32 evt_index = 2;
+    google.protobuf.Timestamp evt_block_time = 3;
+    uint64 evt_block_number = 4;
+    string amount = 5;
+    bytes asset = 6;
+}
+message WithdrawalContract_Unpaused {
+    string evt_tx_hash = 1;
+    uint32 evt_index = 2;
+    google.protobuf.Timestamp evt_block_time = 3;
+    uint64 evt_block_number = 4;
+    bytes account = 5;
+}
+message WithdrawalContract_Upgraded {
+    string evt_tx_hash = 1;
+    uint32 evt_index = 2;
+    google.protobuf.Timestamp evt_block_time = 3;
+    uint64 evt_block_number = 4;
+    bytes implementation = 5;
+}
+message WithdrawalContract_WithdrawBufferTargetUpdated {
+    string evt_tx_hash = 1;
+    uint32 evt_index = 2;
+    google.protobuf.Timestamp evt_block_time = 3;
+    uint64 evt_block_number = 4;
+    string old_buffer_target = 5;
+    string new_buffer_target = 6;
+}
+message WithdrawalContract_WithdrawRequestClaimed {
+    string evt_tx_hash = 1;
+    uint32 evt_index = 2;
+    google.protobuf.Timestamp evt_block_time = 3;
+    uint64 evt_block_number = 4;
+}
+message WithdrawalContract_WithdrawRequestCreated {
+    string evt_tx_hash = 1;
+    uint32 evt_index = 2;
+    google.protobuf.Timestamp evt_block_time = 3;
+    uint64 evt_block_number = 4;
+    string withdraw_request_id = 5;
+    bytes user = 6;
+    bytes claim_token = 7;
+    string amount_to_redeem = 8;
+    string ez_eth_amount_locked = 9;
+    string withdraw_request_index = 10;
+    bool queued = 11;
+    string queue_filled = 12;
+}
+  
+message WithdrawalContract_AdminCall {
+    string call_tx_hash = 1;
+    google.protobuf.Timestamp call_block_time = 2;
+    uint64 call_block_number = 3;
+    uint64 call_ordinal = 4;
+    bool call_success = 5;
+    bytes output_admin = 6;
+}
+message WithdrawalContract_ChangeAdminCall {
+    string call_tx_hash = 1;
+    google.protobuf.Timestamp call_block_time = 2;
+    uint64 call_block_number = 3;
+    uint64 call_ordinal = 4;
+    bool call_success = 5;
+    bytes new_admin = 6;
+}
+message WithdrawalContract_ClaimCall {
+    string call_tx_hash = 1;
+    google.protobuf.Timestamp call_block_time = 2;
+    uint64 call_block_number = 3;
+    uint64 call_ordinal = 4;
+    bool call_success = 5;
+    string withdraw_request_index = 6;
+    bytes user = 7;
+}
+message WithdrawalContract_FillErc20WithdrawBufferCall {
+    string call_tx_hash = 1;
+    google.protobuf.Timestamp call_block_time = 2;
+    uint64 call_block_number = 3;
+    uint64 call_ordinal = 4;
+    bool call_success = 5;
+    bytes u_asset = 6;
+    string u_amount = 7;
+}
+message WithdrawalContract_FillEthWithdrawBufferCall {
+    string call_tx_hash = 1;
+    google.protobuf.Timestamp call_block_time = 2;
+    uint64 call_block_number = 3;
+    uint64 call_ordinal = 4;
+    bool call_success = 5;
+}
+message WithdrawalContract_ImplementationCall {
+    string call_tx_hash = 1;
+    google.protobuf.Timestamp call_block_time = 2;
+    uint64 call_block_number = 3;
+    uint64 call_ordinal = 4;
+    bool call_success = 5;
+    bytes output_implementation = 6;
+}
+message WithdrawalContract_InitializeCall {
+    string call_tx_hash = 1;
+    google.protobuf.Timestamp call_block_time = 2;
+    uint64 call_block_number = 3;
+    uint64 call_ordinal = 4;
+    bool call_success = 5;
+    bytes u_role_manager = 6;
+    bytes u_restake_manager = 7;
+    bytes u_ez_eth = 8;
+    bytes u_renzo_oracle = 9;
+    string u_cool_down_period = 10;
+}
+message WithdrawalContract_PauseCall {
+    string call_tx_hash = 1;
+    google.protobuf.Timestamp call_block_time = 2;
+    uint64 call_block_number = 3;
+    uint64 call_ordinal = 4;
+    bool call_success = 5;
+}
+message WithdrawalContract_UnpauseCall {
+    string call_tx_hash = 1;
+    google.protobuf.Timestamp call_block_time = 2;
+    uint64 call_block_number = 3;
+    uint64 call_ordinal = 4;
+    bool call_success = 5;
+}
+message WithdrawalContract_UpdateCoolDownPeriodCall {
+    string call_tx_hash = 1;
+    google.protobuf.Timestamp call_block_time = 2;
+    uint64 call_block_number = 3;
+    uint64 call_ordinal = 4;
+    bool call_success = 5;
+    string u_new_cool_down_period = 6;
+}
+message WithdrawalContract_UpdateWithdrawBufferTargetCall {
+    string call_tx_hash = 1;
+    google.protobuf.Timestamp call_block_time = 2;
+    uint64 call_block_number = 3;
+    uint64 call_ordinal = 4;
+    bool call_success = 5;
+}
+message WithdrawalContract_UpgradeToCall {
+    string call_tx_hash = 1;
+    google.protobuf.Timestamp call_block_time = 2;
+    uint64 call_block_number = 3;
+    uint64 call_ordinal = 4;
+    bool call_success = 5;
+    bytes new_implementation = 6;
+}
+message WithdrawalContract_UpgradeToAndCallCall {
+    string call_tx_hash = 1;
+    google.protobuf.Timestamp call_block_time = 2;
+    uint64 call_block_number = 3;
+    uint64 call_ordinal = 4;
+    bool call_success = 5;
+    bytes new_implementation = 6;
+    bytes data = 7;
+}
+message WithdrawalContract_WithdrawCall {
+    string call_tx_hash = 1;
+    google.protobuf.Timestamp call_block_time = 2;
+    uint64 call_block_number = 3;
+    uint64 call_ordinal = 4;
+    bool call_success = 5;
+    string u_amount = 6;
+    bytes u_asset_out = 7;
+}

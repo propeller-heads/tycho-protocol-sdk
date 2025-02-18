@@ -19,4 +19,5 @@ ignore = [
     "ethereum-uniswap-v3/src/abi",
     "ethereum-uniswap-v3-logs-only/src/abi",
     "ethereum-uniswap-v4/src/abi",
+    "ethereum-renzo/src/abi",
 ]
