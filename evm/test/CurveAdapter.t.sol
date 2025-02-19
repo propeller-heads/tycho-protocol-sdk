@@ -435,7 +435,7 @@ contract CurveAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
         for (uint256 i = 0; i < ADDITIONAL_POOLS_FOR_PRICE.length; i++) {
             poolIds[i] = bytes32(bytes20(ADDITIONAL_POOLS_FOR_PRICE[i]));
         }
-        testPoolBehaviour(adapter, poolIds);
+        runPoolBehaviourTest(adapter, poolIds);
     }
 
     /// @dev custom function to 'deal' stETH tokens as normal deal won't work
