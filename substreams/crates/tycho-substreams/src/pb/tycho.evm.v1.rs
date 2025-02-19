@@ -87,7 +87,8 @@ pub struct ProtocolComponent {
     /// Usually it is a single contract, but some protocols use multiple contracts.
     #[prost(bytes="vec", repeated, tag="3")]
     pub contracts: ::prost::alloc::vec::Vec<::prost::alloc::vec::Vec<u8>>,
-    /// Attributes of the component. Used mainly be the native integration.
+    /// Static attributes of the component.
+    /// These attributes MUST be immutable. If it can ever change, it should be given as an EntityChanges for this component id.
     /// The inner ChangeType of the attribute has to match the ChangeType of the ProtocolComponent.
     #[prost(message, repeated, tag="4")]
     pub static_att: ::prost::alloc::vec::Vec<Attribute>,
@@ -97,9 +98,6 @@ pub struct ProtocolComponent {
     /// / Represents the functionality of the component.
     #[prost(message, optional, tag="6")]
     pub protocol_type: ::core::option::Option<ProtocolType>,
-    /// Transaction where this component was created
-    #[prost(message, optional, tag="7")]
-    pub tx: ::core::option::Option<Transaction>,
 }
 /// A struct for following the changes of Total Value Locked (TVL) of a protocol component.
 ///
@@ -145,6 +143,17 @@ pub struct ContractSlot {
     #[prost(bytes="vec", tag="3")]
     pub value: ::prost::alloc::vec::Vec<u8>,
 }
+/// A struct for following the token balance changes for a contract.
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct AccountBalanceChange {
+    /// The address of the ERC20 token whose balance changed.
+    #[prost(bytes="vec", tag="1")]
+    pub token: ::prost::alloc::vec::Vec<u8>,
+    /// The new balance of the token. Note: it must be a big endian encoded int.
+    #[prost(bytes="vec", tag="2")]
+    pub balance: ::prost::alloc::vec::Vec<u8>,
+}
 /// Changes made to a single contract's state.
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -164,6 +173,9 @@ pub struct ContractChange {
     /// Whether this is an update, a creation or a deletion.
     #[prost(enumeration="ChangeType", tag="5")]
     pub change: i32,
+    /// The new ERC20 balances of the contract.
+    #[prost(message, repeated, tag="6")]
+    pub token_balances: ::prost::alloc::vec::Vec<AccountBalanceChange>,
 }
 // Aggregate entities
 
@@ -190,6 +202,7 @@ pub struct TransactionChanges {
     pub balance_changes: ::prost::alloc::vec::Vec<BalanceChange>,
 }
 /// A set of transaction changes within a single block.
+/// This message must be the output of your substreams module.
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct BlockChanges {

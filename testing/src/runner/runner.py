@@ -10,9 +10,9 @@ from pathlib import Path
 from typing import List
 
 import yaml
-from protosim_py.evm.decoders import ThirdPartyPoolTychoDecoder
-from protosim_py.evm.storage import TychoDBSingleton
-from protosim_py.models import EVMBlock
+from tycho_simulation_py.evm.decoders import ThirdPartyPoolTychoDecoder
+from tycho_simulation_py.evm.storage import TychoDBSingleton
+from tycho_simulation_py.models import EVMBlock
 from pydantic import BaseModel
 from tycho_indexer_client.dto import (
     Chain,
@@ -24,7 +24,6 @@ from tycho_indexer_client.dto import (
     HexBytes,
     ResponseAccount,
     Snapshot,
-    ContractId,
 )
 from tycho_indexer_client.rpc_client import TychoRPCClient
 
@@ -40,8 +39,9 @@ from utils import build_snapshot_message, token_factory
 
 
 class TestResult:
-    def __init__(self, success: bool, message: str = None):
+    def __init__(self, success: bool, step: str = None, message: str = None):
         self.success = success
+        self.step = step
         self.message = message
 
     @classmethod
@@ -49,8 +49,8 @@ class TestResult:
         return cls(success=True)
 
     @classmethod
-    def Failed(cls, message: str):
-        return cls(success=False, message=message)
+    def Failed(cls, step: str, message: str):
+        return cls(success=False, step=step, message=message)
 
 
 def parse_config(yaml_path: str) -> IntegrationTestsConfig:
@@ -109,14 +109,17 @@ class TestRunner:
                 test.initialized_accounts or [],
             )
 
-            result = self.tycho_runner.run_with_rpc_server(
-                self.validate_state, test.expected_components, test.stop_block
+            result: TestResult = self.tycho_runner.run_with_rpc_server(
+                self.validate_state,
+                test.expected_components,
+                test.stop_block,
+                test.initialized_accounts or [],
             )
 
             if result.success:
                 print(f"\n✅ {test.name} passed.\n")
             else:
-                print(f"\n❗️ {test.name} failed: {result.message}\n")
+                print(f"\n❗️ {test.name} failed on {result.step}: {result.message}\n")
 
         print(
             "\nTest finished! \n"
@@ -131,6 +134,7 @@ class TestRunner:
         self,
         expected_components: List[ProtocolComponentWithTestConfig],
         stop_block: int,
+        initialized_accounts: List[str],
     ) -> TestResult:
         """Validate the current protocol state against the expected state."""
         protocol_components = self.tycho_rpc_client.get_protocol_components(
@@ -143,20 +147,27 @@ class TestRunner:
             component.id: component for component in protocol_components
         }
 
+        step = "Protocol component validation"
         try:
+            # Step 1: Validate the protocol components
             for expected_component in expected_components:
                 comp_id = expected_component.id.lower()
                 if comp_id not in components_by_id:
                     return TestResult.Failed(
-                        f"'{comp_id}' not found in protocol components."
+                        step=step,
+                        message=f"'{comp_id}' not found in protocol components. "
+                        f"Available components: {set(components_by_id.keys())}",
                     )
 
                 diff = ProtocolComponentExpectation(
                     **components_by_id[comp_id].dict()
                 ).compare(ProtocolComponentExpectation(**expected_component.dict()))
                 if diff is not None:
-                    return TestResult.Failed(diff)
+                    return TestResult.Failed(step=step, message=diff)
 
+            print(f"\n✅ {step} passed.\n")
+
+            step = "Token balance validation"
             token_balances: dict[str, dict[HexBytes, int]] = defaultdict(dict)
             for component in protocol_components:
                 comp_id = component.id.lower()
@@ -180,42 +191,74 @@ class TestRunner:
                         node_balance = get_token_balance(token, comp_id, stop_block)
                         if node_balance != tycho_balance:
                             return TestResult.Failed(
-                                f"Balance mismatch for {comp_id}:{token} at block {stop_block}: got {node_balance} "
-                                f"from rpc call and {tycho_balance} from Substreams"
+                                step=step,
+                                message=f"Balance mismatch for {comp_id}:{token} at block {stop_block}: got {node_balance} "
+                                f"from rpc call and {tycho_balance} from Substreams",
                             )
-            contract_states = self.tycho_rpc_client.get_contract_state(
-                ContractStateParams(
-                    contract_ids=[
-                        ContractId(chain=self._chain, address=a)
-                        for component in protocol_components
-                        for a in component.contract_ids
-                    ]
-                )
-            )
-            filtered_components = [
-                pc
-                for pc in protocol_components
-                if pc.id
-                in [c.id for c in expected_components if c.skip_simulation is False]
-            ]
-            simulation_failures = self.simulate_get_amount_out(
-                stop_block, protocol_states, filtered_components, contract_states
-            )
-            if len(simulation_failures):
-                error_msgs = []
-                for pool_id, failures in simulation_failures.items():
-                    failures_ = [
-                        f"{f.sell_token} -> {f.buy_token}: {f.error}" for f in failures
-                    ]
-                    error_msgs.append(
-                        f"Pool {pool_id} failed simulations: {', '.join(failures_)}"
-                    )
-                raise ValueError(". ".join(error_msgs))
 
+            if not self.config.skip_balance_check:
+                print(f"\n✅ {step} passed.\n")
+            else:
+                print(f"\nℹ️ {step} skipped")
+
+            step = "Simulation validation"
+
+            # Loads from Tycho-Indexer the state of all the contracts that are related to the protocol components.
+            filtered_components = []
+            simulation_components = [
+                c.id for c in expected_components if c.skip_simulation is False
+            ]
+
+            related_contracts = set()
+            for account in self.config.initialized_accounts or []:
+                related_contracts.add(HexBytes(account))
+            for account in initialized_accounts or []:
+                related_contracts.add(HexBytes(account))
+
+            # Filter out components that are not set to be used for the simulation
+            component_related_contracts = set()
+            for component in protocol_components:
+                if component.id in simulation_components:
+                    for a in component.contract_ids:
+                        component_related_contracts.add(a)
+                    filtered_components.append(component)
+
+            # Check if any of the initialized contracts are not listed as component contract dependencies
+            unspecified_contracts = related_contracts - component_related_contracts
+            if len(unspecified_contracts):
+                print(
+                    f"⚠️ The following initialized contracts are not listed as component contract dependencies: {unspecified_contracts}. "
+                    f"Please ensure that, if they are required for this component's simulation, they are specified under the Protocol Component's contract field."
+                )
+
+            related_contracts.update(component_related_contracts)
+            related_contracts = [a.hex() for a in related_contracts]
+
+            contract_states = self.tycho_rpc_client.get_contract_state(
+                ContractStateParams(contract_ids=related_contracts)
+            )
+            if len(filtered_components):
+                simulation_failures = self.simulate_get_amount_out(
+                    stop_block, protocol_states, filtered_components, contract_states
+                )
+                if len(simulation_failures):
+                    error_msgs = []
+                    for pool_id, failures in simulation_failures.items():
+                        failures_ = [
+                            f"{f.sell_token} -> {f.buy_token}: {f.error}"
+                            for f in failures
+                        ]
+                        error_msgs.append(
+                            f"Pool {pool_id} failed simulations: {', '.join(failures_)}"
+                        )
+                    return TestResult.Failed(step=step, message="/n".join(error_msgs))
+                print(f"\n✅ {step} passed.\n")
+            else:
+                print(f"\nℹ️ {step} skipped")
             return TestResult.Passed()
         except Exception as e:
             error_message = f"An error occurred: {str(e)}\n" + traceback.format_exc()
-            return TestResult.Failed(error_message)
+            return TestResult.Failed(step=step, message=error_message)
 
     def simulate_get_amount_out(
         self,
@@ -247,6 +290,8 @@ class TestRunner:
                 self.config.adapter_build_args,
             )
 
+        TychoDBSingleton.clear_instance()
+
         decoder = ThirdPartyPoolTychoDecoder(
             token_factory_func=self._token_factory_func,
             adapter_contract=adapter_contract,
@@ -260,37 +305,51 @@ class TestRunner:
 
         decoded = decoder.decode_snapshot(snapshot_message, block)
 
+        for component in protocol_components:
+            if component.id not in decoded:
+                failed_simulations[component.id] = [
+                    SimulationFailure(
+                        pool_id=component.id,
+                        sell_token=component.tokens[0].hex(),
+                        buy_token=component.tokens[1].hex(),
+                        error="Pool not found in decoded state.",
+                    )
+                ]
+
         for pool_state in decoded.values():
             pool_id = pool_state.id_
             if not pool_state.balances:
                 raise ValueError(f"Missing balances for pool {pool_id}")
             for sell_token, buy_token in itertools.permutations(pool_state.tokens, 2):
-                # Try to sell 0.1% of the protocol balance
-                sell_amount = Decimal("0.001") * pool_state.balances[sell_token.address]
-                try:
-                    amount_out, gas_used, _ = pool_state.get_amount_out(
-                        sell_token, sell_amount, buy_token
+                for prctg in ["0.001", "0.01", "0.1"]:
+                    # Try to sell 0.1% of the protocol balance
+                    sell_amount = (
+                        Decimal(prctg) * pool_state.balances[sell_token.address]
                     )
-                    print(
-                        f"Amount out for {pool_id}: {sell_amount} {sell_token} -> {amount_out} {buy_token} - "
-                        f"Gas used: {gas_used}"
-                    )
-                except Exception as e:
-                    print(
-                        f"Error simulating get_amount_out for {pool_id}: {sell_token} -> {buy_token}. "
-                        f"Error: {e}"
-                    )
-                    if pool_id not in failed_simulations:
-                        failed_simulations[pool_id] = []
-                    failed_simulations[pool_id].append(
-                        SimulationFailure(
-                            pool_id=pool_id,
-                            sell_token=str(sell_token),
-                            buy_token=str(buy_token),
-                            error=str(e),
+                    try:
+                        amount_out, gas_used, _ = pool_state.get_amount_out(
+                            sell_token, sell_amount, buy_token
                         )
-                    )
-                    continue
+                        print(
+                            f"Amount out for {pool_id}: {sell_amount} {sell_token} -> {amount_out} {buy_token} - "
+                            f"Gas used: {gas_used}"
+                        )
+                    except Exception as e:
+                        print(
+                            f"Error simulating get_amount_out for {pool_id}: {sell_token} -> {buy_token} at block {block_number}. "
+                            f"Error: {e}"
+                        )
+                        if pool_id not in failed_simulations:
+                            failed_simulations[pool_id] = []
+                        failed_simulations[pool_id].append(
+                            SimulationFailure(
+                                pool_id=pool_id,
+                                sell_token=str(sell_token),
+                                buy_token=str(buy_token),
+                                error=str(e),
+                            )
+                        )
+                        continue
         return failed_simulations
 
     @staticmethod
@@ -303,7 +362,7 @@ class TestRunner:
             data = yaml.safe_load(file)
 
         modify_func(data)
-        spkg_name = f"{yaml_file_path.rsplit('/', 1)[0]}/{data['package']['name'].replace('_', '-', 1)}-{data['package']['version']}.spkg"
+        spkg_name = f"{yaml_file_path.rsplit('/', 1)[0]}/{data['package']['name'].replace('_', '-')}-{data['package']['version']}.spkg"
 
         with open(yaml_file_path, "w") as file:
             yaml.dump(data, file, default_flow_style=False)
