@@ -210,9 +210,8 @@ class TestRunner:
             ]
 
             related_contracts = set()
-            for account in self.config.initialized_accounts:
-                related_contracts.add(HexBytes(account))
-            for account in initialized_accounts:
+            if self.config.initialized_accounts:
+               for account in initialized_accounts:
                 related_contracts.add(HexBytes(account))
 
             # Filter out components that are not set to be used for the simulation
