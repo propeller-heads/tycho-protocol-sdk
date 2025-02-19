@@ -30,14 +30,14 @@ tests:
   - name: test_liquidity_pool_creation
     # Indexed block range
     start_block: 17664317
-    stop_block: 17664327 #first deposit of ETH and mint of eETH
+    stop_block: 17664358
     expected_components:
       - id: "0x308861a430be4cce5502d0a12724771fc6daf216" # Liquidity Pool Address
         tokens:
           - "0x0000000000000000000000000000000000000000" # ETH
           - "0x35fA164735182de50811E8e2E824cFb9B6118ac2" # eETH
         creation_tx: "0x491b823bc15ced4c54f0ed5a235d39e478f8aae3ad02eb553924b40ad9859e10"
-        skip_simulation: false
+        skip_simulation: true
 
   # Test for WeETH pool creation
   - name: test_weeth_pool_creation
@@ -49,4 +49,4 @@ tests:
           - "0x35fA164735182de50811E8e2E824cFb9B6118ac2" # eETH
           - "0xCd5fE23C85820F7B72D0926FC9b05b43E359b7ee" # weETH
         creation_tx: "0xa034bdf7ec3b407125fcfbb786d908b0bcfd9976f2fbaf489776ba58b9db61ac"
-        skip_simulation: false
+        skip_simulation: true

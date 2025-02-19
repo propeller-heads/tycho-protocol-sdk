@@ -10,7 +10,6 @@ protobuf:
     - tycho/evm/v1/utils.proto
   importPaths:
     - ../../proto
-    - ./proto
 
 binaries:
   default:
@@ -30,7 +29,7 @@ modules:
     kind: store
     initialBlock: 17664317
     updatePolicy: set
-    valueType: proto:tycho.evm.v1.ProtocolComponent
+    valueType: string
     inputs:
       - map: map_components
 

@@ -11,7 +11,7 @@ use std::collections::HashMap;
 use substreams::{
     pb::substreams::StoreDeltas,
     store::{
-        StoreAddBigInt, StoreGet, StoreGetProto, StoreGetString, StoreNew, StoreSet, StoreSetProto,
+        StoreAddBigInt, StoreGet, StoreGetString, StoreNew, StoreSet, StoreSetString,
     },
 };
 use substreams_ethereum::{pb::eth, Event};
@@ -69,17 +69,14 @@ pub fn map_components(
 /// Stores the `ProtocolComponent`s with the pool id as the key, together with the token pair as
 /// events do not contain the pair info
 #[substreams::handlers::store]
-pub fn store_components(
-    map: BlockTransactionProtocolComponents,
-    store: StoreSetProto<ProtocolComponent>,
-) {
+pub fn store_components(map: BlockTransactionProtocolComponents, store: StoreSetString) {
     map.tx_components
         .iter()
         .for_each(|tx_components| {
             tx_components
                 .components
                 .iter()
-                .for_each(|component| store_component(&store, component));
+                .for_each(|pc| store.set(0, format!("pool:{0}", &pc.id), &pc.id))
         })
 }
 
@@ -88,7 +85,7 @@ pub fn store_components(
 #[substreams::handlers::map]
 pub fn map_relative_balances(
     block: eth::v2::Block,
-    store: StoreGetProto<ProtocolComponent>,
+    store: StoreGetString,
 ) -> Result<BlockBalanceDeltas, anyhow::Error> {
     let liquidity_pool_hex = format!("0x{}", hex::encode(LIQUIDITY_POOL_ADDRESS));
     let weeth_hex = format!("0x{}", hex::encode(WEETH_ADDRESS));
@@ -102,9 +99,8 @@ pub fn map_relative_balances(
             // Contract balance just becomes += ETH, eeth balance is handled by eeth TransferShares
             // event
             if let Some(ev) = abi::pool_contract::events::Deposit::match_and_decode(log.log) {
-                if store
+                if let Some(component_id) = store
                     .get_last(format!("pool:{}", liquidity_pool_hex))
-                    .is_some()
                 {
                     substreams::log::info!("Liquidity Pool Deposit: +ETH {}", ev.amount);
 
@@ -113,7 +109,7 @@ pub fn map_relative_balances(
                         tx: Some(log.receipt.transaction.into()),
                         token: ETH_ADDRESS.to_vec(),
                         delta: ev.amount.to_signed_bytes_be(),
-                        component_id: LIQUIDITY_POOL_ADDRESS.to_vec(),
+                        component_id: component_id.as_bytes().to_vec(),
                     });
                 }
             }
@@ -122,9 +118,8 @@ pub fn map_relative_balances(
             // event
             else if let Some(ev) = abi::pool_contract::events::Withdraw::match_and_decode(log.log)
             {
-                if store
+                if let Some(component_id) = store
                     .get_last(format!("pool:{}", liquidity_pool_hex))
-                    .is_some()
                 {
                     // Shares are burnt, therefore not held by the contract; Contract balance just
                     // becomes -= ETH
@@ -135,7 +130,7 @@ pub fn map_relative_balances(
                         tx: Some(log.receipt.transaction.into()),
                         token: ETH_ADDRESS.to_vec(),
                         delta: ev.amount.neg().to_signed_bytes_be(),
-                        component_id: LIQUIDITY_POOL_ADDRESS.to_vec(),
+                        component_id: component_id.as_bytes().to_vec(),
                     });
                 }
             }
@@ -146,9 +141,8 @@ pub fn map_relative_balances(
                 abi::eeth_contract::events::TransferShares::match_and_decode(log.log)
             {
                 // Actions to liquidity pool
-                if store
+                if let Some(component_id) = store
                     .get_last(format!("pool:{}", liquidity_pool_hex))
-                    .is_some()
                 {
                     // Mint Shares: Contract Balance += eETH
                     if ev.from == ADDRESS_ZERO {
@@ -162,7 +156,7 @@ pub fn map_relative_balances(
                             tx: Some(log.receipt.transaction.into()),
                             token: EETH_ADDRESS.to_vec(),
                             delta: ev.shares_value.to_signed_bytes_be(),
-                            component_id: LIQUIDITY_POOL_ADDRESS.to_vec(),
+                            component_id: component_id.as_bytes().to_vec(),
                         });
                     }
                     // Burn Shares: Contract Balance -= eETH
@@ -180,15 +174,14 @@ pub fn map_relative_balances(
                                 .shares_value
                                 .neg()
                                 .to_signed_bytes_be(),
-                            component_id: LIQUIDITY_POOL_ADDRESS.to_vec(),
+                            component_id: component_id.as_bytes().to_vec(),
                         });
                     }
                 }
 
                 // Actions to weeth
-                if store
+                if let Some(component_id) = store
                     .get_last(format!("pool:{}", weeth_hex))
-                    .is_some()
                 {
                     // Deposit eETH(wrap) into weETH contract: weETH Balane += eETH
                     if ev.to == WEETH_ADDRESS {
@@ -202,7 +195,7 @@ pub fn map_relative_balances(
                             tx: Some(log.receipt.transaction.into()),
                             token: EETH_ADDRESS.to_vec(),
                             delta: ev.shares_value.to_signed_bytes_be(),
-                            component_id: WEETH_ADDRESS.to_vec(),
+                            component_id: component_id.as_bytes().to_vec(),
                         });
                     }
                     // Withdraw eEth(unwrap) from weETH contract: weETH Balane -= eETH
@@ -220,7 +213,7 @@ pub fn map_relative_balances(
                                 .shares_value
                                 .neg()
                                 .to_signed_bytes_be(),
-                            component_id: WEETH_ADDRESS.to_vec(),
+                            component_id: component_id.as_bytes().to_vec(),
                         });
                     }
                 }
@@ -231,9 +224,8 @@ pub fn map_relative_balances(
             else if let Some(ev) =
                 tycho_substreams::abi::erc20::events::Transfer::match_and_decode(log.log)
             {
-                if store
+                if let Some(component_id) = store
                     .get_last(format!("pool:{}", weeth_hex))
-                    .is_some()
                 {
                     // Mint Shares: Contract Balance += weETH
                     if ev.from == ADDRESS_ZERO {
@@ -244,7 +236,7 @@ pub fn map_relative_balances(
                             tx: Some(log.receipt.transaction.into()),
                             token: WEETH_ADDRESS.to_vec(),
                             delta: ev.value.to_signed_bytes_be(),
-                            component_id: WEETH_ADDRESS.to_vec(),
+                            component_id: component_id.as_bytes().to_vec(),
                         });
                     }
                     // Burn Shares: Contract Balance -= weETH
@@ -256,7 +248,7 @@ pub fn map_relative_balances(
                             tx: Some(log.receipt.transaction.into()),
                             token: WEETH_ADDRESS.to_vec(),
                             delta: ev.value.neg().to_signed_bytes_be(),
-                            component_id: WEETH_ADDRESS.to_vec(),
+                            component_id: component_id.as_bytes().to_vec(),
                         });
                     }
                 }
@@ -369,10 +361,4 @@ pub fn map_protocol_changes(
     };
 
     Ok(block_changes)
-}
-
-fn store_component(store: &StoreSetProto<ProtocolComponent>, component: &ProtocolComponent) {
-    let key = format!("pool:{}", component.id.clone());
-    substreams::log::info!("Storing component with key: {}", key);
-    store.set(1, key, component);
 }
