@@ -23,29 +23,40 @@ contract RocketPoolAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
     function setUp() public {
         uint256 forkBlock = 19011957;
         vm.createSelectFork(vm.rpcUrl("mainnet"), forkBlock);
-        
+
         adapter = new RocketPoolAdapter(rocketStorage);
         rocketETH = RocketTokenRETHInterface(
-            rocketStorage.getAddress(keccak256(abi.encodePacked("contract.address", "rocketTokenRETH")))
+            rocketStorage.getAddress(
+                keccak256(
+                    abi.encodePacked("contract.address", "rocketTokenRETH")
+                )
+            )
         );
         rocketETHAddress = address(rocketETH);
-        rocketDaoSettings = RocketDAOProtocolSettingsDepositInterface(rocketStorage.getAddress(
-            keccak256(
-                abi.encodePacked("contract.address", "rocketDAOProtocolSettingsDeposit")
+        rocketDaoSettings = RocketDAOProtocolSettingsDepositInterface(
+            rocketStorage.getAddress(
+                keccak256(
+                    abi.encodePacked(
+                        "contract.address", "rocketDAOProtocolSettingsDeposit"
+                    )
+                )
             )
-        ));
+        );
 
         vm.label(address(adapter), "RocketPoolAdapter");
         vm.label(address(0), "ETH");
         vm.label(rocketETHAddress, "rocketETH");
     }
 
-    /// @dev enable receive as ether will be sent to this address, and it is a contract, to prevent reverts
+    /// @dev enable receive as ether will be sent to this address, and it is a
+    /// contract, to prevent reverts
     receive() external payable {}
 
-    function getMinLimits(
-        address sellTokenAddress
-    ) internal view returns (uint256[] memory minLimits) {
+    function getMinLimits(address sellTokenAddress)
+        internal
+        view
+        returns (uint256[] memory minLimits)
+    {
         minLimits = new uint256[](2);
 
         uint256 minETHAmount = rocketDaoSettings.getMinimumDeposit();
@@ -59,9 +70,8 @@ contract RocketPoolAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
     }
 
     function testPriceRocketpool(bool isETH) public {
-        uint256[] memory minLimits = getMinLimits(
-            isETH ? address(ETH) : address(rocketETH)
-        );
+        uint256[] memory minLimits =
+            getMinLimits(isETH ? address(ETH) : address(rocketETH));
         uint256 minLimit = minLimits[0];
         uint256[] memory amounts = new uint256[](TEST_ITERATIONS);
 
@@ -79,10 +89,9 @@ contract RocketPoolAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
         }
     }
 
-    function testSwapFuzzRocketPool(
-        uint256 specifiedAmount,
-        bool isBuy
-    ) public {
+    function testSwapFuzzRocketPool(uint256 specifiedAmount, bool isBuy)
+        public
+    {
         OrderSide side = isBuy ? OrderSide.Buy : OrderSide.Sell;
 
         bytes32 pair = bytes32(0);
@@ -108,13 +117,8 @@ contract RocketPoolAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
         uint256 rocketETH_balance = rocketETH.balanceOf(address(this));
         uint256 ETH_balance = address(this).balance;
 
-        Trade memory trade = adapter.swap(
-            pair,
-            rocketETHAddress,
-            ETH,
-            side,
-            specifiedAmount
-        );
+        Trade memory trade =
+            adapter.swap(pair, rocketETHAddress, ETH, side, specifiedAmount);
 
         if (trade.calculatedAmount > 0) {
             if (side == OrderSide.Buy) {
@@ -129,25 +133,20 @@ contract RocketPoolAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
                     rocketETH_balance - rocketETH.balanceOf(address(this))
                 );
                 assertEq(
-                    trade.calculatedAmount,
-                    address(this).balance - ETH_balance
+                    trade.calculatedAmount, address(this).balance - ETH_balance
                 );
             }
         }
     }
 
-    function testSwapFuzzRocketpoolWithETH(
-        uint256 specifiedAmount,
-        bool isBuy
-    ) public {
+    function testSwapFuzzRocketpoolWithETH(uint256 specifiedAmount, bool isBuy)
+        public
+    {
         OrderSide side = isBuy ? OrderSide.Buy : OrderSide.Sell;
 
         bytes32 pair = bytes32(0);
-        uint256[] memory limits = adapter.getLimits(
-            bytes32(0),
-            ETH,
-            rocketETHAddress
-        );
+        uint256[] memory limits =
+            adapter.getLimits(bytes32(0), ETH, rocketETHAddress);
         uint256[] memory minLimits = getMinLimits(address(ETH));
 
         if (side == OrderSide.Buy) {
@@ -156,9 +155,11 @@ contract RocketPoolAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
             );
 
             deal(address(this), 10000 ether);
-            (bool sent, ) = address(adapter).call{value: 10000 ether}("");
-            /// @dev although send will never fail since contract has receive() function,
-            /// we add the require anyway to hide the "unused local variable" and "Return value of low-level calls not used" warnings
+            (bool sent,) = address(adapter).call{value: 10000 ether}("");
+            /// @dev although send will never fail since contract has receive()
+            /// function,
+            /// we add the require anyway to hide the "unused local variable"
+            /// and "Return value of low-level calls not used" warnings
             require(sent, "Failed to transfer ether");
         } else {
             vm.assume(
@@ -166,22 +167,19 @@ contract RocketPoolAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
             );
 
             deal(address(this), specifiedAmount);
-            (bool sent, ) = address(adapter).call{value: specifiedAmount}("");
-            /// @dev although send will never fail since contract has receive() function,
-            /// we add the require anyway to hide the "unused local variable" and "Return value of low-level calls not used" warnings
+            (bool sent,) = address(adapter).call{value: specifiedAmount}("");
+            /// @dev although send will never fail since contract has receive()
+            /// function,
+            /// we add the require anyway to hide the "unused local variable"
+            /// and "Return value of low-level calls not used" warnings
             require(sent, "Failed to transfer ether");
         }
 
         uint256 rocketETH_balance = rocketETH.balanceOf(address(this));
         uint256 ETH_balance = address(this).balance;
 
-        Trade memory trade = adapter.swap(
-            pair,
-            ETH,
-            rocketETHAddress,
-            side,
-            specifiedAmount
-        );
+        Trade memory trade =
+            adapter.swap(pair, ETH, rocketETHAddress, side, specifiedAmount);
 
         if (trade.calculatedAmount > 0) {
             if (side == OrderSide.Buy) {
@@ -190,8 +188,7 @@ contract RocketPoolAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
                     rocketETH_balance - rocketETH.balanceOf(address(this))
                 );
                 assertEq(
-                    trade.calculatedAmount,
-                    address(this).balance - ETH_balance
+                    trade.calculatedAmount, address(this).balance - ETH_balance
                 );
             } else {
                 assertEq(specifiedAmount, address(this).balance - ETH_balance);
@@ -212,9 +209,8 @@ contract RocketPoolAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
 
         uint256[] memory amounts = new uint256[](TEST_ITERATIONS);
         uint256[] memory minLimits = getMinLimits(address(rocketETH));
-        uint256 specifiedAmount = side == OrderSide.Buy
-            ? minLimits[1]
-            : minLimits[0];
+        uint256 specifiedAmount =
+            side == OrderSide.Buy ? minLimits[1] : minLimits[0];
 
         for (uint256 i = 0; i < TEST_ITERATIONS; i++) {
             amounts[i] = specifiedAmount + (i * 10 ** 6);
@@ -228,21 +224,13 @@ contract RocketPoolAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
             deal(address(rocketETH), address(this), amounts[i]);
             rocketETH.approve(address(adapter), amounts[i]);
 
-            trades[i] = adapter.swap(
-                pair,
-                rocketETHAddress,
-                ETH,
-                side,
-                amounts[i]
-            );
+            trades[i] =
+                adapter.swap(pair, rocketETHAddress, ETH, side, amounts[i]);
             vm.revertTo(beforeSwap);
         }
 
         for (uint256 i = 1; i < TEST_ITERATIONS - 1; i++) {
-            assertLe(
-                trades[i].calculatedAmount,
-                trades[i + 1].calculatedAmount
-            );
+            assertLe(trades[i].calculatedAmount, trades[i + 1].calculatedAmount);
             assertLe(trades[i].gasUsed, trades[i + 1].gasUsed);
         }
     }
@@ -251,27 +239,17 @@ contract RocketPoolAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
         executeIncreasingSwapsRocketpool(OrderSide.Buy);
     }
 
-    function testGetCapabilitiesRocketpool(
-        bytes32 pair,
-        address t0,
-        address t1
-    ) public {
-        Capability[] memory res = adapter.getCapabilities(
-            pair,
-            t0,
-            t1
-        );
+    function testGetCapabilitiesRocketpool(bytes32 pair, address t0, address t1)
+        public
+    {
+        Capability[] memory res = adapter.getCapabilities(pair, t0, t1);
 
         assertEq(res.length, 3);
     }
 
     function testGetLimitsRocketpool() public {
         bytes32 pair = bytes32(0);
-        uint256[] memory limits = adapter.getLimits(
-            pair,
-            rocketETHAddress,
-            ETH
-        );
+        uint256[] memory limits = adapter.getLimits(pair, rocketETHAddress, ETH);
 
         assertEq(limits.length, 2);
     }

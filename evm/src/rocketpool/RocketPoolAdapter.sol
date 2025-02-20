@@ -9,36 +9,51 @@ uint256 constant PRECISION = 10 ** 18;
 
 /// @title RocketPool Adapter
 contract RocketPoolAdapter is ISwapAdapter {
-
     RocketStorageInterface private immutable rocketStorage;
     RocketTokenRETHInterface private immutable rocketETH;
     RocketDepositPoolInterface private immutable rocketPool;
-    RocketDAOProtocolSettingsDepositInterface private immutable rocketDaoSettings;
+    RocketDAOProtocolSettingsDepositInterface private immutable
+        rocketDaoSettings;
     RocketMinipoolQueueInterface private immutable rocketMinipoolQueue;
 
     constructor(RocketStorageInterface rocketStorageAddress) {
         rocketStorage = RocketStorageInterface(rocketStorageAddress);
-        rocketETH = RocketTokenRETHInterface(rocketStorage.getAddress(
-            keccak256(abi.encodePacked("contract.address", "rocketTokenRETH"))
-        ));
-        rocketPool = RocketDepositPoolInterface(rocketStorage.getAddress(
-            keccak256(abi.encodePacked("contract.address", "rocketDepositPool"))
-        ));
-        rocketDaoSettings = RocketDAOProtocolSettingsDepositInterface(rocketStorage.getAddress(
-            keccak256(
-                abi.encodePacked("contract.address", "rocketDAOProtocolSettingsDeposit")
+        rocketETH = RocketTokenRETHInterface(
+            rocketStorage.getAddress(
+                keccak256(
+                    abi.encodePacked("contract.address", "rocketTokenRETH")
+                )
             )
-        ));
-        rocketMinipoolQueue = RocketMinipoolQueueInterface(rocketStorage.getAddress(
-            keccak256(
-                abi.encodePacked("contract.address", "rocketMinipoolQueue")
+        );
+        rocketPool = RocketDepositPoolInterface(
+            rocketStorage.getAddress(
+                keccak256(
+                    abi.encodePacked("contract.address", "rocketDepositPool")
+                )
             )
-        ));
+        );
+        rocketDaoSettings = RocketDAOProtocolSettingsDepositInterface(
+            rocketStorage.getAddress(
+                keccak256(
+                    abi.encodePacked(
+                        "contract.address", "rocketDAOProtocolSettingsDeposit"
+                    )
+                )
+            )
+        );
+        rocketMinipoolQueue = RocketMinipoolQueueInterface(
+            rocketStorage.getAddress(
+                keccak256(
+                    abi.encodePacked("contract.address", "rocketMinipoolQueue")
+                )
+            )
+        );
     }
 
     /// @notice Internal check for input and output tokens
     /// @dev This contract only supports swaps between rETH<=>ETH
-    /// We also check that input or output token is address(0) as ETH, to assure no wrong path prices or swaps can be executed
+    /// We also check that input or output token is address(0) as ETH, to assure
+    /// no wrong path prices or swaps can be executed
     modifier checkInputTokens(address sellToken, address buyToken) {
         if (sellToken != address(rocketETH) && buyToken != address(rocketETH)) {
             revert Unavailable(
@@ -97,26 +112,22 @@ contract RocketPoolAdapter is ISwapAdapter {
         if (sellToken != address(0)) {
             if (side == OrderSide.Buy) {
                 uint256 amountToSpend = rocketETH.getRethValue(specifiedAmount);
-                rocketETH.transferFrom(
-                    msg.sender,
-                    address(this),
-                    amountToSpend
-                );
+                rocketETH.transferFrom(msg.sender, address(this), amountToSpend);
                 rocketETH.burn(amountToSpend);
             } else {
                 rocketETH.transferFrom(
-                    msg.sender,
-                    address(this),
-                    specifiedAmount
+                    msg.sender, address(this), specifiedAmount
                 );
                 rocketETH.burn(specifiedAmount);
             }
         } else {
             if (side == OrderSide.Buy) {
                 uint256 amountIn = rocketETH.getEthValue(
-                    specifiedAmount +
-                        ((specifiedAmount * rocketDaoSettings.getDepositFee()) /
-                            PRECISION)
+                    specifiedAmount
+                        + (
+                            (specifiedAmount * rocketDaoSettings.getDepositFee())
+                                / PRECISION
+                        )
                 );
                 rocketPool.deposit{value: amountIn}();
             } else {
@@ -129,11 +140,7 @@ contract RocketPoolAdapter is ISwapAdapter {
     }
 
     /// @inheritdoc ISwapAdapter
-    function getLimits(
-        bytes32,
-        address sellToken,
-        address buyToken
-    )
+    function getLimits(bytes32, address sellToken, address buyToken)
         external
         view
         override
@@ -150,17 +157,23 @@ contract RocketPoolAdapter is ISwapAdapter {
         /**
          * @dev About MAX limits:
          * ETH Deposit limit is:
-         * depositPoolMaxCapacity - depositPoolBalance (ref: RocketDepositPool.sol:173),
-         * But if rocketDao.getAssignDepositsEnabled() is true, an additional limit of:
+         * depositPoolMaxCapacity - depositPoolBalance (ref:
+         * RocketDepositPool.sol:173),
+         * But if rocketDao.getAssignDepositsEnabled() is true, an additional
+         * limit of:
          * rocketMiniPoolQueue.getEffectiveCapacity()
          * is added. (ref: RocketDepositPool.sol:138)
-         * rETH Deposit Limit is rETH.totalCollateral(), but we getRethValue(ETH deposit limit) to make a better
-         * estimate, as the swap would revert in (Side = Buy, sellToken = ETH) if exceeding the ETH maxDepositAmount.
+         * rETH Deposit Limit is rETH.totalCollateral(), but we getRethValue(ETH
+         * deposit limit) to make a better
+         * estimate, as the swap would revert in (Side = Buy, sellToken = ETH)
+         * if exceeding the ETH maxDepositAmount.
          *
          * @dev About MIN limits:
-         * minLimits for rocketPool can be get via the function rocketDao.getMinimumDeposit(),
+         * minLimits for rocketPool can be get via the function
+         * rocketDao.getMinimumDeposit(),
          * it returns the min. amount in ETH;
-         * to get minimum rETH amount, use rocketETH.getRethValue(min. amount in ETH);
+         * to get minimum rETH amount, use rocketETH.getRethValue(min. amount in
+         * ETH);
          *
          */
         if (sellToken == address(0)) {
@@ -173,11 +186,12 @@ contract RocketPoolAdapter is ISwapAdapter {
     }
 
     /// @inheritdoc ISwapAdapter
-    function getCapabilities(
-        bytes32,
-        address,
-        address
-    ) external pure override returns (Capability[] memory capabilities) {
+    function getCapabilities(bytes32, address, address)
+        external
+        pure
+        override
+        returns (Capability[] memory capabilities)
+    {
         capabilities = new Capability[](3);
         capabilities[0] = Capability.SellOrder;
         capabilities[1] = Capability.BuyOrder;
@@ -185,35 +199,41 @@ contract RocketPoolAdapter is ISwapAdapter {
     }
 
     /// @inheritdoc ISwapAdapter
-    function getTokens(
-        bytes32
-    ) external view override returns (address[] memory tokens) {
+    function getTokens(bytes32)
+        external
+        view
+        override
+        returns (address[] memory tokens)
+    {
         tokens = new address[](2);
         tokens[0] = address(0);
         tokens[1] = address(rocketETH);
     }
 
-    function getPoolIds(
-        uint256,
-        uint256
-    ) external pure override returns (bytes32[] memory) {
+    function getPoolIds(uint256, uint256)
+        external
+        pure
+        override
+        returns (bytes32[] memory)
+    {
         revert NotImplemented("RocketPoolAdapter.getPoolIds");
     }
 
-
     /// @notice Get swap price including fee
-    /// @dev RocketPool only supports rETH<=>ETH swaps, thus we can check just one token to retrieve the price
+    /// @dev RocketPool only supports rETH<=>ETH swaps, thus we can check just
+    /// one token to retrieve the price
     /// @param sellToken token to sell
-    function getPriceAt(
-        uint256 specifiedAmount,
-        address sellToken
-    ) internal view returns (Fraction memory) {
+    function getPriceAt(uint256 specifiedAmount, address sellToken)
+        internal
+        view
+        returns (Fraction memory)
+    {
         if (sellToken == address(0)) {
-            uint256 depositFee = (specifiedAmount *
-                rocketDaoSettings.getDepositFee()) / PRECISION;
-            uint256 amountReth = rocketETH.getRethValue(
-                specifiedAmount - depositFee
-            );
+            uint256 depositFee = (
+                specifiedAmount * rocketDaoSettings.getDepositFee()
+            ) / PRECISION;
+            uint256 amountReth =
+                rocketETH.getRethValue(specifiedAmount - depositFee);
             return Fraction(amountReth, rocketETH.getEthValue(amountReth));
         } else {
             uint256 amountEth = rocketETH.getEthValue(specifiedAmount);
@@ -256,7 +276,7 @@ interface RocketStorageInterface {
     // Getters
     function getAddress(bytes32 _key) external view returns (address);
 
-    function getUint(bytes32 _key) external view returns (uint);
+    function getUint(bytes32 _key) external view returns (uint256);
 
     function getString(bytes32 _key) external view returns (string memory);
 
@@ -264,14 +284,14 @@ interface RocketStorageInterface {
 
     function getBool(bytes32 _key) external view returns (bool);
 
-    function getInt(bytes32 _key) external view returns (int);
+    function getInt(bytes32 _key) external view returns (int256);
 
     function getBytes32(bytes32 _key) external view returns (bytes32);
 
     // Setters
     function setAddress(bytes32 _key, address _value) external;
 
-    function setUint(bytes32 _key, uint _value) external;
+    function setUint(bytes32 _key, uint256 _value) external;
 
     function setString(bytes32 _key, string calldata _value) external;
 
@@ -279,7 +299,7 @@ interface RocketStorageInterface {
 
     function setBool(bytes32 _key, bool _value) external;
 
-    function setInt(bytes32 _key, int _value) external;
+    function setInt(bytes32 _key, int256 _value) external;
 
     function setBytes32(bytes32 _key, bytes32 _value) external;
 
@@ -304,13 +324,15 @@ interface RocketStorageInterface {
     function subUint(bytes32 _key, uint256 _amount) external;
 
     // Protected storage
-    function getNodeWithdrawalAddress(
-        address _nodeAddress
-    ) external view returns (address);
+    function getNodeWithdrawalAddress(address _nodeAddress)
+        external
+        view
+        returns (address);
 
-    function getNodePendingWithdrawalAddress(
-        address _nodeAddress
-    ) external view returns (address);
+    function getNodePendingWithdrawalAddress(address _nodeAddress)
+        external
+        view
+        returns (address);
 
     function setWithdrawalAddress(
         address _nodeAddress,
@@ -372,10 +394,15 @@ interface RocketDAOProtocolSettingsDepositInterface {
 
 enum MinipoolDeposit {
     None, // Marks an invalid deposit type
-    Full, // The minipool requires 32 ETH from the node operator, 16 ETH of which will be refinanced from user deposits
-    Half, // The minipool required 16 ETH from the node operator to be matched with 16 ETH from user deposits
-    Empty, // The minipool requires 0 ETH from the node operator to be matched with 32 ETH from user deposits (trusted nodes only)
-    Variable // Indicates this minipool is of the new generation that supports a variable deposit amount
+    Full, // The minipool requires 32 ETH from the node operator, 16 ETH of
+        // which will be refinanced from user deposits
+    Half, // The minipool required 16 ETH from the node operator to be matched
+        // with 16 ETH from user deposits
+    Empty, // The minipool requires 0 ETH from the node operator to be matched
+        // with 32 ETH from user deposits (trusted nodes only)
+    Variable // Indicates this minipool is of the new generation that supports a
+        // variable deposit amount
+
 }
 
 interface RocketMinipoolQueueInterface {
@@ -383,9 +410,10 @@ interface RocketMinipoolQueueInterface {
 
     function getContainsLegacy() external view returns (bool);
 
-    function getLengthLegacy(
-        MinipoolDeposit _depositType
-    ) external view returns (uint256);
+    function getLengthLegacy(MinipoolDeposit _depositType)
+        external
+        view
+        returns (uint256);
 
     function getLength() external view returns (uint256);
 
@@ -402,19 +430,20 @@ interface RocketMinipoolQueueInterface {
 
     function enqueueMinipool(address _minipool) external;
 
-    function dequeueMinipoolByDepositLegacy(
-        MinipoolDeposit _depositType
-    ) external returns (address minipoolAddress);
+    function dequeueMinipoolByDepositLegacy(MinipoolDeposit _depositType)
+        external
+        returns (address minipoolAddress);
 
-    function dequeueMinipools(
-        uint256 _maxToDequeue
-    ) external returns (address[] memory minipoolAddress);
+    function dequeueMinipools(uint256 _maxToDequeue)
+        external
+        returns (address[] memory minipoolAddress);
 
     function removeMinipool(MinipoolDeposit _depositType) external;
 
     function getMinipoolAt(uint256 _index) external view returns (address);
 
-    function getMinipoolPosition(
-        address _minipool
-    ) external view returns (int256);
+    function getMinipoolPosition(address _minipool)
+        external
+        view
+        returns (int256);
 }
