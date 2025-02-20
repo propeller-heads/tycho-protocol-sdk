@@ -10,11 +10,11 @@ uint256 constant PRECISION = 10 ** 18;
 /// @title RocketPool Adapter
 contract RocketPoolAdapter is ISwapAdapter {
 
-    RocketStorageInterface public immutable rocketStorage;
-    RocketTokenRETHInterface public immutable rocketETH;
-    RocketDepositPoolInterface public immutable rocketPool;
-    RocketDAOProtocolSettingsDepositInterface public immutable rocketDaoSettings;
-    RocketMinipoolQueueInterface public immutable rocketMinipoolQueue;
+    RocketStorageInterface private immutable rocketStorage;
+    RocketTokenRETHInterface private immutable rocketETH;
+    RocketDepositPoolInterface private immutable rocketPool;
+    RocketDAOProtocolSettingsDepositInterface private immutable rocketDaoSettings;
+    RocketMinipoolQueueInterface private immutable rocketMinipoolQueue;
 
     constructor(RocketStorageInterface rocketStorageAddress) {
         rocketStorage = RocketStorageInterface(rocketStorageAddress);

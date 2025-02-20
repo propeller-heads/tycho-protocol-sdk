@@ -15,6 +15,7 @@ contract RocketPoolAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
     RocketStorageInterface constant rocketStorage =
         RocketStorageInterface(0x1d8f8f00cfa6758d7bE78336684788Fb0ee0Fa46);
     RocketTokenRETHInterface rocketETH;
+    RocketDAOProtocolSettingsDepositInterface rocketDaoSettings;
     address rocketETHAddress;
     uint256 constant TEST_ITERATIONS = 100;
     address constant ETH = address(0);
@@ -22,9 +23,17 @@ contract RocketPoolAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
     function setUp() public {
         uint256 forkBlock = 19011957;
         vm.createSelectFork(vm.rpcUrl("mainnet"), forkBlock);
+        
         adapter = new RocketPoolAdapter(rocketStorage);
-        rocketETH = RocketTokenRETHInterface(address(adapter.rocketETH()));
+        rocketETH = RocketTokenRETHInterface(
+            rocketStorage.getAddress(keccak256(abi.encodePacked("contract.address", "rocketTokenRETH")))
+        );
         rocketETHAddress = address(rocketETH);
+        rocketDaoSettings = RocketDAOProtocolSettingsDepositInterface(rocketStorage.getAddress(
+            keccak256(
+                abi.encodePacked("contract.address", "rocketDAOProtocolSettingsDeposit")
+            )
+        ));
 
         vm.label(address(adapter), "RocketPoolAdapter");
         vm.label(address(0), "ETH");
@@ -39,7 +48,7 @@ contract RocketPoolAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
     ) internal view returns (uint256[] memory minLimits) {
         minLimits = new uint256[](2);
 
-        uint256 minETHAmount = adapter.rocketDaoSettings().getMinimumDeposit();
+        uint256 minETHAmount = rocketDaoSettings.getMinimumDeposit();
         if (sellTokenAddress == rocketETHAddress) {
             minLimits[0] = rocketETH.getRethValue(minETHAmount);
             minLimits[1] = minETHAmount;
