@@ -1,0 +1,79 @@
+syntax = "proto3";
+
+import "google/protobuf/timestamp.proto";
+
+package contract.v1;
+
+message Events {
+    repeated rocketvault_EtherDeposited rocketvault_ether_depositeds = 1;
+    repeated rocketvault_EtherWithdrawn rocketvault_ether_withdrawns = 2;
+    repeated rocketvault_TokenBurned rocketvault_token_burneds = 3;
+    repeated rocketvault_TokenDeposited rocketvault_token_depositeds = 4;
+    repeated rocketvault_TokenTransfer rocketvault_token_transfers = 5;
+    repeated rocketvault_TokenWithdrawn rocketvault_token_withdrawns = 6;
+}
+
+message rocketvault_EtherDeposited {
+    string evt_tx_hash = 1;
+    uint32 evt_index = 2;
+    google.protobuf.Timestamp evt_block_time = 3;
+    uint64 evt_block_number = 4;
+    string by = 5;
+    string amount = 6;
+    string time = 7;
+}
+
+message rocketvault_EtherWithdrawn {
+    string evt_tx_hash = 1;
+    uint32 evt_index = 2;
+    google.protobuf.Timestamp evt_block_time = 3;
+    uint64 evt_block_number = 4;
+    string by = 5;
+    string amount = 6;
+    string time = 7;
+}
+
+message rocketvault_TokenBurned {
+    string evt_tx_hash = 1;
+    uint32 evt_index = 2;
+    google.protobuf.Timestamp evt_block_time = 3;
+    uint64 evt_block_number = 4;
+    bytes by = 5;
+    bytes token_address = 6;
+    string amount = 7;
+    string time = 8;
+}
+
+message rocketvault_TokenDeposited {
+    string evt_tx_hash = 1;
+    uint32 evt_index = 2;
+    google.protobuf.Timestamp evt_block_time = 3;
+    uint64 evt_block_number = 4;
+    bytes by = 5;
+    bytes token_address = 6;
+    string amount = 7;
+    string time = 8;
+}
+
+message rocketvault_TokenTransfer {
+    string evt_tx_hash = 1;
+    uint32 evt_index = 2;
+    google.protobuf.Timestamp evt_block_time = 3;
+    uint64 evt_block_number = 4;
+    bytes by = 5;
+    bytes to = 6;
+    bytes token_address = 7;
+    string amount = 8;
+    string time = 9;
+}
+
+message rocketvault_TokenWithdrawn {
+    string evt_tx_hash = 1;
+    uint32 evt_index = 2;
+    google.protobuf.Timestamp evt_block_time = 3;
+    uint64 evt_block_number = 4;
+    bytes by = 5;
+    bytes token_address = 6;
+    string amount = 7;
+    string time = 8;
+}
