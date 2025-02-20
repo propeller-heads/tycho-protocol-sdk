@@ -48,7 +48,9 @@ pub fn map_components(block: eth::v2::Block) -> Result<BlockTransactionProtocolC
                 components.push(buffer_component);
             }
         }
-        tx_components.push(TransactionProtocolComponents { tx: Some(tx.into()), components });
+        if !components.is_empty() {
+            tx_components.push(TransactionProtocolComponents { tx: Some(tx.into()), components });
+        }
     }
     Ok(BlockTransactionProtocolComponents { tx_components })
 }
@@ -365,6 +367,18 @@ pub fn map_protocol_changes(
                 });
         });
 
+    // Extract and insert any storage changes that happened for any of the components.
+    extract_contract_changes_builder(
+        &block,
+        |addr| {
+            components_store
+                .get_last(format!("pool:0x{0}", hex::encode(addr)))
+                .is_some()
+                || addr.eq(VAULT_ADDRESS)
+        },
+        &mut transaction_changes,
+    );
+
     // Extract token balances for balancer v3 vault
     block
         .transaction_traces
@@ -382,18 +396,6 @@ pub fn map_protocol_changes(
             }
             builder.add_contract_changes(&vault_contract_tlv_changes);
         });
-
-    // Extract and insert any storage changes that happened for any of the components.
-    extract_contract_changes_builder(
-        &block,
-        |addr| {
-            components_store
-                .get_last(format!("pool:0x{0}", hex::encode(addr)))
-                .is_some() ||
-                addr.eq(VAULT_ADDRESS)
-        },
-        &mut transaction_changes,
-    );
 
     transaction_changes
         .iter_mut()
