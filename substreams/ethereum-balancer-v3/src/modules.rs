@@ -373,8 +373,8 @@ pub fn map_protocol_changes(
         |addr| {
             components_store
                 .get_last(format!("pool:0x{0}", hex::encode(addr)))
-                .is_some()
-                || addr.eq(VAULT_ADDRESS)
+                .is_some() ||
+                addr.eq(VAULT_ADDRESS)
         },
         &mut transaction_changes,
     );
@@ -384,17 +384,24 @@ pub fn map_protocol_changes(
         .transaction_traces
         .iter()
         .for_each(|tx| {
-            let mut vault_contract_tlv_changes = InterimContractChange::new(VAULT_ADDRESS, false);
-            let tycho_tx = Transaction::from(tx);
-            let builder = transaction_changes
-                .entry(tx.index.into())
-                .or_insert_with(|| TransactionChangesBuilder::new(&tycho_tx));
             let vault_balance_change_per_tx = get_vault_reserves(tx, &components_store);
-            for (token_addr, reserve_value) in vault_balance_change_per_tx {
-                vault_contract_tlv_changes
-                    .upsert_token_balance(token_addr.as_slice(), reserve_value.value.as_slice());
+
+            if !vault_balance_change_per_tx.is_empty() {
+                let tycho_tx = Transaction::from(tx);
+                let builder = transaction_changes
+                    .entry(tx.index.into())
+                    .or_insert_with(|| TransactionChangesBuilder::new(&tycho_tx));
+
+                let mut vault_contract_tlv_changes =
+                    InterimContractChange::new(VAULT_ADDRESS, false);
+                for (token_addr, reserve_value) in vault_balance_change_per_tx {
+                    vault_contract_tlv_changes.upsert_token_balance(
+                        token_addr.as_slice(),
+                        reserve_value.value.as_slice(),
+                    );
+                }
+                builder.add_contract_changes(&vault_contract_tlv_changes);
             }
-            builder.add_contract_changes(&vault_contract_tlv_changes);
         });
 
     transaction_changes
