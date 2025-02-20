@@ -2,30 +2,36 @@
 pragma experimental ABIEncoderV2;
 pragma solidity ^0.8.13;
 
-import {IERC20, ISwapAdapter} from "src/interfaces/ISwapAdapter.sol";
+import {ISwapAdapter} from "src/interfaces/ISwapAdapter.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
-uint256 constant STANDARD_TOKEN_DECIMALS = 10**18;
+uint256 constant PRECISION = 10**18;
 
 /// @title RocketPool Adapter
 contract RocketPoolAdapter is ISwapAdapter {
 
-    RocketStorageInterface rocketStorage;
+    RocketStorageInterface immutable rocketStorage;
+    RocketTokenRETHInterface immutable rocketETH;
+    RocketDepositPoolInterface immutable rocketPool;
+    RocketDAOProtocolSettingsDepositInterface immutable rocketDaoSettings;
+    address immutable rEthAddress;
 
     constructor(RocketStorageInterface _rocketStorage) {
         rocketStorage = _rocketStorage;
+        rEthAddress = _getrEthTokenAddress();
+        rocketETH = RocketTokenRETHInterface(rEthAddress);
+        rocketPool = _getRocketPool();
+        rocketDaoSettings = _getRocketDaoSettings();
     }
 
     /// @notice Internal check for input and output tokens
     /// @dev This contract only supports swaps between rETH<=>ETH
     /// We also check that input or output token is address(0) as ETH, to assure no wrong path prices or swaps can be executed
-    modifier checkInputTokens(IERC20 sellToken, IERC20 buyToken) {
-        address sellTokenAddress = address(sellToken);
-        address buyTokenAddress = address(buyToken);
-        address rEthTokenAddress = _getrEthTokenAddress();
-        if(sellTokenAddress != rEthTokenAddress && buyTokenAddress != rEthTokenAddress) {
+    modifier checkInputTokens(address sellToken, address buyToken) {
+        if(sellToken != rEthAddress && buyToken != rEthAddress) {
             revert Unavailable("This contract only supports rETH<=>ETH(address(0)) swaps");
         }
-        if(sellTokenAddress != address(0) && buyTokenAddress != address(0)) {
+        if(sellToken != address(0) && buyToken != address(0)) {
             revert Unavailable("This contract only supports rETH<=>ETH(address(0)) swaps");
         }
         _;
@@ -37,22 +43,22 @@ contract RocketPoolAdapter is ISwapAdapter {
     /// @inheritdoc ISwapAdapter
     function price(
         bytes32,
-        IERC20 _sellToken,
-        IERC20 _buyToken,
-        uint256[] memory _specifiedAmounts
-    ) checkInputTokens(_sellToken, _buyToken) external view override returns (Fraction[] memory _prices) {
-        _prices = new Fraction[](_specifiedAmounts.length);
+        address sellToken,
+        address buyToken,
+        uint256[] memory specifiedAmounts
+    ) checkInputTokens(sellToken, buyToken) external view override returns (Fraction[] memory prices) {
+        prices = new Fraction[](specifiedAmounts.length);
         
-        for (uint256 i = 0; i < _specifiedAmounts.length; i++) {
-            _prices[i] = getPriceAt(_specifiedAmounts[i], _sellToken);
+        for (uint256 i = 0; i < specifiedAmounts.length; i++) {
+            prices[i] = getPriceAt(specifiedAmounts[i], sellToken);
         }
     }
 
     /// @inheritdoc ISwapAdapter
     function swap(
         bytes32,
-        IERC20 sellToken,
-        IERC20 buyToken,
+        address sellToken,
+        address buyToken,
         OrderSide side,
         uint256 specifiedAmount
     ) checkInputTokens(sellToken, buyToken) external returns (Trade memory trade) {
@@ -61,11 +67,8 @@ contract RocketPoolAdapter is ISwapAdapter {
         }
 
         uint256 gasBefore = gasleft();
-        RocketTokenRETHInterface rocketETH = RocketTokenRETHInterface(_getrEthTokenAddress());
-        RocketDepositPoolInterface rocketPool = _getRocketPool();
-        RocketDAOProtocolSettingsDepositInterface rocketDaoSettings = _getRocketDaoSettings();
 
-        if(address(sellToken) != address(0)) {
+        if(sellToken != address(0)) {
             if(side == OrderSide.Buy) {
                 uint256 amountToSpend = rocketETH.getRethValue(specifiedAmount);
                 rocketETH.transferFrom(msg.sender, address(this), amountToSpend);
@@ -78,7 +81,7 @@ contract RocketPoolAdapter is ISwapAdapter {
         }
         else {
             if(side == OrderSide.Buy) {
-                uint256 amountIn = rocketETH.getEthValue(specifiedAmount + (specifiedAmount * rocketDaoSettings.getDepositFee() / STANDARD_TOKEN_DECIMALS));
+                uint256 amountIn = rocketETH.getEthValue(specifiedAmount + (specifiedAmount * rocketDaoSettings.getDepositFee() / PRECISION));
                 rocketPool.deposit{value: amountIn}();
             }
             else {
@@ -91,20 +94,17 @@ contract RocketPoolAdapter is ISwapAdapter {
     }
 
     /// @inheritdoc ISwapAdapter
-    function getLimits(bytes32, IERC20 sellToken, IERC20 buyToken)
+    function getLimits(bytes32, address sellToken, address buyToken)
         checkInputTokens(sellToken, buyToken)
         external
         view
         override
         returns (uint256[] memory limits)
     {
-        RocketTokenRETHInterface rocketETH = RocketTokenRETHInterface(_getrEthTokenAddress());
-        RocketDAOProtocolSettingsDepositInterface rocketDao = _getRocketDaoSettings();
         RocketMinipoolQueueInterface rocketMiniPoolQueue = _getRocketMiniPoolQueue();
-        RocketDepositPoolInterface rocketPool = _getRocketPool();
 
         uint256 ETHLimit = rocketPool.getMaximumDepositAmount();
-        if(rocketDao.getAssignDepositsEnabled()) {
+        if(rocketDaoSettings.getAssignDepositsEnabled()) {
             ETHLimit = ETHLimit + rocketMiniPoolQueue.getEffectiveCapacity();
         }
         uint256 rETHLimit = rocketETH.getRethValue(ETHLimit);
@@ -126,7 +126,7 @@ contract RocketPoolAdapter is ISwapAdapter {
          * to get minimum rETH amount, use rocketETH.getRethValue(min. amount in ETH);
          * 
          */
-        if(address(sellToken) == address(0)) {
+        if(sellToken == address(0)) {
             limits[0] = ETHLimit;
             limits[1] = rETHLimit;
         }
@@ -137,7 +137,7 @@ contract RocketPoolAdapter is ISwapAdapter {
     }
 
     /// @inheritdoc ISwapAdapter
-    function getCapabilities(bytes32, IERC20, IERC20)
+    function getCapabilities(bytes32, address, address)
         external
         pure
         override
@@ -154,11 +154,11 @@ contract RocketPoolAdapter is ISwapAdapter {
         external
         view
         override
-        returns (IERC20[] memory tokens)
+        returns (address[] memory tokens)
     {
-        tokens = new IERC20[](2);
-        tokens[0] = IERC20(address(0));
-        tokens[1] = IERC20(_getrEthTokenAddress());
+        tokens = new address[](2);
+        tokens[0] = address(0);
+        tokens[1] = rEthAddress;
     }
 
     function getPoolIds(uint256, uint256)
@@ -198,12 +198,10 @@ contract RocketPoolAdapter is ISwapAdapter {
     /// @notice Get swap price including fee
     /// @dev RocketPool only supports rETH<=>ETH swaps, thus we can check just one token to retrieve the price
     /// @param sellToken token to sell
-    function getPriceAt(uint256 specifiedAmount, IERC20 sellToken) internal view returns (Fraction memory) {
-        RocketTokenRETHInterface rocketETH = RocketTokenRETHInterface(_getrEthTokenAddress());
-        RocketDAOProtocolSettingsDepositInterface rocketDaoSettings = _getRocketDaoSettings();
+    function getPriceAt(uint256 specifiedAmount, address sellToken) internal view returns (Fraction memory) {
 
-        if(address(sellToken) == address(0)) {
-            uint256 depositFee = specifiedAmount * rocketDaoSettings.getDepositFee() / STANDARD_TOKEN_DECIMALS;
+        if(sellToken == address(0)) {
+            uint256 depositFee = specifiedAmount * rocketDaoSettings.getDepositFee() / PRECISION;
             uint256 amountReth = rocketETH.getRethValue(specifiedAmount - depositFee);
             return Fraction(
                 amountReth,
