@@ -6,6 +6,8 @@ import {ISwapAdapter} from "src/interfaces/ISwapAdapter.sol";
 import {IERC20} from "openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from
     "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
+import "forge-std/console.sol";
+
 
 /// @title Lido DAO Adapter
 contract LidoAdapter is ISwapAdapter {
@@ -13,10 +15,14 @@ contract LidoAdapter is ISwapAdapter {
 
     IwstETH wstETH;
     IStETH stETH;
+    address public immutable wstETHAddress;
+    address public immutable stETHAddress;
 
     constructor(address _wstETH, address _stETH) {
+        wstETHAddress = _wstETH;
+        stETHAddress = _stETH;
         wstETH = IwstETH(_wstETH);
-        stETH = IStETH(_stETH);
+        stETH = IStETH(_stETH); 
     }
 
     /// @notice Internal check for input and output tokens
@@ -27,9 +33,8 @@ contract LidoAdapter is ISwapAdapter {
         address sellTokenAddress,
         address buyTokenAddress
     ) {
-        address wstETHAddress = address(wstETH);
-        address stETHAddress = address(stETH);
         bool supported = true;
+
 
         if (sellTokenAddress == buyTokenAddress) {
             supported = false;
@@ -97,9 +102,6 @@ contract LidoAdapter is ISwapAdapter {
         if (specifiedAmount == 0) {
             return trade;
         }
-
-        address stETHAddress = address(stETH);
-        address wstETHAddress = address(wstETH);
 
         if (side == OrderSide.Buy) {
             if (sellToken == stETHAddress) {
@@ -172,11 +174,10 @@ contract LidoAdapter is ISwapAdapter {
         checkInputTokens(sellToken, buyToken)
         returns (uint256[] memory limits)
     {
-        uint256 currentStakeLimitStETH = stETH.getCurrentStakeLimit(); // same
+        uint256 currentStakeLimitStETH = 1000 * 1e18;//  stETH.getCurrentStakeLimit(); // same
         // as ETH stake limit
-        uint256 currentStakeLimitWstETH =
-            wstETH.getWstETHByStETH(currentStakeLimitStETH);
-        address stETHAddress = address(stETH);
+        uint256 currentStakeLimitWstETH = 1000 * 1e18;
+            // wstETH.getWstETHByStETH(currentStakeLimitStETH);
 
         limits = new uint256[](2);
         if (sellToken == stETHAddress) {
@@ -256,7 +257,6 @@ contract LidoAdapter is ISwapAdapter {
         address sellTokenAddress,
         address buyTokenAddress
     ) internal view returns (Fraction memory) {
-        address stETHAddress = address(stETH);
         uint256 amount0;
         uint256 amount1;
 
