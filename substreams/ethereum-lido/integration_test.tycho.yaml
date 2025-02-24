@@ -28,8 +28,10 @@ tests:
 # stETH creation tx: 0x3feabd79e8549ad68d1827c074fa7123815c80206498946293d5373a160fd866
 # stETH deployed at 11473216
   - name: lido_wsteth_component
-    start_block: 11473216 # stETH deployement block
-    stop_block: 11918746 # wstETH deployement block + 100 blocks
+    start_block: 11888477
+    stop_block: 11918656
+    initialized_accounts:
+      - "0xae7ab96520de3a18e5e111b5eaab095312d7fe84"
     expected_components:
       - id: "0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0"
         tokens:
