@@ -13,11 +13,15 @@ contract LidoAdapterTest is Test, ISwapAdapterTypes {
     LidoAdapter adapter;
     address constant wstETH = 0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0;
     address constant stETH = 0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84;
+    address constant kernelProxy = 0xb8FFC3Cd6e7Cf5a098A1c92F48009765B24088Dc;
+    address constant kernel = 0x2b33CF282f867A7FF693A66e11B0FcC5552e4425;
+    address constant lido = 0x17144556fd3424EDC8Fc8A4C940B2D04936d17eb;
+    address constant lido2 = 0x20dC62D5904633cC6a5E34bEc87A048E80C92e97;
     address constant ETH = address(0);
     uint256 constant TEST_ITERATIONS = 100;
 
     function setUp() public {
-        uint256 forkBlock = 19011957;
+        uint256 forkBlock = 19860543;
         vm.createSelectFork(vm.rpcUrl("mainnet"), forkBlock);
         adapter = new LidoAdapter(wstETH, stETH);
 
@@ -25,6 +29,10 @@ contract LidoAdapterTest is Test, ISwapAdapterTypes {
         vm.label(ETH, "ETH");
         vm.label(wstETH, "wstETH");
         vm.label(stETH, "stETH");
+        vm.label(kernelProxy, "KernelProxy");
+        vm.label(kernel, "Kernel");
+        vm.label(lido, "Lido");
+        vm.label(lido2, "Lido2");
     }
 
     /// @dev enable receive as ether will be sent to this address, and it is a
@@ -114,6 +122,18 @@ contract LidoAdapterTest is Test, ISwapAdapterTypes {
             assertGt(prices[i].numerator, 0);
             assertGt(prices[i].denominator, 0);
         }
+    }
+
+    function testSwapLidoStethWsteth() public {
+        bytes32 pair = bytes32(0);
+        // uint256[] memory limits = adapter.getLimits(pair, stETH, wstETH);
+        
+
+        uint256 specifiedAmount = 10**18;
+        dealStEthTokens(specifiedAmount);
+        IERC20(stETH).approve(address(adapter), specifiedAmount);
+
+        Trade memory trade = adapter.swap(pair, stETH, wstETH, OrderSide.Sell, specifiedAmount);
     }
 
     function testSwapFuzzLidoStEth(uint256 specifiedAmount, bool isBuy)
