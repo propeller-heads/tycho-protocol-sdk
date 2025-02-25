@@ -7,26 +7,28 @@ adapter_build_args: "0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0,0xae7ab96520de3a
 skip_balance_check: true # this is not working as the components_id are itself token addresses and not traditional pools
 
 tests:
-#   - name: lido_steth_component
-#     start_block: 11473216
-#     stop_block: 11473236
-#     expected_components:
-#       - id: "0xae7ab96520de3a18e5e111b5eaab095312d7fe84"
-#         tokens:
-#           - "0x0000000000000000000000000000000000000000" # ETH
-#           - "0xae7ab96520de3a18e5e111b5eaab095312d7fe84" # stETH
-#         static_attributes:
-#           vault_type: "0x7374657468"
-#         skip_simulation: true # this is because ethereum cannot be used as output token (as withdrawal is not instant)
-#         creation_tx: "0x3feabd79e8549ad68d1827c074fa7123815c80206498946293d5373a160fd866"
+  - name: lido_steth_component
+    start_block: 11473216
+    stop_block: 11473236
+    expected_components:
+      - id: "0xae7ab96520de3a18e5e111b5eaab095312d7fe84"
+        tokens:
+          - "0x0000000000000000000000000000000000000000" # ETH
+          - "0xae7ab96520de3a18e5e111b5eaab095312d7fe84" # stETH
+        static_attributes:
+          vault_type: "0x7374657468"
+        skip_simulation: true # this is because ethereum cannot be used as output token (as withdrawal is not instant)
+        creation_tx: "0x3feabd79e8549ad68d1827c074fa7123815c80206498946293d5373a160fd866"
 
-# First Unwrap Tx --> 0x868e8ad94119f7674c8f3402aa3117c3341d2b6d2f8b68c6231dd2f9081a2cc4
-# Direction:wstETH --> stETH
-# Block: 19860543
+# First Unwrap Tx --> 0x3b558a6f04b3e441dd7d2dbe5a906af7178732052696059ea84f95cc47b062cc
+# Direction: wstETH --> stETH
+# Block: 111918646
   - name: lido_wsteth_component
     start_block: 11888477
-    stop_block: 19860643
-    # stop_block: 11918656
+    # stop_block: 19860643
+    stop_block: 11918666
+    initialized_accounts:
+      - "0xae7ab96520de3a18e5e111b5eaab095312d7fe84" # stETH
     expected_components:
       - id: "0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0"
         tokens:

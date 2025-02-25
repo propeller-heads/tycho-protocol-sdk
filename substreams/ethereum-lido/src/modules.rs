@@ -41,6 +41,7 @@ pub fn map_components(block: eth::v2::Block) -> Result<BlockTransactionProtocolC
                 let mut components = vec![];
                 if tx.hash == WSTETH_CREATION_TX {
                     components.extend([ProtocolComponent::at_contract(WSTETH_ADDRESS.as_slice())
+                        .with_contracts(&[LIDO_STETH_ADDRESS.to_vec()])
                         .with_tokens(&[LIDO_STETH_ADDRESS, WSTETH_ADDRESS])
                         .with_attributes(&[("vault_type", "wsteth".as_bytes())])
                         .as_swap_type("lido_vault", ImplementationType::Vm)]);
