@@ -30,12 +30,6 @@ tests:
   - name: lido_wsteth_component
     start_block: 11473216 # stETH deployement block
     stop_block: 11918746 # wstETH deployement block + 100 blocks
-    initialized_accounts:
-      - "0xae7ab96520de3a18e5e111b5eaab095312d7fe84" # stETH
-      - "0xb8FFC3Cd6e7Cf5a098A1c92F48009765B24088Dc" # kernelProxy
-      - "0x2b33CF282f867A7FF693A66e11B0FcC5552e4425" # kernel
-      - "0x17144556fd3424EDC8Fc8A4C940B2D04936d17eb" # lido
-      - "0x20dC62D5904633cC6a5E34bEc87A048E80C92e97" # lido2
     expected_components:
       - id: "0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0"
         tokens:
