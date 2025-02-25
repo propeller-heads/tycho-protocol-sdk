@@ -21,7 +21,7 @@ contract LidoAdapterTest is Test, ISwapAdapterTypes {
     uint256 constant TEST_ITERATIONS = 100;
 
     function setUp() public {
-        uint256 forkBlock = 19860543;
+        uint256 forkBlock = 11918646;
         vm.createSelectFork(vm.rpcUrl("mainnet"), forkBlock);
         adapter = new LidoAdapter(wstETH, stETH);
 
@@ -124,12 +124,14 @@ contract LidoAdapterTest is Test, ISwapAdapterTypes {
         }
     }
 
-    function testSwapLidoStethWsteth() public {
+    // WstETH -> StETH
+    function testSwapLidoWstethSteth() public {
         bytes32 pair = bytes32(0);
         // uint256[] memory limits = adapter.getLimits(pair, stETH, wstETH);
         
 
-        uint256 specifiedAmount = 10**18;
+        // uint256 specifiedAmount = 10**18;
+        uint256 specifiedAmount = 18511902000000000;
         dealStEthTokens(specifiedAmount);
         IERC20(stETH).approve(address(adapter), specifiedAmount);
 
