@@ -127,15 +127,13 @@ contract LidoAdapterTest is Test, ISwapAdapterTypes {
     // WstETH -> StETH
     function testSwapLidoWstethSteth() public {
         bytes32 pair = bytes32(0);
-        // uint256[] memory limits = adapter.getLimits(pair, stETH, wstETH);
-        
-
-        // uint256 specifiedAmount = 10**18;
+        console.log("Adapter address: ", address(adapter));
+        console.log("Test address: ", address(this));
         uint256 specifiedAmount = 18511902000000000;
         dealStEthTokens(specifiedAmount);
         IERC20(stETH).approve(address(adapter), specifiedAmount);
 
-        Trade memory trade = adapter.swap(pair, stETH, wstETH, OrderSide.Sell, specifiedAmount);
+        adapter.swap(pair, stETH, wstETH, OrderSide.Sell, specifiedAmount);
     }
 
     function testSwapFuzzLidoStEth(uint256 specifiedAmount, bool isBuy)
