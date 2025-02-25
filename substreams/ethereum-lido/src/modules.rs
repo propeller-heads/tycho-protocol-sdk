@@ -30,6 +30,10 @@ const LIDO_STETH_CREATION_TX: [u8; 32] =
     hex!("3feabd79e8549ad68d1827c074fa7123815c80206498946293d5373a160fd866"); //stETH creation tx
 const WSTETH_CREATION_TX: [u8; 32] =
     hex!("af2c1a501d2b290ef1e84ddcfc7beb3406f8ece2c46dee14e212e8233654ff05"); //wstETH creation tx
+const KERNEL_PROXY_ADDRESS: [u8; 20] = hex!("b8FFC3Cd6e7Cf5a098A1c92F48009765B24088Dc"); //kernelProxy
+const KERNEL_ADDRESS: [u8; 20] = hex!("2b33CF282f867A7FF693A66e11B0FcC5552e4425"); //kernel
+const LIDO_ADDRESS: [u8; 20] = hex!("17144556fd3424EDC8Fc8A4C940B2D04936d17eb"); //lido
+const LIDO2_ADDRESS: [u8; 20] = hex!("20dC62D5904633cC6a5E34bEc87A048E80C92e97"); //lido2
 
 #[substreams::handlers::map]
 pub fn map_components(block: eth::v2::Block) -> Result<BlockTransactionProtocolComponents> {
@@ -41,7 +45,7 @@ pub fn map_components(block: eth::v2::Block) -> Result<BlockTransactionProtocolC
                 let mut components = vec![];
                 if tx.hash == WSTETH_CREATION_TX {
                     components.extend([ProtocolComponent::at_contract(WSTETH_ADDRESS.as_slice())
-                        .with_contracts(&[LIDO_STETH_ADDRESS.to_vec()])
+                        .with_contracts(&[LIDO_STETH_ADDRESS.to_vec(), KERNEL_PROXY_ADDRESS.to_vec(), KERNEL_ADDRESS.to_vec(), LIDO_ADDRESS.to_vec(), LIDO2_ADDRESS.to_vec()])
                         .with_tokens(&[LIDO_STETH_ADDRESS, WSTETH_ADDRESS])
                         .with_attributes(&[("vault_type", "wsteth".as_bytes())])
                         .as_swap_type("lido_vault", ImplementationType::Vm)]);

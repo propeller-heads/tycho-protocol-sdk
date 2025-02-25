@@ -22,13 +22,20 @@ tests:
 
 # First Unwrap Tx --> 0x3b558a6f04b3e441dd7d2dbe5a906af7178732052696059ea84f95cc47b062cc
 # Direction: wstETH --> stETH
-# Block: 111918646
+# Block: 11918646
+# wstETH creation tx: 0xaf2c1a501d2b290ef1e84ddcfc7beb3406f8ece2c46dee14e212e8233654ff05
+# wstETH deployed at 11888477
+# stETH creation tx: 0x3feabd79e8549ad68d1827c074fa7123815c80206498946293d5373a160fd866
+# stETH deployed at 11473216
   - name: lido_wsteth_component
-    start_block: 11888477
-    # stop_block: 19860643
-    stop_block: 11918666
+    start_block: 11473216 # stETH deployement block
+    stop_block: 11918746 # wstETH deployement block + 100 blocks
     initialized_accounts:
       - "0xae7ab96520de3a18e5e111b5eaab095312d7fe84" # stETH
+      - "0xb8FFC3Cd6e7Cf5a098A1c92F48009765B24088Dc" # kernelProxy
+      - "0x2b33CF282f867A7FF693A66e11B0FcC5552e4425" # kernel
+      - "0x17144556fd3424EDC8Fc8A4C940B2D04936d17eb" # lido
+      - "0x20dC62D5904633cC6a5E34bEc87A048E80C92e97" # lido2
     expected_components:
       - id: "0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0"
         tokens:
