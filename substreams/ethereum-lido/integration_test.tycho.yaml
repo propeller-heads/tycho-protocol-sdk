@@ -23,6 +23,8 @@ tests:
   - name: lido_wsteth_component
     start_block: 11888477
     stop_block: 11888820
+    initialized_accounts:
+      - "0xae7ab96520de3a18e5e111b5eaab095312d7fe84"
     expected_components:
       - id: "0x7f39c581f595b53c5cb19bd0b3f8da6c935e2ca0"
         tokens:
