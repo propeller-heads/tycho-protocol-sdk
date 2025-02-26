@@ -39,11 +39,18 @@ contract MaverickV2SwapAdapter is ISwapAdapter {
         uint256[] memory specifiedAmounts
     ) external override returns (Fraction[] memory calculatedPrices) {
         calculatedPrices = new Fraction[](specifiedAmounts.length);
+
+        IMaverickV2Pool pool = IMaverickV2Pool(address(bytes20(poolId)));
+        IMaverickV2Pool.State memory state = pool.getState();
+
+        bool isTokenAIn = (sellToken == address(pool.tokenA()));
+        (uint256 reserveIn, uint256 reserveOut) = isTokenAIn
+            ? (state.reserveA, state.reserveB)
+            : (state.reserveB, state.reserveA);
+
         for (uint256 i = 0; i < specifiedAmounts.length; i++) {
             calculatedPrices[i] = priceAt(
-                IMaverickV2Pool(address(bytes20(poolId))),
-                sellToken,
-                specifiedAmounts[i]
+                pool, sellToken, specifiedAmounts[i], reserveIn, reserveOut
             );
         }
         return calculatedPrices;
@@ -53,11 +60,15 @@ contract MaverickV2SwapAdapter is ISwapAdapter {
     /// @param pool The pool to calculate the price for.
     /// @param sellToken The token to calculate the price for.
     /// @param sellAmount The amount of the token to calculate the price for.
-    /// @return calculatedPrice The calculated price.
+    /// @param reserveIn The reserve of the input token.
+    /// @param reserveOut The reserve of the output token.
+    /// @return calculatedPrice The calculated price of the token.
     function priceAt(
         IMaverickV2Pool pool,
         address sellToken,
-        uint256 sellAmount
+        uint256 sellAmount,
+        uint256 reserveIn,
+        uint256 reserveOut
     ) public returns (Fraction memory calculatedPrice) {
         bool isTokenAIn = (sellToken == address(pool.tokenA()));
 
@@ -69,7 +80,10 @@ contract MaverickV2SwapAdapter is ISwapAdapter {
             isTokenAIn ? type(int32).max : type(int32).min
         );
 
-        calculatedPrice = Fraction(amountOut, amountIn);
+        uint256 newReserveOut = reserveOut - amountOut;
+        uint256 newReserveIn = reserveIn + amountIn;
+
+        calculatedPrice = Fraction(newReserveOut, newReserveIn);
     }
 
     /// @inheritdoc ISwapAdapter
@@ -278,6 +292,7 @@ interface IMaverickV2Pool {
         uint8 protocolFeeRatioD3;
     }
 
+    function fee(bool tokenAIn) external view returns (uint256);
     function tokenA() external view returns (IERC20);
     function tokenB() external view returns (IERC20);
     function factory() external view returns (IMaverickV2Factory);
