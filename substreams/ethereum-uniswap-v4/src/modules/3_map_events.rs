@@ -31,7 +31,7 @@ pub fn map_events(
             receipt
                 .logs
                 .iter()
-                .filter_map(|log| log_to_event(&log, &tx, &pools_store))
+                .filter_map(|log| log_to_event(log, &tx, &pools_store))
                 .collect::<Vec<_>>()
         })
         .collect::<Vec<_>>();
