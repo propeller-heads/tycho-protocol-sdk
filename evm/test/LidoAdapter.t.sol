@@ -21,7 +21,7 @@ contract LidoAdapterTest is Test, ISwapAdapterTypes {
     uint256 constant TEST_ITERATIONS = 100;
 
     function setUp() public {
-        uint256 forkBlock = 11918646;
+        uint256 forkBlock = 21929540;
         vm.createSelectFork(vm.rpcUrl("mainnet"), forkBlock);
         adapter = new LidoAdapter(wstETH, stETH);
 

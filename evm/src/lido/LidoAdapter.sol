@@ -103,53 +103,50 @@ contract LidoAdapter is ISwapAdapter {
             return trade;
         }
 
-        // Get conversion rates once to use throughout the function
-        uint256 stEthPerToken = wstETH.stEthPerToken(); // stETH per 1 wstETH
-        uint256 tokensPerStEth = wstETH.tokensPerStEth(); // wstETH per 1 stETH
         uint256 gasBefore = gasleft();
 
         if (side == OrderSide.Buy) {
+            // sellToken is stETH, buyToken is wstETH | stETH -> wstETH ratio updates every few blocks
             if (sellToken == stETHAddress) {
-                // stETH -> wstETH: User wants specifiedAmount of wstETH
-                uint256 amountIn = (specifiedAmount * stEthPerToken) / 1e18;
+                // User wants specifiedAmount of wstETH
+                // stEthPerToken() returns amount ofstETH per 1 wstETH
+                trade.calculatedAmount = (specifiedAmount * wstETH.stEthPerToken()) / 1e18;
                 IERC20(stETH).safeTransferFrom(
                     msg.sender,
                     address(this),
-                    amountIn
+                    trade.calculatedAmount
                 );
-                IERC20(stETH).safeIncreaseAllowance(wstETHAddress, amountIn);
-                wstETH.wrap(amountIn);
-                trade.calculatedAmount = amountIn;
+                IERC20(stETH).safeIncreaseAllowance(wstETHAddress, trade.calculatedAmount);
+                wstETH.wrap(trade.calculatedAmount);
             } else if (sellToken == wstETHAddress) {
                 // wstETH -> stETH: User wants specifiedAmount of stETH
-                uint256 amountIn = (specifiedAmount * tokensPerStEth) / 1e18;
+                trade.calculatedAmount = (specifiedAmount * wstETH.tokensPerStEth()) / 1e18;
                 IERC20(wstETH).safeTransferFrom(
                     msg.sender,
                     address(this),
-                    amountIn
+                    trade.calculatedAmount
                 );
-                wstETH.unwrap(amountIn);
-                trade.calculatedAmount = amountIn;
+                wstETH.unwrap(trade.calculatedAmount);
             } else {
-                // ETH -> stETH/wstETH
+                // ETH -> stETH
                 if (buyToken == stETHAddress) {
-                    uint256 amountIn = stETH.getPooledEthByShares(
-                        specifiedAmount
-                    );
-                    (bool sent_, ) = wstETHAddress.call{value: amountIn}("");
+                    trade.calculatedAmount = specifiedAmount;
+                    (bool sent_, ) = stETHAddress.call{value: trade.calculatedAmount}("");
                     if (!sent_) revert Unavailable("Ether transfer failed");
-                    uint256 wstETHAmountReceived = stETH.getSharesByPooledEth(
-                        amountIn
-                    );
-                    wstETH.unwrap(wstETHAmountReceived);
+ 
                 } else {
-                    (bool sent_, ) = wstETHAddress.call{value: specifiedAmount}(
-                        ""
-                    );
+                    // ETH -> wstETH
+                    trade.calculatedAmount = (specifiedAmount * wstETH.stEthPerToken()) / 1e18;
+                    (bool sent_, ) = wstETHAddress.call{value: trade.calculatedAmount}("");
                     if (!sent_) revert Unavailable("Ether transfer failed");
                 }
             }
+            // In OrdeSide.Buy the specifiedAmount is the amount of buyToken to buy
+            // and trade.calculatedAmount is the amount of sellToken to sell in order to receive the buyToken specifiedAmount
+            // Price is always calculated as buyTokenAmount / sellTokenAmount
+            trade.price = Fraction(specifiedAmount, trade.calculatedAmount);
         } else {
+            // sellToken is stETH, buyToken is wstETH | stETH -> wstETH ratio updates every few blocks
             if (sellToken == stETHAddress) {
                 IERC20(stETH).safeTransferFrom(
                     msg.sender,
@@ -160,8 +157,10 @@ contract LidoAdapter is ISwapAdapter {
                     wstETHAddress,
                     specifiedAmount
                 );
+                // wrap function returns the amount of wstETH user receives after wrapping
                 trade.calculatedAmount = wstETH.wrap(specifiedAmount);
             } else if (sellToken == address(0)) {
+                // sellToken is ETH, buyToken is wstETH | ETH -> wstETH ratio updates every few blocks
                 if (buyToken == wstETHAddress) {
                     (bool sent_, ) = wstETHAddress.call{value: specifiedAmount}(
                         ""
@@ -170,10 +169,9 @@ contract LidoAdapter is ISwapAdapter {
                         revert Unavailable(
                             "Ether transfer to wstETH contract failed"
                         );
-                    trade.calculatedAmount = wstETH.getWstETHByStETH(
-                        specifiedAmount
-                    );
+                    trade.calculatedAmount = (specifiedAmount * wstETH.tokensPerStEth()) / 1e18;
                 } else {
+                    // sellToken is ETH, buyToken is stETH | ETH -> stETH fixed rate is 1:1
                     (bool sent_, ) = stETHAddress.call{value: specifiedAmount}(
                         ""
                     );
@@ -184,6 +182,7 @@ contract LidoAdapter is ISwapAdapter {
                     trade.calculatedAmount = specifiedAmount;
                 }
             } else {
+                // sellToken is wstETH, buyToken is stETH | wstETH -> stETH ratio updates every few blocks
                 IERC20(wstETH).safeTransferFrom(
                     msg.sender,
                     address(this),
@@ -193,8 +192,12 @@ contract LidoAdapter is ISwapAdapter {
                     wstETHAddress,
                     specifiedAmount
                 );
+                // unwrap function returns the amount of stETH user receives after unwrap
                 trade.calculatedAmount = wstETH.unwrap(specifiedAmount);
             }
+            // In OrdeSide.Sell the specifiedAmount is the amount of sellToken to sell
+            // and trade.calculatedAmount is the amount of buyToken received by selling the sellToken specifiedAmount
+            // Price is always calculated as buyTokenAmount / sellTokenAmount
             trade.price = Fraction(trade.calculatedAmount, specifiedAmount);
         }
         trade.gasUsed = gasBefore - gasleft();
