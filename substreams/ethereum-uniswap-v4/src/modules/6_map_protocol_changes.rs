@@ -82,8 +82,8 @@ pub fn map_protocol_changes(
                 BigInt::from_str(&String::from_utf8(store_delta.new_value).unwrap()).unwrap();
 
             // If old value is empty or the int value is 0, it's considered as a creation.
-            let is_creation = store_delta.old_value.is_empty()
-                || BigInt::from_str(&String::from_utf8(store_delta.old_value).unwrap())
+            let is_creation = store_delta.old_value.is_empty() ||
+                BigInt::from_str(&String::from_utf8(store_delta.old_value).unwrap())
                     .unwrap()
                     .is_zero();
             let attribute_name = format!("ticks/{}/net-liquidity", tick_delta.tick_index);
