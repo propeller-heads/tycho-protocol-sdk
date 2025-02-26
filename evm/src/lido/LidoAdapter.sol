@@ -130,9 +130,10 @@ contract LidoAdapter is ISwapAdapter {
             } else {
                 // ETH -> stETH
                 if (buyToken == stETHAddress) {
-                    trade.calculatedAmount = specifiedAmount;
-                    (bool sent_, ) = stETHAddress.call{value: trade.calculatedAmount}("");
+                    (bool sent_, ) = stETHAddress.call{value: specifiedAmount}("");
                     if (!sent_) revert Unavailable("Ether transfer failed");
+                    IERC20(stETH).safeTransfer(msg.sender, specifiedAmount);
+                    trade.calculatedAmount = specifiedAmount;
  
                 } else {
                     // ETH -> wstETH
@@ -179,6 +180,7 @@ contract LidoAdapter is ISwapAdapter {
                         revert Unavailable(
                             "Ether transfer to stETH contract failed"
                         );
+                    IERC20(stETH).safeTransfer(msg.sender, specifiedAmount);
                     trade.calculatedAmount = specifiedAmount;
                 }
             } else {

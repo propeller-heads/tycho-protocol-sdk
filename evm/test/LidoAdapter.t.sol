@@ -136,9 +136,7 @@ contract LidoAdapterTest is Test, ISwapAdapterTypes {
         adapter.swap(pair, stETH, wstETH, OrderSide.Sell, specifiedAmount);
     }
 
-    function testSwapFuzzLidoStEth(uint256 specifiedAmount, bool isBuy)
-        public
-    {
+    function testSwapFuzzLidoStEth(uint256 specifiedAmount, bool isBuy) public {
         OrderSide side = isBuy ? OrderSide.Buy : OrderSide.Sell;
         vm.assume(specifiedAmount > 10);
 
@@ -159,8 +157,13 @@ contract LidoAdapterTest is Test, ISwapAdapterTypes {
         uint256 stETH_balance = IERC20(stETH).balanceOf(address(this));
         uint256 wstETH_balance = IERC20(wstETH).balanceOf(address(this));
 
-        Trade memory trade =
-            adapter.swap(pair, stETH, wstETH, side, specifiedAmount);
+        Trade memory trade = adapter.swap(
+            pair,
+            stETH,
+            wstETH,
+            side,
+            specifiedAmount
+        );
 
         if (trade.calculatedAmount > 0) {
             if (side == OrderSide.Buy) {
@@ -185,9 +188,10 @@ contract LidoAdapterTest is Test, ISwapAdapterTypes {
         }
     }
 
-    function testSwapFuzzLidoWstEth(uint256 specifiedAmount, bool isBuy)
-        public
-    {
+    function testSwapFuzzLidoWstEth(
+        uint256 specifiedAmount,
+        bool isBuy
+    ) public {
         OrderSide side = isBuy ? OrderSide.Buy : OrderSide.Sell;
         vm.assume(specifiedAmount > 10);
 
@@ -212,8 +216,13 @@ contract LidoAdapterTest is Test, ISwapAdapterTypes {
         uint256 stETH_balance = IERC20(stETH).balanceOf(address(this));
         uint256 wstETH_balance = IERC20(wstETH).balanceOf(address(this));
 
-        Trade memory trade =
-            adapter.swap(pair, wstETH, stETH, side, specifiedAmount);
+        Trade memory trade = adapter.swap(
+            pair,
+            wstETH,
+            stETH,
+            side,
+            specifiedAmount
+        );
 
         if (trade.calculatedAmount > 0) {
             if (side == OrderSide.Buy) {
@@ -238,7 +247,84 @@ contract LidoAdapterTest is Test, ISwapAdapterTypes {
         }
     }
 
-    function testSwapFuzzLidoEth(uint256 specifiedAmount, bool isBuy) public {
+    function testSwapFuzzLidoEthStETH(
+        uint256 specifiedAmount,
+        bool isBuy
+    ) public {
+        OrderSide side = isBuy ? OrderSide.Buy : OrderSide.Sell;
+
+        uint256 stETH_balance_before;
+        uint256 ETH_balance_before;
+
+        bytes32 pair = bytes32(0);
+
+        uint256[] memory limits = adapter.getLimits(pair, ETH, stETH);
+        if (side == OrderSide.Buy) {
+            vm.assume(specifiedAmount < limits[1]);
+
+            deal(address(this), specifiedAmount);
+
+            stETH_balance_before = IERC20(stETH).balanceOf(address(this));
+            ETH_balance_before = address(this).balance;
+
+            (bool sent_, ) = address(adapter).call{value: specifiedAmount}("");
+            if (!sent_) revert(); // hide warnings
+        } else {
+            vm.assume(specifiedAmount < limits[0]);
+
+            deal(address(this), specifiedAmount);
+            stETH_balance_before = IERC20(stETH).balanceOf(address(this));
+
+            ETH_balance_before = address(this).balance;
+
+            (bool sent_, ) = address(adapter).call{value: specifiedAmount}("");
+            if (!sent_) revert(); // hide warnings
+        }
+
+        console.log("stETH_balance before trade: ", stETH_balance_before);
+        console.log("ETH_balance before trade: ", ETH_balance_before);
+
+        Trade memory trade = adapter.swap(
+            pair,
+            ETH,
+            stETH,
+            side,
+            specifiedAmount
+        );
+
+        uint256 stETH_balance_after = IERC20(stETH).balanceOf(address(this));
+        uint256 ETH_balance_after = address(this).balance;
+        console.log("stETH_balance after trade: ", stETH_balance_after);
+        console.log("ETH_balance after trade: ", ETH_balance_after);
+        if (trade.calculatedAmount > 0) {
+            if (side == OrderSide.Buy) {
+                assertApproxEqAbs(
+                    specifiedAmount,
+                    stETH_balance_after - stETH_balance_before,
+                    2 // maximum absolute difference of 2 wei
+                );
+                assertEq(
+                    trade.calculatedAmount,
+                    ETH_balance_before - ETH_balance_after
+                );
+            } else {
+                assertEq(
+                    specifiedAmount,
+                    ETH_balance_before - ETH_balance_after
+                );
+                assertApproxEqAbs(
+                    trade.calculatedAmount,
+                    stETH_balance_after - stETH_balance_before,
+                    2 // maximum absolute difference of 2 wei
+                );
+            }
+        }
+    }
+
+    function testSwapFuzzLidoEthWstEth(
+        uint256 specifiedAmount,
+        bool isBuy
+    ) public {
         OrderSide side = isBuy ? OrderSide.Buy : OrderSide.Sell;
         vm.assume(specifiedAmount > 10);
 
@@ -249,22 +335,28 @@ contract LidoAdapterTest is Test, ISwapAdapterTypes {
         if (side == OrderSide.Buy) {
             vm.assume(specifiedAmount < limits[1]);
 
-            uint256 ethAmount =
-                IStETH(stETH).getPooledEthByShares(specifiedAmount);
+            uint256 ethAmount = IStETH(stETH).getPooledEthByShares(
+                specifiedAmount
+            );
             deal(address(this), ethAmount);
-            (bool sent_,) = address(adapter).call{value: ethAmount}("");
+            (bool sent_, ) = address(adapter).call{value: ethAmount}("");
             if (!sent_) revert(); // hide warnings
         } else {
             vm.assume(specifiedAmount < limits[0]);
 
             deal(address(this), specifiedAmount);
-            (bool sent_,) = address(adapter).call{value: specifiedAmount}("");
+            (bool sent_, ) = address(adapter).call{value: specifiedAmount}("");
             if (!sent_) revert(); // hide warnings
         }
         uint256 stETH_balance = IERC20(stETH).balanceOf(address(this));
         uint256 ETH_balance = address(this).balance;
-        Trade memory trade =
-            adapter.swap(pair, ETH, stETH, side, specifiedAmount);
+        Trade memory trade = adapter.swap(
+            pair,
+            ETH,
+            stETH,
+            side,
+            specifiedAmount
+        );
         if (trade.calculatedAmount > 0) {
             if (side == OrderSide.Buy) {
                 assertEq(
@@ -272,7 +364,8 @@ contract LidoAdapterTest is Test, ISwapAdapterTypes {
                     stETH_balance - IERC20(stETH).balanceOf(address(this))
                 );
                 assertEq(
-                    trade.calculatedAmount, address(this).balance - ETH_balance
+                    trade.calculatedAmount,
+                    address(this).balance - ETH_balance
                 );
             } else {
                 assertEq(specifiedAmount, address(this).balance - ETH_balance);
@@ -288,17 +381,18 @@ contract LidoAdapterTest is Test, ISwapAdapterTypes {
         if (side == OrderSide.Buy) {
             vm.assume(specifiedAmount < limits[1]);
 
-            uint256 stETHAmount =
-                IwstETH(wstETH).getStETHByWstETH(specifiedAmount);
+            uint256 stETHAmount = IwstETH(wstETH).getStETHByWstETH(
+                specifiedAmount
+            );
             uint256 ethAmount = IStETH(stETH).getPooledEthByShares(stETHAmount);
             deal(address(this), ethAmount);
-            (bool sent_,) = address(adapter).call{value: ethAmount}("");
+            (bool sent_, ) = address(adapter).call{value: ethAmount}("");
             if (!sent_) revert(); // hide warnings
         } else {
             vm.assume(specifiedAmount < limits[0]);
 
             deal(address(this), specifiedAmount);
-            (bool sent_,) = address(adapter).call{value: specifiedAmount}("");
+            (bool sent_, ) = address(adapter).call{value: specifiedAmount}("");
             if (!sent_) revert(); // hide warnings
         }
         uint256 wstETH_balance = IERC20(wstETH).balanceOf(address(this));
@@ -311,7 +405,8 @@ contract LidoAdapterTest is Test, ISwapAdapterTypes {
                     wstETH_balance - IERC20(wstETH).balanceOf(address(this))
                 );
                 assertEq(
-                    trade.calculatedAmount, address(this).balance - ETH_balance
+                    trade.calculatedAmount,
+                    address(this).balance - ETH_balance
                 );
             } else {
                 assertEq(specifiedAmount, address(this).balance - ETH_balance);
@@ -350,7 +445,10 @@ contract LidoAdapterTest is Test, ISwapAdapterTypes {
         }
 
         for (uint256 i = 1; i < TEST_ITERATIONS - 1; i++) {
-            assertLe(trades[i].calculatedAmount, trades[i + 1].calculatedAmount);
+            assertLe(
+                trades[i].calculatedAmount,
+                trades[i + 1].calculatedAmount
+            );
             assertLe(trades[i].gasUsed, trades[i + 1].gasUsed);
         }
     }
@@ -359,9 +457,11 @@ contract LidoAdapterTest is Test, ISwapAdapterTypes {
         executeIncreasingSwapsLido(OrderSide.Buy);
     }
 
-    function testGetCapabilitiesLido(bytes32 pair, address t0, address t1)
-        public
-    {
+    function testGetCapabilitiesLido(
+        bytes32 pair,
+        address t0,
+        address t1
+    ) public {
         Capability[] memory res = adapter.getCapabilities(pair, t0, t1);
 
         assertEq(res.length, 5);
