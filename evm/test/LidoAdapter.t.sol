@@ -305,16 +305,12 @@ contract LidoAdapterTest is Test, ISwapAdapterTypes {
         }
     }
 
-
-
-
     function testSwapFuzzLidoEthWstEth(uint256 specifiedAmount, bool isBuy)
         public
     {
         OrderSide side = isBuy ? OrderSide.Buy : OrderSide.Sell;
-        side = OrderSide.Sell;
 
-        specifiedAmount = 1e18;
+        vm.assume(specifiedAmount > 100);
 
         uint256 wstETH_balance_before;
         uint256 ETH_balance_before;
@@ -325,7 +321,10 @@ contract LidoAdapterTest is Test, ISwapAdapterTypes {
         if (side == OrderSide.Buy) {
             vm.assume(specifiedAmount < limits[1]);
 
-            uint256 ethAmountIn = (specifiedAmount * 1e18) / IwstETH(wstETH).stEthPerToken();
+            // uint256 ethAmountIn = (specifiedAmount * 1e18) /
+            // IwstETH(wstETH).stEthPerToken();
+            uint256 ethAmountIn =
+                (specifiedAmount * IwstETH(wstETH).stEthPerToken()) / 1e18;
 
             deal(address(this), ethAmountIn);
 
@@ -338,8 +337,8 @@ contract LidoAdapterTest is Test, ISwapAdapterTypes {
             vm.assume(specifiedAmount < limits[0]);
 
             deal(address(this), specifiedAmount);
-            wstETH_balance_before = IERC20(wstETH).balanceOf(address(this));
 
+            wstETH_balance_before = IERC20(wstETH).balanceOf(address(this));
             ETH_balance_before = address(this).balance;
 
             (bool sent_,) = address(adapter).call{value: specifiedAmount}("");
@@ -354,8 +353,10 @@ contract LidoAdapterTest is Test, ISwapAdapterTypes {
 
         uint256 wstETH_balance_after = IERC20(wstETH).balanceOf(address(this));
         uint256 ETH_balance_after = address(this).balance;
+
         console.log("wstETH_balance after trade: ", wstETH_balance_after);
         console.log("ETH_balance after trade: ", ETH_balance_after);
+
         if (trade.calculatedAmount > 0) {
             if (side == OrderSide.Buy) {
                 assertApproxEqAbs(
@@ -365,7 +366,7 @@ contract LidoAdapterTest is Test, ISwapAdapterTypes {
                 );
                 assertEq(
                     trade.calculatedAmount,
-                            ETH_balance_before - ETH_balance_after
+                    ETH_balance_before - ETH_balance_after
                 );
             } else {
                 assertEq(
@@ -379,8 +380,6 @@ contract LidoAdapterTest is Test, ISwapAdapterTypes {
             }
         }
     }
-
-
 
     function testSwapSellIncreasingLido() public {
         executeIncreasingSwapsLido(OrderSide.Sell);
