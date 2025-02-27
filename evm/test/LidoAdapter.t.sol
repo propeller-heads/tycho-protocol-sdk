@@ -305,13 +305,60 @@ contract LidoAdapterTest is Test, ISwapAdapterTypes {
         }
     }
 
+    /// @dev This test is to reproduce the bug in Lido contract reported in
+    /// https://shadowyworkspace.slack.com/archives/C068P0LPEKH/p1740675158163449?thread_ts=1739272599.743309&cid=C068P0LPEKH
+    function testBugSwapLidoBuyWstEthWithEth() public {
+        OrderSide side = OrderSide.Buy;
+        uint256 specifiedAmount = 1e18;
+        bytes32 pair = bytes32(0);
+
+        uint256 wstETH_balance_before = IERC20(wstETH).balanceOf(address(this));
+        uint256 stETH_balance_before = IERC20(stETH).balanceOf(address(this));
+        uint256 ETH_balance_before = address(this).balance;
+
+        console.log("U | wstETH User balance before: ", wstETH_balance_before);
+        console.log("U | stETH User balance before: ", stETH_balance_before);
+        console.log("U | ETH User balance before: ", ETH_balance_before);
+
+        // Calculate how much ETH we need to send to adapter to get the desired wstETH
+        uint256 ethAmountIn = IwstETH(wstETH).getStETHByWstETH(specifiedAmount);
+        console.log("U | ETH ethAmountIn calculated to get specifiedAmount wstETH: ", ethAmountIn);
+        // Deal ETH to user
+        deal(address(this), ethAmountIn);
+
+        uint256 ETH_balance_dealed = address(this).balance;
+        uint256 wstETH_balance_dealed = IERC20(wstETH).balanceOf(address(this));
+        uint256 stETH_balance_dealed = IERC20(stETH).balanceOf(address(this));
+        console.log("U | ETH User balance after deal: ", ETH_balance_dealed);
+        console.log("U | wstETH User balance after deal: ", wstETH_balance_dealed);
+        console.log("U | stETH User balance after deal: ", stETH_balance_dealed);
+
+        // Send ETH to adapter
+        (bool sent_,) = address(adapter).call{value: ethAmountIn}("");
+        if (!sent_) revert();
+
+        // Swap ETH for wstETH
+        Trade memory trade =
+            adapter.swap(pair, ETH, wstETH, side, specifiedAmount);
+
+        uint256 wstETH_balance_after = IERC20(wstETH).balanceOf(address(this));
+        uint256 stETH_balance_after = IERC20(stETH).balanceOf(address(this));
+        uint256 ETH_balance_after = address(this).balance;
+
+        console.log("U | wstETH_balance after trade: ", wstETH_balance_after);
+        console.log("U | stETH_balance after trade: ", stETH_balance_after);
+        console.log("U | ETH_balance after trade: ", ETH_balance_after);
+
+    }
+
     function testSwapFuzzLidoEthWstEth(uint256 specifiedAmount, bool isBuy)
         public
     {
-        OrderSide side = isBuy ? OrderSide.Buy : OrderSide.Sell;
+        // OrderSide side = isBuy ? OrderSide.Buy : OrderSide.Sell;
+        OrderSide side = OrderSide.Buy;
 
-        vm.assume(specifiedAmount > 100);
-
+        //vm.assume(specifiedAmount > 100);
+        specifiedAmount = 1e18;
         uint256 wstETH_balance_before;
         uint256 ETH_balance_before;
 
