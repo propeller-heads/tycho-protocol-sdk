@@ -174,7 +174,7 @@ contract LidoAdapter is ISwapAdapter {
                     // IERC20(wstETH).safeTransfer(msg.sender, receivedWstETH);
                     // trade.calculatedAmount = ethAmountIn;
                     ////////////////// Temporary fix for BUG 🪲: Wrong stETHsharesAmount returned when calling stETH.submit{value: ethAmountIn}(address(0)); /////////////////////////////
-                    uint256 ethAmountIn = getEthAmountInForWstETHSpecifiedAmount(specifiedAmount);
+                    uint256 ethAmountIn = getAmountInForWstETHSpecifiedAmount(specifiedAmount);
                     (bool sent_,) = stETHAddress.call{value: ethAmountIn}("");
                     if (!sent_) revert Unavailable("Ether transfer failed");
 
@@ -187,7 +187,6 @@ contract LidoAdapter is ISwapAdapter {
                     }
                     IERC20(wstETH).safeTransfer(msg.sender, specifiedAmount);
                     trade.calculatedAmount = ethAmountIn;
-
                 }
             }
             // In OrdeSide.Buy the specifiedAmount is the amount of buyToken to
@@ -210,8 +209,7 @@ contract LidoAdapter is ISwapAdapter {
                 // after wrapping
                 trade.calculatedAmount = wstETH.wrap(specifiedAmount);
             } else if (sellToken == address(0)) {
-                // sellToken is ETH, buyToken is wstETH | ETH -> wstETH ratio
-                // updates every few blocks
+                // ETH -> wstETH
                 if (buyToken == wstETHAddress) {
                     (bool sent_,) =
                         wstETHAddress.call{value: specifiedAmount}("");
@@ -222,21 +220,12 @@ contract LidoAdapter is ISwapAdapter {
                     }
                     trade.calculatedAmount =
                         (specifiedAmount * wstETH.tokensPerStEth()) / 1e18;
-                    console.log(
-                        "ETH -> wstETH sellSide specifiedAmount: ",
-                        specifiedAmount
-                    );
-                    console.log(
-                        "ETH -> wstETH sellSide calculatedAmount: ",
-                        trade.calculatedAmount
-                    );
 
                     IERC20(wstETH).safeTransfer(
                         msg.sender, trade.calculatedAmount
                     );
                 } else {
-                    // sellToken is ETH, buyToken is stETH | ETH -> stETH fixed
-                    // rate is 1:1
+                    // ETH -> stETH
                     (bool sent_,) =
                         stETHAddress.call{value: specifiedAmount}("");
                     if (!sent_) {
@@ -316,7 +305,7 @@ contract LidoAdapter is ISwapAdapter {
         }
     }
 
-    function getEthAmountInForWstETHSpecifiedAmount(uint256 wstETHAmount) public view returns (uint256 ethAmountIn) {
+    function getAmountInForWstETHSpecifiedAmount(uint256 wstETHAmount) public view returns (uint256 ethAmountIn) {
         ethAmountIn = wstETH.getStETHByWstETH(wstETHAmount) + 100;
     }
     /// @inheritdoc ISwapAdapter

@@ -338,8 +338,7 @@ contract LidoAdapterTest is Test, ISwapAdapterTypes {
         if (!sent_) revert();
 
         // Swap ETH for wstETH
-        Trade memory trade =
-            adapter.swap(pair, ETH, wstETH, side, specifiedAmount);
+        adapter.swap(pair, ETH, wstETH, side, specifiedAmount);
 
         uint256 wstETH_balance_after = IERC20(wstETH).balanceOf(address(this));
         uint256 stETH_balance_after = IERC20(stETH).balanceOf(address(this));
@@ -355,7 +354,6 @@ contract LidoAdapterTest is Test, ISwapAdapterTypes {
         public
     {
         OrderSide side = isBuy ? OrderSide.Buy : OrderSide.Sell;
-
         vm.assume(specifiedAmount > 100);
 
         uint256 wstETH_balance_before;
@@ -367,7 +365,7 @@ contract LidoAdapterTest is Test, ISwapAdapterTypes {
         if (side == OrderSide.Buy) {
             vm.assume(specifiedAmount < limits[1]);
 
-            uint256 ethAmountIn = adapter.getEthAmountInForWstETHSpecifiedAmount(specifiedAmount);
+            uint256 ethAmountIn = adapter.getAmountInForWstETHSpecifiedAmount(specifiedAmount);
 
             deal(address(this), ethAmountIn);
 
@@ -387,18 +385,12 @@ contract LidoAdapterTest is Test, ISwapAdapterTypes {
             (bool sent_,) = address(adapter).call{value: specifiedAmount}("");
             if (!sent_) revert(); // hide warnings
         }
-
-        console.log("wstETH_balance before trade: ", wstETH_balance_before);
-        console.log("ETH_balance before trade: ", ETH_balance_before);
-
         Trade memory trade =
             adapter.swap(pair, ETH, wstETH, side, specifiedAmount);
 
         uint256 wstETH_balance_after = IERC20(wstETH).balanceOf(address(this));
         uint256 ETH_balance_after = address(this).balance;
 
-        console.log("wstETH_balance after trade: ", wstETH_balance_after);
-        console.log("ETH_balance after trade: ", ETH_balance_after);
 
         if (trade.calculatedAmount > 0) {
             if (side == OrderSide.Buy) {
@@ -414,10 +406,9 @@ contract LidoAdapterTest is Test, ISwapAdapterTypes {
                 assertEq(
                     specifiedAmount, ETH_balance_before - ETH_balance_after
                 );
-                assertApproxEqAbs(
+                assertEq(
                     trade.calculatedAmount,
-                    wstETH_balance_after - wstETH_balance_before,
-                    2 // maximum absolute difference of 2 wei
+                    wstETH_balance_after - wstETH_balance_before
                 );
             }
         }
