@@ -136,42 +136,58 @@ contract LidoAdapter is ISwapAdapter {
                     trade.calculatedAmount = specifiedAmount;
                 } else {
                     // ETH -> wstETH
-                    uint256 ethAmountIn = wstETH.getStETHByWstETH(specifiedAmount);
-                    console.log(
-                        "A | wstETH buySide specifiedAmount: ", specifiedAmount
-                    );
-                    console.log(
-                        "A | ETH ethAmountIn to get wstETH specifiedAmount: ",
-                        ethAmountIn
-                    );
+                    ////////////////// BUG 🪲: Wrong stETHsharesAmount returned when calling stETH.submit{value: ethAmountIn}(address(0)); /////////////////////////////
+                    // uint256 ethAmountIn = wstETH.getStETHByWstETH(specifiedAmount);
+                    // console.log(
+                    //     "A | wstETH buySide specifiedAmount: ", specifiedAmount
+                    // );
+                    // console.log(
+                    //     "A | ETH ethAmountIn to get wstETH specifiedAmount: ",
+                    //     ethAmountIn
+                    // );
 
-                    // Get stETH first and get exact shares received from THIS
-                    // transaction
-                    uint256 receivedShares =
-                        stETH.submit{value: ethAmountIn}(address(0));
-                    console.log(
-                        "A | stETH receivedShares returned from submit: ",
-                        receivedShares
-                    );
-                    console.log("A | stETH adapter balance: ", IERC20(stETH).balanceOf(address(this)));
-                    console.log("A | wstETH adapter balance: ", IERC20(wstETH).balanceOf(address(this)));
+                    // // Get stETH first and get exact shares received from THIS
+                    // // transaction
+                    // uint256 receivedShares =
+                    //     stETH.submit{value: ethAmountIn}(address(0));
+                    // console.log(
+                    //     "A | stETH receivedShares returned from submit: ",
+                    //     receivedShares
+                    // );
+                    // console.log("A | stETH adapter balance: ", IERC20(stETH).balanceOf(address(this)));
+                    // console.log("A | wstETH adapter balance: ", IERC20(wstETH).balanceOf(address(this)));
 
-                    // Wrap exactly the shares we received
+                    // // Wrap exactly the shares we received
+                    // IERC20(stETH).safeIncreaseAllowance(
+                    //     wstETHAddress, receivedShares
+                    // );
+                    // uint256 receivedWstETH = wstETH.wrap(receivedShares);
+                    // console.log("A | wstETH received returned from wrap: ", receivedWstETH);
+                    // console.log("A | wstETH adapter balance: ", IERC20(wstETH).balanceOf(address(this)));
+                    // // Ensure we received enough wstETH (with small rounding
+                    // // tolerance)
+                    // require(
+                    //     receivedWstETH >= specifiedAmount - 100,
+                    //     "Insufficient wstETH received"
+                    // );
+
+                    // IERC20(wstETH).safeTransfer(msg.sender, receivedWstETH);
+                    // trade.calculatedAmount = ethAmountIn;
+                    ////////////////// Temporary fix for BUG 🪲: Wrong stETHsharesAmount returned when calling stETH.submit{value: ethAmountIn}(address(0)); /////////////////////////////
+                    uint256 ethAmountIn = getEthAmountInForWstETHSpecifiedAmount(specifiedAmount);
+                    (bool sent_,) = stETHAddress.call{value: ethAmountIn}("");
+                    if (!sent_) revert Unavailable("Ether transfer failed");
+
                     IERC20(stETH).safeIncreaseAllowance(
-                        wstETHAddress, receivedShares
+                        wstETHAddress, ethAmountIn
                     );
-                    uint256 receivedWstETH = wstETH.wrap(receivedShares);
-                    console.log("A | wstETH received returned from wrap: ", receivedWstETH);
-                    console.log("A | wstETH adapter balance: ", IERC20(wstETH).balanceOf(address(this)));
-                    // Ensure we received enough wstETH (with small rounding
-                    // tolerance)
-                    require(
-                        receivedWstETH >= specifiedAmount - 100,
-                        "Insufficient wstETH received"
-                    );
-
-                    IERC20(wstETH).safeTransfer(msg.sender, receivedWstETH);
+                    uint256 receivedWstETH = wstETH.wrap(ethAmountIn);
+                    if (receivedWstETH < specifiedAmount) {
+                        revert Unavailable("Insufficient wstETH received");
+                    }
+                    IERC20(wstETH).safeTransfer(msg.sender, specifiedAmount);
                     trade.calculatedAmount = ethAmountIn;
+
                 }
             }
             // In OrdeSide.Buy the specifiedAmount is the amount of buyToken to
@@ -300,6 +316,9 @@ contract LidoAdapter is ISwapAdapter {
         }
     }
 
+    function getEthAmountInForWstETHSpecifiedAmount(uint256 wstETHAmount) public view returns (uint256 ethAmountIn) {
+        ethAmountIn = wstETH.getStETHByWstETH(wstETHAmount) + 100;
+    }
     /// @inheritdoc ISwapAdapter
     function getCapabilities(bytes32, address, address)
         external
