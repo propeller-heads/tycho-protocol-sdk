@@ -90,6 +90,7 @@ pub fn address_map(
     }
 }
 
+#[allow(dead_code)]
 fn find_underlying_token(tx: &TransactionTrace, underlying_amount: BigInt) -> Option<Vec<u8>> {
     tx.receipt()
         .logs()
@@ -106,6 +107,7 @@ fn find_underlying_token(tx: &TransactionTrace, underlying_amount: BigInt) -> Op
 
 // this adds a buffer protocol component, they are internal pool managed by balancer but they can be
 // used as a vault-type component for swapping for instance USDT <-> waETHUSDT (aave wrapped USDT)
+#[allow(dead_code)]
 pub fn buffer_map(log: &Log, tx: &TransactionTrace) -> Option<ProtocolComponent> {
     LiquidityAddedToBuffer::match_and_decode(log).map(
         |LiquidityAddedToBuffer { wrapped_token, amount_underlying, .. }| {
