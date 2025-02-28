@@ -1,17 +1,17 @@
 substreams_yaml_path: ./substreams.yaml
 adapter_contract: "SkySwapAdapter"
 adapter_build_signature: "constructor(address,address,address,address,address)"
-adapter_build_args: "0x83F20F44975D03b1b09e64809B757c47f942BEeA,0x3225737a9Bbb6473CB4a45b7244ACa2BeFdB276A,0xA188EEC8F81263234dA3622A406892F3D630f98c,0xa3931d71877C0E7a3148CB7Eb4463524FEc27fbD,0xBDcFCA946b6CDd965f99a839e4435Bcdc1bc470B"
+adapter_build_args: "0x83F20F44975D03b1b09e64809B757c47f942BEeA,0x3225737a9Bbb6473CB4a45b7244ACa2BeFdB276A,0xA188EEC8F81263234dA3622A406892F3D630f98c,0xa3931d71877C0E7a3148CB7Eb4463524FEc27fbD,0xBDcFCA946b6CDd965f99a839e4435Bcdc1bc470B,0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48,0x9f8F72aA9304c8B593d555F12eF6589cC3A579A2,0x56072C95FAA701256059aa122697B133aDEd9279,0x6B175474E89094C44Da98b954EedeAC495271d0F,0xdC035D45d973E3EC169d2276DDab16f1e407384F"
 # Whether or not the testing script should skip checking balances of the protocol components.
 # If set to `true` please always add a reason why it's skipped.
 skip_balance_check: true #Balances are kept separately
-initialized_accounts:
-  - "0x83F20F44975D03b1b09e64809B757c47f942BEeA"  # sDAI Vault
-  - "0x3225737a9Bbb6473CB4a45b7244ACa2BeFdB276A"  # DAI-USDS Converter
-  - "0xA188EEC8F81263234dA3622A406892F3D630f98c"  # USDS PSM Wrapper
-  - "0xa3931d71877C0E7a3148CB7Eb4463524FEc27fbD"  # sUSDS
-  - "0xBDcFCA946b6CDd965f99a839e4435Bcdc1bc470B"  # MKR-SKY Converter
-  - "0xf6e72Db5454dd049d0788e411b06CfAF16853042"  # DAI Lite PSM
+# initialized_accounts:
+#   - "0x83F20F44975D03b1b09e64809B757c47f942BEeA"  # sDAI Vault
+#   - "0x3225737a9Bbb6473CB4a45b7244ACa2BeFdB276A"  # DAI-USDS Converter
+#   - "0xA188EEC8F81263234dA3622A406892F3D630f98c"  # USDS PSM Wrapper
+#   - "0xa3931d71877C0E7a3148CB7Eb4463524FEc27fbD"  # sUSDS
+#   - "0xBDcFCA946b6CDd965f99a839e4435Bcdc1bc470B"  # MKR-SKY Converter
+#   - "0xf6e72Db5454dd049d0788e411b06CfAF16853042"  # DAI Lite PSM
 # A list of protocol types names created by your Substreams module.
 protocol_type_names:
   - "sdai_vault"
@@ -66,8 +66,8 @@ tests:
     expected_components:
       - id: "0xa188eec8f81263234da3622a406892f3d630f98c"
         tokens:
-          - "0xdC035D45d973E3EC169d2276DDab16f1e407384F"  # USDS
           - "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"  # USDC
+          - "0xdC035D45d973E3EC169d2276DDab16f1e407384F"  # USDS
         static_attributes: null
         creation_tx: "0x43ddae74123936f6737b78fcf785547f7f6b7b27e280fe7fbf98c81b3c018585"
         skip_simulation: false
