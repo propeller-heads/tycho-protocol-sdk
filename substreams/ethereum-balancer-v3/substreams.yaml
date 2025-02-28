@@ -36,6 +36,14 @@ modules:
     inputs:
       - map: map_components
 
+  - name: store_token_set
+    kind: store
+    initialBlock: 21332121
+    updatePolicy: set_if_not_exists
+    valueType: int64
+    inputs:
+      - map: map_components
+
   - name: map_relative_balances
     kind: map
     initialBlock: 21332121
@@ -61,6 +69,7 @@ modules:
       - map: map_components
       - map: map_relative_balances
       - store: store_components
+      - store: store_token_set
       - store: store_balances
         mode: deltas # This is the key property that simplifies `BalanceChange` handling
     output:

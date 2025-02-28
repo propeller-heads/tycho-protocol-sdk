@@ -16,8 +16,8 @@ use substreams::{
     hex, log,
     pb::substreams::StoreDeltas,
     store::{
-        StoreAddBigInt, StoreGet, StoreGetProto, StoreNew, StoreSetIfNotExists,
-        StoreSetIfNotExistsProto,
+        StoreAddBigInt, StoreGet, StoreGetInt64, StoreGetProto, StoreNew, StoreSetIfNotExists,
+        StoreSetIfNotExistsInt64, StoreSetIfNotExistsProto,
     },
 };
 use substreams_ethereum::{
@@ -68,6 +68,24 @@ pub fn store_components(
                 .components
                 .into_iter()
                 .for_each(|pc| store.set_if_not_exists(0, format!("pool:{0}", &pc.id), &pc))
+        });
+}
+
+/// Set of token that are used by BalancerV3. This is used to filter out account balances updates
+/// for unknown tokens.
+#[substreams::handlers::store]
+pub fn store_token_set(map: BlockTransactionProtocolComponents, store: StoreSetIfNotExistsInt64) {
+    map.tx_components
+        .into_iter()
+        .for_each(|tx_pc| {
+            tx_pc
+                .components
+                .into_iter()
+                .for_each(|pc| {
+                    pc.tokens
+                        .into_iter()
+                        .for_each(|token| store.set_if_not_exists(0, hex::encode(token), &1))
+                })
         });
 }
 
@@ -384,7 +402,8 @@ pub fn map_protocol_changes(
         .transaction_traces
         .iter()
         .for_each(|tx| {
-            let vault_balance_change_per_tx = get_vault_reserves(tx, &components_store);
+            let vault_balance_change_per_tx =
+                get_vault_reserves(tx, &components_store, &tokens_store);
 
             if !vault_balance_change_per_tx.is_empty() {
                 let tycho_tx = Transaction::from(tx);
@@ -455,6 +474,7 @@ fn address_to_string_with_0x(address: &[u8]) -> String {
 fn get_vault_reserves(
     transaction: &eth::v2::TransactionTrace,
     store: &StoreGetProto<ProtocolComponent>,
+    token_store: &StoreGetInt64,
 ) -> HashMap<Vec<u8>, ReserveValue> {
     // reservesOf mapping for the current block Address -> Balance
     let mut reserves_of = HashMap::new();
@@ -462,15 +482,26 @@ fn get_vault_reserves(
         .calls
         .iter()
         .filter(|call| !call.state_reverted)
+        .filter(|call| call.address == VAULT_ADDRESS)
         .for_each(|call| {
             if let Some(Settle { token, .. }) = Settle::match_and_decode(call) {
                 for change in &call.storage_changes {
-                    add_change_if_accounted(&mut reserves_of, change, token.as_slice());
+                    add_change_if_accounted(
+                        &mut reserves_of,
+                        change,
+                        token.as_slice(),
+                        token_store,
+                    );
                 }
             }
             if let Some(SendTo { token, .. }) = SendTo::match_and_decode(call) {
                 for change in &call.storage_changes {
-                    add_change_if_accounted(&mut reserves_of, change, token.as_slice());
+                    add_change_if_accounted(
+                        &mut reserves_of,
+                        change,
+                        token.as_slice(),
+                        token_store,
+                    );
                 }
             }
             if let Some(Erc4626BufferWrapOrUnwrap { params }) =
@@ -481,11 +512,17 @@ fn get_vault_reserves(
                     let component_id = format!("0x{}", hex::encode(&wrapped_token));
                     if let Some(component) = store.get_last(component_id) {
                         let underlying_token = component.tokens[1].clone();
-                        add_change_if_accounted(&mut reserves_of, change, wrapped_token.as_slice());
+                        add_change_if_accounted(
+                            &mut reserves_of,
+                            change,
+                            wrapped_token.as_slice(),
+                            token_store,
+                        );
                         add_change_if_accounted(
                             &mut reserves_of,
                             change,
                             underlying_token.as_slice(),
+                            token_store,
                         );
                     }
                 }
@@ -503,10 +540,11 @@ fn add_change_if_accounted(
     reserves_of: &mut HashMap<Vec<u8>, ReserveValue>,
     change: &StorageChange,
     token_address: &[u8],
+    token_store: &StoreGetInt64,
 ) {
     let slot_key = get_storage_key_for_token(token_address);
     // record changes happening on vault contract at reserves_of storage key
-    if change.key == slot_key && change.address == VAULT_ADDRESS {
+    if change.key == slot_key && token_store.has_last(hex::encode(token_address)) {
         reserves_of
             .entry(token_address.to_vec())
             .and_modify(|v| {
