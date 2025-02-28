@@ -44,9 +44,10 @@ pub fn map_components(block: eth::v2::Block) -> Result<BlockTransactionProtocolC
             {
                 components.push(component);
             }
-            if let Some(buffer_component) = pool_factories::buffer_map(log, tx) {
-                components.push(buffer_component);
-            }
+            // Not supported yet because they rely on rate providers. Need DCI.
+            // if let Some(buffer_component) = pool_factories::buffer_map(log, tx) {
+            //     components.push(buffer_component);
+            // }
         }
         if !components.is_empty() {
             tx_components.push(TransactionProtocolComponents { tx: Some(tx.into()), components });
@@ -306,6 +307,7 @@ pub fn map_protocol_changes(
     grouped_components: BlockTransactionProtocolComponents,
     deltas: BlockBalanceDeltas,
     components_store: StoreGetProto<ProtocolComponent>,
+    tokens_store: StoreGetInt64,
     balance_store: StoreDeltas, // Note, this map module is using the `deltas` mode for the store.
 ) -> Result<BlockChanges> {
     // We merge contract changes by transaction (identified by transaction index) making it easy to
