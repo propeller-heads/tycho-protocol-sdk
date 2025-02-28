@@ -104,28 +104,33 @@ contract LidoAdapter is ISwapAdapter {
         uint256 gasBefore = gasleft();
 
         if (side == OrderSide.Buy) {
-            // sellToken is stETH, buyToken is wstETH | stETH -> wstETH ratio
-            // updates every few blocks
             if (sellToken == stETHAddress) {
-                // User wants specifiedAmount of wstETH
-                // stEthPerToken() returns amount ofstETH per 1 wstETH
-                trade.calculatedAmount =
+                uint256 stETHAmountIn =
                     (specifiedAmount * wstETH.stEthPerToken()) / 1e18;
                 IERC20(stETH).safeTransferFrom(
-                    msg.sender, address(this), trade.calculatedAmount
+                    msg.sender, address(this), stETHAmountIn
                 );
                 IERC20(stETH).safeIncreaseAllowance(
-                    wstETHAddress, trade.calculatedAmount
+                    wstETHAddress, stETHAmountIn
                 );
-                wstETH.wrap(trade.calculatedAmount);
+                uint256 receivedWstETH = wstETH.wrap(stETHAmountIn);
+                if (receivedWstETH < specifiedAmount) {
+                    revert Unavailable("Insufficient wstETH received");
+                }
+                IERC20(wstETH).safeTransfer(msg.sender, specifiedAmount);
+                trade.calculatedAmount = stETHAmountIn;
             } else if (sellToken == wstETHAddress) {
-                // wstETH -> stETH: User wants specifiedAmount of stETH
-                trade.calculatedAmount =
+                uint256 wstETHAmountIn =
                     (specifiedAmount * wstETH.tokensPerStEth()) / 1e18;
                 IERC20(wstETH).safeTransferFrom(
-                    msg.sender, address(this), trade.calculatedAmount
+                    msg.sender, address(this), wstETHAmountIn
                 );
-                wstETH.unwrap(trade.calculatedAmount);
+                uint256 receivedStETH = wstETH.unwrap(wstETHAmountIn);
+                if (receivedStETH < specifiedAmount) {
+                    revert Unavailable("Insufficient stETH received");
+                }
+                IERC20(stETH).safeTransfer(msg.sender, specifiedAmount);
+                trade.calculatedAmount = wstETHAmountIn;
             } else {
                 // ETH -> stETH
                 if (buyToken == stETHAddress) {
@@ -136,7 +141,41 @@ contract LidoAdapter is ISwapAdapter {
                     trade.calculatedAmount = specifiedAmount;
                 } else {
                     // ETH -> wstETH
+                    uint256 ethAmountIn = wstETH.getStETHByWstETH(specifiedAmount);
+
+                    uint256 sharesAmountCalculated = stETH.getSharesByPooledEth(ethAmountIn);
+
+                    uint256 stETHBalanceCalculated = sharesAmountCalculated * stETH.totalSupply() / stETH.getTotalShares();
+
+
+                    uint256 receivedSharesfromSubmit = stETH.submit{value: ethAmountIn}(address(0));
+                    console.log(
+                        "A | stETH receivedShares returned from submit: ",
+                        receivedSharesfromSubmit
+                    );
+                    console.log("A | sharesAmountCalculated: ", sharesAmountCalculated);
+                    console.log("A | stETHBalanceCalculated: ", stETHBalanceCalculated);
+                    console.log("A | stETH Adapter balance: ", IERC20(stETH).balanceOf(address(this)));
+
+                    IERC20(stETH).safeIncreaseAllowance(
+                        wstETHAddress, stETHBalanceCalculated
+                    );
+
+                    uint256 receivedWstETHfromWrap = wstETH.wrap(stETHBalanceCalculated);
+                    console.log(
+                        "A | stETH receivedWstETH returned from wrap: ",
+                        receivedWstETHfromWrap
+                    );
+                    if (receivedWstETHfromWrap < specifiedAmount - 3) {
+                        revert Unavailable("Insufficient wstETH received");
+                    }
+                    IERC20(wstETH).safeTransfer(msg.sender, receivedWstETHfromWrap);
+                    trade.calculatedAmount = ethAmountIn;
+
+
                     ////////////////// BUG 🪲: Wrong stETHsharesAmount returned when calling stETH.submit{value: ethAmountIn}(address(0)); /////////////////////////////
+                    // console.log("A | stETH adapter balance BEFORE: ", IERC20(stETH).balanceOf(address(this)));
+                    
                     // uint256 ethAmountIn = wstETH.getStETHByWstETH(specifiedAmount);
                     // console.log(
                     //     "A | wstETH buySide specifiedAmount: ", specifiedAmount
@@ -170,23 +209,23 @@ contract LidoAdapter is ISwapAdapter {
                     //     receivedWstETH >= specifiedAmount - 100,
                     //     "Insufficient wstETH received"
                     // );
-
                     // IERC20(wstETH).safeTransfer(msg.sender, receivedWstETH);
                     // trade.calculatedAmount = ethAmountIn;
-                    ////////////////// Temporary fix for BUG 🪲: Wrong stETHsharesAmount returned when calling stETH.submit{value: ethAmountIn}(address(0)); /////////////////////////////
-                    uint256 ethAmountIn = getAmountInForWstETHSpecifiedAmount(specifiedAmount);
-                    (bool sent_,) = stETHAddress.call{value: ethAmountIn}("");
-                    if (!sent_) revert Unavailable("Ether transfer failed");
 
-                    IERC20(stETH).safeIncreaseAllowance(
-                        wstETHAddress, ethAmountIn
-                    );
-                    uint256 receivedWstETH = wstETH.wrap(ethAmountIn);
-                    if (receivedWstETH < specifiedAmount) {
-                        revert Unavailable("Insufficient wstETH received");
-                    }
-                    IERC20(wstETH).safeTransfer(msg.sender, specifiedAmount);
-                    trade.calculatedAmount = ethAmountIn;
+                    ////////////////// Temporary fix for BUG 🪲: Wrong stETHsharesAmount returned when calling stETH.submit{value: ethAmountIn}(address(0)); /////////////////////////////
+                    // uint256 ethAmountIn = getAmountInForWstETHSpecifiedAmount(specifiedAmount);
+                    // (bool sent_,) = stETHAddress.call{value: ethAmountIn}("");
+                    // if (!sent_) revert Unavailable("Ether transfer failed");
+
+                    // IERC20(stETH).safeIncreaseAllowance(
+                    //     wstETHAddress, ethAmountIn
+                    // );
+                    // uint256 receivedWstETH = wstETH.wrap(ethAmountIn);
+                    // if (receivedWstETH < specifiedAmount) {
+                    //     revert Unavailable("Insufficient wstETH received");
+                    // }
+                    // IERC20(wstETH).safeTransfer(msg.sender, specifiedAmount);
+                    // trade.calculatedAmount = ethAmountIn;
                 }
             }
             // In OrdeSide.Buy the specifiedAmount is the amount of buyToken to
@@ -196,8 +235,6 @@ contract LidoAdapter is ISwapAdapter {
             // Price is always calculated as buyTokenAmount / sellTokenAmount
             trade.price = Fraction(specifiedAmount, trade.calculatedAmount);
         } else {
-            // sellToken is stETH, buyToken is wstETH | stETH -> wstETH ratio
-            // updates every few blocks
             if (sellToken == stETHAddress) {
                 IERC20(stETH).safeTransferFrom(
                     msg.sender, address(this), specifiedAmount
@@ -205,25 +242,30 @@ contract LidoAdapter is ISwapAdapter {
                 IERC20(stETH).safeIncreaseAllowance(
                     wstETHAddress, specifiedAmount
                 );
-                // wrap function returns the amount of wstETH user receives
-                // after wrapping
-                trade.calculatedAmount = wstETH.wrap(specifiedAmount);
+                uint256 wstETHCalculatedAmountOut = wstETH.getWstETHByStETH(specifiedAmount);
+                uint256 receivedWstETH = wstETH.wrap(specifiedAmount);
+                if (receivedWstETH < wstETHCalculatedAmountOut) {
+                    revert Unavailable("Insufficient wstETH received");
+                }
+                IERC20(wstETH).safeTransfer(msg.sender, receivedWstETH);
+                trade.calculatedAmount = wstETHCalculatedAmountOut;
+
             } else if (sellToken == address(0)) {
-                // ETH -> wstETH
                 if (buyToken == wstETHAddress) {
                     (bool sent_,) =
-                        wstETHAddress.call{value: specifiedAmount}("");
+                        stETHAddress.call{value: specifiedAmount}("");
                     if (!sent_) {
                         revert Unavailable(
-                            "Ether transfer to wstETH contract failed"
+                            "Ether transfer to stETH contract failed"
                         );
                     }
-                    trade.calculatedAmount =
-                        (specifiedAmount * wstETH.tokensPerStEth()) / 1e18;
-
-                    IERC20(wstETH).safeTransfer(
-                        msg.sender, trade.calculatedAmount
-                    );
+                    uint256 wstETHCalculatedAmountOut = wstETH.getWstETHByStETH(specifiedAmount);
+                    uint256 receivedWstETH = wstETH.wrap(specifiedAmount);
+                    if (receivedWstETH < wstETHCalculatedAmountOut) {
+                        revert Unavailable("Insufficient wstETH received");
+                    }
+                    IERC20(wstETH).safeTransfer(msg.sender, receivedWstETH);
+                    trade.calculatedAmount = wstETHCalculatedAmountOut;
                 } else {
                     // ETH -> stETH
                     (bool sent_,) =
@@ -401,6 +443,10 @@ interface IStETH is IERC20 {
     function submit(address _referral) external payable returns (uint256);
 
     function getCurrentStakeLimit() external view returns (uint256);
+    
+    function getTotalPooledEth() external view returns (uint256);
+
+    function getTotalShares() external view returns (uint256);
 }
 
 /// @dev Wrapped interface for wstETH
