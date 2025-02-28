@@ -4,18 +4,16 @@ protocol_type_names:
 adapter_contract: "BalancerV3SwapAdapter"
 adapter_build_signature: "constructor(address,address,address,address)"
 adapter_build_args: "0xbA1333333333a1BA1108E8412f11850A5C319bA9,0x136f1EFcC3f8f88516B9E94110D56FDBfB1778d1,0x000000000022D473030F116dDEE9F6B43aC78BA3,0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2"
-skip_balance_check: true 
+skip_balance_check: true # Skipped because this Balancer V3 uses a Vault, the current version of the testing module doesn't support this.
 
 # vault address for v3 needed for the router contract
 initialized_accounts:
   - "0xbA1333333333a1BA1108E8412f11850A5C319bA9"
-  - "0x0E8B07657D719B86e06bF0806D6729e3D528C9A9"
-  - "0x136f1EFcC3f8f88516B9E94110D56FDBfB1778d1"
 
 tests:
   - name: test_stable_pool_creation
     start_block: 21374757
-    stop_block: 21374767 
+    stop_block: 21374767
     expected_components:
       - id: "0xc4ce391d82d164c166df9c8336ddf84206b2f812"
         tokens:
@@ -27,12 +25,12 @@ tests:
           bpt: "0xc4ce391d82d164c166df9c8336ddf84206b2f812"
           erc4626: "0x01"
           fee: "0x5af3107a4000"
-        skip_simulation: true
+        skip_simulation: true # Skipped because this pool relies on rate providers (it uses ERC4626)
         creation_tx: "0xecfe638ea155e78ca2698bea0bee5f86c2f77abe3e9dc93ed19ab6e674165b95"
 
   - name: test_weighted_pool_creation
     start_block: 21701410
-    stop_block: 21701420 
+    stop_block: 21701420
     expected_components:
       - id: "0x4Fd081923824D6AbdaCc862d8449e124A8634b12"
         tokens:
@@ -44,12 +42,12 @@ tests:
           normalized_weights: "0x5b22307830623161326263326563353030303030222c22307830326336386166306262313430303030225d"
           fee: "0x038d7ea4c68000"
           pool_type: "0x5765696768746564506f6f6c466163746f7279"
-        skip_simulation: true
+        skip_simulation: true # This test is only for creation, simulation tests are below
         creation_tx: "0xaf0f8da4b7b148f156605673c6ac56657f67c47001aadd5b3b64d6cb787daad4"
 
   - name: test_erc4626_pool_creation
     start_block: 21375196
-    stop_block: 21375206 
+    stop_block: 21375206
     expected_components:
       - id: "0x89BB794097234E5E930446C0CeC0ea66b35D7570"
         tokens:
@@ -61,11 +59,11 @@ tests:
           bpt: "0x89bb794097234e5e930446c0cec0ea66b35d7570"
           erc4626: "0x01"
           fee: "0x2d79883d2000"
-        skip_simulation: true
+        skip_simulation: true # Skipped because this pool relies on rate providers (it uses ERC4626)
         creation_tx: "0x536baa8f18a5f9e32b08f695593f47d996a509edc886ccab6f89b001f2d2b4e4"
 
   - name: test_swap_g_usdc
-    start_block: 21389576 
+    start_block: 21389576
     stop_block: 21389676
     expected_components:
       - id: "0xf91c11BA4220b7a72E1dc5E92f2b48D3fdF62726"
@@ -114,5 +112,3 @@ tests:
           fee: "0x038d7ea4c68000"
         skip_simulation: false
         creation_tx: "0x214064cfcf41f7b94b4f9cdd35644b851e19ba246822b7d8f2bdcc3d6c06074e"
-
-
