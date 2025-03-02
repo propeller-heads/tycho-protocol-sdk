@@ -274,7 +274,8 @@ dependencies = [
  "serde-sibor",
  "substreams",
  "substreams-ethereum",
- "tycho-substreams 0.2.0 (git+https://github.com/propeller-heads/tycho-protocol-sdk.git?rev=3c08359)",
+ "substreams-helper 0.0.2 (git+https://github.com/propeller-heads/tycho-protocol-sdk.git?rev=22f70ca)",
+ "tycho-substreams 0.2.0 (git+https://github.com/propeller-heads/tycho-protocol-sdk.git?rev=22f70ca)",
 ]
 
 [[package]]
@@ -1429,6 +1430,29 @@ dependencies = [
 [[package]]
 name = "substreams-helper"
 version = "0.0.2"
+source = "git+https://github.com/propeller-heads/tycho-protocol-sdk.git?rev=22f70ca#22f70ca11046d5d4a5fc900a6b1a0b530a2d9664"
+dependencies = [
+ "anyhow",
+ "base64",
+ "bigdecimal",
+ "downcast-rs",
+ "ethabi 18.0.0",
+ "hex",
+ "hex-literal 0.4.1",
+ "num-bigint",
+ "pad",
+ "prost 0.11.9",
+ "prost-types 0.12.6",
+ "substreams",
+ "substreams-entity-change",
+ "substreams-ethereum",
+ "thiserror 1.0.69",
+ "tiny-keccak",
+]
+
+[[package]]
+name = "substreams-helper"
+version = "0.0.2"
 source = "git+https://github.com/propeller-heads/tycho-protocol-sdk.git?rev=b8aeaa3#b8aeaa3dc6e7242a5dd23681921258ef2cb3c6dd"
 dependencies = [
  "anyhow",
@@ -1571,6 +1595,22 @@ dependencies = [
 [[package]]
 name = "tycho-substreams"
 version = "0.2.0"
+dependencies = [
+ "ethabi 18.0.0",
+ "hex",
+ "itertools 0.12.1",
+ "num-bigint",
+ "prost 0.11.9",
+ "serde",
+ "serde_json",
+ "substreams",
+ "substreams-ethereum",
+]
+
+[[package]]
+name = "tycho-substreams"
+version = "0.2.0"
+source = "git+https://github.com/propeller-heads/tycho-protocol-sdk.git?rev=22f70ca#22f70ca11046d5d4a5fc900a6b1a0b530a2d9664"
 dependencies = [
  "ethabi 18.0.0",
  "hex",

@@ -17,28 +17,29 @@ binaries:
     file: ../target/wasm32-unknown-unknown/release/ethereum_maverick_v2.wasm
 
 modules:
-  - name: map_protocol_components
+  - name: map_components
     kind: map
     initialBlock: 1
     inputs:
+      - params: string
       - source: sf.ethereum.type.v2.Block
     output:
       type: proto:tycho.evm.v1.BlockTransactionProtocolComponents
 
-  - name: store_protocol_components
+  - name: store_components
     kind: store
     initialBlock: 1
     updatePolicy: set
     valueType: string
     inputs:
-      - map: map_protocol_components
+      - map: map_components
 
-  - name: map_relative_component_balance
+  - name: map_relative_balances
     kind: map
     initialBlock: 1
     inputs:
       - source: sf.ethereum.type.v2.Block
-      - store: store_protocol_components
+      - store: store_components
     output:
       type: proto:tycho.evm.v1.BlockBalanceDeltas
 
@@ -48,17 +49,20 @@ modules:
     updatePolicy: add
     valueType: bigint
     inputs:
-      - map: map_relative_component_balance
+      - map: map_relative_balances
 
   - name: map_protocol_changes
     kind: map
     initialBlock: 1
     inputs:
       - source: sf.ethereum.type.v2.Block
-      - map: map_protocol_components
-      - map: map_relative_component_balance
-      - store: store_protocol_components
+      - map: map_components
+      - map: map_relative_balances
+      - store: store_components
       - store: store_balances
         mode: deltas
     output:
       type: proto:tycho.evm.v1.BlockChanges
+
+params:
+  map_components: "0A7e848Aca42d879EF06507Fca0E7b33A0a63c1e"

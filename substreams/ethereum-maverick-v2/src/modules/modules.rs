@@ -33,7 +33,7 @@
 //! - Handling native ETH balances alongside token balances.
 //! - Customizing indexing logic for specific factory contract behavior.
 use crate::pool_factories;
-use anyhow::Result;
+use anyhow::{Ok, Result};
 use itertools::Itertools;
 use std::collections::HashMap;
 use substreams::{pb::substreams::StoreDeltas, prelude::*};
