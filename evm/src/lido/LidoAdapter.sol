@@ -6,7 +6,6 @@ import {ISwapAdapter} from "src/interfaces/ISwapAdapter.sol";
 import {IERC20} from "openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 import "forge-std/console.sol";
-import "src/lido/SafeMath.sol";
 
 /// @title Lido DAO Adapter
 contract LidoAdapter is ISwapAdapter {
@@ -230,23 +229,48 @@ contract LidoAdapter is ISwapAdapter {
                 trade.calculatedAmount = wstETHCalculatedAmountOut;
             } else if (sellToken == address(0)) {
                 if (buyToken == wstETHAddress) {
-                    (bool sent_, ) = stETHAddress.call{value: specifiedAmount}(
-                        ""
+                    uint256 stETHTotalSupply = stETH.totalSupply();
+                    uint256 stETHTotalShares = stETH.getTotalShares();
+                    uint256 sharesAmountCalculated = (specifiedAmount *
+                        stETHTotalShares) / stETHTotalSupply;
+
+                    uint256 stETHBalanceCalculated = (sharesAmountCalculated *
+                        stETHTotalSupply) / stETHTotalShares;
+                    
+                    uint256 wstETHCalculatedAmountOut = stETH.getSharesByPooledEth(
+                        stETHBalanceCalculated
                     );
-                    if (!sent_) {
-                        revert Unavailable(
-                            "Ether transfer to stETH contract failed"
-                        );
-                    }
-                    uint256 wstETHCalculatedAmountOut = wstETH.getWstETHByStETH(
-                        specifiedAmount
+
+                    uint256 receivedSharesfromSubmit = stETH.submit{
+                        value: specifiedAmount
+                    }(address(0));
+
+                    console.log(
+                        "A | stETH receivedShares returned from submit: ",
+                        receivedSharesfromSubmit
                     );
-                    uint256 receivedWstETH = wstETH.wrap(specifiedAmount);
-                    if (receivedWstETH < wstETHCalculatedAmountOut) {
+
+                    IERC20(stETH).safeIncreaseAllowance(
+                        wstETHAddress,
+                        stETHBalanceCalculated
+                    );
+
+                    uint256 receivedWstETHfromWrap = wstETH.wrap(
+                        stETHBalanceCalculated
+                    );
+                    console.log(
+                        "A | stETH receivedWstETH returned from wrap: ",
+                        receivedWstETHfromWrap
+                    );
+                    if (receivedWstETHfromWrap < wstETHCalculatedAmountOut - 3) {
                         revert Unavailable("Insufficient wstETH received");
                     }
-                    IERC20(wstETH).safeTransfer(msg.sender, receivedWstETH);
+                    IERC20(wstETH).safeTransfer(
+                        msg.sender,
+                        receivedWstETHfromWrap
+                    );
                     trade.calculatedAmount = wstETHCalculatedAmountOut;
+
                 } else {
                     // ETH -> stETH
                     (bool sent_, ) = stETHAddress.call{value: specifiedAmount}(
