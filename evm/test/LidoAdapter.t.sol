@@ -452,8 +452,7 @@ contract LidoAdapterTest is Test, ISwapAdapterTypes {
     function testSwapFuzzLidoEthWstEth(uint256 specifiedAmount, bool isBuy)
         public
     {
-        // OrderSide side = isBuy ? OrderSide.Buy : OrderSide.Sell;
-        OrderSide side = OrderSide.Sell;
+        OrderSide side = isBuy ? OrderSide.Buy : OrderSide.Sell;
         vm.assume(specifiedAmount > 100);
 
         uint256 wstETH_balance_before;
@@ -516,7 +515,7 @@ contract LidoAdapterTest is Test, ISwapAdapterTypes {
                 assertApproxEqAbs(
                     trade.calculatedAmount,
                     wstETH_balance_after - wstETH_balance_before,
-                    3
+                    2
                 );
             }
         }
