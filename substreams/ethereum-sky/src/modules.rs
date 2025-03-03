@@ -191,7 +191,6 @@ pub fn map_relative_balances(
                 abi::dai_usds_converter_contract::events::DaiToUsds::match_and_decode(vault_log.log)
             {
                 let component_id = format!("0x{}", hex::encode(DAI_USDS_CONVERTER_ADDRESS));
-                substreams::log::info!("component id for usds dai {:?}", hex::decode(&component_id.clone().as_bytes().to_vec()));
                 if store
                     .get_last(format!("pool:{}", &component_id))
                     .is_some()

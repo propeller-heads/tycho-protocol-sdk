@@ -122,6 +122,7 @@ contract SkySwapAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
         vm.label(USDC_ADDRESS, "USDC");
         vm.label(MKR_ADDRESS, "MKR");
         vm.label(SKY_ADDRESS, "SKY");
+        vm.label(0xf6e72Db5454dd049d0788e411b06CfAF16853042, "DssLitePsm");
     }
 
     function setupTest(
@@ -145,6 +146,19 @@ contract SkySwapAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
         uint256 dealAmount = side == OrderSide.Buy ? 10 ** 50 : specifiedAmount;
         deal(sellToken, address(this), dealAmount);
         IERC20(sellToken).approve(address(adapter), dealAmount);
+    }
+
+    function testUsdsPsmWrapper() public {
+        uint256 specifiedAmount = 100 * 1e6;
+        deal(USDS_ADDRESS, address(this), specifiedAmount);
+        USDS.approve(address(adapter), specifiedAmount);
+        adapter.swap(
+            USDS_USDC_PAIR,
+            USDS_ADDRESS,
+            USDC_ADDRESS,
+            OrderSide.Sell,
+            specifiedAmount
+        );
     }
 
     function executeSwap(
