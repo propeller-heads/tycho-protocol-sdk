@@ -7,6 +7,7 @@ import {IERC20} from "openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from
     "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 import "forge-std/console.sol";
+import "src/lido/SafeMath.sol";
 
 /// @title Lido DAO Adapter
 contract LidoAdapter is ISwapAdapter {
@@ -141,27 +142,65 @@ contract LidoAdapter is ISwapAdapter {
                     trade.calculatedAmount = specifiedAmount;
                 } else {
                     // ETH -> wstETH
-                    uint256 ethAmountIn = wstETH.getStETHByWstETH(specifiedAmount);
 
-                    uint256 sharesAmountCalculated = stETH.getSharesByPooledEth(ethAmountIn);
+                    uint256 stETHTotalSupply = stETH.totalSupply();
+                    uint256 stETHTotalShares = stETH.getTotalShares();
 
-                    uint256 stETHBalanceCalculated = sharesAmountCalculated * stETH.totalSupply() / stETH.getTotalShares();
+                    uint256 ethAmountIn =
+                        wstETH.getStETHByWstETH(specifiedAmount);
+                    console.log("A | ethAmountIn: ", ethAmountIn);
+                    uint256 ethAmountDirectCall =
+                        stETH.getPooledEthByShares(specifiedAmount);
+                    console.log(
+                        "A | ethAmountDirectCall: ", ethAmountDirectCall
+                    );
+                    uint256 tokensPerStEth = wstETH.tokensPerStEth();
+                    uint256 ethAmountInCalculated =
+                        (specifiedAmount * 1e18) / tokensPerStEth;
+                    console.log(
+                        "A | ethAmountInCalculated: ", ethAmountInCalculated
+                    );
+
+                    uint256 sharesAmount =
+                        stETH.getSharesByPooledEth(ethAmountIn);
+                    // totalSupply() calls _getTotalPooledEther(), same as
+                    // getTotalPooledEther()
+                    // we use totalSupply and not getTotalPooledEther() because
+                    // getTotalPooledEther() reverts with "revert:
+                    // NON_EMPTY_DATA"
+
+                    uint256 sharesAmountCalculated =
+                        SafeMath.div(SafeMath.mul(ethAmountInCalculated, stETHTotalShares), stETHTotalSupply);
 
 
-                    uint256 receivedSharesfromSubmit = stETH.submit{value: ethAmountIn}(address(0));
+                    uint256 stETHBalanceCalculated = (
+                        sharesAmount * stETHTotalSupply
+                    ) / stETHTotalShares;
+
+                    uint256 receivedSharesfromSubmit =
+                        stETH.submit{value: ethAmountIn}(address(0));
                     console.log(
                         "A | stETH receivedShares returned from submit: ",
                         receivedSharesfromSubmit
                     );
+                    console.log(
+                        "A | sharesAmount: ", sharesAmount
+                    );
                     console.log("A | sharesAmountCalculated: ", sharesAmountCalculated);
-                    console.log("A | stETHBalanceCalculated: ", stETHBalanceCalculated);
-                    console.log("A | stETH Adapter balance: ", IERC20(stETH).balanceOf(address(this)));
+                    console.log(
+                        "A | stETHBalanceCalculated: ", stETHBalanceCalculated
+                    );
+                    console.log(
+                        "A | stETH Adapter balance: ",
+                        IERC20(stETH).balanceOf(address(this))
+                    );
 
                     IERC20(stETH).safeIncreaseAllowance(
                         wstETHAddress, stETHBalanceCalculated
                     );
 
-                    uint256 receivedWstETHfromWrap = wstETH.wrap(stETHBalanceCalculated);
+                    uint256 receivedWstETHfromWrap =
+                        wstETH.wrap(stETHBalanceCalculated);
                     console.log(
                         "A | stETH receivedWstETH returned from wrap: ",
                         receivedWstETHfromWrap
@@ -169,63 +208,10 @@ contract LidoAdapter is ISwapAdapter {
                     if (receivedWstETHfromWrap < specifiedAmount - 3) {
                         revert Unavailable("Insufficient wstETH received");
                     }
-                    IERC20(wstETH).safeTransfer(msg.sender, receivedWstETHfromWrap);
+                    IERC20(wstETH).safeTransfer(
+                        msg.sender, receivedWstETHfromWrap
+                    );
                     trade.calculatedAmount = ethAmountIn;
-
-
-                    ////////////////// BUG 🪲: Wrong stETHsharesAmount returned when calling stETH.submit{value: ethAmountIn}(address(0)); /////////////////////////////
-                    // console.log("A | stETH adapter balance BEFORE: ", IERC20(stETH).balanceOf(address(this)));
-                    
-                    // uint256 ethAmountIn = wstETH.getStETHByWstETH(specifiedAmount);
-                    // console.log(
-                    //     "A | wstETH buySide specifiedAmount: ", specifiedAmount
-                    // );
-                    // console.log(
-                    //     "A | ETH ethAmountIn to get wstETH specifiedAmount: ",
-                    //     ethAmountIn
-                    // );
-
-                    // // Get stETH first and get exact shares received from THIS
-                    // // transaction
-                    // uint256 receivedShares =
-                    //     stETH.submit{value: ethAmountIn}(address(0));
-                    // console.log(
-                    //     "A | stETH receivedShares returned from submit: ",
-                    //     receivedShares
-                    // );
-                    // console.log("A | stETH adapter balance: ", IERC20(stETH).balanceOf(address(this)));
-                    // console.log("A | wstETH adapter balance: ", IERC20(wstETH).balanceOf(address(this)));
-
-                    // // Wrap exactly the shares we received
-                    // IERC20(stETH).safeIncreaseAllowance(
-                    //     wstETHAddress, receivedShares
-                    // );
-                    // uint256 receivedWstETH = wstETH.wrap(receivedShares);
-                    // console.log("A | wstETH received returned from wrap: ", receivedWstETH);
-                    // console.log("A | wstETH adapter balance: ", IERC20(wstETH).balanceOf(address(this)));
-                    // // Ensure we received enough wstETH (with small rounding
-                    // // tolerance)
-                    // require(
-                    //     receivedWstETH >= specifiedAmount - 100,
-                    //     "Insufficient wstETH received"
-                    // );
-                    // IERC20(wstETH).safeTransfer(msg.sender, receivedWstETH);
-                    // trade.calculatedAmount = ethAmountIn;
-
-                    ////////////////// Temporary fix for BUG 🪲: Wrong stETHsharesAmount returned when calling stETH.submit{value: ethAmountIn}(address(0)); /////////////////////////////
-                    // uint256 ethAmountIn = getAmountInForWstETHSpecifiedAmount(specifiedAmount);
-                    // (bool sent_,) = stETHAddress.call{value: ethAmountIn}("");
-                    // if (!sent_) revert Unavailable("Ether transfer failed");
-
-                    // IERC20(stETH).safeIncreaseAllowance(
-                    //     wstETHAddress, ethAmountIn
-                    // );
-                    // uint256 receivedWstETH = wstETH.wrap(ethAmountIn);
-                    // if (receivedWstETH < specifiedAmount) {
-                    //     revert Unavailable("Insufficient wstETH received");
-                    // }
-                    // IERC20(wstETH).safeTransfer(msg.sender, specifiedAmount);
-                    // trade.calculatedAmount = ethAmountIn;
                 }
             }
             // In OrdeSide.Buy the specifiedAmount is the amount of buyToken to
@@ -242,14 +228,14 @@ contract LidoAdapter is ISwapAdapter {
                 IERC20(stETH).safeIncreaseAllowance(
                     wstETHAddress, specifiedAmount
                 );
-                uint256 wstETHCalculatedAmountOut = wstETH.getWstETHByStETH(specifiedAmount);
+                uint256 wstETHCalculatedAmountOut =
+                    wstETH.getWstETHByStETH(specifiedAmount);
                 uint256 receivedWstETH = wstETH.wrap(specifiedAmount);
                 if (receivedWstETH < wstETHCalculatedAmountOut) {
                     revert Unavailable("Insufficient wstETH received");
                 }
                 IERC20(wstETH).safeTransfer(msg.sender, receivedWstETH);
                 trade.calculatedAmount = wstETHCalculatedAmountOut;
-
             } else if (sellToken == address(0)) {
                 if (buyToken == wstETHAddress) {
                     (bool sent_,) =
@@ -259,7 +245,8 @@ contract LidoAdapter is ISwapAdapter {
                             "Ether transfer to stETH contract failed"
                         );
                     }
-                    uint256 wstETHCalculatedAmountOut = wstETH.getWstETHByStETH(specifiedAmount);
+                    uint256 wstETHCalculatedAmountOut =
+                        wstETH.getWstETHByStETH(specifiedAmount);
                     uint256 receivedWstETH = wstETH.wrap(specifiedAmount);
                     if (receivedWstETH < wstETHCalculatedAmountOut) {
                         revert Unavailable("Insufficient wstETH received");
@@ -347,9 +334,14 @@ contract LidoAdapter is ISwapAdapter {
         }
     }
 
-    function getAmountInForWstETHSpecifiedAmount(uint256 wstETHAmount) public view returns (uint256 ethAmountIn) {
+    function getAmountInForWstETHSpecifiedAmount(uint256 wstETHAmount)
+        public
+        view
+        returns (uint256 ethAmountIn)
+    {
         ethAmountIn = wstETH.getStETHByWstETH(wstETHAmount) + 100;
     }
+
     /// @inheritdoc ISwapAdapter
     function getCapabilities(bytes32, address, address)
         external
@@ -443,7 +435,7 @@ interface IStETH is IERC20 {
     function submit(address _referral) external payable returns (uint256);
 
     function getCurrentStakeLimit() external view returns (uint256);
-    
+
     function getTotalPooledEth() external view returns (uint256);
 
     function getTotalShares() external view returns (uint256);
