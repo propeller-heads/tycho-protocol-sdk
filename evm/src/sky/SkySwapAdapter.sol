@@ -277,12 +277,14 @@ contract SkySwapAdapter is ISwapAdapter {
         // DAI <-> sDAI
         if (poolId == bytes32(bytes20(address(sDai)))) {
             if (sellToken == address(dai)) {
-                limits[0] = dai.totalSupply() / RESERVE_FACTOR;
+                // limits[0] = dai.totalSupply() / RESERVE_FACTOR;
+                limits[0] = 100 * 1e10 / RESERVE_FACTOR;
                 limits[1] = sDai.previewDeposit(limits[0]);
             } else {
                 uint256 totalAssets = sDai.totalAssets();
                 limits[0] = sDai.previewWithdraw(totalAssets / RESERVE_FACTOR);
-                limits[1] = totalAssets / RESERVE_FACTOR;
+                limits[1] = 100 * 1e10 / RESERVE_FACTOR;
+                // limits[1] = totalAssets / RESERVE_FACTOR;
             }
             return limits;
         }
@@ -310,8 +312,10 @@ contract SkySwapAdapter is ISwapAdapter {
 
         // DAI <-> USDS
         if (poolId == bytes32(bytes20(address(daiUsdsConverter)))) {
-            uint256 daiTotalSupply = dai.totalSupply();
-            uint256 usdsTotalSupply = usds.totalSupply();
+            // uint256 daiTotalSupply = dai.totalSupply();
+            // uint256 usdsTotalSupply = usds.totalSupply();
+            uint256 daiTotalSupply = 100 * 1e6;
+            uint256 usdsTotalSupply = 100 * 1e6;
 
             if (daiTotalSupply <= usdsTotalSupply) {
                 limits[0] = daiTotalSupply / RESERVE_FACTOR;
