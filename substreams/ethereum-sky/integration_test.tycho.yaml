@@ -24,10 +24,8 @@ protocol_type_names:
 tests:
   # Name of the test
   - name: test_sdai_vault
-    # Indexed block range
     start_block: 16428132
-    stop_block: 17317471
-    # A list of expected component indexed in the block range. Each component must match perfectly the `ProtocolComponent` indexed by your subtreams module.
+    stop_block: 16932341
     expected_components:
       - id: "0x83f20f44975d03b1b09e64809b757c47f942beea"
         tokens:
@@ -38,7 +36,7 @@ tests:
         skip_simulation: false
 
   - name: test_dai_usds_converter
-    start_block: 20663733
+    start_block: 20663734
     stop_block: 20770232
     expected_components:
       - id: "0x3225737a9bbb6473cb4a45b7244aca2befdb276a"
@@ -51,7 +49,7 @@ tests:
 
   - name: test_dai_lite_psm
     start_block: 20283665
-    stop_block: 20556432
+    stop_block: 20283671
     expected_components:
       - id: "0xf6e72db5454dd049d0788e411b06cfaf16853042"
         tokens:
@@ -63,7 +61,7 @@ tests:
 
   - name: test_usds_psm_wrapper
     start_block: 20668727
-    stop_block: 20804462
+    stop_block: 20791764
     expected_components:
       - id: "0xa188eec8f81263234da3622a406892f3d630f98c"
         tokens:
@@ -87,7 +85,7 @@ tests:
 
   - name: test_mkr_sky_converter
     start_block: 20663739
-    stop_block: 20770684
+    stop_block: 20770589
     expected_components:
       - id: "0xbdcfca946b6cdd965f99a839e4435bcdc1bc470b"
         tokens:

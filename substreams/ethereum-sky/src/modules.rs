@@ -54,21 +54,17 @@ pub fn map_components(block: eth::v2::Block) -> Result<BlockTransactionProtocolC
 
         // Check DAI-USDS Converter
         if is_deployment_tx(tx, DAI_USDS_CONVERTER_ADDRESS) {
-            substreams::log::info!(
-                "Found DAI-USDS Converter deployment tx: {}",
-                hex::encode(&tx.hash)
-            );
             components.push(
                 ProtocolComponent::at_contract(DAI_USDS_CONVERTER_ADDRESS, &tx.into())
                     .with_tokens(&[DAI_TOKEN_ADDRESS, USDS_TOKEN_ADDRESS])
                     .as_swap_type("dai_usds_converter", ImplementationType::Vm),
             );
+            substreams::log::info!("just pushed dai-usds: {:?}", hex::encode(&DAI_USDS_CONVERTER_ADDRESS));
         }
 
         // Check DAI Lite PSM
         // TODO: Check how to keep track of the fees
         if is_deployment_tx(tx, DAI_LITE_PSM_ADDRESS) {
-            substreams::log::info!("Found DAI Lite PSM deployment tx: {}", hex::encode(&tx.hash));
             components.push(
                 ProtocolComponent::at_contract(DAI_LITE_PSM_ADDRESS, &tx.into())
                     .with_tokens(&[DAI_TOKEN_ADDRESS, USDS_TOKEN_ADDRESS])
@@ -158,7 +154,7 @@ pub fn store_components(map: BlockTransactionProtocolComponents, store: StoreSet
             tx_pc
                 .components
                 .into_iter()
-                .for_each(|pc| store.set(0, format!("pool:{0}", &pc.id[..42]), &pc.id))
+                .for_each(|pc| store.set(0, format!("pool:{0}", &pc.id), &pc.id))
         });
 }
 
@@ -195,11 +191,11 @@ pub fn map_relative_balances(
                 abi::dai_usds_converter_contract::events::DaiToUsds::match_and_decode(vault_log.log)
             {
                 let component_id = format!("0x{}", hex::encode(DAI_USDS_CONVERTER_ADDRESS));
+                substreams::log::info!("component id for usds dai {:?}", hex::decode(&component_id.clone().as_bytes().to_vec()));
                 if store
-                    .get_last(format!("pool:{}", &component_id[..42]))
+                    .get_last(format!("pool:{}", &component_id))
                     .is_some()
                 {
-                    substreams::log::info!("DAI-USDS Converter event: {}", ev.wad);
                     deltas.extend_from_slice(&[
                         // Here we are pretending DAI is burned and USDS is minted to user
                         // In reality DAI is sent to DAI vault (0x3225737a9Bbb6473CB4a45b7244ACa2BeFdB276A)
@@ -226,7 +222,7 @@ pub fn map_relative_balances(
             {
                 let component_id = format!("0x{}", hex::encode(DAI_USDS_CONVERTER_ADDRESS));
                 if store
-                    .get_last(format!("pool:{}", &component_id[..42]))
+                    .get_last(format!("pool:{}", &component_id))
                     .is_some()
                 {
                     deltas.extend_from_slice(&[
@@ -256,7 +252,7 @@ pub fn map_relative_balances(
                     let component_id = format!("0x{}", hex::encode(DAI_LITE_PSM_ADDRESS));
 
                     if store
-                        .get_last(format!("pool:{}", &component_id[..42]))
+                        .get_last(format!("pool:{}", &component_id))
                         .is_some()
                     {
                         let dai_in_amount = &ev.value + &ev.fee; // Total DAI paid including fee
@@ -287,7 +283,7 @@ pub fn map_relative_balances(
                     let component_id = format!("0x{}", hex::encode(DAI_LITE_PSM_ADDRESS));
 
                     if store
-                        .get_last(format!("pool:{}", &component_id[..42]))
+                        .get_last(format!("pool:{}", &component_id))
                         .is_some()
                     {
                         let usdc_in_amount = &ev.value + &ev.fee; // Total USDC paid including fee
@@ -322,7 +318,7 @@ pub fn map_relative_balances(
                     let component_id = format!("0x{}", hex::encode(USDS_PSM_WRAPPER_ADDRESS));
 
                     if store
-                        .get_last(format!("pool:{}", &component_id[..42]))
+                        .get_last(format!("pool:{}", &component_id))
                         .is_some()
                     {
                         let usds_in_amount = &ev.value + &ev.fee; // Total USDS paid including fee
@@ -355,7 +351,7 @@ pub fn map_relative_balances(
                     let component_id = format!("0x{}", hex::encode(USDS_PSM_WRAPPER_ADDRESS));
 
                     if store
-                        .get_last(format!("pool:{}", &component_id[..42]))
+                        .get_last(format!("pool:{}", &component_id))
                         .is_some()
                     {
                         let usds_out_amount = &ev.value - &ev.fee; // USDS amount after fee deduction
@@ -386,7 +382,7 @@ pub fn map_relative_balances(
             {
                 let component_id = format!("0x{}", hex::encode(SUSDS_ADDRESS));
                 if store
-                    .get_last(format!("pool:{}", &component_id[..42]))
+                    .get_last(format!("pool:{}", &component_id))
                     .is_some()
                 {
                     deltas.extend_from_slice(&[
@@ -411,7 +407,7 @@ pub fn map_relative_balances(
             {
                 let component_id = format!("0x{}", hex::encode(SUSDS_ADDRESS));
                 if store
-                    .get_last(format!("pool:{}", &component_id[..42]))
+                    .get_last(format!("pool:{}", &component_id))
                     .is_some()
                 {
                     deltas.extend_from_slice(&[
@@ -436,7 +432,7 @@ pub fn map_relative_balances(
             {
                 let component_id = format!("0x{}", hex::encode(MKR_SKY_CONVERTER_ADDRESS));
                 if store
-                    .get_last(format!("pool:{}", &component_id[..42]))
+                    .get_last(format!("pool:{}", &component_id))
                     .is_some()
                 {
                     deltas.extend_from_slice(&[
@@ -461,7 +457,7 @@ pub fn map_relative_balances(
             {
                 let component_id = format!("0x{}", hex::encode(MKR_SKY_CONVERTER_ADDRESS));
                 if store
-                    .get_last(format!("pool:{}", &component_id[..42]))
+                    .get_last(format!("pool:{}", &component_id))
                     .is_some()
                 {
                     deltas.extend_from_slice(&[
@@ -477,7 +473,7 @@ pub fn map_relative_balances(
                             tx: Some(vault_log.receipt.transaction.into()),
                             token: MKR_TOKEN_ADDRESS.to_vec(),
                             delta: ev.mkr_amt.neg().to_signed_bytes_be(),
-                            component_id: component_id.clone().as_bytes().to_vec(),
+                            component_id: component_id.as_bytes().to_vec(),
                         },
                     ]);
                 }
@@ -486,7 +482,7 @@ pub fn map_relative_balances(
             {
                 let component_id = format!("0x{}", hex::encode(SDAI_VAULT_ADDRESS));
                 if store
-                    .get_last(format!("pool:{}", &component_id[..42]))
+                    .get_last(format!("pool:{}", &component_id))
                     .is_some()
                 {
                     deltas.extend_from_slice(&[
@@ -511,7 +507,7 @@ pub fn map_relative_balances(
             {
                 let component_id = format!("0x{}", hex::encode(SDAI_VAULT_ADDRESS));
                 if store
-                    .get_last(format!("pool:{}", &component_id[..42]))
+                    .get_last(format!("pool:{}", &component_id))
                     .is_some()
                 {
                     deltas.extend_from_slice(&[
@@ -540,39 +536,11 @@ pub fn map_relative_balances(
     Ok(BlockBalanceDeltas { balance_deltas })
 }
 
-/// Store balances for each token in each component
+/// It's significant to include both the `pool_id` and the `token_id` for each balance delta as the
+///  store key to ensure that there's a unique balance being tallied for each.
 #[substreams::handlers::store]
-pub fn store_balances(block: eth::v2::Block, deltas: BlockBalanceDeltas, store: StoreAddBigInt) {
-    for delta in deltas.balance_deltas {
-        let component_id = hex::encode(&delta.component_id);
-        let start_block = match component_id.as_str() {
-            "83F20F44975D03b1b09e64809B757c47f942BEeA" => 16_932_340, // sDAI
-            "3225737a9Bbb6473CB4a45b7244ACa2BeFdB276A" => 20_770_195, // DAI-USDS
-            "f6e72Db5454dd049d0788e411b06CfAF16853042" => 20_535_921, // DAI Lite PSM
-            "A188EEC8F81263234dA3622A406892F3D630f98c" => 20_791_763, // USDS PSM
-            "a3931d71877C0E7a3148CB7Eb4463524FEc27fbD" => 20_771_188, // sUSDS
-            "BDcFCA946b6CDd965f99a839e4435Bcdc1bc470B" => 20_770_588, // MKR-SKY
-            _ => 0,
-        };
-
-        if block.number >= start_block {
-            let key = format!(
-                "balance:{}:{}:{}",
-                hex::encode(&delta.token),
-                hex::encode(&delta.component_id),
-                block.number
-            );
-            store.add(delta.ord, key, BigInt::from_signed_bytes_be(&delta.delta));
-
-            substreams::log::info!(
-                "Storing balance at block {} - Token: 0x{}, Component: {}, Delta: {}",
-                block.number,
-                hex::encode(&delta.token),
-                component_id,
-                hex::encode(&delta.delta)
-            );
-        }
-    }
+pub fn store_balances(deltas: BlockBalanceDeltas, store: StoreAddBigInt) {
+    tycho_substreams::balances::store_balance_changes(deltas, store);
 }
 
 #[substreams::handlers::map]
