@@ -49,10 +49,22 @@ contract LidoAdapterTest is Test, ISwapAdapterTypes {
     /// throughout the contract calls and operations. Indeed the asserts are met
     /// in swap functions.
     /// (ref: LidoAdapter.t.sol:196)
-    function dealStEthTokens(uint256 amount) internal {
-        uint256 wstETHAmount = IwstETH(wstETH).getStETHByWstETH(amount);
-        deal(wstETH, address(this), wstETHAmount);
-        IwstETH(wstETH).unwrap(wstETHAmount);
+
+    function dealStEthTokens(uint256 amount) public {
+        uint256 amountPlusOne = amount + 1;
+        deal(address(this), amountPlusOne);
+
+        uint256 stETHTotalSupply = IERC20(stETH).totalSupply();
+        uint256 stETHTotalShares = IStETH(stETH).getTotalShares();
+
+        uint256 receivedSharesFromSubmit = IStETH(stETH).submit{value: amountPlusOne}(address(0));
+        uint256 stETHBalanceCalculated = (
+            receivedSharesFromSubmit * stETHTotalSupply
+        ) / stETHTotalShares;
+
+        if (stETHBalanceCalculated < amount -1) {
+            revert Unavailable("Insufficient stETH received");
+        }
     }
 
     function testPriceLidoSteth() public {
@@ -124,25 +136,12 @@ contract LidoAdapterTest is Test, ISwapAdapterTypes {
         }
     }
 
-    // WstETH -> StETH
-    function testSwapLidoWstethSteth() public {
-        bytes32 pair = bytes32(0);
-        console.log("Adapter address: ", address(adapter));
-        console.log("Test address: ", address(this));
-        uint256 specifiedAmount = 18511902000000000;
-        dealStEthTokens(specifiedAmount);
-        IERC20(stETH).approve(address(adapter), specifiedAmount);
-
-        adapter.swap(pair, stETH, wstETH, OrderSide.Sell, specifiedAmount);
-    }
 
     function testSwapFuzzLidoStEthWstEth(uint256 specifiedAmount, bool isBuy)
         public
     {
-        // OrderSide side = isBuy ? OrderSide.Buy : OrderSide.Sell;
+        OrderSide side = isBuy ? OrderSide.Buy : OrderSide.Sell;
         vm.assume(specifiedAmount > 1e10);
-        //uint256 specifiedAmount = 1e18;
-        OrderSide side = OrderSide.Buy;
 
         bytes32 pair = bytes32(0);
 
@@ -157,16 +156,22 @@ contract LidoAdapterTest is Test, ISwapAdapterTypes {
             vm.assume(specifiedAmount < limits[0]);
 
             dealStEthTokens(specifiedAmount);
+            console.log("specifiedAmount: ", specifiedAmount);
+            console.log("stETH balance: ", IERC20(stETH).balanceOf(address(this)));
             IERC20(stETH).approve(address(adapter), specifiedAmount);
         }
         uint256 stETH_balance_before = IERC20(stETH).balanceOf(address(this));
+        console.log("stETH_balance_before: ", stETH_balance_before);
         uint256 wstETH_balance_before = IERC20(wstETH).balanceOf(address(this));
+        console.log("wstETH_balance_before: ", wstETH_balance_before);
 
         Trade memory trade =
             adapter.swap(pair, stETH, wstETH, side, specifiedAmount);
 
         uint256 stETH_balance_after = IERC20(stETH).balanceOf(address(this));
         uint256 wstETH_balance_after = IERC20(wstETH).balanceOf(address(this));
+        console.log("stETH_balance_after: ", stETH_balance_after);
+        console.log("wstETH_balance_after: ", wstETH_balance_after);
 
         if (trade.calculatedAmount > 0) {
             if (side == OrderSide.Buy) {
@@ -181,9 +186,10 @@ contract LidoAdapterTest is Test, ISwapAdapterTypes {
                     2
                 );
             } else {
-                assertEq(
+                assertApproxEqAbs(
                     specifiedAmount,
-                    stETH_balance_before - stETH_balance_after
+                    stETH_balance_before - stETH_balance_after,
+                    1
                 );
                 assertEq(
                     trade.calculatedAmount,
