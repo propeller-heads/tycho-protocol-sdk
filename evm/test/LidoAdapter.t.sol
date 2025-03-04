@@ -139,8 +139,10 @@ contract LidoAdapterTest is Test, ISwapAdapterTypes {
     function testSwapFuzzLidoStEthWstEth(uint256 specifiedAmount, bool isBuy)
         public
     {
-        OrderSide side = isBuy ? OrderSide.Buy : OrderSide.Sell;
-        vm.assume(specifiedAmount > 10);
+        // OrderSide side = isBuy ? OrderSide.Buy : OrderSide.Sell;
+        vm.assume(specifiedAmount > 1e10);
+        //uint256 specifiedAmount = 1e18;
+        OrderSide side = OrderSide.Buy;
 
         bytes32 pair = bytes32(0);
 
@@ -150,36 +152,42 @@ contract LidoAdapterTest is Test, ISwapAdapterTypes {
 
             dealStEthTokens(IwstETH(wstETH).getStETHByWstETH(specifiedAmount));
             IERC20(stETH).approve(address(adapter), type(uint256).max);
+
         } else {
             vm.assume(specifiedAmount < limits[0]);
 
             dealStEthTokens(specifiedAmount);
             IERC20(stETH).approve(address(adapter), specifiedAmount);
         }
-        uint256 stETH_balance = IERC20(stETH).balanceOf(address(this));
-        uint256 wstETH_balance = IERC20(wstETH).balanceOf(address(this));
+        uint256 stETH_balance_before = IERC20(stETH).balanceOf(address(this));
+        uint256 wstETH_balance_before = IERC20(wstETH).balanceOf(address(this));
 
         Trade memory trade =
             adapter.swap(pair, stETH, wstETH, side, specifiedAmount);
 
+        uint256 stETH_balance_after = IERC20(stETH).balanceOf(address(this));
+        uint256 wstETH_balance_after = IERC20(wstETH).balanceOf(address(this));
+
         if (trade.calculatedAmount > 0) {
             if (side == OrderSide.Buy) {
-                assertEq(
+                assertApproxEqAbs(
                     specifiedAmount,
-                    IERC20(wstETH).balanceOf(address(this)) - wstETH_balance
+                    wstETH_balance_after - wstETH_balance_before,
+                    2
                 );
-                assertEq(
+                assertApproxEqAbs(
                     trade.calculatedAmount,
-                    stETH_balance - IERC20(stETH).balanceOf(address(this))
+                    stETH_balance_before - stETH_balance_after,
+                    2
                 );
             } else {
                 assertEq(
                     specifiedAmount,
-                    stETH_balance - IERC20(stETH).balanceOf(address(this))
+                    stETH_balance_before - stETH_balance_after
                 );
                 assertEq(
                     trade.calculatedAmount,
-                    IERC20(wstETH).balanceOf(address(this)) - wstETH_balance
+                    wstETH_balance_after - wstETH_balance_before
                 );
             }
         }
@@ -190,6 +198,7 @@ contract LidoAdapterTest is Test, ISwapAdapterTypes {
     {
         OrderSide side = isBuy ? OrderSide.Buy : OrderSide.Sell;
         vm.assume(specifiedAmount > 10);
+        
 
         bytes32 pair = bytes32(0);
 

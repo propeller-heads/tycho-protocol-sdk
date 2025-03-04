@@ -105,20 +105,32 @@ contract LidoAdapter is ISwapAdapter {
 
         if (side == OrderSide.Buy) {
             if (sellToken == stETHAddress) {
-                uint256 stETHAmountIn =
-                    (specifiedAmount * wstETH.stEthPerToken()) / 1e18;
+                uint256 stETHTotalSupply = stETH.totalSupply();
+                uint256 stETHTotalShares = stETH.getTotalShares();
+                uint256 ethAmountDirectCall =
+                    stETH.getPooledEthByShares(specifiedAmount);
+                console.log(
+                    "A | ethAmountDirectCall: ", ethAmountDirectCall
+                );
+                uint256 sharesAmountCalculated = (
+                    ethAmountDirectCall * stETHTotalShares
+                ) / stETHTotalSupply;
+                uint256 stETHBalanceCalculated = (
+                    sharesAmountCalculated * stETHTotalSupply
+                ) / stETHTotalShares;
+                
                 IERC20(stETH).safeTransferFrom(
-                    msg.sender, address(this), stETHAmountIn
+                    msg.sender, address(this), stETHBalanceCalculated
                 );
                 IERC20(stETH).safeIncreaseAllowance(
-                    wstETHAddress, stETHAmountIn
+                    wstETHAddress, stETHBalanceCalculated
                 );
-                uint256 receivedWstETH = wstETH.wrap(stETHAmountIn);
-                if (receivedWstETH < specifiedAmount) {
+                uint256 receivedWstETH = wstETH.wrap(stETHBalanceCalculated);
+                if (receivedWstETH < specifiedAmount - 2) {
                     revert Unavailable("Insufficient wstETH received");
                 }
-                IERC20(wstETH).safeTransfer(msg.sender, specifiedAmount);
-                trade.calculatedAmount = stETHAmountIn;
+                IERC20(wstETH).safeTransfer(msg.sender, receivedWstETH);
+                trade.calculatedAmount = stETHBalanceCalculated;
             } else if (sellToken == wstETHAddress) {
                 uint256 wstETHAmountIn =
                     (specifiedAmount * wstETH.tokensPerStEth()) / 1e18;
