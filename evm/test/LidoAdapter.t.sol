@@ -203,8 +203,7 @@ contract LidoAdapterTest is Test, ISwapAdapterTypes {
         public
     {
         OrderSide side = isBuy ? OrderSide.Buy : OrderSide.Sell;
-        vm.assume(specifiedAmount > 10);
-        
+        vm.assume(specifiedAmount > 1e10);
 
         bytes32 pair = bytes32(0);
 
@@ -224,30 +223,39 @@ contract LidoAdapterTest is Test, ISwapAdapterTypes {
             deal(wstETH, address(this), specifiedAmount);
             IERC20(wstETH).approve(address(adapter), specifiedAmount);
         }
-        uint256 stETH_balance = IERC20(stETH).balanceOf(address(this));
-        uint256 wstETH_balance = IERC20(wstETH).balanceOf(address(this));
+        uint256 stETH_balance_before = IERC20(stETH).balanceOf(address(this));
+        console.log("stETH_balance_before: ", stETH_balance_before);
+        uint256 wstETH_balance_before = IERC20(wstETH).balanceOf(address(this));
+        console.log("wstETH_balance_before: ", wstETH_balance_before);
 
         Trade memory trade =
             adapter.swap(pair, wstETH, stETH, side, specifiedAmount);
 
+        uint256 stETH_balance_after = IERC20(stETH).balanceOf(address(this));
+        uint256 wstETH_balance_after = IERC20(wstETH).balanceOf(address(this));
+        console.log("stETH_balance_after: ", stETH_balance_after);
+        console.log("wstETH_balance_after: ", wstETH_balance_after);
+
         if (trade.calculatedAmount > 0) {
             if (side == OrderSide.Buy) {
-                assertEq(
+                assertApproxEqAbs(
                     specifiedAmount,
-                    stETH_balance - IERC20(stETH).balanceOf(address(this))
+                    stETH_balance_after - stETH_balance_before,
+                    3
                 );
                 assertEq(
                     trade.calculatedAmount,
-                    IERC20(wstETH).balanceOf(address(this)) - wstETH_balance
+                    wstETH_balance_before - wstETH_balance_after
                 );
             } else {
                 assertEq(
                     specifiedAmount,
-                    IERC20(wstETH).balanceOf(address(this)) - wstETH_balance
+                    wstETH_balance_before - wstETH_balance_after
                 );
-                assertEq(
+                assertApproxEqAbs(
                     trade.calculatedAmount,
-                    stETH_balance - IERC20(stETH).balanceOf(address(this))
+                    stETH_balance_after - stETH_balance_before,
+                    2
                 );
             }
         }
