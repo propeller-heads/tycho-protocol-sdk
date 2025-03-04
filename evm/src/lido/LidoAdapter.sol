@@ -231,7 +231,7 @@ contract LidoAdapter is ISwapAdapter {
         }
         // Sell order: User specifies how much of sellToken they want to sell
         else {
-            if (sellToken == address(stEth) && buyToken == address(wstEth)) {
+            if (sellToken == address(stEth)) {
                 // stEth -> wstEth (Sell)
                 // Transfer stEth from user to adapter
                 IERC20(stEth).safeTransferFrom(
@@ -244,14 +244,14 @@ contract LidoAdapter is ISwapAdapter {
                 );
 
                 // Calculate expected wstEth amount
-                uint256 expectedWstETH =
-                    wstEth.getWstETHByStETH(specifiedAmount);
+                uint256 expectedWstEth =
+                    stEth.getSharesByPooledEth(specifiedAmount);
 
                 // Wrap stEth to get wstEth
                 uint256 receivedWstEth = wstEth.wrap(specifiedAmount);
 
                 // Ensure we received enough wstEth
-                if (receivedWstEth < expectedWstETH) {
+                if (receivedWstEth < expectedWstEth) {
                     revert Unavailable("Insufficient wstEth received");
                 }
 
@@ -261,7 +261,7 @@ contract LidoAdapter is ISwapAdapter {
                 // Return the total wstEth received
                 trade.calculatedAmount = receivedWstEth;
             } else if (
-                sellToken == address(wstEth) && buyToken == address(stEth)
+                sellToken == address(wstEth) 
             ) {
                 // wstEth -> stEth (Sell)
                 // Transfer wstEth from user to adapter
@@ -275,11 +275,15 @@ contract LidoAdapter is ISwapAdapter {
                 );
 
                 // Calculate expected stEth amount
-                uint256 expectedStETH = wstEth.getStETHByWstETH(specifiedAmount);
+                uint256 expectedStEth = stEth.getPooledEthByShares(specifiedAmount);
+
 
                 // Unwrap wstEth to get stEth
                 uint256 receivedStEth = wstEth.unwrap(specifiedAmount);
 
+                if (receivedStEth < expectedStEth) {
+                    revert Unavailable("Insufficient stEth received");
+                }
                 // Transfer stEth to the user
                 IERC20(stEth).safeTransfer(msg.sender, receivedStEth);
 
@@ -298,7 +302,7 @@ contract LidoAdapter is ISwapAdapter {
                     (receivedShares * stEthTotalSupply) / stEthTotalShares;
 
                 // Calculate expected wstEth amount
-                uint256 expectedWstETH = stEth.getSharesByPooledEth(stETHAmount);
+                uint256 expectedWstEth = stEth.getSharesByPooledEth(stETHAmount);
 
                 // Approve wstEth contract to use our stEth
                 IERC20(stEth).safeIncreaseAllowance(
@@ -309,7 +313,7 @@ contract LidoAdapter is ISwapAdapter {
                 uint256 receivedWstEth = wstEth.wrap(stETHAmount);
 
                 // Ensure we received enough wstEth
-                if (receivedWstEth < expectedWstETH - 3) {
+                if (receivedWstEth < expectedWstEth - 3) {
                     revert Unavailable("Insufficient wstEth received");
                 }
 
@@ -363,7 +367,7 @@ contract LidoAdapter is ISwapAdapter {
         // // same
         // as Eth stake limit
         uint256 currentStakeLimitWstETH = 10 * 1e18;
-        // wstEth.getWstETHByStETH(currentStakeLimitStETH);
+        // stEth.getSharesByPooledEth(currentStakeLimitStETH);
 
         limits = new uint256[](2);
         if (sellToken == address(stEth)) {
@@ -401,7 +405,7 @@ contract LidoAdapter is ISwapAdapter {
         view
         returns (uint256 ethAmountIn)
     {
-        ethAmountIn = wstEth.getStETHByWstETH(wstETHAmount) + 100;
+        ethAmountIn = stEth.getPooledEthByShares(wstETHAmount) + 100;
     }
 
     /// @inheritdoc ISwapAdapter
@@ -457,13 +461,13 @@ contract LidoAdapter is ISwapAdapter {
         if (sellTokenAddress == address(stEth)) {
             // stEth-wstEth, Eth is not possible as checked through
             // checkInputTokens
-            amount0 = wstEth.getWstETHByStETH(specifiedAmount);
-            amount1 = wstEth.getStETHByWstETH(amount0);
+            amount0 = stEth.getSharesByPooledEth(specifiedAmount);
+            amount1 = stEth.getPooledEthByShares(amount0);
         } else if (sellTokenAddress == address(wstEth)) {
             // wstEth-stEth, Eth is not possible as checked through
             // checkInputTokens
-            amount0 = wstEth.getStETHByWstETH(specifiedAmount);
-            amount1 = wstEth.getWstETHByStETH(amount0);
+            amount0 = stEth.getPooledEthByShares(specifiedAmount);
+            amount1 = stEth.getSharesByPooledEth(amount0);
         } else {
             // Eth (address(0))
             if (buyTokenAddress == address(stEth)) {
@@ -472,9 +476,9 @@ contract LidoAdapter is ISwapAdapter {
             } else {
                 uint256 stETHAmount =
                     stEth.getSharesByPooledEth(specifiedAmount);
-                amount0 = wstEth.getWstETHByStETH(stETHAmount);
+                amount0 = stEth.getSharesByPooledEth(stETHAmount);
                 amount1 =
-                    stEth.getPooledEthByShares(wstEth.getStETHByWstETH(amount0));
+                    stEth.getPooledEthByShares(stEth.getPooledEthByShares(amount0));
             }
         }
 
