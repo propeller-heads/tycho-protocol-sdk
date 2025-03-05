@@ -1,0 +1,28 @@
+# Name of the substreams config file in your substreams module. Usually "./substreams.yaml"
+substreams_yaml_path: ./substreams.yaml
+# Name of the adapter contract, usually: ProtocolSwapAdapter
+adapter_contract: "RenzoAdapter"
+# Constructor signature of the Adapter contract
+adapter_build_signature: "constructor(address,address,address)"
+# Adapter arguments: 1. IRestakeManager | 2. renzoOracle | 3. ezETH
+adapter_build_args: "0x74a09653A083691711cF8215a6ab074BB4e99ef5,0x5a12796f7e7EBbbc8a402667d266d2e65A814042,0xbf5495Efe5DB9ce00f80364C8B423567e58d2110"
+# Whether or not the testing script should skip checking balances of the protocol components.
+# If set to `true` please always add a reason why it's skipped.
+skip_balance_check: true 
+
+# A list of protocol types names created by your Substreams module.
+protocol_type_names:
+  - "restake_manager"
+
+# A list of tests.
+tests:
+  - name: test_restake_manager_creation
+    start_block: 18722789
+    stop_block: 18722790 # 1 Block after first Deposit event
+    expected_components:
+      - id: "0x74a09653A083691711cF8215a6ab074BB4e99ef5" 
+        tokens:
+          - "0x0000000000000000000000000000000000000000" # ETH
+          - "0xbf5495Efe5DB9ce00f80364C8B423567e58d2110" # ezETH
+        creation_tx: "0xd944d0aa4dc9706abcba3a4320f386dc94e54d6c522ce9a0a494c933a16d91fa"
+        skip_simulation: false

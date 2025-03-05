@@ -36,6 +36,7 @@ def build_snapshot_message(
             continue
         states[pool_id]["state"] = state
 
+    print("🚨 states", states)
     states = {id_: ComponentWithState(**state) for id_, state in states.items()}
     return Snapshot(states=states, vm_storage=vm_storage)
 

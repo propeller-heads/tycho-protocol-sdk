@@ -1,0 +1,75 @@
+specVersion: v0.1.0
+package:
+  name: "ethereum_renzo"
+  version: v0.1.0
+
+protobuf:
+  files:
+    - tycho/evm/v1/vm.proto
+    - tycho/evm/v1/common.proto
+    - tycho/evm/v1/utils.proto
+  importPaths:
+    - ../../proto
+    - ./proto
+
+binaries:
+  default:
+    type: wasm/rust-v1
+    file: ../target/wasm32-unknown-unknown/release/ethereum_renzo.wasm
+
+modules:
+  - name: map_components
+    kind: map
+    initialBlock: 18722789 # Restake Manager Contract Creation Block
+    inputs:
+      - source: sf.ethereum.type.v2.Block
+    output:
+      type: proto:tycho.evm.v1.BlockTransactionProtocolComponents
+    doc: |
+      This module detects protocol components such as tokens and contracts associated with the Restake Manager.
+
+  - name: store_components
+    kind: store
+    initialBlock: 18722789
+    updatePolicy: add
+    valueType: int64
+    inputs:
+      - map: map_components
+    doc: |
+      This module persists protocol components such as the Restake Manager contract.
+
+  - name: map_relative_balances
+    kind: map
+    initialBlock: 18722789 #first deposit at block 18727859
+    inputs:
+      - source: sf.ethereum.type.v2.Block
+      - store: store_components
+    output:
+      type: proto:tycho.evm.v1.BlockBalanceDeltas
+    doc: |
+      This module calculates relative balance changes (deltas) for each token based on deposit and withdrawal events.
+
+  - name: store_balances
+    kind: store
+    initialBlock: 18722789
+    updatePolicy: add
+    valueType: bigint
+    inputs:
+      - map: map_relative_balances
+    doc: |
+      This module tracks the overall cumulative balances of each token used in the Restake Manager.
+
+  - name: map_protocol_changes
+    kind: map
+    initialBlock: 18722789
+    inputs:
+      - source: sf.ethereum.type.v2.Block
+      - map: map_components
+      - map: map_relative_balances
+      - store: store_components
+      - store: store_balances
+        mode: deltas
+    output:
+      type: proto:tycho.evm.v1.BlockChanges
+    doc: |
+      This module provides a detailed view of protocol changes, including deposits and withdrawals, for analytics and reporting.
