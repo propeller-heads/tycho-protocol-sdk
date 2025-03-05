@@ -12,13 +12,20 @@ import "forge-std/console.sol";
 contract LidoAdapter is ISwapAdapter {
     using SafeERC20 for IERC20;
 
-    IwstETH public immutable wstEth;
-    IStETH public immutable stEth;
-    uint256 public constant BUFFER = 1000000;
+    address public immutable wstETHAddress;
+    address public immutable stETHAddress;
 
-    constructor(address _wstEth, address _stEth) {
-        wstEth = IwstETH(_wstEth);
-        stEth = IStETH(_stEth);
+    constructor(address _wstETH, address _stETH) {
+        wstETHAddress = _wstETH;
+        stETHAddress = _stETH;
+    }
+
+    function stETH() private view returns (IStETH) {
+        return IStETH(stETHAddress);
+    }
+
+    function wstETH() private view returns (IwstETH) {
+        return IwstETH(wstETHAddress);
     }
 
     /// @notice Internal check for input and output tokens
@@ -94,259 +101,250 @@ contract LidoAdapter is ISwapAdapter {
 
         // Buy order: User specifies how much of buyToken they want to receive
         if (side == OrderSide.Buy) {
-            if (sellToken == address(stEth)) {
-                // stEth -> wstEth (Buy)
-                // Calculate exact amount of stEth needed to get the specified
-                // amount of wstEth
-                uint256 neededStEth = stEth.getPooledEthByShares(specifiedAmount);
-
-                // Add a small buffer to account for potential rounding errors
-                // (0.0001%)
-                neededStEth = neededStEth + (neededStEth / BUFFER);
-
-                // Transfer stEth from user to adapter
-                IERC20(stEth).safeTransferFrom(
-                    msg.sender, address(this), neededStEth
+            if (sellToken == stETHAddress) {
+                uint256 stETHTotalSupply = stETH().totalSupply();
+                uint256 stETHTotalShares = stETH().getTotalShares();
+                uint256 ethAmountDirectCall = stETH().getPooledEthByShares(
+                    specifiedAmount
                 );
+                console.log("A | ethAmountDirectCall: ", ethAmountDirectCall);
+                uint256 sharesAmountCalculated = (ethAmountDirectCall *
+                    stETHTotalShares) / stETHTotalSupply;
+                uint256 stETHBalanceCalculated = (sharesAmountCalculated *
+                    stETHTotalSupply) / stETHTotalShares;
 
-                // Approve wstEth contract to use our stEth
-                IERC20(stEth).safeIncreaseAllowance(
-                    address(wstEth), neededStEth
+                IERC20(stETHAddress).safeTransferFrom(
+                    msg.sender,
+                    address(this),
+                    stETHBalanceCalculated
                 );
-
-                // Wrap stEth to get wstEth
-                uint256 receivedWstEth = wstEth.wrap(neededStEth);
-
-                // Ensure we received enough wstEth
-                if (receivedWstEth < specifiedAmount) {
-                    revert Unavailable("Insufficient wstEth received");
-                }
-
-                // Transfer exactly the specified amount to the user
-                IERC20(wstEth).safeTransfer(msg.sender, specifiedAmount);
-
-                // Return the total stEth used for the trade
-                trade.calculatedAmount = neededStEth;
-            } else if (
-                sellToken == address(wstEth)
-            ) {
-                // wstEth -> stEth (Buy)
-                // calculate the amount of wstEth needed to get the specified
-                // amount of stEth
-                uint256 neededWstEth = stEth.getSharesByPooledEth(specifiedAmount);
-
-                // Add a small buffer to account for potential rounding errors
-                // (0.0001%)
-                neededWstEth = neededWstEth + (neededWstEth / BUFFER);
-
-                // Transfer wstEth from user to adapter
-                IERC20(wstEth).safeTransferFrom(
-                    msg.sender, address(this), neededWstEth
+                IERC20(stETHAddress).safeIncreaseAllowance(
+                    wstETHAddress,
+                    stETHBalanceCalculated
                 );
-
-                // Unwrap wstEth to get stEth
-                uint256 receivedStEth = wstEth.unwrap(neededWstEth);
-
-                // Ensure we received enough stEth
-                if (receivedStEth < specifiedAmount) {
-                    revert Unavailable("Insufficient stEth received");
+                uint256 receivedWstETH = wstETH().wrap(stETHBalanceCalculated);
+                if (receivedWstETH < specifiedAmount - 2) {
+                    revert Unavailable("Insufficient wstETH received");
                 }
-
-                // Transfer exactly the specified amount to the user
-                IERC20(stEth).safeTransfer(msg.sender, specifiedAmount);
-
-                // Return the total wstEth used for the trade
-                trade.calculatedAmount = neededWstEth;
-            } else if (sellToken == address(0) && buyToken == address(stEth)) {
-                // Eth -> stEth (Buy)
-                // Submit Eth to get stEth
-                // Add a small buffer to account for potential rounding errors
-                // (0.0001%)
-                uint256 neededEth = specifiedAmount + (specifiedAmount / BUFFER);
-                uint256 receivedStEth =
-                    stEth.submit{value: neededEth}(address(0));
-
-                // Calculate the stEth amount from shares
-                uint256 stEthTotalSupply = stEth.totalSupply();
-                uint256 stEthTotalShares = stEth.getTotalShares();
-                uint256 calculatedReceivedStEth = ( receivedStEth *
-                        stEthTotalSupply) / stEthTotalShares;
-
-                // Ensure we received enough stEth
-                if (calculatedReceivedStEth < specifiedAmount) {
-                    revert Unavailable("Insufficient stEth received");
-                }
-
-                // Transfer stEth to the user
-                IERC20(stEth).safeTransfer(msg.sender, specifiedAmount);
-
-                // Return the total Eth used for the trade
-                trade.calculatedAmount = neededEth;
-            } else if (sellToken == address(0) && buyToken == address(wstEth)) {
-                // Eth -> wstEth (Buy)
-                // Calculate the exact amount of shares needed for the specified
-                // wstEth amount
-                // wstEth amount = shares amount, as per the wrap function
-                uint256 neededEth = stEth.getPooledEthByShares(specifiedAmount);
-                neededEth = neededEth + (neededEth / BUFFER);
-                console.log("A | neededEth", neededEth);
-                // Submit Eth to get stEth
-                console.log("A | Eth balance before submit", (address(this)).balance);
-                uint256 receivedShares = stEth.submit{value: neededEth}(address(0));
-                console.log("A | Eth balance after submit", (address(this)).balance);
-
-                // Calculate the amount of stEth needed based on the shares
-                uint256 stEthTotalSupply = stEth.totalSupply();
-                uint256 stEthTotalShares = stEth.getTotalShares();
-
-                uint256 calculatedReceivedStEth = ( receivedShares *
-                        stEthTotalSupply) / stEthTotalShares;
-
-                // Approve wstEth contract to use our stEth
-                IERC20(stEth).safeIncreaseAllowance(
-                    address(wstEth), calculatedReceivedStEth
+                IERC20(wstETHAddress).safeTransfer(msg.sender, receivedWstETH);
+                trade.calculatedAmount = stETHBalanceCalculated;
+            } else if (sellToken == wstETHAddress) {
+                // uint256 wstETHAmountIn = (specifiedAmount *
+                //     wstETH().tokensPerStEth()) / 1e18;
+                // IERC20(wstETHAddress).safeTransferFrom(
+                //     msg.sender,
+                //     address(this),
+                //     wstETHAmountIn
+                // );
+                // uint256 receivedStETH = wstETH().unwrap(wstETHAmountIn);
+                // if (receivedStETH < specifiedAmount - 100) {
+                //     revert Unavailable("Insufficient stETH received");
+                // }
+                // IERC20(stETHAddress).safeTransfer(msg.sender, receivedStETH);
+                // trade.calculatedAmount = wstETHAmountIn;
+                                // wstETH-stETH
+                uint256 amountIn = wstETH().getWstETHByStETH(specifiedAmount);
+                IERC20(wstETHAddress).safeTransferFrom(
+                    msg.sender, address(this), amountIn
                 );
+                uint256 receivedStETH = wstETH().unwrap(amountIn);
+                IERC20(stETHAddress).safeTransfer(msg.sender, receivedStETH);
+                trade.calculatedAmount = amountIn;
 
-                console.log("A | receivedStEth", stEth.balanceOf(address(this)));
-                // Wrap stEth to get wstEth
-                uint256 receivedWstEth = wstEth.wrap(calculatedReceivedStEth);
-                console.log("A | neededEth", neededEth);
-                console.log("A | calculatedReceivedStEth", calculatedReceivedStEth);
-                console.log("A | receivedWstEth", receivedWstEth);
-                console.log("A | specifiedAmount", specifiedAmount);
-                // Ensure we received enough wstEth
-                if (receivedWstEth < specifiedAmount) {
-                    revert Unavailable("Insufficient wstEth received");
+            } else {
+                // ETH -> stETH
+                if (buyToken == stETHAddress) {
+                    uint256 stETHTotalSupply = stETH().totalSupply();
+                    uint256 stETHTotalShares = stETH().getTotalShares();
+
+                    uint256 receivedSharesFromSubmit = stETH().submit{
+                        value: specifiedAmount
+                    }(address(0));
+                    uint256 stETHBalanceCalculated = (receivedSharesFromSubmit *
+                        stETHTotalSupply) / stETHTotalShares;
+
+                    if (stETHBalanceCalculated < specifiedAmount - 2) {
+                        revert Unavailable("Insufficient stETH received");
+                    }
+
+                    IERC20(stETHAddress).safeTransfer(
+                        msg.sender,
+                        stETHBalanceCalculated
+                    );
+                    trade.calculatedAmount = specifiedAmount;
+                } else {
+                    // ETH -> wstETH
+
+                    // totalSupply() calls _getTotalPooledEther(), same as
+                    // getTotalPooledEther()
+                    // we use totalSupply and not getTotalPooledEther() because
+                    // getTotalPooledEther() reverts with "revert:
+                    // NON_EMPTY_DATA"
+                    uint256 stETHTotalSupply = stETH().totalSupply();
+                    uint256 stETHTotalShares = stETH().getTotalShares();
+                    uint256 ethAmountDirectCall = stETH().getPooledEthByShares(
+                        specifiedAmount
+                    );
+                    console.log(
+                        "A | ethAmountDirectCall: ",
+                        ethAmountDirectCall
+                    );
+
+                    uint256 sharesAmountCalculated = (ethAmountDirectCall *
+                        stETHTotalShares) / stETHTotalSupply;
+
+                    uint256 stETHBalanceCalculated = (sharesAmountCalculated *
+                        stETHTotalSupply) / stETHTotalShares;
+
+                    uint256 receivedSharesfromSubmit = stETH().submit{
+                        value: ethAmountDirectCall
+                    }(address(0));
+                    console.log(
+                        "A | stETH receivedShares returned from submit: ",
+                        receivedSharesfromSubmit
+                    );
+
+                    IERC20(stETHAddress).safeIncreaseAllowance(
+                        wstETHAddress,
+                        stETHBalanceCalculated
+                    );
+
+                    uint256 receivedWstETHfromWrap = wstETH().wrap(
+                        stETHBalanceCalculated
+                    );
+                    console.log(
+                        "A | stETH receivedWstETH returned from wrap: ",
+                        receivedWstETHfromWrap
+                    );
+                    if (receivedWstETHfromWrap < specifiedAmount - 3) {
+                        revert Unavailable("Insufficient wstETH received");
+                    }
+                    IERC20(wstETHAddress).safeTransfer(
+                        msg.sender,
+                        receivedWstETHfromWrap
+                    );
+                    trade.calculatedAmount = ethAmountDirectCall;
                 }
-
-                // Transfer exactly the specified amount to the user
-                IERC20(wstEth).safeTransfer(msg.sender, specifiedAmount);
-
-                // Return the total Eth used for the trade
-                trade.calculatedAmount = neededEth;
             }
-
+            // In OrdeSide.Buy the specifiedAmount is the amount of buyToken to
+            // buy
+            // and trade.calculatedAmount is the amount of sellToken to sell in
+            // order to receive the buyToken specifiedAmount
             // Price is always calculated as buyTokenAmount / sellTokenAmount
             trade.price = Fraction(specifiedAmount, trade.calculatedAmount);
-        }
-        // Sell order: User specifies how much of sellToken they want to sell
-        else {
-            if (sellToken == address(stEth)) {
-                // stEth -> wstEth (Sell)
-                // Transfer stEth from user to adapter
-                IERC20(stEth).safeTransferFrom(
-                    msg.sender, address(this), specifiedAmount
+        } else {
+            if (sellToken == stETHAddress) {
+                IERC20(stETHAddress).safeTransferFrom(
+                    msg.sender,
+                    address(this),
+                    specifiedAmount
                 );
-
-                // Approve wstEth contract to use our stEth
-                IERC20(stEth).safeIncreaseAllowance(
-                    address(wstEth), specifiedAmount
+                IERC20(stETHAddress).safeIncreaseAllowance(
+                    wstETHAddress,
+                    specifiedAmount
                 );
-
-                // Calculate expected wstEth amount
-                uint256 expectedWstEth =
-                    stEth.getSharesByPooledEth(specifiedAmount);
-
-                // Wrap stEth to get wstEth
-                uint256 receivedWstEth = wstEth.wrap(specifiedAmount);
-
-                // Ensure we received enough wstEth
-                if (receivedWstEth < expectedWstEth) {
-                    revert Unavailable("Insufficient wstEth received");
+                uint256 wstETHCalculatedAmountOut = wstETH().getWstETHByStETH(
+                    specifiedAmount
+                );
+                uint256 receivedWstETH = wstETH().wrap(specifiedAmount);
+                if (receivedWstETH < wstETHCalculatedAmountOut) {
+                    revert Unavailable("Insufficient wstETH received");
                 }
+                IERC20(wstETHAddress).safeTransfer(msg.sender, receivedWstETH);
+                trade.calculatedAmount = wstETHCalculatedAmountOut;
+            } else if (sellToken == address(0)) {
+                if (buyToken == wstETHAddress) {
+                    uint256 stETHTotalSupply = stETH().totalSupply();
+                    uint256 stETHTotalShares = stETH().getTotalShares();
+                    uint256 sharesAmountCalculated = (specifiedAmount *
+                        stETHTotalShares) / stETHTotalSupply;
 
-                // Transfer wstEth to the user
-                IERC20(wstEth).safeTransfer(msg.sender, receivedWstEth);
+                    uint256 stETHBalanceCalculated = (sharesAmountCalculated *
+                        stETHTotalSupply) / stETHTotalShares;
 
-                // Return the total wstEth received
-                trade.calculatedAmount = receivedWstEth;
-            } else if (
-                sellToken == address(wstEth) 
-            ) {
-                // wstEth -> stEth (Sell)
-                // Transfer wstEth from user to adapter
-                IERC20(wstEth).safeTransferFrom(
-                    msg.sender, address(this), specifiedAmount
-                );
+                    uint256 wstETHCalculatedAmountOut = stETH()
+                        .getSharesByPooledEth(stETHBalanceCalculated);
 
-                // Approve wstEth contract for unwrapping
-                IERC20(wstEth).safeIncreaseAllowance(
-                    address(wstEth), specifiedAmount
-                );
+                    uint256 receivedSharesfromSubmit = stETH().submit{
+                        value: specifiedAmount
+                    }(address(0));
 
-                // Calculate expected stEth amount
-                uint256 expectedStEth = stEth.getPooledEthByShares(specifiedAmount);
-
-
-                // Unwrap wstEth to get stEth
-                uint256 receivedStEth = wstEth.unwrap(specifiedAmount);
-
-                if (receivedStEth < expectedStEth) {
-                    revert Unavailable("Insufficient stEth received");
-                }
-                // Transfer stEth to the user
-                IERC20(stEth).safeTransfer(msg.sender, receivedStEth);
-
-                // Return the total stEth received
-                trade.calculatedAmount = receivedStEth;
-            } else if (sellToken == address(0) && buyToken == address(wstEth)) {
-                // Eth -> wstEth (Sell)
-                // Submit Eth to get stEth
-                uint256 receivedShares =
-                    stEth.submit{value: specifiedAmount}(address(0));
-
-                // Calculate the stEth amount from shares
-                uint256 stEthTotalSupply = stEth.totalSupply();
-                uint256 stEthTotalShares = stEth.getTotalShares();
-                uint256 stETHAmount =
-                    (receivedShares * stEthTotalSupply) / stEthTotalShares;
-
-                // Calculate expected wstEth amount
-                uint256 expectedWstEth = stEth.getSharesByPooledEth(stETHAmount);
-
-                // Approve wstEth contract to use our stEth
-                IERC20(stEth).safeIncreaseAllowance(
-                    address(wstEth), stETHAmount
-                );
-
-                // Wrap stEth to get wstEth
-                uint256 receivedWstEth = wstEth.wrap(stETHAmount);
-
-                // Ensure we received enough wstEth
-                if (receivedWstEth < expectedWstEth - 3) {
-                    revert Unavailable("Insufficient wstEth received");
-                }
-
-                // Transfer wstEth to the user
-                IERC20(wstEth).safeTransfer(msg.sender, receivedWstEth);
-
-                // Return the total wstEth received
-                trade.calculatedAmount = receivedWstEth;
-            } else if (sellToken == address(0) && buyToken == address(stEth)) {
-                // Eth -> stEth (Sell)
-                // Submit Eth to get stEth
-                (bool sent,) = address(stEth).call{value: specifiedAmount}("");
-                if (!sent) {
-                    revert Unavailable(
-                        "Ether transfer to stEth contract failed"
+                    console.log(
+                        "A | stETH receivedShares returned from submit: ",
+                        receivedSharesfromSubmit
                     );
+
+                    IERC20(stETHAddress).safeIncreaseAllowance(
+                        wstETHAddress,
+                        stETHBalanceCalculated
+                    );
+
+                    uint256 receivedWstETHfromWrap = wstETH().wrap(
+                        stETHBalanceCalculated
+                    );
+                    console.log(
+                        "A | stETH receivedWstETH returned from wrap: ",
+                        receivedWstETHfromWrap
+                    );
+                    if (
+                        receivedWstETHfromWrap < wstETHCalculatedAmountOut - 3
+                    ) {
+                        revert Unavailable("Insufficient wstETH received");
+                    }
+                    IERC20(wstETHAddress).safeTransfer(
+                        msg.sender,
+                        receivedWstETHfromWrap
+                    );
+                    trade.calculatedAmount = wstETHCalculatedAmountOut;
+                } else {
+                    // ETH -> stETH
+                    uint256 stETHTotalSupply = stETH().totalSupply();
+                    uint256 stETHTotalShares = stETH().getTotalShares();
+                    uint256 sharesAmountCalculated = (specifiedAmount *
+                        stETHTotalShares) / stETHTotalSupply;
+
+                    uint256 stETHBalanceCalculated = (sharesAmountCalculated *
+                        stETHTotalSupply) / stETHTotalShares;
+
+                    (bool sent_, ) = stETHAddress.call{value: specifiedAmount}(
+                        ""
+                    );
+                    if (!sent_) {
+                        revert Unavailable(
+                            "Ether transfer to stETH contract failed"
+                        );
+                    }
+                    IERC20(stETHAddress).safeTransfer(msg.sender, specifiedAmount);
+                    trade.calculatedAmount = stETHBalanceCalculated;
                 }
+            } else {
+                // sellToken is wstETH, buyToken is stETH | wstETH -> stETH
+                // ratio updates every few blocks
+                IERC20(wstETHAddress).safeTransferFrom(
+                    msg.sender,
+                    address(this),
+                    specifiedAmount
+                );
+                IERC20(wstETHAddress).safeIncreaseAllowance(
+                    wstETHAddress,
+                    specifiedAmount
+                );
+                // unwrap function returns the amount of stETH user receives
+                // after unwrap
 
-                // Transfer stEth to the user
-                IERC20(stEth).safeTransfer(msg.sender, specifiedAmount);
-
-                // Calculate the stEth amount
-                uint256 stEthTotalSupply = stEth.totalSupply();
-                uint256 stEthTotalShares = stEth.getTotalShares();
-                uint256 sharesAmount =
-                    (specifiedAmount * stEthTotalShares) / stEthTotalSupply;
-                uint256 stETHAmount =
-                    (sharesAmount * stEthTotalSupply) / stEthTotalShares;
-
-                // Return the total stEth received
-                trade.calculatedAmount = stETHAmount;
+                uint256 calculatedStETHBalance = wstETH().getStETHByWstETH(
+                    specifiedAmount
+                );
+                console.log("calculatedStETHBalance: ", calculatedStETHBalance);
+                uint256 receivedStETH = wstETH().unwrap(specifiedAmount);
+                console.log("receivedStETH: ", receivedStETH);
+                IERC20(stETHAddress).safeTransfer(msg.sender, receivedStETH);
+                trade.calculatedAmount = receivedStETH;
             }
-
+            // In OrdeSide.Sell the specifiedAmount is the amount of sellToken
+            // to sell
+            // and trade.calculatedAmount is the amount of buyToken received by
+            // selling the sellToken specifiedAmount
             // Price is always calculated as buyTokenAmount / sellTokenAmount
             trade.price = Fraction(trade.calculatedAmount, specifiedAmount);
         }
@@ -363,19 +361,19 @@ contract LidoAdapter is ISwapAdapter {
         checkInputTokens(sellToken, buyToken)
         returns (uint256[] memory limits)
     {
-        uint256 currentStakeLimitStETH = 10 * 1e18; //  stEth.getCurrentStakeLimit();
+        uint256 currentStakeLimitStETH = 10 * 1e18; //  stETH().getCurrentStakeLimit();
         // // same
-        // as Eth stake limit
+        // as ETH stake limit
         uint256 currentStakeLimitWstETH = 10 * 1e18;
-        // stEth.getSharesByPooledEth(currentStakeLimitStETH);
+        // wstETH().getWstETHByStETH(currentStakeLimitStETH);
 
         limits = new uint256[](2);
         if (sellToken == address(stEth)) {
             // stEth-wstEth
             limits[0] = currentStakeLimitStETH;
             limits[1] = currentStakeLimitWstETH;
-        } else if (sellToken == address(wstEth)) {
-            // wstEth-stEth
+        } else if (sellToken == wstETHAddress) {
+            // wstETH-stETH
             limits[0] = currentStakeLimitWstETH;
             limits[1] = currentStakeLimitStETH;
         } else {
@@ -384,8 +382,9 @@ contract LidoAdapter is ISwapAdapter {
             /// @dev Fix for side == Buy, because getTotalPooledEthByShares
             /// would be higher than currentStakeLimit if using the limit as
             /// amount
-            uint256 pooledEthByShares_ =
-                stEth.getPooledEthByShares(currentStakeLimitStETH);
+            uint256 pooledEthByShares_ = IStETH(stETHAddress).getPooledEthByShares(
+                currentStakeLimitStETH
+            );
             if (pooledEthByShares_ > currentStakeLimitStETH) {
                 currentStakeLimitStETH = currentStakeLimitStETH
                     - (pooledEthByShares_ - currentStakeLimitStETH);
@@ -400,12 +399,10 @@ contract LidoAdapter is ISwapAdapter {
         }
     }
 
-    function getAmountInForWstETHSpecifiedAmount(uint256 wstETHAmount)
-        public
-        view
-        returns (uint256 ethAmountIn)
-    {
-        ethAmountIn = stEth.getPooledEthByShares(wstETHAmount) + 100;
+    function getAmountInForWstETHSpecifiedAmount(
+        uint256 wstETHAmount
+    ) public view returns (uint256 ethAmountIn) {
+        ethAmountIn = wstETH().getStETHByWstETH(wstETHAmount) + 100;
     }
 
     /// @inheritdoc ISwapAdapter
@@ -432,8 +429,8 @@ contract LidoAdapter is ISwapAdapter {
     {
         tokens = new address[](3);
         tokens[0] = address(0);
-        tokens[1] = address(wstEth);
-        tokens[2] = address(stEth);
+        tokens[1] = wstETHAddress;
+        tokens[2] = stETHAddress;
     }
 
     function getPoolIds(uint256, uint256)
@@ -461,24 +458,26 @@ contract LidoAdapter is ISwapAdapter {
         if (sellTokenAddress == address(stEth)) {
             // stEth-wstEth, Eth is not possible as checked through
             // checkInputTokens
-            amount0 = stEth.getSharesByPooledEth(specifiedAmount);
-            amount1 = stEth.getPooledEthByShares(amount0);
-        } else if (sellTokenAddress == address(wstEth)) {
-            // wstEth-stEth, Eth is not possible as checked through
+            amount0 = wstETH().getWstETHByStETH(specifiedAmount);
+            amount1 = wstETH().getStETHByWstETH(amount0);
+        } else if (sellTokenAddress == wstETHAddress) {
+            // wstETH-stETH, ETH is not possible as checked through
             // checkInputTokens
-            amount0 = stEth.getPooledEthByShares(specifiedAmount);
-            amount1 = stEth.getSharesByPooledEth(amount0);
+            amount0 = wstETH().getStETHByWstETH(specifiedAmount);
+            amount1 = wstETH().getWstETHByStETH(amount0);
         } else {
-            // Eth (address(0))
-            if (buyTokenAddress == address(stEth)) {
-                amount0 = stEth.getSharesByPooledEth(specifiedAmount);
-                amount1 = stEth.getPooledEthByShares(amount0);
+            // ETH (address(0))
+            if (buyTokenAddress == stETHAddress) {
+                amount0 = stETH().getSharesByPooledEth(specifiedAmount);
+                amount1 = stETH().getPooledEthByShares(amount0);
             } else {
-                uint256 stETHAmount =
-                    stEth.getSharesByPooledEth(specifiedAmount);
-                amount0 = stEth.getSharesByPooledEth(stETHAmount);
-                amount1 =
-                    stEth.getPooledEthByShares(stEth.getPooledEthByShares(amount0));
+                uint256 stETHAmount = stETH().getSharesByPooledEth(
+                    specifiedAmount
+                );
+                amount0 = wstETH().getWstETHByStETH(stETHAmount);
+                amount1 = stETH().getPooledEthByShares(
+                    wstETH().getStETHByWstETH(amount0)
+                );
             }
         }
 
