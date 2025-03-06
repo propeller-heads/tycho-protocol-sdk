@@ -1,8 +1,5 @@
-//! Template for Protocols with singleton contract
-//!
-//!
 use std::collections::HashMap;
-use anyhow::Result;
+use anyhow::{ensure, Context, Result};
 use substreams::pb::substreams::StoreDeltas;
 use substreams::prelude::*;
 use substreams_ethereum::Event;
@@ -12,8 +9,10 @@ use tycho_substreams::contract::extract_contract_changes_builder;
 use tycho_substreams::prelude::*;
 use itertools::Itertools;
 use substreams::hex;
+use crate::identifiers::pool_id_to_component_id;
+use crate::pb::ekubo::PoolDetails;
 use crate::pool_factories;
-use crate::pool_factories::{hash_pool_key, DeploymentConfig};
+use crate::pool_factories::DeploymentConfig;
 use crate::abi::core::events as core_events;
 
 /// Find and create all relevant protocol components
@@ -40,124 +39,168 @@ fn map_protocol_components(
                             &config,
                         )
                     })
-                    .collect::<Vec<_>>();
+                    .collect_vec();
 
-                if !components.is_empty() {
-                    Some(TransactionProtocolComponents { tx: Some(tx.into()), components })
-                } else {
-                    None
-                }
+                (!components.is_empty()).then(|| TransactionProtocolComponents { tx: Some(tx.into()), components })
             })
-            .collect::<Vec<_>>(),
+            .collect_vec(),
     })
+}
+
+#[substreams::handlers::store]
+fn store_pool_details(components: BlockTransactionProtocolComponents, store: StoreSetProto<PoolDetails>) {
+    let components = components
+        .tx_components
+        .into_iter()
+        .flat_map(|comp| comp.components);
+
+    for component in components {
+        let attrs = component.static_att;
+
+        let pool_details = PoolDetails {
+            token0: attrs[0].value.clone(),
+            token1: attrs[1].value.clone(),
+            fee: u64::from_be_bytes(attrs[2].value.clone().try_into().unwrap()),
+        };
+
+        store.set(0, component.id, &pool_details);
+    }
 }
 
 /// Extracts balance changes per component
 ///
 /// Indexes balance changes according to Ekubo core events.
 #[substreams::handlers::map]
-fn map_relative_component_balance(params: String, block: eth::v2::Block) -> Result<BlockBalanceDeltas> {
+fn map_relative_component_balance(params: String, block: eth::v2::Block, store: StoreGetProto<PoolDetails>) -> Result<BlockBalanceDeltas> {
     let config: DeploymentConfig = serde_qs::from_str(params.as_str())?;
     let res = block
         .transactions()
-        .flat_map(|tx| {
-            tx.logs_with_calls()
+        .map(|tx| {
+            tx
+                .logs_with_calls()
                 .map(|(log, _)| {
                     if log.address != config.core {
-                        return vec![];
+                        return Ok(vec![]);
                     }
-                    if let Some(ev) = core_events::PositionUpdated::match_and_decode(log) {
-                        let pool_id = hash_pool_key(&ev.pool_key);
+
+                    Ok(if let Some(ev) = core_events::PositionUpdated::match_and_decode(log) {
+                        let component_id = pool_id_to_component_id(ev.pool_id);
+                        let pool_details = get_pool_details(&store, &component_id)?;
 
                         vec![
                             BalanceDelta {
                                 ord: log.ordinal,
                                 tx: Some(tx.into()),
-                                token: ev.pool_key.0.clone(),
-                                delta: adjust_delta_by_fee(&ev.delta0, &ev.pool_key.3).to_signed_bytes_be(),
-                                component_id: pool_id.clone().into(),
+                                token: pool_details.token0,
+                                delta: adjust_delta_by_fee(ev.delta0, pool_details.fee).to_signed_bytes_be(),
+                                component_id: component_id.clone().into(),
                             },
                             BalanceDelta {
                                 ord: log.ordinal,
                                 tx: Some(tx.into()),
-                                token: ev.pool_key.1.clone(),
-                                delta: adjust_delta_by_fee(&ev.delta1, &ev.pool_key.3).to_signed_bytes_be(),
-                                component_id: pool_id.into(),
+                                token: pool_details.token1,
+                                delta: adjust_delta_by_fee(ev.delta1, pool_details.fee).to_signed_bytes_be(),
+                                component_id: component_id.into(),
                             }
                         ]
                     } else if let Some(ev) = core_events::PositionFeesCollected::match_and_decode(log) {
-                        let pool_id = hash_pool_key(&ev.pool_key);
+                        let component_id = pool_id_to_component_id(ev.pool_id);
+                        let pool_details = get_pool_details(&store, &component_id)?;
 
                         vec![
                             BalanceDelta {
                                 ord: log.ordinal,
                                 tx: Some(tx.into()),
-                                token: ev.pool_key.0.clone(),
+                                token: pool_details.token0,
                                 delta: ev.amount0.neg().to_signed_bytes_be(),
-                                component_id: pool_id.clone().into(),
+                                component_id: ev.pool_id.into(),
                             },
                             BalanceDelta {
                                 ord: log.ordinal,
                                 tx: Some(tx.into()),
-                                token: ev.pool_key.1.clone(),
+                                token: pool_details.token1,
                                 delta: ev.amount1.neg().to_signed_bytes_be(),
-                                component_id: pool_id.into(),
-                            }
-                        ]
-                    } else if let Some(ev) = core_events::Swapped::match_and_decode(log) {
-                        let pool_id = hash_pool_key(&ev.pool_key);
-                        vec![
-                            BalanceDelta {
-                                ord: log.ordinal,
-                                tx: Some(tx.into()),
-                                token: ev.pool_key.0.clone(),
-                                delta: ev.delta0.to_signed_bytes_be(),
-                                component_id: pool_id.clone().into(),
-                            },
-                            BalanceDelta {
-                                ord: log.ordinal,
-                                tx: Some(tx.into()),
-                                token: ev.pool_key.1.clone(),
-                                delta: &ev.delta1.to_signed_bytes_be(),
-                                component_id: pool_id.into(),
+                                component_id: component_id.into(),
                             }
                         ]
                     } else if let Some(ev) = core_events::FeesAccumulated::match_and_decode(log) {
-                        let pool_id = hash_pool_key(&ev.pool_key);
+                        let component_id = pool_id_to_component_id(ev.pool_id);
+                        let pool_details = get_pool_details(&store, &component_id)?;
+
                         vec![
                             BalanceDelta {
                                 ord: log.ordinal,
                                 tx: Some(tx.into()),
-                                token: ev.pool_key.0.clone(),
+                                token: pool_details.token0,
                                 delta: ev.amount0.to_signed_bytes_be(),
-                                component_id: pool_id.clone().into(),
+                                component_id: component_id.clone().into(),
                             },
                             BalanceDelta {
                                 ord: log.ordinal,
                                 tx: Some(tx.into()),
-                                token: ev.pool_key.1.clone(),
+                                token: pool_details.token1,
                                 delta: ev.amount1.to_signed_bytes_be(),
-                                component_id: pool_id.into(),
+                                component_id: component_id.into(),
+                            }
+                        ]
+                    } else if log.topics.is_empty() {
+                        let data = &log.data;
+
+                        ensure!(data.len() == 116, "swapped event data length mismatch");
+
+                        let component_id = pool_id_to_component_id(&data[20..52]);
+                        let (delta0, delta1) = (
+                            i128::from_be_bytes(data[52..68].try_into().unwrap()),
+                            i128::from_be_bytes(data[68..84].try_into().unwrap()),
+                        );
+
+                        let pool_details = get_pool_details(&store, &component_id)?;
+
+                        vec![
+                            BalanceDelta {
+                                ord: log.ordinal,
+                                tx: Some(tx.into()),
+                                token: pool_details.token0,
+                                delta: delta0.to_be_bytes().into(),
+                                component_id: component_id.clone().into(),
+                            },
+                            BalanceDelta {
+                                ord: log.ordinal,
+                                tx: Some(tx.into()),
+                                token: pool_details.token1,
+                                delta: delta1.to_be_bytes().into(),
+                                component_id: component_id.into(),
                             }
                         ]
                     } else {
                         vec![]
-                    }
+                    })
                 })
+                .try_collect()
+                .with_context(|| format!("handling tx {}", hex::encode(&tx.hash)))
         })
+        .collect::<Result<Vec<Vec<Vec<BalanceDelta>>>>>()?
+        .into_iter()
         .flatten()
-        .collect::<Vec<_>>();
+        .flatten()
+        .collect();
 
     Ok(BlockBalanceDeltas { balance_deltas: res })
 }
 
+fn get_pool_details(store: &StoreGetProto<PoolDetails>, component_id: &str) -> Result<PoolDetails> {
+    store
+        .get_at(0, component_id)
+        .context("pool id should exist in store")
+}
 
-fn adjust_delta_by_fee(delta: &BigInt, fee: &BigInt) -> BigInt {
-    if delta < &BigInt::zero() {
+
+fn adjust_delta_by_fee(delta: BigInt, fee: u64) -> BigInt {
+    if delta < BigInt::zero() {
         let denom = BigInt::from_signed_bytes_be(&hex!("0100000000000000000000000000000000"));
         (delta * denom.clone()) / (denom - fee)
     } else {
-        delta.clone()
+        delta
     }
 }
 

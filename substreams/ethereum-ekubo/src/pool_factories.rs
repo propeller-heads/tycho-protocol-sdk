@@ -1,9 +1,13 @@
+use std::iter;
+
+use itertools::Itertools;
 use serde::Deserialize;
 use substreams_ethereum::Event;
 use substreams_ethereum::pb::eth::v2::{Call, Log, TransactionTrace};
-use tiny_keccak::{Hasher, Keccak};
 use tycho_substreams::models::{ChangeType, FinancialType, ImplementationType, ProtocolComponent, ProtocolType};
 use tycho_substreams::prelude::Attribute;
+
+use crate::identifiers::{pool_id_to_component_id, PoolKey};
 
 #[derive(Deserialize)]
 pub struct DeploymentConfig {
@@ -28,51 +32,50 @@ pub fn maybe_create_component(
 ) -> Option<ProtocolComponent> {
     if call.address == config.core {
         if let Some(pi) = crate::abi::core::events::PoolInitialized::match_and_decode(log) {
-            let pool_id = hash_pool_key(&pi.pool_key);
+            let pool_key = PoolKey::from(pi.pool_key);
+
+            let contracts = iter
+                ::once(config.core.clone())
+                .chain((config.oracle == pool_key.config.extension).then(|| config.oracle.clone()))
+                .collect_vec();
 
             return Some(ProtocolComponent {
-                id: pool_id,
-                tokens: vec![pi.pool_key.0.clone(), pi.pool_key.1.clone()],
-                contracts: if config.oracle == pi.pool_key.4 {
-                    vec![
-                        config.oracle.clone(),
-                        config.core.clone(),
-                    ]
-                } else {
-                    vec![config.core.clone()]
-                },
+                id: pool_id_to_component_id(pi.pool_id),
+                tokens: vec![pool_key.token0.clone(), pool_key.token1.clone()],
+                contracts,
                 change: ChangeType::Creation.into(),
                 protocol_type: Some(ProtocolType {
-                    name: "EKUBO".to_string(),
+                    name: "ekubo".to_string(),
                     financial_type: FinancialType::Swap.into(),
                     implementation_type: ImplementationType::Vm.into(),
                     attribute_schema: vec![],
                 }),
+                // NOTE: Order of attributes matters (used in store_pool_details)
                 static_att: vec![
                     Attribute {
                         change: ChangeType::Creation.into(),
                         name: "token0".to_string(),
-                        value: pi.pool_key.0,
+                        value: pool_key.token0,
                     },
                     Attribute {
                         change: ChangeType::Creation.into(),
                         name: "token1".to_string(),
-                        value: pi.pool_key.1,
+                        value: pool_key.token1,
                     },
                     Attribute {
                         change: ChangeType::Creation.into(),
                         name: "fee".to_string(),
-                        value: pi.pool_key.2.to_bytes_be().1,
+                        value: pool_key.config.fee,
                     },
                     Attribute {
                         change: ChangeType::Creation.into(),
                         name: "tick_spacing".to_string(),
-                        value: pi.pool_key.3.to_bytes_be().1,
+                        value: pool_key.config.tick_spacing,
                     },
                     Attribute {
                         change: ChangeType::Creation.into(),
                         name: "extension".to_string(),
-                        value: pi.pool_key.4,
+                        value: pool_key.config.extension,
                     },
                 ],
             });
@@ -80,26 +83,4 @@ pub fn maybe_create_component(
     };
 
     None
-}
-
-
-pub type PoolKey = (
-    Vec<u8>,
-    Vec<u8>,
-    substreams::scalar::BigInt,
-    substreams::scalar::BigInt,
-    Vec<u8>,
-);
-
-pub fn hash_pool_key(pool_key: &PoolKey) -> String {
-    let mut hasher = Keccak::v256();
-    hasher.update(pool_key.0.as_slice());
-    hasher.update(pool_key.1.as_slice());
-    hasher.update(pool_key.2.to_signed_bytes_be().as_slice());
-    hasher.update(pool_key.3.to_signed_bytes_be().as_slice());
-    hasher.update(pool_key.4.as_slice());
-
-    let mut output = [0u8; 32];
-    hasher.finalize(&mut output);
-    hex::encode(output)
 }

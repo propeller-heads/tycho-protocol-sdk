@@ -8,26 +8,26 @@ protobuf:
     - tycho/evm/v1/vm.proto
     - tycho/evm/v1/common.proto
     - tycho/evm/v1/utils.proto
+    - ekubo.proto
   importPaths:
     - ../../proto
+    - ./proto
 
 binaries:
   default:
     type: wasm/rust-v1
     file: ../target/wasm32-unknown-unknown/release/ethereum_ekubo.wasm
 
-network: mainnet
+network: sepolia
 networks:
-  mainnet:
+  sepolia:
     initialBlock:
-      map_protocol_components: 21739334
-      map_relative_component_balance: 21739334
-      store_balances: 21739334
-      map_protocol_changes: 21739334
+      map_protocol_components: 7811236
+      map_relative_component_balance: 7811236
     params:
-      map_protocol_components: "core=39d8ab62fcaa5b466eb8397187732b6ba455aaa8&oracle=51ee1902db6d5640163506b9e178a21ff027282c"
-      map_relative_component_balance: "core=39d8ab62fcaa5b466eb8397187732b6ba455aaa8&oracle=51ee1902db6d5640163506b9e178a21ff027282c"
-      map_protocol_changes: "core=39d8ab62fcaa5b466eb8397187732b6ba455aaa8&oracle=51ee1902db6d5640163506b9e178a21ff027282c"
+      map_protocol_components: "core=16e186ecdc94083fff53ef2a41d46b92a54f61e2&oracle=51f1b10abf90e16498d25086641b0669ec62f32f"
+      map_relative_component_balance: "core=16e186ecdc94083fff53ef2a41d46b92a54f61e2&oracle=51f1b10abf90e16498d25086641b0669ec62f32f"
+      map_protocol_changes: "core=16e186ecdc94083fff53ef2a41d46b92a54f61e2&oracle=51f1b10abf90e16498d25086641b0669ec62f32f"
 
 modules:
   - name: map_protocol_components
@@ -38,11 +38,19 @@ modules:
     output:
       type: proto:tycho.evm.v1.BlockTransactionProtocolComponents
 
+  - name: store_pool_details
+    kind: store
+    updatePolicy: set
+    valueType: proto:ekubo.PoolDetails
+    inputs:
+      - map: map_protocol_components
+
   - name: map_relative_component_balance
     kind: map
     inputs:
       - params: string
       - source: sf.ethereum.type.v2.Block
+      - store: store_pool_details
     output:
       type: proto:tycho.evm.v1.BlockBalanceDeltas
 

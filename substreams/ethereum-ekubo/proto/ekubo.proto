@@ -1,0 +1,9 @@
+syntax = "proto3";
+
+package ekubo;
+
+message PoolDetails {
+  bytes token0 = 1;
+  bytes token1 = 2;
+  fixed64 fee = 3;
+}

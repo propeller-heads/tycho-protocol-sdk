@@ -6,11 +6,6 @@
         "name": "core",
         "type": "address",
         "internalType": "contract ICore"
-      },
-      {
-        "name": "_oracleToken",
-        "type": "address",
-        "internalType": "address"
       }
     ],
     "stateMutability": "nonpayable"
@@ -40,19 +35,9 @@
             "internalType": "address"
           },
           {
-            "name": "fee",
-            "type": "uint128",
-            "internalType": "uint128"
-          },
-          {
-            "name": "tickSpacing",
-            "type": "uint32",
-            "internalType": "uint32"
-          },
-          {
-            "name": "extension",
-            "type": "address",
-            "internalType": "address"
+            "name": "config",
+            "type": "bytes32",
+            "internalType": "Config"
           }
         ]
       },
@@ -117,19 +102,9 @@
             "internalType": "address"
           },
           {
-            "name": "fee",
-            "type": "uint128",
-            "internalType": "uint128"
-          },
-          {
-            "name": "tickSpacing",
-            "type": "uint32",
-            "internalType": "uint32"
-          },
-          {
-            "name": "extension",
-            "type": "address",
-            "internalType": "address"
+            "name": "config",
+            "type": "bytes32",
+            "internalType": "Config"
           }
         ]
       },
@@ -140,8 +115,8 @@
       },
       {
         "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
+        "type": "uint96",
+        "internalType": "SqrtRatio"
       }
     ],
     "outputs": [],
@@ -172,19 +147,9 @@
             "internalType": "address"
           },
           {
-            "name": "fee",
-            "type": "uint128",
-            "internalType": "uint128"
-          },
-          {
-            "name": "tickSpacing",
-            "type": "uint32",
-            "internalType": "uint32"
-          },
-          {
-            "name": "extension",
-            "type": "address",
-            "internalType": "address"
+            "name": "config",
+            "type": "bytes32",
+            "internalType": "Config"
           }
         ]
       },
@@ -205,8 +170,8 @@
           },
           {
             "name": "sqrtRatioLimit",
-            "type": "uint256",
-            "internalType": "uint256"
+            "type": "uint96",
+            "internalType": "SqrtRatio"
           },
           {
             "name": "skipAhead",
@@ -254,19 +219,9 @@
             "internalType": "address"
           },
           {
-            "name": "fee",
-            "type": "uint128",
-            "internalType": "uint128"
-          },
-          {
-            "name": "tickSpacing",
-            "type": "uint32",
-            "internalType": "uint32"
-          },
-          {
-            "name": "extension",
-            "type": "address",
-            "internalType": "address"
+            "name": "config",
+            "type": "bytes32",
+            "internalType": "Config"
           }
         ]
       },
@@ -343,19 +298,9 @@
             "internalType": "address"
           },
           {
-            "name": "fee",
-            "type": "uint128",
-            "internalType": "uint128"
-          },
-          {
-            "name": "tickSpacing",
-            "type": "uint32",
-            "internalType": "uint32"
-          },
-          {
-            "name": "extension",
-            "type": "address",
-            "internalType": "address"
+            "name": "config",
+            "type": "bytes32",
+            "internalType": "Config"
           }
         ]
       },
@@ -410,19 +355,9 @@
             "internalType": "address"
           },
           {
-            "name": "fee",
-            "type": "uint128",
-            "internalType": "uint128"
-          },
-          {
-            "name": "tickSpacing",
-            "type": "uint32",
-            "internalType": "uint32"
-          },
-          {
-            "name": "extension",
-            "type": "address",
-            "internalType": "address"
+            "name": "config",
+            "type": "bytes32",
+            "internalType": "Config"
           }
         ]
       },
@@ -460,19 +395,9 @@
             "internalType": "address"
           },
           {
-            "name": "fee",
-            "type": "uint128",
-            "internalType": "uint128"
-          },
-          {
-            "name": "tickSpacing",
-            "type": "uint32",
-            "internalType": "uint32"
-          },
-          {
-            "name": "extension",
-            "type": "address",
-            "internalType": "address"
+            "name": "config",
+            "type": "bytes32",
+            "internalType": "Config"
           }
         ]
       },
@@ -493,8 +418,8 @@
           },
           {
             "name": "sqrtRatioLimit",
-            "type": "uint256",
-            "internalType": "uint256"
+            "type": "uint96",
+            "internalType": "SqrtRatio"
           },
           {
             "name": "skipAhead",
@@ -532,19 +457,9 @@
             "internalType": "address"
           },
           {
-            "name": "fee",
-            "type": "uint128",
-            "internalType": "uint128"
-          },
-          {
-            "name": "tickSpacing",
-            "type": "uint32",
-            "internalType": "uint32"
-          },
-          {
-            "name": "extension",
-            "type": "address",
-            "internalType": "address"
+            "name": "config",
+            "type": "bytes32",
+            "internalType": "Config"
           }
         ]
       },
@@ -584,6 +499,59 @@
       }
     ],
     "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "counts",
+    "inputs": [
+      {
+        "name": "token",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "index",
+        "type": "uint64",
+        "internalType": "uint64"
+      },
+      {
+        "name": "count",
+        "type": "uint64",
+        "internalType": "uint64"
+      },
+      {
+        "name": "capacity",
+        "type": "uint64",
+        "internalType": "uint64"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "expandCapacity",
+    "inputs": [
+      {
+        "name": "token",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "minCapacity",
+        "type": "uint64",
+        "internalType": "uint64"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "capacity",
+        "type": "uint64",
+        "internalType": "uint64"
+      }
+    ],
     "stateMutability": "nonpayable"
   },
   {
@@ -637,7 +605,7 @@
         "internalType": "uint256"
       },
       {
-        "name": "index",
+        "name": "logicalIndex",
         "type": "uint256",
         "internalType": "uint256"
       },
@@ -729,34 +697,11 @@
             "internalType": "address"
           },
           {
-            "name": "fee",
-            "type": "uint128",
-            "internalType": "uint128"
-          },
-          {
-            "name": "tickSpacing",
-            "type": "uint32",
-            "internalType": "uint32"
-          },
-          {
-            "name": "extension",
-            "type": "address",
-            "internalType": "address"
+            "name": "config",
+            "type": "bytes32",
+            "internalType": "Config"
           }
         ]
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "oracleToken",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "address",
-        "internalType": "address"
       }
     ],
     "stateMutability": "view"
@@ -808,25 +753,6 @@
         "name": "",
         "type": "bytes32",
         "internalType": "bytes32"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "snapshotCount",
-    "inputs": [
-      {
-        "name": "token",
-        "type": "address",
-        "internalType": "address"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "count",
-        "type": "uint256",
-        "internalType": "uint256"
       }
     ],
     "stateMutability": "view"
@@ -898,48 +824,6 @@
     "stateMutability": "view"
   },
   {
-    "type": "event",
-    "name": "SnapshotEvent",
-    "inputs": [
-      {
-        "name": "token",
-        "type": "address",
-        "indexed": false,
-        "internalType": "address"
-      },
-      {
-        "name": "index",
-        "type": "uint256",
-        "indexed": false,
-        "internalType": "uint256"
-      },
-      {
-        "name": "timestamp",
-        "type": "uint64",
-        "indexed": false,
-        "internalType": "uint64"
-      },
-      {
-        "name": "secondsPerLiquidityCumulative",
-        "type": "uint160",
-        "indexed": false,
-        "internalType": "uint160"
-      },
-      {
-        "name": "tickCumulative",
-        "type": "int64",
-        "indexed": false,
-        "internalType": "int64"
-      }
-    ],
-    "anonymous": false
-  },
-  {
-    "type": "error",
-    "name": "BoundsMustBeMaximum",
-    "inputs": []
-  },
-  {
     "type": "error",
     "name": "CallPointNotImplemented",
     "inputs": []
@@ -982,7 +866,7 @@
   },
   {
     "type": "error",
-    "name": "PairsWithOracleTokenOnly",
+    "name": "PairsWithNativeTokenOnly",
     "inputs": []
   },
   {
