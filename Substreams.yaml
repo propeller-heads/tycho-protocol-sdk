@@ -1,0 +1,23 @@
+package:
+  name: cowamm_tycho_integration
+  version: v1.0
+  protocol: ethereum
+
+imports:
+  - name: "ethereum-template-factory"
+    url: "https://github.com/propellerheads-xyz/ethereum-template-factory"
+
+params:
+  - name: "factory_address"
+    type: "string"
+    description: "Factory contract address"
+
+modules:
+  - name: "cowamm_pools"
+    kind: "store"
+    inputs:
+      - source: "ethereum-template-factory"
+    outputs:
+      - type: "map"
+        key: "address"
+        value: "PoolData"
