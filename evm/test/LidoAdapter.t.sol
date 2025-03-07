@@ -53,10 +53,14 @@ contract LidoAdapterTest is Test, ISwapAdapterTypes {
     function dealStEthTokens(uint256 amount) public {
         amount = amount + (amount / BUFFER);
         deal(address(this), amount);
+    }
 
-        uint256 receivedSharesFromSubmit =
-            IStETH(stETH).submit{value: amount}(address(0));
-
+    function testSellEthForWstEth() public {
+        uint256 amount = 1e18;
+        deal(address(this), amount);
+        (bool sent, ) = address(adapter).call{value: amount}("");
+        if (!sent) revert();
+        Trade memory trade = adapter.swap(bytes32(0), ETH, wstETH, OrderSide.Sell, amount);
     }
 
     function testPriceLidoSteth() public {
