@@ -94,7 +94,8 @@ contract LidoAdapter is ISwapAdapter {
 
         if (side == OrderSide.Buy) {
             if (sellToken == address(stEth)) {
-                uint256 neededStEth = stEth.getPooledEthByShares(specifiedAmount);
+                uint256 neededStEth =
+                    stEth.getPooledEthByShares(specifiedAmount);
                 neededStEth = neededStEth + (neededStEth / BUFFER);
 
                 IERC20(stEth).safeTransferFrom(
@@ -114,10 +115,9 @@ contract LidoAdapter is ISwapAdapter {
                 IERC20(wstEth).safeTransfer(msg.sender, specifiedAmount);
 
                 trade.calculatedAmount = neededStEth;
-            } else if (
-                sellToken == address(wstEth)
-            ) {
-                uint256 neededWstEth = stEth.getSharesByPooledEth(specifiedAmount);
+            } else if (sellToken == address(wstEth)) {
+                uint256 neededWstEth =
+                    stEth.getSharesByPooledEth(specifiedAmount);
 
                 neededWstEth = neededWstEth + (neededWstEth / BUFFER);
 
@@ -141,8 +141,8 @@ contract LidoAdapter is ISwapAdapter {
 
                 uint256 stEthTotalSupply = stEth.totalSupply();
                 uint256 stEthTotalShares = stEth.getTotalShares();
-                uint256 calculatedReceivedStEth = ( receivedStEth *
-                        stEthTotalSupply) / stEthTotalShares;
+                uint256 calculatedReceivedStEth =
+                    (receivedStEth * stEthTotalSupply) / stEthTotalShares;
 
                 if (calculatedReceivedStEth < specifiedAmount) {
                     revert Unavailable("Insufficient stEth received");
@@ -154,12 +154,13 @@ contract LidoAdapter is ISwapAdapter {
             } else if (sellToken == address(0) && buyToken == address(wstEth)) {
                 uint256 neededEth = stEth.getPooledEthByShares(specifiedAmount);
                 neededEth = neededEth + (neededEth / BUFFER);
-                uint256 receivedShares = stEth.submit{value: neededEth}(address(0));
+                uint256 receivedShares =
+                    stEth.submit{value: neededEth}(address(0));
                 uint256 stEthTotalSupply = stEth.totalSupply();
                 uint256 stEthTotalShares = stEth.getTotalShares();
 
-                uint256 calculatedReceivedStEth = ( receivedShares *
-                        stEthTotalSupply) / stEthTotalShares;
+                uint256 calculatedReceivedStEth =
+                    (receivedShares * stEthTotalSupply) / stEthTotalShares;
 
                 IERC20(stEth).safeIncreaseAllowance(
                     address(wstEth), calculatedReceivedStEth
@@ -177,8 +178,7 @@ contract LidoAdapter is ISwapAdapter {
             }
 
             trade.price = Fraction(specifiedAmount, trade.calculatedAmount);
-        }
-        else {
+        } else {
             if (sellToken == address(stEth)) {
                 IERC20(stEth).safeTransferFrom(
                     msg.sender, address(this), specifiedAmount
@@ -200,9 +200,7 @@ contract LidoAdapter is ISwapAdapter {
                 IERC20(wstEth).safeTransfer(msg.sender, receivedWstEth);
 
                 trade.calculatedAmount = receivedWstEth;
-            } else if (
-                sellToken == address(wstEth) 
-            ) {
+            } else if (sellToken == address(wstEth)) {
                 IERC20(wstEth).safeTransferFrom(
                     msg.sender, address(this), specifiedAmount
                 );
@@ -211,7 +209,8 @@ contract LidoAdapter is ISwapAdapter {
                     address(wstEth), specifiedAmount
                 );
 
-                uint256 expectedStEth = stEth.getPooledEthByShares(specifiedAmount);
+                uint256 expectedStEth =
+                    stEth.getPooledEthByShares(specifiedAmount);
 
                 uint256 receivedStEth = wstEth.unwrap(specifiedAmount);
 
@@ -244,13 +243,15 @@ contract LidoAdapter is ISwapAdapter {
                 }
                 console.log("A | receivedWstEth", receivedWstEth);
                 console.log("A | expectedWstEth", expectedWstEth);
-                console.log("A | wstEth Adapter Balance", wstEth.balanceOf(address(this)));
+                console.log(
+                    "A | wstEth Adapter Balance",
+                    wstEth.balanceOf(address(this))
+                );
 
                 IERC20(wstEth).safeTransfer(msg.sender, receivedWstEth);
 
                 trade.calculatedAmount = receivedWstEth;
             } else if (sellToken == address(0) && buyToken == address(stEth)) {
-
                 (bool sent,) = address(stEth).call{value: specifiedAmount}("");
                 if (!sent) {
                     revert Unavailable(
@@ -369,25 +370,24 @@ contract LidoAdapter is ISwapAdapter {
         address sellToken,
         address buyToken
     ) internal view returns (Fraction memory) {
-
         if (sellToken == address(stEth)) {
-            uint256 wstEthAmountOut = stEth.getSharesByPooledEth(specifiedAmount);
+            uint256 wstEthAmountOut =
+                stEth.getSharesByPooledEth(specifiedAmount);
             return Fraction(wstEthAmountOut, specifiedAmount);
-
         } else if (sellToken == address(wstEth)) {
             uint256 stEthAmountOut = stEth.getPooledEthByShares(specifiedAmount);
             return Fraction(stEthAmountOut, specifiedAmount);
-
-            } else {
+        } else {
             if (buyToken == address(stEth)) {
-                uint256 stEthAmountOut = getStEthAmountByEthAmount(specifiedAmount);
+                uint256 stEthAmountOut =
+                    getStEthAmountByEthAmount(specifiedAmount);
                 return Fraction(stEthAmountOut, specifiedAmount);
             } else {
-                uint256 wstEthAmountOut = getWstEthAmountByEthAmount(specifiedAmount);
+                uint256 wstEthAmountOut =
+                    getWstEthAmountByEthAmount(specifiedAmount);
                 return Fraction(wstEthAmountOut, specifiedAmount);
             }
         }
-
     }
 
     function getStEthAmountByEthAmount(uint256 ethAmountIn)
@@ -399,8 +399,7 @@ contract LidoAdapter is ISwapAdapter {
         uint256 stEthTotalShares = stEth.getTotalShares();
         uint256 sharesAmount =
             (ethAmountIn * stEthTotalShares) / stEthTotalSupply;
-        stEthAmountOut =
-            (sharesAmount * stEthTotalSupply) / stEthTotalShares;
+        stEthAmountOut = (sharesAmount * stEthTotalSupply) / stEthTotalShares;
 
         return stEthAmountOut;
     }
