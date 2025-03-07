@@ -30,10 +30,6 @@ const LIDO_STETH_CREATION_TX: [u8; 32] =
     hex!("3feabd79e8549ad68d1827c074fa7123815c80206498946293d5373a160fd866"); //stETH creation tx
 const WSTETH_CREATION_TX: [u8; 32] =
     hex!("af2c1a501d2b290ef1e84ddcfc7beb3406f8ece2c46dee14e212e8233654ff05"); //wstETH creation tx
-const KERNEL_PROXY_ADDRESS: [u8; 20] = hex!("b8FFC3Cd6e7Cf5a098A1c92F48009765B24088Dc"); //kernelProxy
-const KERNEL_ADDRESS: [u8; 20] = hex!("2b33CF282f867A7FF693A66e11B0FcC5552e4425"); //kernel
-const LIDO_ADDRESS: [u8; 20] = hex!("17144556fd3424EDC8Fc8A4C940B2D04936d17eb"); //lido
-const LIDO2_ADDRESS: [u8; 20] = hex!("20dC62D5904633cC6a5E34bEc87A048E80C92e97"); //lido2
 
 #[substreams::handlers::map]
 pub fn map_components(block: eth::v2::Block) -> Result<BlockTransactionProtocolComponents> {
@@ -78,7 +74,7 @@ pub fn store_components(map: BlockTransactionProtocolComponents, store: StoreSet
             tx_pc
                 .components
                 .into_iter()
-                .for_each(|pc| store.set(0, format!("pool:{0}", &pc.id[..42]), &pc.id))
+                .for_each(|pc| store.set(0, format!("pool:{0}", &pc.id), &pc.id))
         });
 }
 
@@ -119,7 +115,7 @@ pub fn map_relative_balances(
             .collect::<Vec<_>>();
 
         if components_store
-            .get_last(format!("pool:{}", &wst_component_id[..42]))
+            .get_last(format!("pool:{0}", &wst_component_id))
             .is_some()
         {
             balance_deltas.extend_from_slice(steth_balance_deltas.as_slice());
@@ -134,7 +130,7 @@ pub fn map_relative_balances(
                     {
                         let component_id = format!("0x{}", hex::encode(LIDO_STETH_ADDRESS));
                         if components_store
-                            .get_last(format!("pool:{}", &component_id[..42]))
+                            .get_last(format!("pool:{0}", &component_id))
                             .is_some()
                         {
                             let delta_eth = post_total_ether - pre_total_ether;
@@ -159,7 +155,7 @@ pub fn map_relative_balances(
                     if let Some(Submitted { amount, .. }) = Submitted::match_and_decode(log) {
                         let component_id = format!("0x{}", hex::encode(LIDO_STETH_ADDRESS));
                         if components_store
-                            .get_last(format!("pool:{}", &component_id[..42]))
+                            .get_last(format!("pool:{0}", &component_id))
                             .is_some()
                         {
                             balance_deltas.extend_from_slice(&[
@@ -187,7 +183,7 @@ pub fn map_relative_balances(
                     {
                         let component_id = format!("0x{}", hex::encode(LIDO_STETH_ADDRESS));
                         if components_store
-                            .get_last(format!("pool:{}", &component_id[..42]))
+                            .get_last(format!("pool:{}", &component_id))
                             .is_some()
                         {
                             balance_deltas.extend_from_slice(&[
@@ -296,13 +292,12 @@ pub fn map_protocol_changes(
                 });
         });
 
-    // Extract and insert any storage changes that happened for any of the components.
     extract_contract_changes_builder(
         &block,
         |addr| {
             components_store
                 .get_last(format!("pool:0x{0}", hex::encode(addr)))
-                .is_some()
+                .is_some() 
         },
         &mut transaction_changes,
     );

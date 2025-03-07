@@ -39,12 +39,12 @@ contract LidoAdapter is ISwapAdapter {
             supported = false;
         } else {
             if (
-                sellToken != address(wstEth) && sellToken != address(stEth)
+                sellToken != wstETHAddress && sellToken != stETHAddress
                     && sellToken != address(0)
             ) {
                 supported = false;
             } else {
-                if (buyToken != address(wstEth) && buyToken != address(stEth)) {
+                if (buyToken != wstETHAddress && buyToken != stETHAddress) {
                     supported = false;
                 }
             }
