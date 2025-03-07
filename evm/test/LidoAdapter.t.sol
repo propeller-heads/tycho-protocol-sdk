@@ -20,6 +20,7 @@ contract LidoAdapterTest is Test, ISwapAdapterTypes {
     address constant ETH = address(0);
     uint256 constant TEST_ITERATIONS = 100;
     uint256 constant BUFFER = 1000000;
+
     function setUp() public {
         uint256 forkBlock = 21929540;
         vm.createSelectFork(vm.rpcUrl("mainnet"), forkBlock);
@@ -54,12 +55,11 @@ contract LidoAdapterTest is Test, ISwapAdapterTypes {
         amount = amount + (amount / BUFFER);
         deal(address(this), amount);
 
-        uint256 receivedSharesFromSubmit =
-            IStETH(stETH).submit{value: amount}(address(0));
-
+        (bool sent, ) = address(stETH).call{value: amount}("");
+        if (!sent) revert();
     }
 
-    function testPriceLidoSteth() public {
+    function testPriceLidoSteth() public view {
         Fraction[] memory prices = new Fraction[](2);
 
         uint256[] memory amounts = new uint256[](TEST_ITERATIONS);
@@ -82,7 +82,7 @@ contract LidoAdapterTest is Test, ISwapAdapterTypes {
         }
     }
 
-    function testPriceLidoETH() public {
+    function testPriceLidoETH() public view {
         Fraction[] memory prices = new Fraction[](2);
 
         uint256[] memory amounts = new uint256[](TEST_ITERATIONS);
@@ -105,7 +105,7 @@ contract LidoAdapterTest is Test, ISwapAdapterTypes {
         }
     }
 
-    function testPriceLidoWsteth() public {
+    function testPriceLidoWsteth() public view {
         Fraction[] memory prices = new Fraction[](2);
 
         uint256[] memory amounts = new uint256[](TEST_ITERATIONS);
@@ -141,7 +141,7 @@ contract LidoAdapterTest is Test, ISwapAdapterTypes {
             vm.assume(specifiedAmount < limits[1]);
 
             dealStEthTokens(IStETH(stETH).getPooledEthByShares(specifiedAmount));
-            IERC20(stETH).approve(address(adapter), type(uint256).max);
+            IERC20(stETH).approve(address(adapter), 10e40);
         } else {
             vm.assume(specifiedAmount < limits[0]);
 
@@ -194,15 +194,12 @@ contract LidoAdapterTest is Test, ISwapAdapterTypes {
         if (side == OrderSide.Buy) {
             vm.assume(specifiedAmount < limits[1]);
 
-            uint256 neededWstEth = IStETH(stETH).getSharesByPooledEth(specifiedAmount);
+            uint256 neededWstEth =
+                IStETH(stETH).getSharesByPooledEth(specifiedAmount);
 
             neededWstEth = neededWstEth + (neededWstEth / BUFFER);
 
-            deal(
-                wstETH,
-                address(this),
-                neededWstEth
-            );
+            deal(wstETH, address(this), neededWstEth);
             IERC20(wstETH).approve(address(adapter), neededWstEth);
         } else {
             vm.assume(specifiedAmount < limits[0]);
@@ -247,8 +244,7 @@ contract LidoAdapterTest is Test, ISwapAdapterTypes {
     function testSwapFuzzLidoEthStETH(uint256 specifiedAmount, bool isBuy)
         public
     {
-        // OrderSide side = isBuy ? OrderSide.Buy : OrderSide.Sell;
-        OrderSide side = OrderSide.Buy;
+        OrderSide side = isBuy ? OrderSide.Buy : OrderSide.Sell;
         vm.assume(specifiedAmount > 1e10);
 
         uint256 stETH_balance_before;
@@ -278,19 +274,15 @@ contract LidoAdapterTest is Test, ISwapAdapterTypes {
             ETH_balance_before = address(this).balance;
 
             (bool sent_,) = address(adapter).call{value: specifiedAmount}("");
-            if (!sent_) revert(); // hide warnings
+            if (!sent_) revert();
         }
-
-        console.log("stETH_balance before trade: ", stETH_balance_before);
-        console.log("ETH_balance before trade: ", ETH_balance_before);
 
         Trade memory trade =
             adapter.swap(pair, ETH, stETH, side, specifiedAmount);
 
         uint256 stETH_balance_after = IERC20(stETH).balanceOf(address(this));
         uint256 ETH_balance_after = address(this).balance;
-        console.log("stETH_balance after trade: ", stETH_balance_after);
-        console.log("ETH_balance after trade: ", ETH_balance_after);
+
         if (trade.calculatedAmount > 0) {
             if (side == OrderSide.Buy) {
                 assertApproxEqAbs(
@@ -318,9 +310,7 @@ contract LidoAdapterTest is Test, ISwapAdapterTypes {
     function testSwapFuzzLidoEthWstEth(uint256 specifiedAmount, bool isBuy)
         public
     {
-        // OrderSide side = isBuy ? OrderSide.Buy : OrderSide.Sell;
-        OrderSide side = OrderSide.Buy;
-        // uint256 specifiedAmount = 1e18;
+        OrderSide side = isBuy ? OrderSide.Buy : OrderSide.Sell;
         vm.assume(specifiedAmount > 1e10);
 
         uint256 wstETH_balance_before;
@@ -332,16 +322,14 @@ contract LidoAdapterTest is Test, ISwapAdapterTypes {
         if (side == OrderSide.Buy) {
             vm.assume(specifiedAmount < limits[1]);
 
-            uint256 neededEth = IStETH(stETH).getPooledEthByShares(specifiedAmount);
+            uint256 neededEth =
+                IStETH(stETH).getPooledEthByShares(specifiedAmount);
             neededEth = neededEth + (neededEth / BUFFER);
             deal(address(this), neededEth);
-            console.log("U | neededEth", neededEth);
             wstETH_balance_before = IERC20(wstETH).balanceOf(address(this));
             ETH_balance_before = address(this).balance;
-            console.log("U | ETH_balance_before", ETH_balance_before);
             (bool sent_,) = address(adapter).call{value: neededEth}("");
             if (!sent_) revert();
-            console.log("U | ETH_balance_after sending to Adapter", address(this).balance);
         } else {
             vm.assume(specifiedAmount < limits[0]);
 
@@ -351,7 +339,7 @@ contract LidoAdapterTest is Test, ISwapAdapterTypes {
             ETH_balance_before = address(this).balance;
 
             (bool sent_,) = address(adapter).call{value: specifiedAmount}("");
-            if (!sent_) revert(); // hide warnings
+            if (!sent_) revert();
         }
         Trade memory trade =
             adapter.swap(pair, ETH, wstETH, side, specifiedAmount);
@@ -390,22 +378,34 @@ contract LidoAdapterTest is Test, ISwapAdapterTypes {
         bytes32 pair = bytes32(0);
 
         uint256[] memory amounts = new uint256[](TEST_ITERATIONS);
-        uint256 specifiedAmount = 10;
+        uint256 specifiedAmount = 1e8;
 
         for (uint256 i = 0; i < TEST_ITERATIONS; i++) {
-            amounts[i] = specifiedAmount + (i * 10 ** 6);
+            amounts[i] = specifiedAmount + (i * 1e6);
         }
 
         Trade[] memory trades = new Trade[](TEST_ITERATIONS);
         uint256 beforeSwap;
+
         for (uint256 i = 0; i < TEST_ITERATIONS; i++) {
             beforeSwap = vm.snapshot();
 
-            deal(wstETH, address(this), amounts[i]);
-            IERC20(wstETH).approve(address(adapter), amounts[i]);
+            if (side == OrderSide.Buy) {
+                uint256 neededWstEth =
+                IStETH(stETH).getSharesByPooledEth(amounts[i]);
+                neededWstEth = neededWstEth + (neededWstEth / BUFFER);
+                deal(wstETH, address(this), neededWstEth);
+                IERC20(wstETH).approve(address(adapter), neededWstEth);
+                trades[i] = adapter.swap(pair, wstETH, stETH, side, neededWstEth);
+                vm.revertTo(beforeSwap);
+            } else {
+                uint256 neededWstEth = amounts[i] + (amounts[i] / BUFFER);
+                deal(wstETH, address(this), neededWstEth);
+                IERC20(wstETH).approve(address(adapter), neededWstEth);
+                trades[i] = adapter.swap(pair, wstETH, stETH, side, neededWstEth);
+                vm.revertTo(beforeSwap);
+            }
 
-            trades[i] = adapter.swap(pair, wstETH, stETH, side, amounts[i]);
-            vm.revertTo(beforeSwap);
         }
 
         for (uint256 i = 1; i < TEST_ITERATIONS - 1; i++) {
@@ -419,14 +419,14 @@ contract LidoAdapterTest is Test, ISwapAdapterTypes {
     }
 
     function testGetCapabilitiesLido(bytes32 pair, address t0, address t1)
-        public
+        public view
     {
         Capability[] memory res = adapter.getCapabilities(pair, t0, t1);
 
         assertEq(res.length, 5);
     }
 
-    function testGetLimitsLido() public {
+    function testGetLimitsLido() public view {
         bytes32 pair = bytes32(0);
         uint256[] memory limits = adapter.getLimits(pair, ETH, stETH);
 
