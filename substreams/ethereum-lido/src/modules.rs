@@ -318,3 +318,4 @@ pub fn map_protocol_changes(
 fn address_to_utf8_vec(address: &[u8; 20]) -> Vec<u8> {
     format!("0x{}", hex::encode(address)).into_bytes()
 }
+

@@ -368,7 +368,7 @@ contract LidoAdapter is ISwapAdapter {
         // wstETH().getWstETHByStETH(currentStakeLimitStETH);
 
         limits = new uint256[](2);
-        if (sellToken == address(stEth)) {
+        if (sellToken == stETHAddress) {
             // stEth-wstEth
             limits[0] = currentStakeLimitStETH;
             limits[1] = currentStakeLimitWstETH;
@@ -391,7 +391,7 @@ contract LidoAdapter is ISwapAdapter {
             }
 
             limits[0] = currentStakeLimitStETH;
-            if (buyToken == address(stEth)) {
+            if (buyToken == stETHAddress) {
                 limits[1] = currentStakeLimitStETH;
             } else {
                 limits[1] = currentStakeLimitWstETH;
@@ -455,7 +455,7 @@ contract LidoAdapter is ISwapAdapter {
         uint256 amount0;
         uint256 amount1;
 
-        if (sellTokenAddress == address(stEth)) {
+        if (sellTokenAddress == stETHAddress) {
             // stEth-wstEth, Eth is not possible as checked through
             // checkInputTokens
             amount0 = wstETH().getWstETHByStETH(specifiedAmount);
