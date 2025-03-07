@@ -241,12 +241,6 @@ contract LidoAdapter is ISwapAdapter {
                 if (receivedWstEth < expectedWstEth) {
                     revert Unavailable("Insufficient wstEth received");
                 }
-                console.log("A | receivedWstEth", receivedWstEth);
-                console.log("A | expectedWstEth", expectedWstEth);
-                console.log(
-                    "A | wstEth Adapter Balance",
-                    wstEth.balanceOf(address(this))
-                );
 
                 IERC20(wstEth).safeTransfer(msg.sender, receivedWstEth);
 
@@ -286,17 +280,18 @@ contract LidoAdapter is ISwapAdapter {
         checkInputTokens(sellToken, buyToken)
         returns (uint256[] memory limits)
     {
-        uint256 currentStakeLimitStETH = 10 * 1e18; //  stEth.getCurrentStakeLimit();
-        // // same
+        uint256 currentStakeLimitStETH = stEth.getCurrentStakeLimit();
         // as Eth stake limit
         uint256 currentStakeLimitWstETH = 10 * 1e18;
         // stEth.getSharesByPooledEth(currentStakeLimitStETH);
+        uint256 stEthTotalSupply = stEth.totalSupply();
+        uint256 stEthLockedInWstEth = stEth.balanceOf(address(wstEth));
 
         limits = new uint256[](2);
         if (sellToken == address(stEth)) {
             // stEth-wstEth
-            limits[0] = currentStakeLimitStETH;
-            limits[1] = currentStakeLimitWstETH;
+            limits[0] = (stEthTotalSupply - stEthLockedInWstEth) * 50 / 100;
+            limits[1] = stEth.getSharesByPooledEth(limits[0]);
         } else if (sellToken == address(wstEth)) {
             // wstEth-stEth
             limits[0] = currentStakeLimitWstETH;
