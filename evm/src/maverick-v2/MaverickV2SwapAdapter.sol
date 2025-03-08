@@ -169,7 +169,7 @@ contract MaverickV2SwapAdapter is ISwapAdapter {
             tickLimit: tickLimit
         });
         // Pay the pool with the sell token
-        pay(IERC20(sellToken), msg.sender, address(pool), specifiedAmount);
+        IERC20(sellToken).safeTransferFrom(msg.sender, address(pool), specifiedAmount);
         (, uint256 amountOut) = pool.swap(msg.sender, swapParams, "");
         return amountOut;
     }
@@ -189,23 +189,7 @@ contract MaverickV2SwapAdapter is ISwapAdapter {
             factory.isFactoryPool(IMaverickV2Pool(msg.sender)), "NotFactoryPool"
         );
         address payer = abi.decode(data, (address));
-        pay(tokenIn, payer, msg.sender, amountIn);
-    }
-
-    /// @notice Pay a recipient with a token.
-    /// @param token The token to pay with.
-    /// @param payer The payer of the token.
-    /// @param recipient The recipient of the token.
-    /// @param value The amount of the token to pay.
-    function pay(IERC20 token, address payer, address recipient, uint256 value)
-        internal
-    {
-        if (IWETH9(address(token)) == weth && address(this).balance >= value) {
-            weth.deposit{value: value}();
-            weth.transfer(recipient, value);
-        } else {
-            token.safeTransferFrom(payer, recipient, value);
-        }
+        tokenIn.safeTransferFrom(payer, msg.sender, amountIn);
     }
 
     /// @inheritdoc ISwapAdapter
