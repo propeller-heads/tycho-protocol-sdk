@@ -1,15 +1,18 @@
-use substreams::store::{StoreNew, StoreSet, StoreSetString};
+use substreams::prelude::{StoreSetIfNotExists, StoreSetIfNotExistsProto};
+use substreams::store::{StoreNew};
 use tycho_substreams::prelude::*;
-
-/// Simply stores the `ProtocolComponent`s with the pool address as the key and the pool id as value
+use crate::pb::maverick::v2::Pool;
 #[substreams::handlers::store]
-pub fn store_components(map: BlockTransactionProtocolComponents, store: StoreSetString) {
-    map.tx_components
-        .into_iter()
-        .for_each(|tx_pc| {
-            tx_pc
-                .components
-                .into_iter()
-                .for_each(|pc| store.set(0, format!("pool:{0}", &pc.id[..42]), &pc.id))
-        });
+pub fn store_components(map: BlockTransactionProtocolComponents, store: StoreSetIfNotExistsProto<Pool>) {
+    for tx_pc in map.tx_components{
+        for pc in tx_pc.components{
+            let pool_address = &pc.id;
+            let pool = Pool {
+                address: hex::decode(pool_address.trim_start_matches("0x")).unwrap(),
+                token_a: pc.tokens[0].clone(),
+                token_b: pc.tokens[1].clone(),
+            };
+            store.set_if_not_exists(0, format!("{}:{}", "Pool", pool_address), &pool);
+        }
+    }
 }
