@@ -1,0 +1,58 @@
+syntax = "proto3";
+
+package adapter.v1;
+
+message Trade {
+    string calculated_amount = 1;
+    string gas_used = 2;
+    string marginal_price_after_trade = 3;
+}
+
+enum OrderSide {
+    SELL = 0;
+    BUY = 1;
+}
+
+// A struct describing a transaction.
+message Transaction {
+    // The transaction hash.
+    bytes hash = 1;
+    // The sender of the transaction.
+    bytes from = 2;
+    // The receiver of the transaction.
+    bytes to = 3;
+    // The transactions index within the block.
+    uint32 index = 4;
+}
+
+message FunctionCall {
+    string id = 1;
+    string sell_token = 2;
+    string buy_token = 3;
+    Transaction transaction = 4;
+    oneof call_type {
+        SwapCallData swap = 5;
+        PriceCallData price = 6;
+        SwapToPriceCallData swap_to_price = 7;
+    }
+}
+
+message SwapCallData {
+    OrderSide side = 1;
+    uint64 specified_amount = 2;
+    Trade result = 3;
+}
+
+message PriceCallData {
+    repeated bytes specified_amounts = 1;
+    repeated string prices = 2;
+}
+
+message SwapToPriceCallData {
+    string limit_price = 1;
+    Trade result = 2;
+}
+
+message FunctionCalls {
+    repeated FunctionCall calls = 1;
+}
