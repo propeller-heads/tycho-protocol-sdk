@@ -1,6 +1,6 @@
 mod abi;
-mod modules;
 mod events;
+mod modules;
 mod pb;
 
 pub use modules::*;
