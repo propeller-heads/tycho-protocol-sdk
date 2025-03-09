@@ -1,5 +1,5 @@
 use crate::{
-    abi::pool::events::{PoolAddLiquidity, PoolRemoveLiquidity, PoolSetVariableFee, PoolSwap},
+    abi::pool::events::{PoolAddLiquidity, PoolRemoveLiquidity, PoolSwap},
     pb::maverick::v2::Pool,
 };
 use substreams_ethereum::{pb::eth::v2::Log, Event};
