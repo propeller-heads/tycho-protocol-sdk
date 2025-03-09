@@ -1,0 +1,131 @@
+syntax = "proto3";
+
+import "google/protobuf/timestamp.proto";
+
+package contract.v1;
+
+message Events {
+    repeated factory_PoolCreated factory_pool_createds = 1;
+    repeated factory_SetFeeConfiguration factory_set_fee_configurations = 2;
+    repeated factory_SetFeeToSetter factory_set_fee_to_setters = 3;
+    repeated pool_Approval pool_approvals = 4;
+    repeated pool_Burn pool_burns = 5;
+    repeated pool_Mint pool_mints = 6;
+    repeated pool_Swap pool_swaps = 7;
+    repeated pool_Sync pool_syncs = 8;
+    repeated pool_Transfer pool_transfers = 9;
+    repeated pool_UpdateEma pool_update_emas = 10;
+}
+
+message factory_PoolCreated {
+    string evt_tx_hash = 1;
+    uint32 evt_index = 2;
+    google.protobuf.Timestamp evt_block_time = 3;
+    uint64 evt_block_number = 4;
+    bytes token0 = 5;
+    bytes token1 = 6;
+    bytes pool = 7;
+    uint64 amp_bps = 8;
+    string total_pool = 9;
+}
+
+message factory_SetFeeConfiguration {
+    string evt_tx_hash = 1;
+    uint32 evt_index = 2;
+    google.protobuf.Timestamp evt_block_time = 3;
+    uint64 evt_block_number = 4;
+    bytes fee_to = 5;
+    uint64 government_fee_bps = 6;
+}
+
+message factory_SetFeeToSetter {
+    string evt_tx_hash = 1;
+    uint32 evt_index = 2;
+    google.protobuf.Timestamp evt_block_time = 3;
+    uint64 evt_block_number = 4;
+    bytes fee_to_setter = 5;
+}
+
+message pool_Approval {
+    string evt_tx_hash = 1;
+    uint32 evt_index = 2;
+    google.protobuf.Timestamp evt_block_time = 3;
+    uint64 evt_block_number = 4;
+    string evt_address = 5;
+    bytes owner = 6;
+    bytes spender = 7;
+    string value = 8;
+}
+
+message pool_Burn {
+    string evt_tx_hash = 1;
+    uint32 evt_index = 2;
+    google.protobuf.Timestamp evt_block_time = 3;
+    uint64 evt_block_number = 4;
+    string evt_address = 5;
+    bytes sender = 6;
+    string amount0 = 7;
+    string amount1 = 8;
+    bytes to = 9;
+}
+
+message pool_Mint {
+    string evt_tx_hash = 1;
+    uint32 evt_index = 2;
+    google.protobuf.Timestamp evt_block_time = 3;
+    uint64 evt_block_number = 4;
+    string evt_address = 5;
+    bytes sender = 6;
+    string amount0 = 7;
+    string amount1 = 8;
+}
+
+message pool_Swap {
+    string evt_tx_hash = 1;
+    uint32 evt_index = 2;
+    google.protobuf.Timestamp evt_block_time = 3;
+    uint64 evt_block_number = 4;
+    string evt_address = 5;
+    bytes sender = 6;
+    string amount0_in = 7;
+    string amount1_in = 8;
+    string amount0_out = 9;
+    string amount1_out = 10;
+    bytes to = 11;
+    string fee_in_precision = 12;
+}
+
+message pool_Sync {
+    string evt_tx_hash = 1;
+    uint32 evt_index = 2;
+    google.protobuf.Timestamp evt_block_time = 3;
+    uint64 evt_block_number = 4;
+    string evt_address = 5;
+    string v_reserve0 = 6;
+    string v_reserve1 = 7;
+    string reserve0 = 8;
+    string reserve1 = 9;
+}
+
+message pool_Transfer {
+    string evt_tx_hash = 1;
+    uint32 evt_index = 2;
+    google.protobuf.Timestamp evt_block_time = 3;
+    uint64 evt_block_number = 4;
+    string evt_address = 5;
+    bytes from = 6;
+    bytes to = 7;
+    string value = 8;
+}
+
+message pool_UpdateEma {
+    string evt_tx_hash = 1;
+    uint32 evt_index = 2;
+    google.protobuf.Timestamp evt_block_time = 3;
+    uint64 evt_block_number = 4;
+    string evt_address = 5;
+    string short_ema = 6;
+    string long_ema = 7;
+    string last_block_volume = 8;
+    string skip_block = 9;
+}
