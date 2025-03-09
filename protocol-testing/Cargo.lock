@@ -9139,8 +9139,8 @@ dependencies = [
 
 [[package]]
 name = "tycho-simulation"
-version = "0.211.1"
-source = "git+https://github.com/propeller-heads/tycho-simulation.git?tag=0.211.1#6660923fcc2b10d31632830d34212c1b3ad5d46e"
+version = "0.213.0"
+source = "git+https://github.com/propeller-heads/tycho-simulation.git?tag=0.213.0#8e4e02184cc0e1ea108c2ed799053f1a20d8f39a"
 dependencies = [
  "alloy",
  "async-stream",
@@ -9184,8 +9184,8 @@ dependencies = [
 
 [[package]]
 name = "tycho-test"
-version = "0.211.1"
-source = "git+https://github.com/propeller-heads/tycho-simulation.git?tag=0.211.1#6660923fcc2b10d31632830d34212c1b3ad5d46e"
+version = "0.213.0"
+source = "git+https://github.com/propeller-heads/tycho-simulation.git?tag=0.213.0#8e4e02184cc0e1ea108c2ed799053f1a20d8f39a"
 dependencies = [
  "actix-web",
  "alloy",
