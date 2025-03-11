@@ -46,7 +46,7 @@ modules:
 
   - name: store_balances
     kind: store
-    initialBlock:  20663734
+    initialBlock: 20663734
     updatePolicy: add
     valueType: bigint
     inputs:

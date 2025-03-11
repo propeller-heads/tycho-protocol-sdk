@@ -38,9 +38,12 @@ tests:
   - name: test_dai_usds_converter
     start_block: 20663734
     stop_block: 20770232
-    initialized_accounts:
-      - "0x3c0f895007ca717aa01c8693e59df1e8c3777feb"
-      - "0x35D1b3F3D7966A1DFe207aa4514C12a259A0492B"
+    # initialized_accounts:
+    #   - "0x3c0f895007ca717aa01c8693e59df1e8c3777feb"
+    #   - "0x35D1b3F3D7966A1DFe207aa4514C12a259A0492B"
+    #   - "0xa188eec8f81263234da3622a406892f3d630f98c"
+    #   - "0xbdcfca946b6cdd965f99a839e4435bcdc1bc470b"
+    #   - "0xa3931d71877c0e7a3148cb7eb4463524fec27fbd"
     expected_components:
       - id: "0x3225737a9bbb6473cb4a45b7244aca2befdb276a"
         tokens:

@@ -552,38 +552,39 @@ pub fn map_protocol_changes(
 ) -> Result<BlockChanges> {
     let mut transaction_changes: HashMap<_, TransactionChangesBuilder> = HashMap::new();
 
+    let default_attributes = vec![
+        Attribute {
+            name: "stateless_contract_addr_0".into(),
+            value: address_to_utf8_vec(&hex!("3c0f895007ca717aa01c8693e59df1e8c3777feb")),
+            change: ChangeType::Creation.into(),
+        },
+        Attribute {
+            name: "update_marker".to_string(),
+            value: vec![1u8],
+            change: ChangeType::Creation.into(),
+        },
+    ];
+
     // Process components
     grouped_components
         .tx_components
         .iter()
         .for_each(|tx_component| {
+            // initialise builder if not yet present for this tx
             let tx = tx_component.tx.as_ref().unwrap();
             let builder = transaction_changes
                 .entry(tx.index)
                 .or_insert_with(|| TransactionChangesBuilder::new(tx));
 
+            // iterate over individual components created within this tx
             tx_component
                 .components
                 .iter()
                 .for_each(|component| {
-                    // Each component is its own balance owner
-                    let default_attributes = vec![
-                        Attribute {
-                            name: "balance_owner".to_string(),
-                            value: hex::decode(&component.id[2..42]).unwrap(), // Use component's own address
-                            change: ChangeType::Creation.into(),
-                        },
-                        Attribute {
-                            name: "update_marker".to_string(),
-                            value: vec![1u8],
-                            change: ChangeType::Creation.into(),
-                        },
-                    ];
-
                     builder.add_protocol_component(component);
                     let entity_change = EntityChanges {
                         component_id: component.id.clone(),
-                        attributes: default_attributes,
+                        attributes: default_attributes.clone(),
                     };
                     builder.add_entity_change(&entity_change)
                 });
@@ -668,4 +669,9 @@ fn is_deployment_tx(tx: &eth::v2::TransactionTrace, contract_address: &[u8]) -> 
         }
         _ => false,
     }
+}
+
+/// Converts address bytes into a Vec<u8> containing a leading `0x`.
+fn address_to_utf8_vec(address: &[u8; 20]) -> Vec<u8> {
+    format!("0x{}", hex::encode(address)).into_bytes()
 }
