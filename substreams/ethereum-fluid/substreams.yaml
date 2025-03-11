@@ -20,7 +20,7 @@ binaries:
 network: mainnet
 
 modules:
-  - name: map_protocol_components
+  - name: map_dex_deployed
     kind: map
     initialBlock: 21015648
     inputs:
@@ -28,7 +28,7 @@ modules:
     output:
       type: proto:tycho.evm.v1.BlockTransactionProtocolComponents
 
-  - name: store_protocol_components
+  - name: store_dexes
     kind: store
     initialBlock: 21015648
     updatePolicy: set
