@@ -21,7 +21,7 @@ use substreams::{
     },
 };
 use substreams_ethereum::{
-    pb::eth::{self, v2::StorageChange},
+    pb::eth::{self, v2::StorageChange as SubstreamsStorageChange},
     Event, Function,
 };
 use tycho_substreams::{
@@ -309,7 +309,7 @@ pub fn map_protocol_changes(
     components_store: StoreGetProto<ProtocolComponent>,
     tokens_store: StoreGetInt64,
     balance_store: StoreDeltas, // Note, this map module is using the `deltas` mode for the store.
-) -> Result<BlockChanges> {
+) -> Result<BlockChangesExtended> {
     // We merge contract changes by transaction (identified by transaction index) making it easy to
     //  sort them at the very end.
     let mut transaction_changes: HashMap<_, TransactionChangesBuilder> = HashMap::new();
@@ -393,8 +393,8 @@ pub fn map_protocol_changes(
         |addr| {
             components_store
                 .get_last(format!("pool:0x{0}", hex::encode(addr)))
-                .is_some() ||
-                addr.eq(VAULT_ADDRESS)
+                .is_some()
+                || addr.eq(VAULT_ADDRESS)
         },
         &mut transaction_changes,
     );
@@ -449,15 +449,28 @@ pub fn map_protocol_changes(
                 })
         });
 
+    let storageChanges: Vec<TxStorageChange> = block
+        .calls()
+        .flat_map(|call| call.call.storage_changes.clone())
+        .map(|change| tycho_substreams::prelude::TxStorageChange {
+            address: change.address,
+            key: change.key,
+            new_value: change.new_value,
+            old_value: change.old_value,
+            ordinal: change.ordinal,
+        })
+        .collect();
+
     // Process all `transaction_changes` for final output in the `BlockChanges`,
     //  sorted by transaction index (the key).
-    Ok(BlockChanges {
+    Ok(BlockChangesExtended {
         block: Some((&block).into()),
         changes: transaction_changes
             .drain()
             .sorted_unstable_by_key(|(index, _)| *index)
             .filter_map(|(_, builder)| builder.build())
             .collect::<Vec<_>>(),
+        storage_changes: storageChanges,
     })
 }
 
@@ -540,7 +553,7 @@ struct ReserveValue {
 
 fn add_change_if_accounted(
     reserves_of: &mut HashMap<Vec<u8>, ReserveValue>,
-    change: &StorageChange,
+    change: &SubstreamsStorageChange,
     token_address: &[u8],
     token_store: &StoreGetInt64,
 ) {

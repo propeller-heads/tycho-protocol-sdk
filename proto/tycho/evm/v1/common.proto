@@ -175,3 +175,24 @@ message BlockChanges {
   // The set of transaction changes observed in the specified block.
   repeated TransactionChanges changes = 2;
 }
+
+message TxStorageChange {
+  bytes address = 1;
+  bytes key = 2;
+  bytes old_value = 3;
+  bytes new_value = 4;
+
+  // The block's global ordinal when the storage change was recorded, refer to [Block]
+  // documentation for further information about ordinals and total ordering.
+  uint64 ordinal = 5;
+}
+
+
+message BlockChangesExtended {
+  // The block for which these changes are collectively computed.
+  Block block = 1;
+  // The set of transaction changes observed in the specified block.
+  repeated TransactionChanges changes = 2;
+  // All the storage slot changes in the block;
+  repeated TxStorageChange storage_changes = 3;
+}

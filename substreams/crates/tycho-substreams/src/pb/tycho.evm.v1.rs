@@ -209,6 +209,35 @@ pub struct BlockChanges {
     #[prost(message, repeated, tag="2")]
     pub changes: ::prost::alloc::vec::Vec<TransactionChanges>,
 }
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct TxStorageChange {
+    #[prost(bytes="vec", tag="1")]
+    pub address: ::prost::alloc::vec::Vec<u8>,
+    #[prost(bytes="vec", tag="2")]
+    pub key: ::prost::alloc::vec::Vec<u8>,
+    #[prost(bytes="vec", tag="3")]
+    pub old_value: ::prost::alloc::vec::Vec<u8>,
+    #[prost(bytes="vec", tag="4")]
+    pub new_value: ::prost::alloc::vec::Vec<u8>,
+    /// The block's global ordinal when the storage change was recorded, refer to \[Block\]
+    /// documentation for further information about ordinals and total ordering.
+    #[prost(uint64, tag="5")]
+    pub ordinal: u64,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct BlockChangesExtended {
+    /// The block for which these changes are collectively computed.
+    #[prost(message, optional, tag="1")]
+    pub block: ::core::option::Option<Block>,
+    /// The set of transaction changes observed in the specified block.
+    #[prost(message, repeated, tag="2")]
+    pub changes: ::prost::alloc::vec::Vec<TransactionChanges>,
+    /// All the storage slot changes in the block;
+    #[prost(message, repeated, tag="3")]
+    pub storage_changes: ::prost::alloc::vec::Vec<TxStorageChange>,
+}
 /// Enum to specify the type of a change.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
 #[repr(i32)]
