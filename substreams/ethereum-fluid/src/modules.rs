@@ -106,7 +106,7 @@ fn get_new_dexes(
                         name: "fluid_dex_pool".to_string(),
                         financial_type: FinancialType::Swap.into(),
                         attribute_schema: vec![],
-                        implementation_type: ImplementationType::Custom.into(),
+                        implementation_type: ImplementationType::Vm.into(),
                     }),
                     tx: Some(tycho_tx.clone()),
                 }],
@@ -246,7 +246,8 @@ fn map_protocol_changes(
             //  please add them here.
             components_store
                 .get_last(hex::encode(addr))
-                .is_some()
+                .is_some() ||
+                addr.eq(LIQUIDITY_CONTRACT_ADDRESS)
         },
         &mut transaction_changes,
     );
