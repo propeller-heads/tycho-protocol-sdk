@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: UNLICENCED
 interface IFluidDexT1 {
     error FluidDexError(uint256 errorId);
 
