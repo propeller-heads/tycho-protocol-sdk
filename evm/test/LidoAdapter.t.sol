@@ -52,11 +52,51 @@ contract LidoAdapterTest is Test, ISwapAdapterTypes {
     /// (ref: LidoAdapter.t.sol:196)
 
     function dealStEthTokens(uint256 amount) public {
-        amount = amount + (amount / BUFFER);
-        deal(address(this), amount);
+        // For stETH, balances are calculated based on shares
+        // We need to find the storage slot for the shares mapping in the stETH
+        // contract
 
-        (bool sent, ) = address(stETH).call{value: amount}("");
-        if (!sent) revert();
+        // First, let's check our current balance
+        uint256 initialBalance = IERC20(stETH).balanceOf(address(this));
+
+        // The shares mapping is at slot 0 in the StETH contract
+        // The specific slot for an address's shares is keccak256(address . slot)
+        bytes32 sharesSlot = keccak256(abi.encode(address(this), uint256(0)));
+
+        // Calculate shares directly using the contract's function
+        // Add a small buffer (0.1%) to account for rounding issues
+        uint256 sharesToAdd = IStETH(stETH).getSharesByPooledEth(amount);
+        sharesToAdd = sharesToAdd + (sharesToAdd / 1000); // Add 0.1% buffer
+
+        // Read the current shares value
+        bytes32 currentSharesValue = vm.load(stETH, sharesSlot);
+        uint256 currentShares = uint256(currentSharesValue);
+
+        // Calculate the new shares value
+        uint256 newShares = currentShares + sharesToAdd;
+        bytes32 newSharesValue = bytes32(newShares);
+
+        // Store the new shares value
+        vm.store(stETH, sharesSlot, newSharesValue);
+
+        // Verify the new balance
+        uint256 updatedBalance = IERC20(stETH).balanceOf(address(this));
+
+        // If the balance didn't update correctly, try a different approach
+        if (updatedBalance < initialBalance + (amount * 9) / 10) {
+            // We might need to also update the total shares
+            bytes32 totalSharesSlot =
+                0xe3b4b636e601189b5f4c6742edf2538ac12bb61ed03e6da26949d69838fa447e;
+            bytes32 currentTotalSharesValue = vm.load(stETH, totalSharesSlot);
+            uint256 currentTotalShares = uint256(currentTotalSharesValue);
+
+            // Update total shares
+            uint256 newTotalShares = currentTotalShares + sharesToAdd;
+            bytes32 newTotalSharesValue = bytes32(newTotalShares);
+            vm.store(stETH, totalSharesSlot, newTotalSharesValue);
+
+            updatedBalance = IERC20(stETH).balanceOf(address(this));
+        }
     }
 
     function testPriceLidoSteth() public view {
@@ -141,11 +181,21 @@ contract LidoAdapterTest is Test, ISwapAdapterTypes {
             vm.assume(specifiedAmount < limits[1]);
 
             dealStEthTokens(IStETH(stETH).getPooledEthByShares(specifiedAmount));
-            IERC20(stETH).approve(address(adapter), 10e40);
+
+            // Calculate the amount with buffer that the adapter will try to
+            // transfer
+            uint256 neededStEth =
+                IStETH(stETH).getPooledEthByShares(specifiedAmount);
+            neededStEth = neededStEth + (neededStEth / BUFFER);
+
+            // Approve the amount with buffer
+            IERC20(stETH).approve(address(adapter), neededStEth);
         } else {
             vm.assume(specifiedAmount < limits[0]);
 
             dealStEthTokens(specifiedAmount);
+
+            // For sell orders, we need to approve the exact amount
             IERC20(stETH).approve(address(adapter), specifiedAmount);
         }
         uint256 stETH_balance_before = IERC20(stETH).balanceOf(address(this));
@@ -392,20 +442,21 @@ contract LidoAdapterTest is Test, ISwapAdapterTypes {
 
             if (side == OrderSide.Buy) {
                 uint256 neededWstEth =
-                IStETH(stETH).getSharesByPooledEth(amounts[i]);
+                    IStETH(stETH).getSharesByPooledEth(amounts[i]);
                 neededWstEth = neededWstEth + (neededWstEth / BUFFER);
                 deal(wstETH, address(this), neededWstEth);
                 IERC20(wstETH).approve(address(adapter), neededWstEth);
-                trades[i] = adapter.swap(pair, wstETH, stETH, side, neededWstEth);
+                trades[i] =
+                    adapter.swap(pair, wstETH, stETH, side, neededWstEth);
                 vm.revertTo(beforeSwap);
             } else {
                 uint256 neededWstEth = amounts[i] + (amounts[i] / BUFFER);
                 deal(wstETH, address(this), neededWstEth);
                 IERC20(wstETH).approve(address(adapter), neededWstEth);
-                trades[i] = adapter.swap(pair, wstETH, stETH, side, neededWstEth);
+                trades[i] =
+                    adapter.swap(pair, wstETH, stETH, side, neededWstEth);
                 vm.revertTo(beforeSwap);
             }
-
         }
 
         for (uint256 i = 1; i < TEST_ITERATIONS - 1; i++) {
@@ -419,7 +470,8 @@ contract LidoAdapterTest is Test, ISwapAdapterTypes {
     }
 
     function testGetCapabilitiesLido(bytes32 pair, address t0, address t1)
-        public view
+        public
+        view
     {
         Capability[] memory res = adapter.getCapabilities(pair, t0, t1);
 

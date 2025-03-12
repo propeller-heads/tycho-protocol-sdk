@@ -241,12 +241,6 @@ contract LidoAdapter is ISwapAdapter {
                 if (receivedWstEth < expectedWstEth) {
                     revert Unavailable("Insufficient wstEth received");
                 }
-                console.log("A | receivedWstEth", receivedWstEth);
-                console.log("A | expectedWstEth", expectedWstEth);
-                console.log(
-                    "A | wstEth Adapter Balance",
-                    wstEth.balanceOf(address(this))
-                );
 
                 IERC20(wstEth).safeTransfer(msg.sender, receivedWstEth);
 
@@ -286,40 +280,16 @@ contract LidoAdapter is ISwapAdapter {
         checkInputTokens(sellToken, buyToken)
         returns (uint256[] memory limits)
     {
-        uint256 currentStakeLimitStETH = 1e20; //  stEth.getCurrentStakeLimit();
-        // // same
-        // as Eth stake limit
-        uint256 currentStakeLimitWstETH = 1e20;
-        // stEth.getSharesByPooledEth(currentStakeLimitStETH);
-
         limits = new uint256[](2);
         if (sellToken == address(stEth)) {
-            // stEth-wstEth
-            limits[0] = currentStakeLimitStETH;
-            limits[1] = currentStakeLimitWstETH;
+            limits[0] = stEth.totalSupply() * 99 / 100;
+            limits[1] = stEth.getSharesByPooledEth(limits[0]);
         } else if (sellToken == address(wstEth)) {
-            // wstEth-stEth
-            limits[0] = currentStakeLimitWstETH;
-            limits[1] = currentStakeLimitStETH;
+            limits[0] = wstEth.totalSupply() * 99 / 100;
+            limits[1] = stEth.getPooledEthByShares(limits[0]);
         } else {
-            // Eth-wstEth and Eth-stEth
-
-            /// @dev Fix for side == Buy, because getTotalPooledEthByShares
-            /// would be higher than currentStakeLimit if using the limit as
-            /// amount
-            uint256 pooledEthByShares_ =
-                stEth.getPooledEthByShares(currentStakeLimitStETH);
-            if (pooledEthByShares_ > currentStakeLimitStETH) {
-                currentStakeLimitStETH = currentStakeLimitStETH
-                    - (pooledEthByShares_ - currentStakeLimitStETH);
-            }
-
-            limits[0] = currentStakeLimitStETH;
-            if (buyToken == address(stEth)) {
-                limits[1] = currentStakeLimitStETH;
-            } else {
-                limits[1] = currentStakeLimitWstETH;
-            }
+            limits[0] = stEth.getCurrentStakeLimit() * 99 / 100;
+            limits[1] = stEth.getSharesByPooledEth(limits[0]);
         }
     }
 
@@ -458,4 +428,6 @@ interface IwstETH is IERC20 {
     function stEthPerToken() external view returns (uint256);
 
     function tokensPerStEth() external view returns (uint256);
+
+    function totalSupply() external view returns (uint256);
 }
