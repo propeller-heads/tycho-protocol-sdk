@@ -12,13 +12,28 @@ import "forge-std/console.sol";
 contract LidoAdapter is ISwapAdapter {
     using SafeERC20 for IERC20;
 
+    struct Pair {
+        address token0;
+        address token1;
+    }
+
+    mapping(bytes32 => Pair) public pairs;
+
+    uint256 private constant BUFFER = 1000000;
+
     IwstETH public immutable wstEth;
     IStETH public immutable stEth;
-    uint256 public constant BUFFER = 1000000;
 
     constructor(address _wstEth, address _stEth) {
         wstEth = IwstETH(_wstEth);
         stEth = IStETH(_stEth);
+
+        pairs[keccak256(abi.encodePacked(_stEth))] =
+            Pair({token0: address(0), token1: _stEth});
+        pairs[keccak256(abi.encodePacked(_wstEth))] =
+            Pair({token0: address(0), token1: _wstEth});
+        pairs[keccak256(abi.encodePacked(_stEth, _wstEth))] =
+            Pair({token0: _stEth, token1: _wstEth});
     }
 
     /// @notice Internal check for input and output tokens
@@ -282,13 +297,13 @@ contract LidoAdapter is ISwapAdapter {
     {
         limits = new uint256[](2);
         if (sellToken == address(stEth)) {
-            limits[0] = stEth.totalSupply() * 99 / 100;
+            limits[0] = (stEth.totalSupply() * 99) / 100;
             limits[1] = stEth.getSharesByPooledEth(limits[0]);
         } else if (sellToken == address(wstEth)) {
-            limits[0] = wstEth.totalSupply() * 99 / 100;
+            limits[0] = (wstEth.totalSupply() * 99) / 100;
             limits[1] = stEth.getPooledEthByShares(limits[0]);
         } else {
-            limits[0] = stEth.getCurrentStakeLimit() * 99 / 100;
+            limits[0] = (stEth.getCurrentStakeLimit() * 99) / 100;
             limits[1] = stEth.getSharesByPooledEth(limits[0]);
         }
     }
@@ -309,25 +324,34 @@ contract LidoAdapter is ISwapAdapter {
     }
 
     /// @inheritdoc ISwapAdapter
-    function getTokens(bytes32)
+    function getTokens(bytes32 poolId)
         external
         view
         override
         returns (address[] memory tokens)
     {
-        tokens = new address[](3);
-        tokens[0] = address(0);
-        tokens[1] = address(wstEth);
-        tokens[2] = address(stEth);
+        tokens = new address[](2);
+        tokens[0] = pairs[poolId].token0;
+        tokens[1] = pairs[poolId].token1;
     }
 
-    function getPoolIds(uint256, uint256)
+    function getPoolIds(uint256 offset, uint256 limit)
         external
-        pure
+        view
         override
-        returns (bytes32[] memory)
+        returns (bytes32[] memory poolIds)
     {
-        revert NotImplemented("LidoAdapter.getPoolIds");
+        bytes32[] memory allPoolIds = new bytes32[](3);
+        allPoolIds[0] = keccak256(abi.encodePacked(address(stEth)));
+        allPoolIds[1] = keccak256(abi.encodePacked(address(wstEth)));
+        allPoolIds[2] =
+            keccak256(abi.encodePacked(address(stEth), address(wstEth)));
+
+        uint256 length = offset + limit > 3 ? 3 - offset : limit;
+        poolIds = new bytes32[](length);
+        for (uint256 i = 0; i < length; i++) {
+            poolIds[i] = allPoolIds[i + offset];
+        }
     }
 
     /// @notice Get swap price between two tokens with a given specifiedAmount
@@ -361,7 +385,7 @@ contract LidoAdapter is ISwapAdapter {
     }
 
     function getStEthAmountByEthAmount(uint256 ethAmountIn)
-        public
+        private
         view
         returns (uint256 stEthAmountOut)
     {
@@ -375,7 +399,7 @@ contract LidoAdapter is ISwapAdapter {
     }
 
     function getWstEthAmountByEthAmount(uint256 ethAmountIn)
-        public
+        private
         view
         returns (uint256 wstEthAmountOut)
     {

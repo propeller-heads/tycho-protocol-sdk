@@ -6,8 +6,9 @@ import "openzeppelin-contracts/contracts/interfaces/IERC20.sol";
 import "src/lido/LidoAdapter.sol";
 import "src/interfaces/ISwapAdapterTypes.sol";
 import "src/libraries/FractionMath.sol";
+import "./AdapterTest.sol";
 
-contract LidoAdapterTest is Test, ISwapAdapterTypes {
+contract LidoAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
     using FractionMath for Fraction;
 
     LidoAdapter adapter;
@@ -20,6 +21,10 @@ contract LidoAdapterTest is Test, ISwapAdapterTypes {
     address constant ETH = address(0);
     uint256 constant TEST_ITERATIONS = 100;
     uint256 constant BUFFER = 1000000;
+    bytes32 constant ETH_STETH_POOL_ID = keccak256(abi.encodePacked(stETH));
+    bytes32 constant ETH_WSTETH_POOL_ID = keccak256(abi.encodePacked(wstETH));
+    bytes32 constant STETH_WSTETH_POOL_ID =
+        keccak256(abi.encodePacked(stETH, wstETH));
 
     function setUp() public {
         uint256 forkBlock = 21929540;
@@ -36,20 +41,11 @@ contract LidoAdapterTest is Test, ISwapAdapterTypes {
         vm.label(lido2, "Lido2");
     }
 
-    /// @dev enable receive as ether will be sent to this address, and it is a
-    /// contract, to prevent reverts
     receive() external payable {}
 
     /// @dev custom function to mint stETH tokens as normal "deal" will revert
     /// due to stETH internal functions
     /// (ref: StETH.sol:375)
-    /// @dev because of internal precision losses in Lido contracts, we unwrap
-    /// the final amount - 1 to prevent overflows,
-    /// although the final amounts are the expected since solidity handles it
-    /// correctly
-    /// throughout the contract calls and operations. Indeed the asserts are met
-    /// in swap functions.
-    /// (ref: LidoAdapter.t.sol:196)
 
     function dealStEthTokens(uint256 amount) public {
         // For stETH, balances are calculated based on shares
@@ -484,4 +480,20 @@ contract LidoAdapterTest is Test, ISwapAdapterTypes {
 
         assertEq(limits.length, 2);
     }
+
+    function testGetPoolIdsLido() public view {
+        bytes32[] memory pools = adapter.getPoolIds(0, 3);
+        assertEq(pools.length, 3);
+        assertEq(pools[0], ETH_STETH_POOL_ID);
+        assertEq(pools[1], ETH_WSTETH_POOL_ID);
+        assertEq(pools[2], STETH_WSTETH_POOL_ID);
+    }
+
+    /// @dev This test is currently broken due to a bug in runPoolBehaviour
+    /// with ETH as sell token
+    // function testPoolBehaviourLido() public {
+    //     bytes32[] memory pools = adapter.getPoolIds(0, 3);
+
+    //     runPoolBehaviourTest(adapter, pools);
+    // }
 }
