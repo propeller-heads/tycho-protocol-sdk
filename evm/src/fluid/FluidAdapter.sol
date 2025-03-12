@@ -110,7 +110,7 @@ contract FluidAdapter is ISwapAdapter {
         uint256 specifiedAmount
     )
         external
-        // payable
+        payable
         override
         checkTokens(poolId, sellToken, buyToken)
         returns (Trade memory trade)
@@ -148,8 +148,6 @@ contract FluidAdapter is ISwapAdapter {
 
         return trade;
     }
-
-    event logInner(string, uint256);
 
     /// @inheritdoc ISwapAdapter
     function getLimits(bytes32 poolId, address sellToken, address buyToken)
