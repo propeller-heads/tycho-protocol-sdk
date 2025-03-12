@@ -11,6 +11,7 @@ constants:
     - SellSide
     - BuySide
     - PriceFunction
+    - HardLimits
 
 # The file containing the adapter contract
 contract: BalancerV2SwapAdapter.sol
