@@ -4,7 +4,7 @@ use substreams::store::{
     StoreGet, StoreGetInt64, StoreSet, StoreSetInt64, StoreSetSum, StoreSetSumBigInt,
 };
 
-use crate::pb::uniswap::v3::{
+use crate::pb::pancakeswap::v3::{
     events::{pool_event, PoolEvent},
     Events, LiquidityChange, LiquidityChangeType, LiquidityChanges,
 };

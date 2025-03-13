@@ -13,7 +13,7 @@ use crate::{
     abi::pool::events::{
         Burn, Collect, CollectProtocol, Flash, Initialize, Mint, SetFeeProtocol, Swap,
     },
-    pb::uniswap::v3::{
+    pb::pancakeswap::v3::{
         events::{
             pool_event::{self, Type},
             PoolEvent,
@@ -42,7 +42,7 @@ pub fn map_events(
                 .iter()
                 .filter_map(|log| {
                     let key = format!("{}:{}", "Pool", log.address.to_hex());
-                    // Skip if the log is not from a known uniswapV3 pool.
+                    // Skip if the log is not from a known pool.
                     if let Some(pool) = pools_store.get_last(key) {
                         log_to_event(log, pool, &tx)
                     } else {
@@ -65,6 +65,7 @@ fn log_to_event(event: &Log, pool: Pool, tx: &TransactionTrace) -> Option<PoolEv
             pool_address: Hex(pool.address).to_string(),
             token0: Hex(pool.token0).to_string(),
             token1: Hex(pool.token1).to_string(),
+            fee: pool.fee,
             transaction: Some(tx.into()),
             r#type: Some(Type::Initialize(pool_event::Initialize {
                 sqrt_price: init.sqrt_price_x96.to_string(),
@@ -77,6 +78,7 @@ fn log_to_event(event: &Log, pool: Pool, tx: &TransactionTrace) -> Option<PoolEv
             pool_address: Hex(pool.address).to_string(),
             token0: Hex(pool.token0).to_string(),
             token1: Hex(pool.token1).to_string(),
+            fee: pool.fee,
             transaction: Some(tx.into()),
             r#type: Some(Type::Swap(pool_event::Swap {
                 sender: Hex(swap.sender).to_string(),
@@ -94,6 +96,7 @@ fn log_to_event(event: &Log, pool: Pool, tx: &TransactionTrace) -> Option<PoolEv
             pool_address: Hex(pool.address).to_string(),
             token0: Hex(pool.token0).to_string(),
             token1: Hex(pool.token1).to_string(),
+            fee: pool.fee,
             transaction: Some(tx.into()),
             r#type: Some(Type::Flash(pool_event::Flash {
                 sender: Hex(flash.sender).to_string(),
@@ -110,6 +113,7 @@ fn log_to_event(event: &Log, pool: Pool, tx: &TransactionTrace) -> Option<PoolEv
             pool_address: Hex(pool.address).to_string(),
             token0: Hex(pool.token0).to_string(),
             token1: Hex(pool.token1).to_string(),
+            fee: pool.fee,
             transaction: Some(tx.into()),
             r#type: Some(Type::Mint(pool_event::Mint {
                 sender: Hex(mint.sender).to_string(),
@@ -127,6 +131,7 @@ fn log_to_event(event: &Log, pool: Pool, tx: &TransactionTrace) -> Option<PoolEv
             pool_address: Hex(pool.address).to_string(),
             token0: Hex(pool.token0).to_string(),
             token1: Hex(pool.token1).to_string(),
+            fee: pool.fee,
             transaction: Some(tx.into()),
             r#type: Some(Type::Burn(pool_event::Burn {
                 owner: Hex(burn.owner).to_string(),
@@ -143,6 +148,7 @@ fn log_to_event(event: &Log, pool: Pool, tx: &TransactionTrace) -> Option<PoolEv
             pool_address: Hex(pool.address).to_string(),
             token0: Hex(pool.token0).to_string(),
             token1: Hex(pool.token1).to_string(),
+            fee: pool.fee,
             transaction: Some(tx.into()),
             r#type: Some(Type::Collect(pool_event::Collect {
                 owner: Hex(collect.owner).to_string(),
@@ -159,6 +165,7 @@ fn log_to_event(event: &Log, pool: Pool, tx: &TransactionTrace) -> Option<PoolEv
             pool_address: Hex(pool.address).to_string(),
             token0: Hex(pool.token0).to_string(),
             token1: Hex(pool.token1).to_string(),
+            fee: pool.fee,
             transaction: Some(tx.into()),
             r#type: Some(Type::SetFeeProtocol(pool_event::SetFeeProtocol {
                 fee_protocol_0_old: set_fp.fee_protocol0_old.to_u64(),
@@ -173,6 +180,7 @@ fn log_to_event(event: &Log, pool: Pool, tx: &TransactionTrace) -> Option<PoolEv
             pool_address: Hex(pool.address).to_string(),
             token0: Hex(pool.token0).to_string(),
             token1: Hex(pool.token1).to_string(),
+            fee: pool.fee,
             transaction: Some(tx.into()),
             r#type: Some(Type::CollectProtocol(pool_event::CollectProtocol {
                 sender: Hex(cp.sender).to_string(),

@@ -2,7 +2,7 @@ use std::str::FromStr;
 
 use substreams::store::StoreAddBigInt;
 
-use crate::pb::uniswap::v3::{
+use crate::pb::pancakeswap::v3::{
     events::{pool_event, PoolEvent},
     Events, TickDelta, TickDeltas,
 };
