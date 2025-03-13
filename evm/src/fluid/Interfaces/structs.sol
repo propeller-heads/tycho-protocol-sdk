@@ -1,4 +1,5 @@
-// SPDX-License-Identifier: UNLICENCED
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
 import { IFluidDexT1 } from "./iDexT1.sol";
 
 interface Structs {
