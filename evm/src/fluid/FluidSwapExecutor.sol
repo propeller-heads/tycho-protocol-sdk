@@ -60,6 +60,4 @@ contract FluidSwapExecutor is ISwapExecutor, IDexCallback {
         require(msg.sender == dexAddress, "Invalid caller");
         IERC20(token_).safeTransferFrom(sender, FLUID_LIQUIDITY, amount_);
     }
-
-    receive() external payable {}
 }
