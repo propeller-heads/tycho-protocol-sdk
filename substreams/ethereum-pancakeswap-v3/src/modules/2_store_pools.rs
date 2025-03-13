@@ -4,12 +4,12 @@ use substreams::{
     scalar::BigInt,
     store::{StoreNew, StoreSetIfNotExists, StoreSetIfNotExistsProto},
 };
-use tycho_substreams::models::BlockEntityChanges;
+use tycho_substreams::models::BlockChanges;
 
 use crate::pb::pancakeswap::v3::Pool;
 
 #[substreams::handlers::store]
-pub fn store_pools(pools_created: BlockEntityChanges, store: StoreSetIfNotExistsProto<Pool>) {
+pub fn store_pools(pools_created: BlockChanges, store: StoreSetIfNotExistsProto<Pool>) {
     // Store pools. Required so the next maps can match any event to a known pool by their address
 
     for change in pools_created.changes {
