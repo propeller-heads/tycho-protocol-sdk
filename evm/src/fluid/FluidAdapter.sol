@@ -110,7 +110,6 @@ contract FluidAdapter is ISwapAdapter {
         uint256 specifiedAmount
     )
         external
-        payable
         override
         checkTokens(poolId, sellToken, buyToken)
         returns (Trade memory trade)
