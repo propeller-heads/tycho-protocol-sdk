@@ -3,7 +3,7 @@ pub use map_protocol_changes::map_protocol_changes;
 pub use store_pools::store_pools;
 use substreams_ethereum::pb::eth::v2::TransactionTrace;
 
-use crate::pb::uniswap::v3::Transaction;
+use crate::pb::pancakeswap::v3::Transaction;
 
 #[path = "1_map_pool_created.rs"]
 mod map_pool_created;

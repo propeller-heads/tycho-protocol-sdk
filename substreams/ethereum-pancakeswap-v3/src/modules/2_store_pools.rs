@@ -1,9 +1,12 @@
 use std::str;
 
-use substreams::store::{StoreNew, StoreSetIfNotExists, StoreSetIfNotExistsProto};
+use substreams::{
+    scalar::BigInt,
+    store::{StoreNew, StoreSetIfNotExists, StoreSetIfNotExistsProto},
+};
 use tycho_substreams::models::BlockEntityChanges;
 
-use crate::pb::uniswap::v3::Pool;
+use crate::pb::pancakeswap::v3::Pool;
 
 #[substreams::handlers::store]
 pub fn store_pools(pools_created: BlockEntityChanges, store: StoreSetIfNotExistsProto<Pool>) {
@@ -17,6 +20,15 @@ pub fn store_pools(pools_created: BlockEntityChanges, store: StoreSetIfNotExists
                 token0: component_change.tokens[0].clone(),
                 token1: component_change.tokens[1].clone(),
                 created_tx_hash: change.tx.as_ref().unwrap().hash.clone(),
+                fee: BigInt::from_signed_bytes_be(
+                    &component_change
+                        .static_att
+                        .iter()
+                        .find(|attr| attr.name == "fee")
+                        .expect("every pool should have fee as static attribute")
+                        .value,
+                )
+                .to_u64(),
             };
             store.set_if_not_exists(0, format!("{}:{}", "Pool", pool_address), &pool);
         }

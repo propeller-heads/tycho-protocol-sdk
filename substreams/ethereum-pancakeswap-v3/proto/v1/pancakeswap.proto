@@ -1,12 +1,13 @@
 syntax = "proto3";
 
-package uniswap.v3;
+package pancakeswap.v3;
 
 message Pool {
   bytes address = 1;
   bytes token0 = 2;
   bytes token1 = 3;
-  bytes created_tx_hash = 4;
+  uint64 fee = 4;
+  bytes created_tx_hash = 5;
 }
 
 // A struct describing a transaction.
@@ -81,7 +82,8 @@ message Events {
     string pool_address = 102;
     string token0 = 103;
     string token1 = 104;
-    Transaction transaction = 105;
+    uint64 fee = 105;
+    Transaction transaction = 106;
 
     message Initialize {
       // Unsigned

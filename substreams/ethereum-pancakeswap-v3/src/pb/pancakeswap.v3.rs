@@ -8,7 +8,9 @@ pub struct Pool {
     pub token0: ::prost::alloc::vec::Vec<u8>,
     #[prost(bytes="vec", tag="3")]
     pub token1: ::prost::alloc::vec::Vec<u8>,
-    #[prost(bytes="vec", tag="4")]
+    #[prost(uint64, tag="4")]
+    pub fee: u64,
+    #[prost(bytes="vec", tag="5")]
     pub created_tx_hash: ::prost::alloc::vec::Vec<u8>,
 }
 /// A struct describing a transaction.
@@ -99,7 +101,9 @@ pub mod events {
         pub token0: ::prost::alloc::string::String,
         #[prost(string, tag="104")]
         pub token1: ::prost::alloc::string::String,
-        #[prost(message, optional, tag="105")]
+        #[prost(uint64, tag="105")]
+        pub fee: u64,
+        #[prost(message, optional, tag="106")]
         pub transaction: ::core::option::Option<super::Transaction>,
         #[prost(oneof="pool_event::Type", tags="1, 2, 3, 4, 5, 6, 7, 8")]
         pub r#type: ::core::option::Option<pool_event::Type>,
