@@ -30,13 +30,12 @@ contract FluidSwapExecutor is ISwapExecutor, IDexCallback {
         uint256 givenAmount,
         bytes calldata data
     ) external payable returns (uint256 calculatedAmount) {
-        (bool swap0to1, address poolAddress, address sellToken) 
-            = abi.decode(data, (bool, address, address));
+        (bool swap0to1, address poolAddress) 
+            = abi.decode(data, (bool, address));
 
         sender = msg.sender;
         dexAddress = poolAddress;
 
-        IERC20(sellToken).safeTransferFrom(sender, address(this), givenAmount);
         IFluidDexT1 pool = IFluidDexT1(dexAddress);
 
         if (swap0to1) {
