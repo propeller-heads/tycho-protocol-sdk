@@ -10,47 +10,60 @@ contract FluidSwapExecutor is ISwapExecutor {
      * @param givenAmount how much of to swap, depending on exactOut either in or out Amount.
      * @param data the parameters of the swap. This data is roughly the packed
      * encoding of
+     *      swap0to1 // true if token0 is being swapped for token1
      *      poolAddress
      *      sellToken
-     *      buyToken
-     *      side    // true for sell and false for buy
      */
     function swap(
         uint256 givenAmount,
         bytes calldata data
     ) external payable returns (uint256 calculatedAmount) {
-        (
-            address poolAddress,
-            address sellToken,
-            address buyToken,
-            bool side
-        ) = abi.decode(data, (address, address, address, bool));
-        if (givenAmount == 0) {
-            return 0;
+        (bool swap0to1, address poolAddress, address sellToken) 
+            = abi.decode(data, (bool, address, address));
+
+        assembly {
+            if iszero(givenAmount) {
+                revert(0, 0x20)
+            }
+
+            let nativeToken := 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE
+            if iszero(eq(sellToken, nativeToken)) {
+                let transferFromCallData := mload(0x40)
+                mstore(transferFromCallData, 0x23b872dd) // Function selector for transferFrom(address,address,uint256)
+
+                mstore(add(transferFromCallData, 0x04), caller()) // msg.sender
+                mstore(add(transferFromCallData, 0x24), address()) // address(this)
+                mstore(add(transferFromCallData, 0x44), givenAmount) // givenAmount
+
+                let success := call(
+                    gas(),
+                    IERC20(sellToken),
+                    0,
+                    transferFromCallData,
+                    0x64,
+                    0,
+                    0
+                )
+
+                if iszero(success) {
+                    returndatacopy(0, 0, returndatasize())
+                    revert(0, returndatasize())
+                }
+            }
         }
 
         IFluidDexT1 pool = IFluidDexT1(poolAddress);
-        address token0 = pool.constantsView().token0;
 
-        if (sellToken != 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE) {
-            IERC20(sellToken).transferFrom(
-                msg.sender,
-                address(this),
-                givenAmount
-            );
-            IERC20(sellToken).approve(poolAddress, givenAmount);
-        }
-
-        if (side) {
-            calculatedAmount = pool.swapIn{value: msg.value}(
-                sellToken == token0,
+        if (swap0to1) {
+            calculatedAmount = pool.swapInWithCallback{value: msg.value}(
+                swap0to1,
                 givenAmount,
                 0,
                 msg.sender
             );
         } else {
-            calculatedAmount = pool.swapOut{value: msg.value}(
-                sellToken == token0,
+            calculatedAmount = pool.swapOutWithCallback{value: msg.value}(
+                swap0to1,
                 givenAmount,
                 type(uint256).max,
                 msg.sender
