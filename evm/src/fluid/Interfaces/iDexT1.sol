@@ -124,6 +124,20 @@ interface IFluidDexT1 {
         address to_
     ) external payable returns (uint256 amountOut_);
 
+
+    /// @dev Swap tokens with perfect amount in and callback functionality
+    /// @param swap0to1_ Direction of swap. If true, swaps token0 for token1; if false, swaps token1 for token0
+    /// @param amountIn_ The exact amount of tokens to swap in
+    /// @param amountOutMin_ The minimum amount of tokens to receive after swap
+    /// @param to_ Recipient of swapped tokens. If to_ == address(0) then out tokens will be sent to msg.sender. If to_ == ADDRESS_DEAD then function will revert with amountOut_
+    /// @return amountOut_ The amount of output tokens received from the swap
+    function swapInWithCallback(
+        bool swap0to1_,
+        uint256 amountIn_,
+        uint256 amountOutMin_,
+        address to_
+    ) external payable returns (uint256 amountOut_);
+
     /// @dev Swap tokens with perfect amount out
     /// @param swap0to1_ Direction of swap. If true, swaps token0 for token1; if false, swaps token1 for token0
     /// @param amountOut_ The exact amount of tokens to receive after swap
@@ -131,6 +145,19 @@ interface IFluidDexT1 {
     /// @param to_ Recipient of swapped tokens. If to_ == address(0) then out tokens will be sent to msg.sender. If to_ == ADDRESS_DEAD then function will revert with amountIn_
     /// @return amountIn_ The amount of input tokens used for the swap
     function swapOut(
+        bool swap0to1_,
+        uint256 amountOut_,
+        uint256 amountInMax_,
+        address to_
+    ) external payable returns (uint256 amountIn_);
+
+    /// @dev Swap tokens with perfect amount out and callback functionality
+    /// @param swap0to1_ Direction of swap. If true, swaps token0 for token1; if false, swaps token1 for token0
+    /// @param amountOut_ The exact amount of tokens to receive after swap
+    /// @param amountInMax_ Maximum amount of tokens to swap in
+    /// @param to_ Recipient of swapped tokens. If to_ == address(0) then out tokens will be sent to msg.sender. If to_ == ADDRESS_DEAD then function will revert with amountIn_
+    /// @return amountIn_ The amount of input tokens used for the swap
+    function swapOutWithCallback(
         bool swap0to1_,
         uint256 amountOut_,
         uint256 amountInMax_,
