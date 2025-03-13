@@ -1,4 +1,5 @@
-// SPDX-License-Identifier: UNLICENCED
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
 interface IFluidDexT1 {
     error FluidDexError(uint256 errorId);
 
