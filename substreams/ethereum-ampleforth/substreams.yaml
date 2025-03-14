@@ -1,0 +1,102 @@
+specVersion: v0.1.0
+
+package:
+  name: "ethereum_ampleforth"
+  version: v0.1.0
+
+protobuf:
+  files:
+    - tycho/evm/v1/vm.proto
+    - tycho/evm/v1/common.proto
+    - tycho/evm/v1/utils.proto
+    - proto/ampleforth.proto
+  importPaths:
+    - ../../proto
+
+binaries:
+  default:
+    type: wasm/rust-v1
+    file: ../target/wasm32-unknown-unknown/release/ethereum_ampleforth.wasm
+
+modules:
+  - name: map_ampl_rebases
+    kind: map
+    initialBlock: 13275716
+    inputs:
+      - source: sf.ethereum.type.v2.Block
+    output:
+      type: proto:ampleforth.AmplRebases
+
+  - name: store_ampl_supply
+    kind: store
+    initialBlock: 13275716
+    updatePolicy: set
+    valueType: bigint
+    inputs:
+      - map: map_ampl_rebases
+    
+  
+  - name: map_ampl_gon_balances
+    kind: map
+    initialBlock: 13275716
+    inputs:
+      - source: sf.ethereum.type.v2.Block
+      - store: store_ampl_supply
+    output:
+      type: proto:ampleforth.AmplGonBalanceDeltas
+
+  - name: store_ampl_gon_balances
+    kind: store
+    initialBlock: 13275716
+    updatePolicy: add
+    valueType: bigint
+    inputs:
+      - map: map_ampl_gon_balances
+
+  - name: map_relative_balances
+    kind: map
+    initialBlock: 13275716
+    inputs:
+      - source: sf.ethereum.type.v2.Block
+      - store: store_ampl_supply
+      - store: store_ampl_gon_balances
+    output:
+      type: proto:tycho.evm.v1.BlockBalanceDeltas
+
+  - name: store_balances
+    kind: store
+    initialBlock: 13275716
+    updatePolicy: add
+    valueType: bigint
+    inputs:
+      - map: map_relative_balances
+
+  - name: map_components
+    kind: map
+    initialBlock: 13275716
+    inputs:
+      - source: sf.ethereum.type.v2.Block
+    output:
+      type: proto:tycho.evm.v1.BlockTransactionProtocolComponents
+
+  - name: store_components
+    kind: store
+    initialBlock: 13275716
+    updatePolicy: add
+    valueType: int64
+    inputs:
+      - map: map_components
+
+  - name: map_protocol_changes
+    kind: map
+    initialBlock: 13275716
+    inputs:
+      - source: sf.ethereum.type.v2.Block
+      - map: map_ampl_rebases
+      - map: map_components
+      - map: map_relative_balances
+      - store: store_components
+      - store: store_balances
+        mode: deltas
+    output:
+      type: proto:tycho.evm.v1.BlockChanges
