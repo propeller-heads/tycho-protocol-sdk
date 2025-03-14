@@ -67,7 +67,7 @@ pub fn map_components(block: eth::v2::Block) -> Result<BlockTransactionProtocolC
         if is_deployment_tx(tx, DAI_LITE_PSM_ADDRESS) {
             components.push(
                 ProtocolComponent::at_contract(DAI_LITE_PSM_ADDRESS, &tx.into())
-                    .with_tokens(&[DAI_TOKEN_ADDRESS, USDS_TOKEN_ADDRESS])
+                    .with_tokens(&[DAI_TOKEN_ADDRESS, USDC_TOKEN_ADDRESS])
                     .as_swap_type("dai_lite_psm", ImplementationType::Vm),
             );
         }
@@ -81,7 +81,7 @@ pub fn map_components(block: eth::v2::Block) -> Result<BlockTransactionProtocolC
             );
             components.push(
                 ProtocolComponent::at_contract(USDS_PSM_WRAPPER_ADDRESS, &tx.into())
-                    .with_tokens(&[USDS_TOKEN_ADDRESS, SUSDS_TOKEN_ADDRESS])
+                    .with_tokens(&[USDC_TOKEN_ADDRESS, SUSDS_TOKEN_ADDRESS])
                     .as_swap_type("usds_psm_wrapper", ImplementationType::Vm),
             );
         }
@@ -203,7 +203,7 @@ pub fn map_relative_balances(
                             ord: vault_log.ordinal(),
                             tx: Some(vault_log.receipt.transaction.into()),
                             token: DAI_TOKEN_ADDRESS.to_vec(),
-                            delta: ev.wad.neg().to_signed_bytes_be(),
+                            delta: ev.wad.to_signed_bytes_be(),
                             component_id: component_id.clone().as_bytes().to_vec(),
                         },
                         // In reality USDS are minted and sent to user
@@ -239,7 +239,7 @@ pub fn map_relative_balances(
                             ord: vault_log.ordinal(),
                             tx: Some(vault_log.receipt.transaction.into()),
                             token: DAI_TOKEN_ADDRESS.to_vec(),
-                            delta: ev.wad.to_signed_bytes_be(),
+                            delta: ev.wad.neg().to_signed_bytes_be(),
                             component_id: component_id.clone().as_bytes().to_vec(),
                         },
                     ]);
@@ -559,6 +559,21 @@ pub fn map_protocol_changes(
             change: ChangeType::Creation.into(),
         },
         Attribute {
+            name: "stateless_contract_addr_1".into(),
+            value: address_to_utf8_vec(&hex!("35d1b3f3d7966a1dfe207aa4514c12a259a0492b")),
+            change: ChangeType::Creation.into(),
+        },
+        Attribute {
+            name: "stateless_contract_addr_2".into(),
+            value: address_to_utf8_vec(&hex!("1923dfee706a8e78157416c29cbccfde7cdf4102")),
+            change: ChangeType::Creation.into(),
+        },
+        Attribute {
+            name: "stateless_contract_addr_3".into(),
+            value: address_to_utf8_vec(&hex!("9759a6ac90977b93b58547b4a71c78317f391a28")),
+            change: ChangeType::Creation.into(),
+        },
+        Attribute {
             name: "update_marker".to_string(),
             value: vec![1u8],
             change: ChangeType::Creation.into(),
@@ -610,9 +625,11 @@ pub fn map_protocol_changes(
     extract_contract_changes_builder(
         &block,
         |addr| {
+            let is_join_contract = addr == hex!("3C0f895007CA717Aa01c8693e59DF1e8C3777FEB"); 
+            let is_vat_contract = addr == hex!("35D1b3F3D7966A1DFe207aa4514C12a259A0492B"); 
             components_store
                 .get_last(format!("pool:0x{0}", hex::encode(addr)))
-                .is_some()
+                .is_some() || is_join_contract || is_vat_contract
         },
         &mut transaction_changes,
     );
@@ -628,10 +645,10 @@ pub fn map_protocol_changes(
             addresses
                 .into_iter()
                 .for_each(|address| {
-                    let id = components_store
-                        .get_last(format!("pool:0x{}", hex::encode(address)))
-                        .unwrap();
-                    change.mark_component_as_updated(&id);
+                    if let Some(id) = components_store
+                        .get_last(format!("pool:0x{}", hex::encode(address))) {
+                            change.mark_component_as_updated(&id);
+                        }
                 })
         });
 
