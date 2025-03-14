@@ -1,0 +1,74 @@
+specVersion: v0.1.0
+package:
+  name: "ethereum_ekubo"
+  version: v0.1.0
+
+protobuf:
+  files:
+    - tycho/evm/v1/vm.proto
+    - tycho/evm/v1/common.proto
+    - tycho/evm/v1/utils.proto
+    - ekubo.proto
+  importPaths:
+    - ../../proto
+    - ./proto
+
+binaries:
+  default:
+    type: wasm/rust-v1
+    file: ../target/wasm32-unknown-unknown/release/ethereum_ekubo.wasm
+
+network: sepolia
+networks:
+  sepolia:
+    initialBlock:
+      map_protocol_components: 7811236
+      map_relative_component_balance: 7811236
+    params:
+      map_protocol_components: "core=16e186ecdc94083fff53ef2a41d46b92a54f61e2&oracle=51f1b10abf90e16498d25086641b0669ec62f32f"
+      map_relative_component_balance: "core=16e186ecdc94083fff53ef2a41d46b92a54f61e2&oracle=51f1b10abf90e16498d25086641b0669ec62f32f"
+      map_protocol_changes: "core=16e186ecdc94083fff53ef2a41d46b92a54f61e2&oracle=51f1b10abf90e16498d25086641b0669ec62f32f"
+
+modules:
+  - name: map_protocol_components
+    kind: map
+    inputs:
+      - params: string
+      - source: sf.ethereum.type.v2.Block
+    output:
+      type: proto:tycho.evm.v1.BlockTransactionProtocolComponents
+
+  - name: store_pool_details
+    kind: store
+    updatePolicy: set
+    valueType: proto:ekubo.PoolDetails
+    inputs:
+      - map: map_protocol_components
+
+  - name: map_relative_component_balance
+    kind: map
+    inputs:
+      - params: string
+      - source: sf.ethereum.type.v2.Block
+      - store: store_pool_details
+    output:
+      type: proto:tycho.evm.v1.BlockBalanceDeltas
+
+  - name: store_component_balances
+    kind: store
+    updatePolicy: add
+    valueType: bigint
+    inputs:
+      - map: map_relative_component_balance
+
+  - name: map_protocol_changes
+    kind: map
+    inputs:
+      - params: string
+      - source: sf.ethereum.type.v2.Block
+      - map: map_protocol_components
+      - map: map_relative_component_balance
+      - store: store_component_balances
+        mode: deltas
+    output:
+      type: proto:tycho.evm.v1.BlockChanges
