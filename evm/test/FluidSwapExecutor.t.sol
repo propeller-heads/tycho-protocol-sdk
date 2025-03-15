@@ -3,8 +3,11 @@ pragma solidity ^0.8.13;
 
 import "./SwapExecutor.t.sol";
 import "../src/fluid/FluidSwapExecutor.sol";
+import {SafeERC20} from "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 
 contract TestFluidSwapExecutor is SwapExecutorTest {
+    using SafeERC20 for IERC20;
+    
     FluidSwapExecutor fluid;
     IERC20 USDC = IERC20(USDC_ADDR);
     IERC20 USDT = IERC20(USDT_ADDR);
@@ -27,14 +30,16 @@ contract TestFluidSwapExecutor is SwapExecutorTest {
         bytes memory protocolData = abi.encode(swap0to1, DEX_POOL);
 
         // Fund the FluidSwapExecutor contract
-        deal(USDT_ADDR, address(fluid), sellAmount);
-        vm.prank(executor);
+        deal(USDT_ADDR, bob, sellAmount);
+
+        vm.prank(bob);
+        IERC20(USDT_ADDR).approve(address(fluid), sellAmount);
         uint256 responseAmount = fluid.swap(sellAmount, protocolData);
 
         // Assertions
         assertEq(responseAmount, expectedAmount);
-        assertEq(USDC.balanceOf(executor), expectedAmount);
-        assertEq(USDT.balanceOf(address(fluid)), 0);
+        assertEq(USDC.balanceOf(bob), expectedAmount);
+        assertEq(USDT.balanceOf(bob), 0);
     }
 
     function testFluidSwapExactOut() public {
@@ -44,13 +49,15 @@ contract TestFluidSwapExecutor is SwapExecutorTest {
         bytes memory protocolData = abi.encode(swap0to1, DEX_POOL);
 
         // Fund the FluidSwapExecutor contract
-        deal(USDC_ADDR, address(fluid), expectedSellAmount);
-        vm.prank(executor);
+        deal(USDC_ADDR, bob, expectedSellAmount);
+
+        vm.prank(bob);
+        IERC20(USDC_ADDR).approve(address(fluid), expectedSellAmount);
         uint256 responseAmount = fluid.swap(buyAmount, protocolData);
 
         // Assertions
         assertEq(responseAmount, expectedSellAmount);
-        assertEq(USDT.balanceOf(executor), buyAmount);
-        assertEq(USDC.balanceOf(address(fluid)), 0);
+        assertEq(USDT.balanceOf(bob), buyAmount);
+        assertEq(USDC.balanceOf(bob), 0);
     }
 }
