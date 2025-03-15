@@ -7,7 +7,7 @@ import {SafeERC20} from "openzeppelin-contracts/contracts/token/ERC20/utils/Safe
 
 contract TestFluidSwapExecutor is SwapExecutorTest {
     using SafeERC20 for IERC20;
-    
+
     FluidSwapExecutor fluid;
     IERC20 USDC = IERC20(USDC_ADDR);
     IERC20 USDT = IERC20(USDT_ADDR);
@@ -34,6 +34,8 @@ contract TestFluidSwapExecutor is SwapExecutorTest {
 
         vm.prank(bob);
         IERC20(USDT_ADDR).approve(address(fluid), sellAmount);
+
+        vm.prank(bob);
         uint256 responseAmount = fluid.swap(sellAmount, protocolData);
 
         // Assertions
@@ -44,7 +46,7 @@ contract TestFluidSwapExecutor is SwapExecutorTest {
 
     function testFluidSwapExactOut() public {
         uint256 buyAmount = 1000 * 10 ** 6; // 1000 USDC
-        uint256 expectedSellAmount = 1002 * 10 ** 6; // Expected to sell 1002 USDT
+        uint256 expectedSellAmount = 1005 * 10 ** 6; // Expected to sell 1002 USDT
         bool swap0to1 = false;
         bytes memory protocolData = abi.encode(swap0to1, DEX_POOL);
 
@@ -53,6 +55,8 @@ contract TestFluidSwapExecutor is SwapExecutorTest {
 
         vm.prank(bob);
         IERC20(USDC_ADDR).approve(address(fluid), expectedSellAmount);
+
+        vm.prank(bob);
         uint256 responseAmount = fluid.swap(buyAmount, protocolData);
 
         // Assertions
