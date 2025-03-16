@@ -12,8 +12,8 @@ use tycho_substreams::{
 pub fn map_protocol_changes(
     block: Block,
     protocol_components: BlockTransactionProtocolComponents,
-    pool_store: StoreGetProto<Pool>,
     balance_deltas: BlockBalanceDeltas,
+    pool_store: StoreGetProto<Pool>,
     balance_store: StoreDeltas,
 ) -> Result<BlockChanges> {
     let mut transaction_changes: HashMap<_, TransactionChangesBuilder> = HashMap::new();
@@ -54,7 +54,7 @@ pub fn map_protocol_changes(
         &block,
         |addr| {
             pool_store
-                .get_last(format!("{}:{}", "Pool", hex::encode(addr)))
+                .get_last(format!("pool:0x{}", hex::encode(addr)))
                 .is_some()
         },
         &mut transaction_changes,

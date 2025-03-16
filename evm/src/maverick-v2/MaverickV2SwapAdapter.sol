@@ -7,8 +7,6 @@ import {
     SafeERC20
 } from "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 
-uint256 constant RESERVE_LIMIT_FACTOR = 10;
-
 /// @title MaverickV2SwapAdapter
 /// @notice Adapter for swapping tokens on MaverickV2 pools.
 contract MaverickV2SwapAdapter is ISwapAdapter {
@@ -16,17 +14,14 @@ contract MaverickV2SwapAdapter is ISwapAdapter {
 
     IMaverickV2Factory public immutable factory;
     IMaverickV2Quoter public immutable quoter;
-    IWETH9 public immutable weth;
 
     /// @notice Constructor to initialize the adapter with factory, quoter, and
     /// WETH addresses.
     /// @param factory_ The address of the MaverickV2 factory.
     /// @param _quoter The address of the MaverickV2 quoter.
-    /// @param _weth The address of the WETH contract.
-    constructor(address factory_, address _quoter, address _weth) {
+    constructor(address factory_, address _quoter) {
         factory = IMaverickV2Factory(factory_);
         quoter = IMaverickV2Quoter(_quoter);
-        weth = IWETH9(_weth);
     }
 
     receive() external payable {}
@@ -41,16 +36,10 @@ contract MaverickV2SwapAdapter is ISwapAdapter {
         calculatedPrices = new Fraction[](specifiedAmounts.length);
 
         IMaverickV2Pool pool = IMaverickV2Pool(address(bytes20(poolId)));
-        IMaverickV2Pool.State memory state = pool.getState();
-
-        bool isTokenAIn = (sellToken == address(pool.tokenA()));
-        (uint256 reserveIn, uint256 reserveOut) = isTokenAIn
-            ? (state.reserveA, state.reserveB)
-            : (state.reserveB, state.reserveA);
 
         for (uint256 i = 0; i < specifiedAmounts.length; i++) {
             calculatedPrices[i] = priceAt(
-                pool, sellToken, specifiedAmounts[i], reserveIn, reserveOut
+                pool, sellToken, specifiedAmounts[i]
             );
         }
         return calculatedPrices;
@@ -60,15 +49,11 @@ contract MaverickV2SwapAdapter is ISwapAdapter {
     /// @param pool The pool to calculate the price for.
     /// @param sellToken The token to calculate the price for.
     /// @param sellAmount The amount of the token to calculate the price for.
-    /// @param reserveIn The reserve of the input token.
-    /// @param reserveOut The reserve of the output token.
     /// @return calculatedPrice The calculated price of the token.
     function priceAt(
         IMaverickV2Pool pool,
         address sellToken,
-        uint256 sellAmount,
-        uint256 reserveIn,
-        uint256 reserveOut
+        uint256 sellAmount
     ) public returns (Fraction memory calculatedPrice) {
         bool isTokenAIn = (sellToken == address(pool.tokenA()));
 
@@ -80,10 +65,7 @@ contract MaverickV2SwapAdapter is ISwapAdapter {
             isTokenAIn ? type(int32).max : type(int32).min
         );
 
-        uint256 newReserveOut = reserveOut - amountOut;
-        uint256 newReserveIn = reserveIn + amountIn;
-
-        calculatedPrice = Fraction(newReserveOut, newReserveIn);
+        calculatedPrice = Fraction(amountOut, amountIn);
     }
 
     /// @inheritdoc ISwapAdapter
@@ -206,11 +188,11 @@ contract MaverickV2SwapAdapter is ISwapAdapter {
         uint256 r0 = state.reserveA;
         uint256 r1 = state.reserveB;
         if (sellToken < buyToken) {
-            limits[0] = r0 / RESERVE_LIMIT_FACTOR;
-            limits[1] = r1 / RESERVE_LIMIT_FACTOR;
+            limits[0] = r0;
+            limits[1] = r1;
         } else {
-            limits[0] = r1 / RESERVE_LIMIT_FACTOR;
-            limits[1] = r0 / RESERVE_LIMIT_FACTOR;
+            limits[0] = r1;
+            limits[1] = r0;
         }
     }
 

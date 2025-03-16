@@ -9,7 +9,7 @@ pub mod add_liquidity;
 pub mod remove_liquidity;
 pub mod swap;
 
-pub trait EventTrait {
+pub trait BalanceEventTrait {
     fn get_balance_delta(&self, tx: &Transaction, pool: &Pool, ordinal: u64) -> Vec<BalanceDelta>;
 }
 
@@ -20,7 +20,7 @@ pub enum EventType {
 }
 
 impl EventType {
-    fn as_event_trait(&self) -> &dyn EventTrait {
+    fn as_event_trait(&self) -> &dyn BalanceEventTrait {
         match self {
             EventType::PoolSwap(event) => event,
             EventType::AddLiquidity(event) => event,

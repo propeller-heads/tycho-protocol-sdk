@@ -21,7 +21,7 @@ binaries:
 modules:
   - name: map_components
     kind: map
-    initialBlock: 1
+    initialBlock: 20122172
     inputs:
       - params: string
       - source: sf.ethereum.type.v2.Block
@@ -30,15 +30,15 @@ modules:
 
   - name: store_components
     kind: store
-    initialBlock: 1
-    updatePolicy: set
+    initialBlock: 20122172
+    updatePolicy: set_if_not_exists
     valueType: proto:maverick.v2.Pool
     inputs:
       - map: map_components
 
   - name: map_relative_balances
     kind: map
-    initialBlock: 1
+    initialBlock: 20122172
     inputs:
       - source: sf.ethereum.type.v2.Block
       - store: store_components
@@ -47,7 +47,7 @@ modules:
 
   - name: store_balances
     kind: store
-    initialBlock: 1
+    initialBlock: 20122172
     updatePolicy: add
     valueType: bigint
     inputs:
@@ -55,7 +55,7 @@ modules:
 
   - name: map_protocol_changes
     kind: map
-    initialBlock: 1
+    initialBlock: 20122172
     inputs:
       - source: sf.ethereum.type.v2.Block
       - map: map_components

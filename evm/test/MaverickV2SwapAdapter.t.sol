@@ -25,7 +25,7 @@ contract MaverickV2SwapAdapterTest is AdapterTest {
     function setUp() public {
         uint256 forkBlock = 21500000;
         vm.createSelectFork(vm.rpcUrl("mainnet"), forkBlock);
-        adapter = new MaverickV2SwapAdapter(FACTORY, QUOTER, WETH);
+        adapter = new MaverickV2SwapAdapter(FACTORY, QUOTER);
 
         vm.label(address(adapter), "MaverickV2SwapAdapter");
         vm.label(WETH, "WETH");
