@@ -15,14 +15,14 @@ impl BalanceEventTrait for PoolSwap {
                 ord: ordinal,
                 tx: Some(tx.clone()),
                 token: token_in.clone(),
-                delta: amount_in.clone().to_bytes_le().1,
+                delta: amount_in.clone().to_signed_bytes_be(),
                 component_id: pool.address.clone().to_hex().as_bytes().to_vec(),
             },
             BalanceDelta {
                 ord: ordinal,
                 tx: Some(tx.clone()),
                 token: token_out.clone(),
-                delta: amount_out.clone().to_bytes_le().1,
+                delta: amount_out.clone().to_signed_bytes_be(),
                 component_id: pool.address.clone().to_hex().as_bytes().to_vec(),
             },
         ]

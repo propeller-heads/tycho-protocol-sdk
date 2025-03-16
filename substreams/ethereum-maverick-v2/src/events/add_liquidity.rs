@@ -12,8 +12,7 @@ impl BalanceEventTrait for PoolAddLiquidity {
                 delta: self
                     .token_a_amount
                     .clone()
-                    .to_bytes_le()
-                    .1,
+                    .to_signed_bytes_be(),
                 component_id: pool.address.clone().to_hex().as_bytes().to_vec(),
             },
             BalanceDelta {
@@ -23,8 +22,7 @@ impl BalanceEventTrait for PoolAddLiquidity {
                 delta: self
                     .token_b_amount
                     .clone()
-                    .to_bytes_le()
-                    .1,
+                    .to_signed_bytes_be(),
                 component_id: pool.address.clone().to_hex().as_bytes().to_vec(),
             },
         ];

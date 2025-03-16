@@ -9,14 +9,14 @@ impl BalanceEventTrait for PoolRemoveLiquidity {
                 ord: ordinal,
                 tx: Some(tx.clone()),
                 token: pool.token_a.clone(),
-                delta: self.token_a_out.clone().to_bytes_le().1,
+                delta: self.token_a_out.clone().to_signed_bytes_be(),
                 component_id: pool.address.clone().to_hex().as_bytes().to_vec(),
             },
             BalanceDelta {
                 ord: ordinal,
                 tx: Some(tx.clone()),
                 token: pool.token_b.clone(),
-                delta: self.token_b_out.clone().to_bytes_le().1,
+                delta: self.token_b_out.clone().to_signed_bytes_be(),
                 component_id: pool.address.clone().to_hex().as_bytes().to_vec(),
             },
         ];
