@@ -89,17 +89,12 @@ contract MaverickV2SwapAdapter is ISwapAdapter {
         if (side == OrderSide.Buy) {
             trade.calculatedAmount =
                 buy(pool, isTokenAIn, tickLimit, specifiedAmount);
-            trade.calculatedAmount != 0
-                ? trade.price = Fraction(specifiedAmount, trade.calculatedAmount)
-                : trade.price = Fraction(0, 0);
         } else {
             trade.calculatedAmount =
                 sell(pool, sellToken, isTokenAIn, tickLimit, specifiedAmount);
-            trade.calculatedAmount != 0
-                ? trade.price = Fraction(trade.calculatedAmount, specifiedAmount)
-                : trade.price = Fraction(0, 0);
         }
 
+        trade.price = priceAt(pool, sellToken, specifiedAmount);
         trade.gasUsed = gasBefore - gasleft();
         return trade;
     }
