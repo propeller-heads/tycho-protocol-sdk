@@ -122,4 +122,4 @@ modules:
       type: proto:tycho.evm.v1.BlockChanges
 
 params:
-  map_pools_created: "1F98431c8aD98523631AE4a59f267346ea31F984"
+  map_pools_created: "0BFbCF9fa4f9C56B0F40a671Ad40E0805A091865"
