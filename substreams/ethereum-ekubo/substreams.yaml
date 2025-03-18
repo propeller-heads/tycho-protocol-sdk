@@ -5,70 +5,118 @@ package:
 
 protobuf:
   files:
-    - tycho/evm/v1/vm.proto
     - tycho/evm/v1/common.proto
     - tycho/evm/v1/utils.proto
     - ekubo.proto
   importPaths:
     - ../../proto
     - ./proto
+  excludePaths:
+    - sf/substreams
+    - google
+    - tycho
 
 binaries:
   default:
     type: wasm/rust-v1
     file: ../target/wasm32-unknown-unknown/release/ethereum_ekubo.wasm
 
-network: sepolia
+network: ethereum
 networks:
-  sepolia:
+  ethereum:
     initialBlock:
-      map_protocol_components: 7811236
-      map_relative_component_balance: 7811236
+      map_events: 22048334 # First pool initialization https://etherscan.io/tx/0x7c2e697e73dc1f114a5473d1015c411f10585b2b671bee0bd6d5706895e16b27
     params:
-      map_protocol_components: "core=16e186ecdc94083fff53ef2a41d46b92a54f61e2&oracle=51f1b10abf90e16498d25086641b0669ec62f32f"
-      map_relative_component_balance: "core=16e186ecdc94083fff53ef2a41d46b92a54f61e2&oracle=51f1b10abf90e16498d25086641b0669ec62f32f"
-      map_protocol_changes: "core=16e186ecdc94083fff53ef2a41d46b92a54f61e2&oracle=51f1b10abf90e16498d25086641b0669ec62f32f"
+      map_events: "core=e0e0e08A6A4b9Dc7bD67BCB7aadE5cF48157d444&oracle=51d02A5948496a67827242EaBc5725531342527C"
 
 modules:
-  - name: map_protocol_components
+  - name: map_events
     kind: map
     inputs:
       - params: string
       - source: sf.ethereum.type.v2.Block
     output:
-      type: proto:tycho.evm.v1.BlockTransactionProtocolComponents
+      type: proto:ekubo.BlockTransactionEvents
+
+  - name: map_components
+    kind: map
+    inputs:
+      - map: map_events
+    output:
+      type: proto:tycho.evm.v1.BlockChanges
+
+  - name: map_tick_changes
+    kind: map
+    inputs:
+      - map: map_events
+    output:
+      type: proto:ekubo.TickDeltas
+
+  - name: store_active_ticks
+    kind: store
+    valueType: int64
+    updatePolicy: set
+    inputs:
+      - map: map_events
+
+  - name: map_liquidity_changes
+    kind: map
+    inputs:
+      - map: map_events
+      - store: store_active_ticks
+    output:
+      type: proto:ekubo.LiquidityChanges
 
   - name: store_pool_details
     kind: store
-    updatePolicy: set
     valueType: proto:ekubo.PoolDetails
+    updatePolicy: set_if_not_exists
     inputs:
-      - map: map_protocol_components
+      - map: map_components
 
-  - name: map_relative_component_balance
+  - name: store_tick_liquidities
+    kind: store
+    valueType: bigint
+    updatePolicy: add
+    inputs:
+      - map: map_tick_changes
+
+  - name: map_balance_changes
     kind: map
     inputs:
-      - params: string
-      - source: sf.ethereum.type.v2.Block
+      - map: map_events
       - store: store_pool_details
     output:
       type: proto:tycho.evm.v1.BlockBalanceDeltas
 
-  - name: store_component_balances
+  - name: store_liquidities
     kind: store
-    updatePolicy: add
     valueType: bigint
+    updatePolicy: set_sum
     inputs:
-      - map: map_relative_component_balance
+      - map: map_liquidity_changes
+
+  - name: store_balance_changes
+    kind: store
+    valueType: bigint
+    updatePolicy: add
+    inputs:
+      - map: map_balance_changes
 
   - name: map_protocol_changes
     kind: map
     inputs:
-      - params: string
       - source: sf.ethereum.type.v2.Block
-      - map: map_protocol_components
-      - map: map_relative_component_balance
-      - store: store_component_balances
+      - map: map_components
+      - map: map_events
+      - map: map_balance_changes
+      - store: store_balance_changes
+        mode: deltas
+      - map: map_tick_changes
+      - store: store_tick_liquidities
+        mode: deltas
+      - map: map_liquidity_changes
+      - store: store_liquidities
         mode: deltas
     output:
       type: proto:tycho.evm.v1.BlockChanges
