@@ -5,7 +5,7 @@ use substreams_ethereum::pb::eth::v2::{Block, Log, TransactionTrace};
 use tycho_substreams::prelude::*;
 
 use crate::abi::factory::events::PoolCreated;
-use substreams_helper::event_handler::EventHandler;
+use substreams_helper::{event_handler::EventHandler, hex::Hexable};
 
 #[substreams::handlers::map]
 pub fn map_components(params: String, block: Block) -> Result<BlockTransactionProtocolComponents> {
@@ -25,17 +25,16 @@ fn get_new_pools(
     let mut on_pool_created = |event: PoolCreated, _tx: &TransactionTrace, _log: &Log| {
         let tycho_tx: Transaction = _tx.into();
 
-        let new_pool_component =
-            ProtocolComponent::new(&format!("0x{}", hex::encode(&event.pool_address)))
-                .with_tokens(&[event.token_a.as_slice(), event.token_b.as_slice()])
-                .with_contracts(&[&event.pool_address])
-                .with_attributes(&[
-                    ("fee_a_in", &event.fee_a_in.to_signed_bytes_be()),
-                    ("fee_b_in", &event.fee_b_in.to_signed_bytes_be()),
-                    ("tick_spacing", &event.tick_spacing.to_signed_bytes_be()),
-                    ("kinds", &event.kinds.to_signed_bytes_be()),
-                ])
-                .as_swap_type("maverick_v2_pool", ImplementationType::Vm);
+        let new_pool_component = ProtocolComponent::new(&event.pool_address.to_hex())
+            .with_tokens(&[event.token_a.as_slice(), event.token_b.as_slice()])
+            .with_contracts(&[&event.pool_address])
+            .with_attributes(&[
+                ("fee_a_in", &event.fee_a_in.to_signed_bytes_be()),
+                ("fee_b_in", &event.fee_b_in.to_signed_bytes_be()),
+                ("tick_spacing", &event.tick_spacing.to_signed_bytes_be()),
+                ("kinds", &event.kinds.to_signed_bytes_be()),
+            ])
+            .as_swap_type("maverick_v2_pool", ImplementationType::Vm);
 
         new_pools.push(TransactionProtocolComponents {
             tx: Some(tycho_tx.clone()),

@@ -1,5 +1,5 @@
-use substreams_helper::hex::Hexable;
 use crate::{abi::pool::events::PoolSwap, events::BalanceEventTrait, pb::maverick::v2::Pool};
+use substreams_helper::hex::Hexable;
 use tycho_substreams::prelude::*;
 
 impl BalanceEventTrait for PoolSwap {
@@ -16,14 +16,24 @@ impl BalanceEventTrait for PoolSwap {
                 tx: Some(tx.clone()),
                 token: token_in.clone(),
                 delta: amount_in.clone().to_signed_bytes_be(),
-                component_id: pool.address.clone().to_hex().as_bytes().to_vec(),
+                component_id: pool
+                    .address
+                    .clone()
+                    .to_hex()
+                    .as_bytes()
+                    .to_vec(),
             },
             BalanceDelta {
                 ord: ordinal,
                 tx: Some(tx.clone()),
                 token: token_out.clone(),
                 delta: amount_out.clone().to_signed_bytes_be(),
-                component_id: pool.address.clone().to_hex().as_bytes().to_vec(),
+                component_id: pool
+                    .address
+                    .clone()
+                    .to_hex()
+                    .as_bytes()
+                    .to_vec(),
             },
         ]
     }

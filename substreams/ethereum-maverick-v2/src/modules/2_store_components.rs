@@ -19,7 +19,7 @@ pub fn store_components(
                 token_b: pc.tokens[1].clone(),
                 created_tx_hash: tx_pc.tx.as_ref().unwrap().hash.clone(),
             };
-            store.set_if_not_exists(0, format!("pool:{}", &pc.id[..42]), &pool);
+            store.set_if_not_exists(0, format!("Pool:{}", pool_address), &pool);
         }
     }
 }

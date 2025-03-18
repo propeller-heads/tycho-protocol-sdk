@@ -4,6 +4,7 @@ use itertools::Itertools;
 use std::collections::HashMap;
 use substreams::{pb::substreams::StoreDeltas, prelude::StoreGetProto, store::StoreGet};
 use substreams_ethereum::pb::eth::v2::Block;
+use substreams_helper::hex::Hexable;
 use tycho_substreams::{
     balances::aggregate_balances_changes, contract::extract_contract_changes_builder, prelude::*,
 };
@@ -54,11 +55,29 @@ pub fn map_protocol_changes(
         &block,
         |addr| {
             pool_store
-                .get_last(format!("pool:0x{}", hex::encode(addr)))
+                .get_last(format!("Pool:0x{}", hex::encode(addr)))
                 .is_some()
         },
         &mut transaction_changes,
     );
+
+    transaction_changes
+        .iter_mut()
+        .for_each(|(_, change)| {
+            // this indirection is necessary due to borrowing rules.
+            let addresses = change
+                .changed_contracts()
+                .map(|e| e.to_vec())
+                .collect::<Vec<_>>();
+            addresses
+                .into_iter()
+                .for_each(|address| {
+                    let pool = pool_store
+                        .get_last(format!("Pool:0x{}", hex::encode(address)))
+                        .unwrap();
+                    change.mark_component_as_updated(&pool.address.to_hex());
+                })
+        });
 
     Ok(BlockChanges {
         block: Some((&block).into()),

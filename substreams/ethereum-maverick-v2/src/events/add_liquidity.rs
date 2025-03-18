@@ -1,5 +1,7 @@
+use crate::{
+    abi::pool::events::PoolAddLiquidity, events::BalanceEventTrait, pb::maverick::v2::Pool,
+};
 use substreams_helper::hex::Hexable;
-use crate::{abi::pool::events::PoolAddLiquidity, events::BalanceEventTrait, pb::maverick::v2::Pool};
 use tycho_substreams::prelude::*;
 
 impl BalanceEventTrait for PoolAddLiquidity {
@@ -13,7 +15,12 @@ impl BalanceEventTrait for PoolAddLiquidity {
                     .token_a_amount
                     .clone()
                     .to_signed_bytes_be(),
-                component_id: pool.address.clone().to_hex().as_bytes().to_vec(),
+                component_id: pool
+                    .address
+                    .clone()
+                    .to_hex()
+                    .as_bytes()
+                    .to_vec(),
             },
             BalanceDelta {
                 ord: ordinal,
@@ -23,7 +30,12 @@ impl BalanceEventTrait for PoolAddLiquidity {
                     .token_b_amount
                     .clone()
                     .to_signed_bytes_be(),
-                component_id: pool.address.clone().to_hex().as_bytes().to_vec(),
+                component_id: pool
+                    .address
+                    .clone()
+                    .to_hex()
+                    .as_bytes()
+                    .to_vec(),
             },
         ];
         changed_balance
