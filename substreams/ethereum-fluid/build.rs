@@ -36,7 +36,11 @@ fn main() -> Result<()> {
         }
 
         Abigen::new(contract_name, &input_path)?
-            .generate()?
+            .generate()
+            .map_err(|e| {
+                println!("Failed to generate contract: {} from {}", e, &input_path);
+                e
+            })?
             .write_to_file(&output_path)?;
     }
 
