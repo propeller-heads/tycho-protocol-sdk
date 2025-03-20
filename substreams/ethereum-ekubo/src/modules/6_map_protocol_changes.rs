@@ -4,9 +4,18 @@ use itertools::Itertools;
 use substreams::{key, pb::substreams::StoreDeltas, scalar::BigInt};
 use substreams_ethereum::pb::eth;
 use substreams_helper::hex::Hexable;
-use tycho_substreams::{balances::aggregate_balances_changes, models::{Attribute, BlockBalanceDeltas, BlockChanges, ChangeType, EntityChanges, TransactionChangesBuilder}};
+use tycho_substreams::{
+    balances::aggregate_balances_changes,
+    models::{
+        Attribute, BlockBalanceDeltas, BlockChanges, ChangeType, EntityChanges,
+        TransactionChangesBuilder,
+    },
+};
 
-use crate::pb::ekubo::{block_transaction_events::transaction_events::pool_log::Event, BlockTransactionEvents, LiquidityChanges, TickDeltas};
+use crate::pb::ekubo::{
+    block_transaction_events::transaction_events::pool_log::Event, BlockTransactionEvents,
+    LiquidityChanges, TickDeltas,
+};
 
 /// Aggregates protocol components and balance changes by transaction.
 ///
@@ -69,11 +78,9 @@ fn map_protocol_changes(
             balances
                 .values()
                 .for_each(|token_bc_map| {
-                    token_bc_map
-                        .values()
-                        .for_each(|bc| {
-                            builder.add_balance_change(bc);
-                        })
+                    token_bc_map.values().for_each(|bc| {
+                        builder.add_balance_change(bc);
+                    })
                 });
         });
 
@@ -120,12 +127,11 @@ fn map_protocol_changes(
                 .entry(tx.index)
                 .or_insert_with(|| TransactionChangesBuilder::new(&tx.into()));
 
-            let new_value_bigint = BigInt::from_str(
-                key::segment_at(
-                    &String::from_utf8(store_delta.new_value).unwrap(),
-                    1,
-                )
-            ).unwrap();
+            let new_value_bigint = BigInt::from_str(key::segment_at(
+                &String::from_utf8(store_delta.new_value).unwrap(),
+                1,
+            ))
+            .unwrap();
 
             builder.add_entity_change(&EntityChanges {
                 component_id: change.pool_id.to_hex(),
@@ -150,16 +156,13 @@ fn map_protocol_changes(
                 .flat_map(move |log| {
                     let tx = tx.clone();
 
-                    maybe_attribute_updates(log.event.unwrap())
-                        .map(|attrs| (
+                    maybe_attribute_updates(log.event.unwrap()).map(|attrs| {
+                        (
                             tx,
-                            EntityChanges {
-                                component_id: log.pool_id.to_hex(),
-                                attributes: attrs,
-                            },
-                        ))
+                            EntityChanges { component_id: log.pool_id.to_hex(), attributes: attrs },
+                        )
+                    })
                 })
-
         })
         .for_each(|(tx, entity_changes)| {
             let builder = transaction_changes
@@ -183,7 +186,10 @@ fn maybe_attribute_updates(ev: Event) -> Option<Vec<Attribute>> {
         Event::Swapped(swapped) => Some(vec![
             Attribute {
                 name: "tick".into(),
-                value: swapped.tick_after.to_be_bytes().to_vec(),
+                value: swapped
+                    .tick_after
+                    .to_be_bytes()
+                    .to_vec(),
                 change: ChangeType::Update.into(),
             },
             Attribute {

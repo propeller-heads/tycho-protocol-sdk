@@ -1,6 +1,9 @@
 use substreams::scalar::BigInt;
 
-use crate::pb::ekubo::{block_transaction_events::transaction_events::pool_log::Event, BlockTransactionEvents, TickDelta, TickDeltas};
+use crate::pb::ekubo::{
+    block_transaction_events::transaction_events::pool_log::Event, BlockTransactionEvents,
+    TickDelta, TickDeltas,
+};
 
 #[substreams::handlers::map]
 pub fn map_tick_changes(block_tx_events: BlockTransactionEvents) -> TickDeltas {
@@ -47,7 +50,11 @@ fn tick_deltas(ev: Event) -> Vec<PartialTickDelta> {
                 },
                 PartialTickDelta {
                     tick_index: position_updated.upper,
-                    liquidity_net_delta: BigInt::from_signed_bytes_be(&position_updated.liquidity_delta).neg().to_signed_bytes_be(),
+                    liquidity_net_delta: BigInt::from_signed_bytes_be(
+                        &position_updated.liquidity_delta,
+                    )
+                    .neg()
+                    .to_signed_bytes_be(),
                 },
             ]
         }

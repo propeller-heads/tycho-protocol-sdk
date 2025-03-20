@@ -1,16 +1,33 @@
 use ethabi::Address;
 use itertools::Itertools;
 use substreams::scalar::BigInt;
-use substreams_ethereum::{pb::eth::{self, v2::Log}, Event as _};
+use substreams_ethereum::{
+    pb::eth::{self, v2::Log},
+    Event as _,
+};
 
-use crate::{pb::ekubo::{block_transaction_events::{transaction_events::{pool_log::{pool_initialized::Extension, Event, FeesAccumulated, PoolInitialized, PositionFeesCollected, PositionUpdated, Swapped}, PoolLog}, TransactionEvents}, BlockTransactionEvents}, sqrt_ratio::float_sqrt_ratio_to_fixed};
-use crate::{abi::core::events as abi_events, deployment_config::DeploymentConfig, pool_config::PoolConfig};
+use crate::{
+    abi::core::events as abi_events,
+    deployment_config::DeploymentConfig,
+    pb::ekubo::{
+        block_transaction_events::{
+            transaction_events::{
+                pool_log::{
+                    pool_initialized::Extension, Event, FeesAccumulated, PoolInitialized,
+                    PositionFeesCollected, PositionUpdated, Swapped,
+                },
+                PoolLog,
+            },
+            TransactionEvents,
+        },
+        BlockTransactionEvents,
+    },
+    pool_config::PoolConfig,
+    sqrt_ratio::float_sqrt_ratio_to_fixed,
+};
 
 #[substreams::handlers::map]
-fn map_events(
-    params: String,
-    block: eth::v2::Block,
-) -> BlockTransactionEvents {
+fn map_events(params: String, block: eth::v2::Block) -> BlockTransactionEvents {
     let config: DeploymentConfig = serde_qs::from_str(&params).unwrap();
 
     BlockTransactionEvents {
@@ -22,10 +39,8 @@ fn map_events(
                     .filter_map(|(log, _)| maybe_pool_log(log, &config))
                     .collect_vec();
 
-                (!pool_logs.is_empty()).then(|| TransactionEvents {
-                    transaction: Some(trace.into()),
-                    pool_logs,
-                })
+                (!pool_logs.is_empty())
+                    .then(|| TransactionEvents { transaction: Some(trace.into()), pool_logs })
             })
             .collect(),
     }
@@ -47,7 +62,9 @@ fn maybe_pool_log(log: &Log, config: &DeploymentConfig) -> Option<PoolLog> {
                 delta0: data[52..68].to_vec(),
                 delta1: data[68..84].to_vec(),
                 liquidity_after: data[84..100].to_vec(),
-                sqrt_ratio_after: float_sqrt_ratio_to_fixed(BigInt::from_unsigned_bytes_be(&data[100..112])),
+                sqrt_ratio_after: float_sqrt_ratio_to_fixed(BigInt::from_unsigned_bytes_be(
+                    &data[100..112],
+                )),
                 tick_after: i32::from_be_bytes(data[112..116].try_into().unwrap()),
             }),
         )
@@ -55,8 +72,8 @@ fn maybe_pool_log(log: &Log, config: &DeploymentConfig) -> Option<PoolLog> {
         (
             ev.pool_id.to_vec(),
             Event::PositionUpdated(PositionUpdated {
-                lower: ev.params.1.0.to_i32(),
-                upper: ev.params.1.1.to_i32(),
+                lower: ev.params.1 .0.to_i32(),
+                upper: ev.params.1 .1.to_i32(),
                 liquidity_delta: ev.params.2.to_signed_bytes_be(),
                 delta0: ev.delta0.to_signed_bytes_be(),
                 delta1: ev.delta1.to_signed_bytes_be(),
@@ -108,9 +125,5 @@ fn maybe_pool_log(log: &Log, config: &DeploymentConfig) -> Option<PoolLog> {
         return None;
     };
 
-    Some(PoolLog {
-        ordinal: log.ordinal,
-        pool_id,
-        event: Some(ev),
-    })
+    Some(PoolLog { ordinal: log.ordinal, pool_id, event: Some(ev) })
 }

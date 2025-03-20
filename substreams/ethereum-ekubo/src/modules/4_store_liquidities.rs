@@ -1,4 +1,7 @@
-use substreams::{scalar::BigInt, store::{StoreSetSum, StoreSetSumBigInt}};
+use substreams::{
+    scalar::BigInt,
+    store::{StoreSetSum, StoreSetSumBigInt},
+};
 use substreams_helper::hex::Hexable;
 
 use crate::pb::ekubo::{LiquidityChangeType, LiquidityChanges};

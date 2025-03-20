@@ -1,4 +1,7 @@
-use substreams::{scalar::BigInt, store::{StoreAdd, StoreAddBigInt, StoreNew}};
+use substreams::{
+    scalar::BigInt,
+    store::{StoreAdd, StoreAddBigInt, StoreNew},
+};
 use substreams_helper::hex::Hexable;
 
 use crate::pb::ekubo::TickDeltas;
