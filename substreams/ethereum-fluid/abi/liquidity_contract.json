@@ -1,7 +1,11 @@
 [
   {
     "inputs": [
-      { "internalType": "address", "name": "admin_", "type": "address" },
+      {
+        "internalType": "address",
+        "name": "admin_",
+        "type": "address"
+      },
       {
         "internalType": "address",
         "name": "dummyImplementation_",
@@ -13,7 +17,11 @@
   },
   {
     "inputs": [
-      { "internalType": "uint256", "name": "errorId_", "type": "uint256" }
+      {
+        "internalType": "uint256",
+        "name": "errorId_",
+        "type": "uint256"
+      }
     ],
     "name": "FluidInfiniteProxyError",
     "type": "error"
@@ -88,7 +96,10 @@
     "name": "LogSetImplementation",
     "type": "event"
   },
-  { "stateMutability": "payable", "type": "fallback" },
+  {
+    "stateMutability": "payable",
+    "type": "fallback"
+  },
   {
     "inputs": [
       {
@@ -96,7 +107,11 @@
         "name": "implementation_",
         "type": "address"
       },
-      { "internalType": "bytes4[]", "name": "sigs_", "type": "bytes4[]" }
+      {
+        "internalType": "bytes4[]",
+        "name": "sigs_",
+        "type": "bytes4[]"
+      }
     ],
     "name": "addImplementation",
     "outputs": [],
@@ -106,40 +121,82 @@
   {
     "inputs": [],
     "name": "getAdmin",
-    "outputs": [{ "internalType": "address", "name": "", "type": "address" }],
+    "outputs": [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
     "stateMutability": "view",
     "type": "function"
   },
   {
     "inputs": [],
     "name": "getDummyImplementation",
-    "outputs": [{ "internalType": "address", "name": "", "type": "address" }],
+    "outputs": [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
     "stateMutability": "view",
     "type": "function"
   },
   {
     "inputs": [
-      { "internalType": "address", "name": "impl_", "type": "address" }
+      {
+        "internalType": "address",
+        "name": "impl_",
+        "type": "address"
+      }
     ],
     "name": "getImplementationSigs",
-    "outputs": [{ "internalType": "bytes4[]", "name": "", "type": "bytes4[]" }],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [{ "internalType": "bytes4", "name": "sig_", "type": "bytes4" }],
-    "name": "getSigsImplementation",
-    "outputs": [{ "internalType": "address", "name": "", "type": "address" }],
+    "outputs": [
+      {
+        "internalType": "bytes4[]",
+        "name": "",
+        "type": "bytes4[]"
+      }
+    ],
     "stateMutability": "view",
     "type": "function"
   },
   {
     "inputs": [
-      { "internalType": "bytes32", "name": "slot_", "type": "bytes32" }
+      {
+        "internalType": "bytes4",
+        "name": "sig_",
+        "type": "bytes4"
+      }
+    ],
+    "name": "getSigsImplementation",
+    "outputs": [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes32",
+        "name": "slot_",
+        "type": "bytes32"
+      }
     ],
     "name": "readFromStorage",
     "outputs": [
-      { "internalType": "uint256", "name": "result_", "type": "uint256" }
+      {
+        "internalType": "uint256",
+        "name": "result_",
+        "type": "uint256"
+      }
     ],
     "stateMutability": "view",
     "type": "function"
@@ -159,7 +216,11 @@
   },
   {
     "inputs": [
-      { "internalType": "address", "name": "newAdmin_", "type": "address" }
+      {
+        "internalType": "address",
+        "name": "newAdmin_",
+        "type": "address"
+      }
     ],
     "name": "setAdmin",
     "outputs": [],
@@ -179,5 +240,8 @@
     "stateMutability": "nonpayable",
     "type": "function"
   },
-  { "stateMutability": "payable", "type": "receive" }
+  {
+    "stateMutability": "payable",
+    "type": "receive"
+  }
 ]
