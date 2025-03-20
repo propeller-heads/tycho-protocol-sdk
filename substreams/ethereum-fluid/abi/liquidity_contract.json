@@ -2,18 +2,13 @@
   {
     "inputs": [
       {
-        "internalType": "address",
-        "name": "admin_",
-        "type": "address"
-      },
-      {
-        "internalType": "address",
-        "name": "dummyImplementation_",
-        "type": "address"
+        "internalType": "uint256",
+        "name": "errorId_",
+        "type": "uint256"
       }
     ],
-    "stateMutability": "nonpayable",
-    "type": "constructor"
+    "name": "FluidLiquidityCalcsError",
+    "type": "error"
   },
   {
     "inputs": [
@@ -23,20 +18,24 @@
         "type": "uint256"
       }
     ],
-    "name": "FluidInfiniteProxyError",
+    "name": "FluidLiquidityError",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "errorId_",
+        "type": "uint256"
+      }
+    ],
+    "name": "FluidSafeTransferError",
     "type": "error"
   },
   {
     "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "implementation",
-        "type": "address"
-      }
-    ],
-    "name": "LogRemoveImplementation",
+    "inputs": [],
+    "name": "BorrowRateMaxCap",
     "type": "event"
   },
   {
@@ -45,203 +44,102 @@
       {
         "indexed": true,
         "internalType": "address",
-        "name": "oldAdmin",
+        "name": "user",
         "type": "address"
       },
       {
         "indexed": true,
         "internalType": "address",
-        "name": "newAdmin",
-        "type": "address"
-      }
-    ],
-    "name": "LogSetAdmin",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "oldDummyImplementation",
-        "type": "address"
-      },
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "newDummyImplementation",
-        "type": "address"
-      }
-    ],
-    "name": "LogSetDummyImplementation",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "implementation",
+        "name": "token",
         "type": "address"
       },
       {
         "indexed": false,
-        "internalType": "bytes4[]",
-        "name": "sigs",
-        "type": "bytes4[]"
-      }
-    ],
-    "name": "LogSetImplementation",
-    "type": "event"
-  },
-  {
-    "stateMutability": "payable",
-    "type": "fallback"
-  },
-  {
-    "inputs": [
+        "internalType": "int256",
+        "name": "supplyAmount",
+        "type": "int256"
+      },
       {
+        "indexed": false,
+        "internalType": "int256",
+        "name": "borrowAmount",
+        "type": "int256"
+      },
+      {
+        "indexed": false,
         "internalType": "address",
-        "name": "implementation_",
+        "name": "withdrawTo",
         "type": "address"
       },
       {
-        "internalType": "bytes4[]",
-        "name": "sigs_",
-        "type": "bytes4[]"
-      }
-    ],
-    "name": "addImplementation",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "getAdmin",
-    "outputs": [
-      {
+        "indexed": false,
         "internalType": "address",
-        "name": "",
+        "name": "borrowTo",
         "type": "address"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "getDummyImplementation",
-    "outputs": [
+      },
       {
-        "internalType": "address",
-        "name": "",
-        "type": "address"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "impl_",
-        "type": "address"
-      }
-    ],
-    "name": "getImplementationSigs",
-    "outputs": [
-      {
-        "internalType": "bytes4[]",
-        "name": "",
-        "type": "bytes4[]"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "bytes4",
-        "name": "sig_",
-        "type": "bytes4"
-      }
-    ],
-    "name": "getSigsImplementation",
-    "outputs": [
-      {
-        "internalType": "address",
-        "name": "",
-        "type": "address"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "bytes32",
-        "name": "slot_",
-        "type": "bytes32"
-      }
-    ],
-    "name": "readFromStorage",
-    "outputs": [
-      {
+        "indexed": false,
         "internalType": "uint256",
-        "name": "result_",
+        "name": "totalAmounts",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "exchangePricesAndConfig",
         "type": "uint256"
       }
     ],
-    "stateMutability": "view",
-    "type": "function"
+    "name": "LogOperate",
+    "type": "event"
   },
   {
     "inputs": [
       {
         "internalType": "address",
-        "name": "implementation_",
+        "name": "token_",
         "type": "address"
-      }
-    ],
-    "name": "removeImplementation",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
+      },
+      {
+        "internalType": "int256",
+        "name": "supplyAmount_",
+        "type": "int256"
+      },
+      {
+        "internalType": "int256",
+        "name": "borrowAmount_",
+        "type": "int256"
+      },
       {
         "internalType": "address",
-        "name": "newAdmin_",
+        "name": "withdrawTo_",
         "type": "address"
-      }
-    ],
-    "name": "setAdmin",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
+      },
       {
         "internalType": "address",
-        "name": "newDummyImplementation_",
+        "name": "borrowTo_",
         "type": "address"
+      },
+      {
+        "internalType": "bytes",
+        "name": "callbackData_",
+        "type": "bytes"
       }
     ],
-    "name": "setDummyImplementation",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
+    "name": "operate",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "memVar3_",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "memVar4_",
+        "type": "uint256"
+      }
+    ],
     "stateMutability": "payable",
-    "type": "receive"
+    "type": "function"
   }
 ]
