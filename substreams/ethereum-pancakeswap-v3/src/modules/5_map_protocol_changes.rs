@@ -1,4 +1,4 @@
-use crate::pb::uniswap::v3::{
+use crate::pb::pancakeswap::v3::{
     events::{pool_event, PoolEvent},
     Events, LiquidityChanges, TickDeltas,
 };
@@ -14,7 +14,7 @@ type PoolAddress = Vec<u8>;
 #[substreams::handlers::map]
 pub fn map_protocol_changes(
     block: eth::Block,
-    created_pools: BlockEntityChanges,
+    created_pools: BlockChanges,
     events: Events,
     balances_map_deltas: BlockBalanceDeltas,
     balances_store_deltas: StoreDeltas,
@@ -166,6 +166,7 @@ pub fn map_protocol_changes(
 fn event_to_attributes_updates(event: PoolEvent) -> Vec<(Transaction, PoolAddress, Attribute)> {
     match event.r#type.as_ref().unwrap() {
         pool_event::Type::Initialize(initalize) => {
+            let (zero_to_one, one_to_zero) = fee_to_default_protocol_fees(event.fee);
             vec![
                 (
                     event
@@ -183,11 +184,37 @@ fn event_to_attributes_updates(event: PoolEvent) -> Vec<(Transaction, PoolAddres
                     },
                 ),
                 (
-                    event.transaction.unwrap().into(),
-                    hex::decode(event.pool_address).unwrap(),
+                    event
+                        .transaction
+                        .as_ref()
+                        .unwrap()
+                        .into(),
+                    hex::decode(&event.pool_address).unwrap(),
                     Attribute {
                         name: "tick".to_string(),
                         value: BigInt::from(initalize.tick).to_signed_bytes_be(),
+                        change: ChangeType::Update.into(),
+                    },
+                ),
+                (
+                    event
+                        .transaction
+                        .as_ref()
+                        .unwrap()
+                        .into(),
+                    hex::decode(&event.pool_address).unwrap(),
+                    Attribute {
+                        name: "protocol_fees/zero2one".to_string(),
+                        value: BigInt::from(zero_to_one).to_signed_bytes_be(),
+                        change: ChangeType::Update.into(),
+                    },
+                ),
+                (
+                    event.transaction.unwrap().into(),
+                    hex::decode(event.pool_address).unwrap(),
+                    Attribute {
+                        name: "protocol_fees/one2zero".to_string(),
+                        value: BigInt::from(one_to_zero).to_signed_bytes_be(),
                         change: ChangeType::Update.into(),
                     },
                 ),
@@ -228,7 +255,7 @@ fn event_to_attributes_updates(event: PoolEvent) -> Vec<(Transaction, PoolAddres
                     .into(),
                 hex::decode(&event.pool_address).unwrap(),
                 Attribute {
-                    name: "protocol_fees/token0".to_string(),
+                    name: "protocol_fees/zero2one".to_string(),
                     value: BigInt::from(sfp.fee_protocol_0_new).to_signed_bytes_be(),
                     change: ChangeType::Update.into(),
                 },
@@ -237,12 +264,24 @@ fn event_to_attributes_updates(event: PoolEvent) -> Vec<(Transaction, PoolAddres
                 event.transaction.unwrap().into(),
                 hex::decode(event.pool_address).unwrap(),
                 Attribute {
-                    name: "protocol_fees/token1".to_string(),
+                    name: "protocol_fees/one2zero".to_string(),
                     value: BigInt::from(sfp.fee_protocol_1_new).to_signed_bytes_be(),
                     change: ChangeType::Update.into(),
                 },
             ),
         ],
         _ => vec![],
+    }
+}
+
+// Map the pool fee to the default protocol fees.
+// For the reference implementation see https://github.com/pancakeswap/pancake-v3-contracts/blob/5cc479f0c5a98966c74d94700057b8c3ca629afd/projects/v3-core/contracts/PancakeV3Pool.sol#L298-L306
+fn fee_to_default_protocol_fees(fee: u64) -> (u64, u64) {
+    match fee {
+        100 => (3300, 3300),
+        500 => (3400, 3400),
+        2500 => (3200, 3200),
+        10000 => (3200, 3200),
+        _ => panic!("Unexpected fee value"),
     }
 }

@@ -3,7 +3,7 @@ use std::str::FromStr;
 use anyhow::Ok;
 use tycho_substreams::models::{BalanceDelta, BlockBalanceDeltas};
 
-use crate::pb::uniswap::v3::{
+use crate::pb::pancakeswap::v3::{
     events::{pool_event, PoolEvent},
     Events,
 };
