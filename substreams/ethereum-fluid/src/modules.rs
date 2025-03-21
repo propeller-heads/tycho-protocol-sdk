@@ -33,21 +33,23 @@
 //! - Handling native ETH balances alongside token balances.
 //! - Customizing indexing logic for specific factory contract behavior.
 
-use std::{fmt::format, str::FromStr};
+use std::{str::FromStr};
 use crate::abi::factory::events::LogDexDeployed;
 use anyhow::{Ok, Result};
 use itertools::Itertools;
 use std::collections::HashMap;
-use substreams::{hex, pb::substreams::StoreDeltas, prelude::*};
+use substreams::{hex, log_info, pb::substreams::StoreDeltas, prelude::*};
 use substreams_ethereum::pb::eth;
-use tycho_substreams::{ balances::{aggregate_balances_changes, extract_balance_deltas_from_tx}, contract::extract_contract_changes_builder,
-    prelude::*,
+use tycho_substreams::{balances::{aggregate_balances_changes}, contract::extract_contract_changes_builder,
+                       prelude::*,
 };
 
 use ethabi::ethereum_types::Address;
 use substreams_helper::{event_handler::EventHandler, hex::Hexable};
 
 pub const LIQUIDITY_CONTRACT_ADDRESS: &[u8] = &hex!("52Aa899454998Be5b000Ad077a46Bbe360F4e497");
+// TODO: make this configurable for multichain support
+pub const DEX_RESERVES_RESOLVER: &[u8] = &hex!("b387f9C2092cF7c4943F97842887eBff7AE96EB3");
 
 /// Find and create all relevant protocol components
 ///
@@ -57,33 +59,41 @@ pub const LIQUIDITY_CONTRACT_ADDRESS: &[u8] = &hex!("52Aa899454998Be5b000Ad077a4
 pub fn map_dex_deployed(
     params: String,
     block: eth::v2::Block,
-) -> Result<BlockChanges, substreams::errors::Error> {
+) -> Result<BlockTransactionProtocolComponents> {
     let mut new_dexes = vec![];
     let factory_address = params.as_str();
 
     get_new_dexes(&block, &mut new_dexes, factory_address);
 
-    Ok(BlockChanges { block: Some((&block).into()), changes: new_dexes })
+    Ok(BlockTransactionProtocolComponents { tx_components: new_dexes })
 }
 
 fn get_new_dexes(
     block: &eth::v2::Block,
-    new_dexes: &mut Vec<TransactionChanges>,
+    new_dexes: &mut Vec<TransactionProtocolComponents>,
     factory_address: &str,
 ) {
     // Extract new dex pools from LogDexDeployed events
     let mut on_dex_deployed =
-        |event: LogDexDeployed, _tx: &eth::v2::TransactionTrace, _log: &eth::v2::Log| {
-            let tycho_tx: Transaction = _tx.into();
+        |event: LogDexDeployed, tx: &eth::v2::TransactionTrace, _log: &eth::v2::Log| {
+            let tycho_tx: Transaction = tx.into();
+            let constants_view_rpc_call = crate::abi::dex_implementation::functions::ConstantsView {};
+            let constants_view = constants_view_rpc_call.call(event.dex.clone()).unwrap();
+            let implementations = constants_view.3;
 
-            new_dexes.push(TransactionChanges {
+            new_dexes.push(TransactionProtocolComponents {
                 tx: Some(tycho_tx.clone()),
-                contract_changes: vec![],
-                entity_changes: vec![],
-                component_changes: vec![ProtocolComponent {
+                components: vec![ProtocolComponent {
                     id: event.dex.to_hex(),
                     tokens: vec![],
-                    contracts: vec![],
+                    contracts: vec![
+                        LIQUIDITY_CONTRACT_ADDRESS.to_vec(),
+                        DEX_RESERVES_RESOLVER.to_vec(),
+                        event.dex.clone(),
+                        implementations.2.to_vec(),
+                        implementations.3.to_vec(),
+                        implementations.4.to_vec(),
+                    ],
                     static_att: vec![
                         Attribute {
                             name: "dex_id".to_string(),
@@ -92,14 +102,44 @@ fn get_new_dexes(
                         },
                         Attribute {
                             name: "dex_address".to_string(),
-                            value: event.dex.clone(),
+                            value: event.dex,
                             change: ChangeType::Creation.into(),
                         },
                         Attribute {
-                            name: "balance_owner".to_string(),
-                            value: LIQUIDITY_CONTRACT_ADDRESS.to_vec(),
+                            name: "manual_updates".to_string(),
+                            value: vec![1u8],
                             change: ChangeType::Creation.into(),
-                        }
+                        },
+                        Attribute {
+                            name: "supply_token_0_slot".to_string(),
+                            value: constants_view.7.to_vec(),
+                            change: ChangeType::Creation.into(),
+                        },
+                        Attribute {
+                            name: "borrow_token_0_slot".to_string(),
+                            value: constants_view.8.to_vec(),
+                            change: ChangeType::Creation.into(),
+                        },
+                        Attribute {
+                            name: "supply_token_1_slot".to_string(),
+                            value: constants_view.9.to_vec(),
+                            change: ChangeType::Creation.into(),
+                        },
+                        Attribute {
+                            name: "borrow_token_1_slot".to_string(),
+                            value: constants_view.9.to_vec(),
+                            change: ChangeType::Creation.into(),
+                        },
+                        Attribute {
+                            name: "exchange_price_token_0_slot".to_string(),
+                            value: constants_view.10.to_vec(),
+                            change: ChangeType::Creation.into(),
+                        },
+                        Attribute {
+                            name: "exchange_price_token_1_slot".to_string(),
+                            value: constants_view.11.to_vec(),
+                            change: ChangeType::Creation.into(),
+                        },
                     ],
                     change: i32::from(ChangeType::Creation),
                     protocol_type: Some(ProtocolType {
@@ -110,7 +150,6 @@ fn get_new_dexes(
                     }),
                     tx: Some(tycho_tx.clone()),
                 }],
-                balance_changes: vec![],
             })
         };
 
@@ -122,54 +161,22 @@ fn get_new_dexes(
     eh.handle_events();
 }
 
-/// Stores all dex pools in a store with dex address as key and corresponding protocol component as value.
+/// Stores all contracts involved in quoting.
 #[substreams::handlers::store]
-pub fn store_dexes(
-    dexes_deployed: BlockChanges,
-    store: StoreSetIfNotExistsProto<ProtocolComponent>,
+pub fn store_contract_addresses(
+    dexes_deployed: BlockTransactionProtocolComponents,
+    store: StoreSetInt64,
 ) {
-    for change in dexes_deployed.changes {
-        for new_protocol_component in change.component_changes {
-            store.set_if_not_exists(
-                0,
-                &new_protocol_component.id,
-                &new_protocol_component,
-            );
+    for change in dexes_deployed.tx_components {
+        for new_protocol_component in change.components.iter() {
+            let addresses = new_protocol_component
+                .contracts
+                .iter()
+                .map(hex::encode)
+                .collect();
+            store.set_many(0, &addresses, &1i64);
         }
     }
-}
-
-/// Extracts balance changes per component
-///
-/// This template function uses ERC20 transfer events to extract balance changes. It
-/// assumes that each component is deployed at a dedicated contract address. If a
-/// transfer to the component is detected, it's balanced is increased and if a balance
-/// from the component is detected its balance is decreased.
-///
-/// ## Note:
-/// Changes are necessary if your protocol uses native ETH, uses a vault contract or if
-/// your component burn or mint tokens without emitting transfer events.
-///
-/// You may want to ignore LP tokens if your protocol emits transfer events for these
-/// here.
-#[substreams::handlers::map]
-fn map_relative_component_balance(
-    block: eth::v2::Block,
-    store: StoreGetRaw,
-) -> Result<BlockBalanceDeltas, anyhow::Error>{
-
-}
-
-/// Aggregates relative balances values into absolute values
-///
-/// Aggregate the relative balances in an additive store since tycho-indexer expects
-/// absolute balance inputs.
-///
-/// ## Note:
-/// This method should usually not require any changes.
-#[substreams::handlers::store]
-pub fn store_balances(deltas: BlockBalanceDeltas, store: StoreAddBigInt) {
-    tycho_substreams::balances::store_balance_changes(deltas, store);
 }
 
 /// Aggregates protocol components and balance changes by transaction.
@@ -184,9 +191,7 @@ pub fn store_balances(deltas: BlockBalanceDeltas, store: StoreAddBigInt) {
 fn map_protocol_changes(
     block: eth::v2::Block,
     new_components: BlockTransactionProtocolComponents,
-    components_store: StoreGetRaw,
-    balance_store: StoreDeltas,
-    deltas: BlockBalanceDeltas,
+    contracts_store: StoreGetRaw,
 ) -> Result<BlockChanges, substreams::errors::Error> {
     // We merge contract changes by transaction (identified by transaction index)
     // making it easy to sort them at the very end.
@@ -209,30 +214,6 @@ fn map_protocol_changes(
                 .iter()
                 .for_each(|component| {
                     builder.add_protocol_component(component);
-                    // TODO: In case you require to add any dynamic attributes to the
-                    //  component you can do so here:
-                    /*
-                        builder.add_entity_change(&EntityChanges {
-                            component_id: component.id.clone(),
-                            attributes: default_attributes.clone(),
-                        });
-                    */
-                });
-        });
-
-    // Aggregate absolute balances per transaction.
-    aggregate_balances_changes(balance_store, deltas)
-        .into_iter()
-        .for_each(|(_, (tx, balances))| {
-            let builder = transaction_changes
-                .entry(tx.index)
-                .or_insert_with(|| TransactionChangesBuilder::new(&tx));
-            balances
-                .values()
-                .for_each(|token_bc_map| {
-                    token_bc_map
-                        .values()
-                        .for_each(|bc| builder.add_balance_change(bc))
                 });
         });
 
@@ -240,14 +221,9 @@ fn map_protocol_changes(
     extract_contract_changes_builder(
         &block,
         |addr| {
-            // we assume that the store holds contract addresses as keys and if it
-            // contains a value, that contract is of relevance.
-            // TODO: if you have any additional static contracts that need to be indexed,
-            //  please add them here.
-            components_store
+            contracts_store
                 .get_last(hex::encode(addr))
-                .is_some() ||
-                addr.eq(LIQUIDITY_CONTRACT_ADDRESS)
+                .is_some()
         },
         &mut transaction_changes,
     );
