@@ -24,47 +24,28 @@ modules:
     kind: map
     initialBlock: 21015648
     inputs:
+      - params: string
       - source: sf.ethereum.type.v2.Block
     output:
       type: proto:tycho.evm.v1.BlockTransactionProtocolComponents
 
-  - name: store_dexes
+  - name: store_contract_addresses
     kind: store
     initialBlock: 21015648
     updatePolicy: set
     valueType: string
     inputs:
-      - map: map_protocol_components
-
-  - name: map_relative_component_balance
-    kind: map
-    initialBlock: 21015648
-    inputs:
-      - source: sf.ethereum.type.v2.Block
-      - store: store_protocol_components
-    output:
-      type: proto:tycho.evm.v1.BlockBalanceDeltas
-
-  - name: store_balances
-    kind: store
-    initialBlock: 21015648
-    updatePolicy: add
-    valueType: bigint
-    inputs:
-      - map: map_relative_component_balance
+      - map: map_dex_deployed
 
   - name: map_protocol_changes
     kind: map
     initialBlock: 21015648
     inputs:
       - source: sf.ethereum.type.v2.Block
-      - map: map_protocol_components
-      - map: map_relative_component_balance
-      - store: store_protocol_components
-      - store: store_balances
-        mode: deltas
+      - map: map_dex_deployed
+      - store: store_contract_addresses
     output:
       type: proto:tycho.evm.v1.BlockChanges
 
 params:
-  map_pools_created: "0x91716C4EDA1Fb55e84Bf8b4c7085f84285c19085"
+  map_dex_deployed: "0x91716C4EDA1Fb55e84Bf8b4c7085f84285c19085"
