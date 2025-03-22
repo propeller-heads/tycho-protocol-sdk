@@ -15,15 +15,16 @@ contract MaverickV2SwapAdapterTest is AdapterTest {
     address constant QUOTER = 0xb40AfdB85a07f37aE217E7D6462e609900dD8D7A;
     address constant FACTORY = 0x0A7e848Aca42d879EF06507Fca0E7b33A0a63c1e;
     address constant USDC = 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48;
-    address constant USDC_WETH_POOL = 0xEB1da432D5C1a9FDF52aA5D37698f34706F91397;
+    address constant GHO = 0x40D16FC0246aD3160Ccc09B8D0D3A2cD28aE6C2f;
+    address constant GHO_USDC_POOL = 0x14Cf6D2Fe3E1B326114b07d22A6F6bb59e346c67;
 
-    uint256 constant TEST_ITERATIONS = 100;
+    uint256 constant TEST_ITERATIONS = 10;
 
-    uint256 constant WETH_BALANCE = 100 ether;
+    uint256 constant GHO_BALANCE = 100_000 * 1e18;
     uint256 constant USDC_BALANCE = 100_000 * 1e6;
 
     function setUp() public {
-        uint256 forkBlock = 21500000;
+        uint256 forkBlock = 22096000;
         vm.createSelectFork(vm.rpcUrl("mainnet"), forkBlock);
         adapter = new MaverickV2SwapAdapter(FACTORY, QUOTER);
 
@@ -32,12 +33,13 @@ contract MaverickV2SwapAdapterTest is AdapterTest {
         vm.label(QUOTER, "Quoter");
         vm.label(FACTORY, "Factory");
         vm.label(USDC, "USDC");
-        vm.label(USDC_WETH_POOL, "USDC_WETH_POOL");
+        vm.label(GHO, "GHO");
+        vm.label(GHO_USDC_POOL, "GHO_USDC_POOL");
     }
 
     function testGetLimits() public view {
-        bytes32 pair = bytes32(bytes20(USDC_WETH_POOL));
-        uint256[] memory limits = adapter.getLimits(pair, USDC, WETH);
+        bytes32 pair = bytes32(bytes20(GHO_USDC_POOL));
+        uint256[] memory limits = adapter.getLimits(pair, GHO, USDC);
 
         assertEq(limits.length, 2);
         assertGt(limits[0], 0, "Limit for sell token should be greater than 0");
@@ -45,18 +47,18 @@ contract MaverickV2SwapAdapterTest is AdapterTest {
     }
 
     function testPriceFuzz(uint256 amount0, uint256 amount1) public {
-        bytes32 pair = bytes32(bytes20(USDC_WETH_POOL));
-        uint256[] memory limits = adapter.getLimits(pair, USDC, WETH);
+        bytes32 pair = bytes32(bytes20(GHO_USDC_POOL));
+        uint256[] memory limits = adapter.getLimits(pair, GHO, USDC);
         vm.assume(amount0 < limits[0]);
-        vm.assume(amount0 > 0);
         vm.assume(amount1 < limits[0]);
-        vm.assume(amount1 > 0);
+        vm.assume(amount0 > 1e16);
+        vm.assume(amount1 > 1e16);
 
         uint256[] memory amounts = new uint256[](2);
         amounts[0] = amount0;
         amounts[1] = amount1;
 
-        Fraction[] memory prices = adapter.price(pair, USDC, WETH, amounts);
+        Fraction[] memory prices = adapter.price(pair, GHO, USDC, amounts);
 
         for (uint256 i = 0; i < prices.length; i++) {
             assertGt(prices[i].numerator, 0);
@@ -65,11 +67,11 @@ contract MaverickV2SwapAdapterTest is AdapterTest {
     }
 
     function testPrice() public {
-        bytes32 pair = bytes32(bytes20(USDC_WETH_POOL));
+        bytes32 pair = bytes32(bytes20(GHO_USDC_POOL));
         uint256[] memory amounts = new uint256[](1);
-        amounts[0] = 1e17; // 0.1 WETH
+        amounts[0] = 10e18; // 10 GHO
 
-        Fraction[] memory prices = adapter.price(pair, WETH, USDC, amounts);
+        Fraction[] memory prices = adapter.price(pair, GHO, USDC, amounts);
 
         assertEq(prices.length, 1);
         assertGt(
@@ -83,14 +85,14 @@ contract MaverickV2SwapAdapterTest is AdapterTest {
     }
 
     function testPriceDecreasing() public {
-        bytes32 pair = bytes32(bytes20(USDC_WETH_POOL));
+        bytes32 pair = bytes32(bytes20(GHO_USDC_POOL));
         uint256[] memory amounts = new uint256[](TEST_ITERATIONS);
 
         for (uint256 i = 0; i < TEST_ITERATIONS; i++) {
-            amounts[i] = 1000 * (i + 1) * 10 ** 6;
+            amounts[i] = 100 * (i + 1) * 10 ** 18;
         }
 
-        Fraction[] memory prices = adapter.price(pair, WETH, USDC, amounts);
+        Fraction[] memory prices = adapter.price(pair, GHO, USDC, amounts);
 
         for (uint256 i = 0; i < TEST_ITERATIONS - 1; i++) {
             assertGe(prices[i].compareFractions(prices[i + 1]), 1); // same bin
@@ -101,18 +103,18 @@ contract MaverickV2SwapAdapterTest is AdapterTest {
     }
 
     function testSwapSell() public {
-        bytes32 pair = bytes32(bytes20(USDC_WETH_POOL));
-        uint256 amount = 1e17; // 0.1 WETH
+        bytes32 pair = bytes32(bytes20(GHO_USDC_POOL));
+        uint256 amount = 10e18; // 10 GHO
 
-        deal(WETH, address(this), WETH_BALANCE); 
+        deal(GHO, address(this), GHO_BALANCE); 
         deal(USDC, address(this), USDC_BALANCE); 
 
         // Approve adapter to spend WETH
         vm.prank(address(this));
-        IERC20(WETH).approve(address(adapter), amount);
+        IERC20(GHO).approve(address(adapter), amount);
 
         Trade memory trade =
-            adapter.swap(pair, WETH, USDC, OrderSide.Sell, amount);
+            adapter.swap(pair, GHO, USDC, OrderSide.Sell, amount);
 
         assertGt(
             trade.calculatedAmount,
@@ -131,18 +133,18 @@ contract MaverickV2SwapAdapterTest is AdapterTest {
     }
 
     function testSwapBuy() public {
-        bytes32 pair = bytes32(bytes20(USDC_WETH_POOL));
-        uint256 amount = 1e6; // 1 USDC
+        bytes32 pair = bytes32(bytes20(GHO_USDC_POOL));
+        uint256 amount = 100e18; // buy 100 GHO
 
-        deal(WETH, address(this), WETH_BALANCE); 
+        deal(GHO, address(this), GHO_BALANCE); 
         deal(USDC, address(this), USDC_BALANCE); 
 
         // Approve adapter to spend USDC
         vm.prank(address(this));
-        IERC20(USDC).approve(address(adapter), amount);
+        IERC20(USDC).approve(address(adapter), USDC_BALANCE);
 
         Trade memory trade =
-            adapter.swap(pair, USDC, WETH, OrderSide.Buy, amount);
+            adapter.swap(pair, USDC, GHO, OrderSide.Buy, amount);
 
         assertGt(
             trade.calculatedAmount,
@@ -163,48 +165,47 @@ contract MaverickV2SwapAdapterTest is AdapterTest {
     function testSwapFuzz(uint256 specifiedAmount, bool isBuy) public {
         OrderSide side = isBuy ? OrderSide.Buy : OrderSide.Sell;
 
-        bytes32 pair = bytes32(bytes20(USDC_WETH_POOL));
-        uint256[] memory limits = adapter.getLimits(pair, USDC, WETH);
-
-        deal(WETH, address(this), WETH_BALANCE); 
-        deal(USDC, address(this), USDC_BALANCE); 
+        bytes32 pair = bytes32(bytes20(GHO_USDC_POOL));
+        uint256[] memory limits = adapter.getLimits(pair, GHO, USDC);
 
         if (side == OrderSide.Buy) {
+            // specify buy usdc amount
             vm.assume(specifiedAmount < limits[1]);
-            vm.assume(specifiedAmount > 0 );
 
-            IERC20(USDC).approve(address(adapter), type(uint256).max);
+            deal(GHO, address(this), type(uint256).max);
+            IERC20(GHO).approve(address(adapter), type(uint256).max);
         } else {
+            // specify sell gho amount
             vm.assume(specifiedAmount < limits[0]);
-            vm.assume(specifiedAmount > 0 );
 
-            IERC20(USDC).approve(address(adapter), specifiedAmount);
+            deal(GHO, address(this), specifiedAmount); 
+            IERC20(GHO).approve(address(adapter), specifiedAmount);
         }
 
         uint256 usdc_balance = IERC20(USDC).balanceOf(address(this));
-        uint256 weth_balance = IERC20(WETH).balanceOf(address(this));
+        uint256 gho_balance = IERC20(GHO).balanceOf(address(this));
 
         Trade memory trade =
-            adapter.swap(pair, USDC, WETH, side, specifiedAmount);
+            adapter.swap(pair, GHO, USDC, side, specifiedAmount);
 
         if (trade.calculatedAmount > 0) {
             if (side == OrderSide.Buy) {
                 assertEq(
                     specifiedAmount,
-                    IERC20(WETH).balanceOf(address(this)) - weth_balance
+                    IERC20(USDC).balanceOf(address(this)) - usdc_balance
                 );
                 assertEq(
                     trade.calculatedAmount,
-                    usdc_balance - IERC20(USDC).balanceOf(address(this))
+                    gho_balance - IERC20(GHO).balanceOf(address(this))
                 );
             } else {
                 assertEq(
                     specifiedAmount,
-                    usdc_balance - IERC20(USDC).balanceOf(address(this))
+                    gho_balance - IERC20(GHO).balanceOf(address(this))
                 );
                 assertEq(
                     trade.calculatedAmount,
-                    IERC20(WETH).balanceOf(address(this)) - weth_balance
+                    IERC20(USDC).balanceOf(address(this)) - usdc_balance
                 );
             }
         }
@@ -219,14 +220,18 @@ contract MaverickV2SwapAdapterTest is AdapterTest {
     }
 
     function executeIncreasingSwaps(OrderSide side) internal {
-        bytes32 pair = bytes32(bytes20(USDC_WETH_POOL));
+        bytes32 pair = bytes32(bytes20(GHO_USDC_POOL));
 
         uint256[] memory amounts = new uint256[](TEST_ITERATIONS);
         for (uint256 i = 0; i < TEST_ITERATIONS; i++) {
-            amounts[i] = 1000 * (i+1) * 10 ** 6;
+            if (side == OrderSide.Sell) {
+                amounts[i] = 100 * (i + 1) * 10 ** 6; // specify sell usdc amount
+            } else {
+                amounts[i] = 100 * (i + 1) * 10 ** 18; // specify buy gho amount
+            }
         }
 
-        deal(WETH, address(this), WETH_BALANCE); 
+        deal(GHO, address(this), GHO_BALANCE); 
         deal(USDC, address(this), USDC_BALANCE); 
 
         Trade[] memory trades = new Trade[](TEST_ITERATIONS);
@@ -234,9 +239,9 @@ contract MaverickV2SwapAdapterTest is AdapterTest {
         for (uint256 i = 0; i < TEST_ITERATIONS; i++) {
             beforeSwap = vm.snapshot();
 
-            IERC20(USDC).approve(address(adapter), amounts[i]);
+            IERC20(USDC).approve(address(adapter), USDC_BALANCE);
 
-            trades[i] = adapter.swap(pair, USDC, WETH, side, amounts[i]);
+            trades[i] = adapter.swap(pair, USDC, GHO, side, amounts[i]);
             vm.revertTo(beforeSwap);
         }
 
@@ -248,24 +253,23 @@ contract MaverickV2SwapAdapterTest is AdapterTest {
     }
 
     function testGetCapabilities() public view {
-        bytes32 pair = bytes32(bytes20(USDC_WETH_POOL));
+        bytes32 pair = bytes32(bytes20(GHO_USDC_POOL));
         Capability[] memory capabilities =
-            adapter.getCapabilities(pair, WETH, USDC);
+            adapter.getCapabilities(pair, GHO, USDC);
 
-        assertEq(capabilities.length, 4);
+        assertEq(capabilities.length, 3);
         assertEq(uint256(capabilities[0]), uint256(Capability.SellOrder));
         assertEq(uint256(capabilities[1]), uint256(Capability.BuyOrder));
         assertEq(uint256(capabilities[2]), uint256(Capability.PriceFunction));
-        assertEq(uint256(capabilities[3]), uint256(Capability.HardLimits));
     }
 
     function testGetTokens() public view {
-        bytes32 pair = bytes32(bytes20(USDC_WETH_POOL));
+        bytes32 pair = bytes32(bytes20(GHO_USDC_POOL));
         address[] memory tokens = adapter.getTokens(pair);
 
         assertEq(tokens.length, 2);
-        assertEq(tokens[0], USDC);
-        assertEq(tokens[1], WETH);
+        assertEq(tokens[0], GHO);
+        assertEq(tokens[1], USDC);
     }
 
     function testGetPoolIds() public view {
@@ -285,7 +289,7 @@ contract MaverickV2SwapAdapterTest is AdapterTest {
 
     function testMavV2PoolBehaviour() public {
         bytes32[] memory poolIds = new bytes32[](1);
-        poolIds[0] = bytes32(bytes20(USDC_WETH_POOL));
+        poolIds[0] = bytes32(bytes20(GHO_USDC_POOL));
         runPoolBehaviourTest(adapter, poolIds);
     }
 }

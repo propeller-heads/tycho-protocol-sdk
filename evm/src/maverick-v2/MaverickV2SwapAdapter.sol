@@ -89,12 +89,13 @@ contract MaverickV2SwapAdapter is ISwapAdapter {
         if (side == OrderSide.Buy) {
             trade.calculatedAmount =
                 buy(pool, isTokenAIn, tickLimit, specifiedAmount);
+            trade.price = priceAt(pool, sellToken, trade.calculatedAmount);
         } else {
             trade.calculatedAmount =
                 sell(pool, sellToken, isTokenAIn, tickLimit, specifiedAmount);
+            trade.price = priceAt(pool, sellToken, specifiedAmount);
         }
 
-        trade.price = priceAt(pool, sellToken, specifiedAmount);
         trade.gasUsed = gasBefore - gasleft();
         return trade;
     }
@@ -198,11 +199,10 @@ contract MaverickV2SwapAdapter is ISwapAdapter {
         override
         returns (Capability[] memory capabilities)
     {
-        capabilities = new Capability[](4);
+        capabilities = new Capability[](3);
         capabilities[0] = Capability.SellOrder;
         capabilities[1] = Capability.BuyOrder;
         capabilities[2] = Capability.PriceFunction;
-        capabilities[3] = Capability.HardLimits;
     }
 
     /// @inheritdoc ISwapAdapter

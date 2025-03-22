@@ -12,7 +12,6 @@ constants:
     - SellSide
     - BuySide
     - PriceFunction
-    - HardLimits
 
 # The file containing the adapter contract
 contract: MaverickV2SwapAdapter.sol
