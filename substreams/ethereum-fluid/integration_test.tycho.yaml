@@ -1,11 +1,11 @@
 # Name of the substreams config file in your substreams module. Usually "./substreams.yaml"
 substreams_yaml_path: ./substreams.yaml
 # Name of the adapter contract, usually: ProtocolSwapAdapter"
-adapter_contract: "SwapAdapter"
+adapter_contract: "FluidAdapter"
 # Constructor signature of the Adapter contract"
 adapter_build_signature: "constructor(address)"
 # A comma separated list of args to be passed to the contructor of the Adapter contract"
-adapter_build_args: "0x0000000000000000000000000000000000000000"
+adapter_build_args: "0xb387f9C2092cF7c4943F97842887eBff7AE96EB3"
 # Whether or not the testing script should skip checking balances of the protocol components.
 # If set to `true` please always add a reason why it's skipped.
 skip_balance_check: false
@@ -15,43 +15,32 @@ skip_balance_check: false
 # Also please always add a reason why this account is needed for your tests.
 # This will be applied to each test.
 initialized_accounts:
-  - "0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84" # Needed for ....
+  - "0x52Aa899454998Be5b000Ad077a46Bbe360F4e497" # Liquidity Proxy
+  - "0xa57d7cef617271f4cea4f665d33ebcfcba4929f6" # Liquidity Dummy Implementation
+  - "b387f9C2092cF7c4943F97842887eBff7AE96EB3" # DexReservesResolver
+  - "0xF047ab4c75cebf0eB9ed34Ae2c186f3611aEAfa6" # Zircuit Pool
 # A list of protocol types names created by your Substreams module.
 protocol_type_names:
-  - "type_name_1"
-  - "type_name_2"
+  - "fluid_dex_pool"
+
 # A list of tests.
 tests:
   # Name of the test
   - name: test_pool_creation
     # Indexed block range
-    start_block: 123
-    stop_block: 456
-    # Same as global `initialized_accounts` but only scoped to this test.
-    initialized_accounts:
-      - "0x0c0e5f2fF0ff18a3be9b835635039256dC4B4963" # Needed for ....
+    start_block: 22101210
+    stop_block: 22101220
     # A list of expected component indexed in the block range. Each component must match perfectly the `ProtocolComponent` indexed by your subtreams module.
     expected_components:
-      - id: "0xbebc44782c7db0a1a60cb6fe97d0b483032ff1c7"
-        tokens:
-          - "0xdac17f958d2ee523a2206206994597c13d831ec7"
-          - "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48"
-          - "0x6b175474e89094c44da98b954eedeac495271d0f"
+      - id: "0x50facbcfbf9352523f82c67832e6d3d7ce731d4c"
         static_attributes:
-          attr_1: "value"
-          attr_2: "value"
-        creation_tx: "0x20793bbf260912aae189d5d261ff003c9b9166da8191d8f9d63ff1c7722f3ac6"
-        # Whether or not the script should skip trying to simulate a swap on this component.
-        # If set to `true` please always add a reason why it's skipped.
-        skip_simulation: false
-  - name: test_something_else
-    start_block: 123
-    stop_block: 456
-    expected_components:
-      - id: "0xdc24316b9ae028f1497c275eb9192a3ea0f67022"
-        tokens:
-          - "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE"
-          - "0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84"
-        static_attributes: null
-        creation_tx: "0xfac67ecbd423a5b915deff06045ec9343568edaec34ae95c43d35f2c018afdaa"
-        skip_simulation: true # If true, always add a reason
+          dex_id: "28"
+          dex_address: "0x50facbcfbf9352523f82c67832e6d3d7ce731d4c"
+          supply_token_0_slot: "0x8cdd48d57d7a0500306ba51419496ed1d6e620f8b1881423bc44ba7d8b0d7229",
+          borrow_token_0_slot: "0xa5e702f311f8cb9cbd816fb0a973daa32f23963ae12fbd0c51ea7bd47db013be",
+          supply_token_1_slot: "0x2b5336c9e0533f5ab6fc9b25539c1c9d4d35b30096577f404da3fccedcb22895",
+          borrow_token_1_slot: "0x3450d9912503566f31fb7afbc6e2472a493e6f8d1c92c6b4c71664482b90ec18",
+          exchange_price_token_0_slot: "0x3d48a0f7ec4bc62511be98206f2f4960f610e558f2ba847164812fc6cfe4bfe5",
+          exchange_price_token_1_slot: "0xa8e1248eddf82e10c0adc6c737b6d8da17674abf51801ea5a4549f41c2dfdf21",
+        creation_tx: "0xe595a12c86bf056248db383e1689bd41754fffb7636a8d5ea5d96b48a323cd74"
+
