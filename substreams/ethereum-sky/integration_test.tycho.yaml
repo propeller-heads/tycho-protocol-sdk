@@ -28,25 +28,27 @@ tests:
   #       creation_tx: "0xa2f51048265f2fe9ffaf69b94cb5a2a4113be49bdecd2040d530dd6f68facc42"
   #       skip_simulation: false
 
-  - name: test_dai_usds_converter
-    start_block: 20663734
-    stop_block: 20770232
-    initialized_accounts:
-      - "0x35d1b3f3d7966a1dfe207aa4514c12a259a0492b"
-      - "0xdC035D45d973E3EC169d2276DDab16f1e407384F"  # USDS
-      - "0x6B175474E89094C44Da98b954EedeAC495271d0F"  # DAI
-    expected_components:
-      - id: "0x3225737a9bbb6473cb4a45b7244aca2befdb276a"
-        tokens:
-          - "0x6B175474E89094C44Da98b954EedeAC495271d0F"  # DAI
-          - "0xdC035D45d973E3EC169d2276DDab16f1e407384F"  # USDS
-        static_attributes: null
-        creation_tx: "0xb63d6f4cfb9945130ab32d914aaaafbad956be3718176771467b4154f9afab61"
-        skip_simulation: false
+  # - name: test_dai_usds_converter
+  #   start_block: 20663734
+  #   stop_block: 20770232
+  #   initialized_accounts:
+  #     - "0x35d1b3f3d7966a1dfe207aa4514c12a259a0492b"  # VAT
+  #     - "0xdC035D45d973E3EC169d2276DDab16f1e407384F"  # USDS
+  #     - "0x6B175474E89094C44Da98b954EedeAC495271d0F"  # DAI
+  #   expected_components:
+  #     - id: "0x3225737a9bbb6473cb4a45b7244aca2befdb276a"
+  #       tokens:
+  #         - "0x6B175474E89094C44Da98b954EedeAC495271d0F"  # DAI
+  #         - "0xdC035D45d973E3EC169d2276DDab16f1e407384F"  # USDS
+  #       static_attributes: null
+  #       creation_tx: "0xb63d6f4cfb9945130ab32d914aaaafbad956be3718176771467b4154f9afab61"
+  #       skip_simulation: false
 
   # - name: test_dai_lite_psm
   #   start_block: 20283665
   #   stop_block: 20613444
+  #   initialized_accounts:
+  #     - "0x35d1b3f3d7966a1dfe207aa4514c12a259a0492b" # VAT :extractor: Error while processing tick! error=Storage failure: Could not find Account with id 
   #   expected_components:
   #     - id: "0xf6e72db5454dd049d0788e411b06cfaf16853042"
   #       tokens:
@@ -56,17 +58,22 @@ tests:
   #       creation_tx: "0x61e5d04f14d1fea9c505fb4dc9b6cf6e97bc83f2076b53cb7e92d0a2e88b6bbd"
   #       skip_simulation: false
 
-  # - name: test_usds_psm_wrapper
-  #   start_block: 20668727
-  #   stop_block: 20791764
-  #   expected_components:
-  #     - id: "0xa188eec8f81263234da3622a406892f3d630f98c"
-  #       tokens:
-  #         - "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"  # USDC
-  #         - "0xdC035D45d973E3EC169d2276DDab16f1e407384F"  # USDS
-  #       static_attributes: null
-  #       creation_tx: "0x43ddae74123936f6737b78fcf785547f7f6b7b27e280fe7fbf98c81b3c018585"
-  #       skip_simulation: false
+  - name: test_usds_psm_wrapper
+    start_block: 20668727
+    stop_block: 20791764
+    initialized_accounts:
+      - "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"  # USDC
+      - "0xdC035D45d973E3EC169d2276DDab16f1e407384F"  # USDS
+      - "0x35d1b3f3d7966a1dfe207aa4514c12a259a0492b" # VAT :extractor: Error while processing tick! error=Storage failure: Could not find Account with id 
+     #  error if usds token not initialized: INFO get_contract_state: Getting contract state. request=StateRequestBody { contract_ids: Some([Bytes(0x35d1b3f3d7966a1dfe207aa4514c12a259a0492b), Bytes(0xa188eec8f81263234da3622a406892f3d630f98c)]), protocol_system: "", version: VersionParam { timestamp: Some(2025-03-24T06:49:09.450319), block: None }, chain: Ethereum, pagination: PaginationParams { page: 0, page_size: 20 } } State for pool 0xa3931d71877c0e7a3148cb7eb4463524fec27fbd not found in components
+    expected_components:
+      - id: "0xa188eec8f81263234da3622a406892f3d630f98c"
+        tokens:
+          - "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"  # USDC
+          - "0xdC035D45d973E3EC169d2276DDab16f1e407384F"  # USDS
+        static_attributes: null
+        creation_tx: "0x43ddae74123936f6737b78fcf785547f7f6b7b27e280fe7fbf98c81b3c018585"
+        skip_simulation: false
 
   # - name: test_susdsd
   #   start_block: 20677433

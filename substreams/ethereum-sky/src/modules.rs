@@ -81,7 +81,7 @@ pub fn map_components(block: eth::v2::Block) -> Result<BlockTransactionProtocolC
             );
             components.push(
                 ProtocolComponent::at_contract(USDS_PSM_WRAPPER_ADDRESS, &tx.into())
-                    .with_tokens(&[USDC_TOKEN_ADDRESS, SUSDS_TOKEN_ADDRESS])
+                    .with_tokens(&[USDC_TOKEN_ADDRESS, USDS_TOKEN_ADDRESS])
                     .as_swap_type("usds_psm_wrapper", ImplementationType::Vm),
             );
         }
