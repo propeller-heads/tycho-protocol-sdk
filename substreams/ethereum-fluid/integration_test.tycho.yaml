@@ -32,6 +32,9 @@ tests:
     # A list of expected component indexed in the block range. Each component must match perfectly the `ProtocolComponent` indexed by your subtreams module.
     expected_components:
       - id: "0x50facbcfbf9352523f82c67832e6d3d7ce731d4c"
+        tokens:
+          - "0x4956b52aE2fF65D74CA2d61207523288e4528f96"
+          - "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"
         static_attributes:
           dex_id: "28"
           dex_address: "0x50facbcfbf9352523f82c67832e6d3d7ce731d4c"
