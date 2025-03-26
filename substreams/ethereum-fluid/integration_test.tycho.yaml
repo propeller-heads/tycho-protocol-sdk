@@ -18,6 +18,8 @@ initialized_accounts:
   - "0xa57d7cef617271f4cea4f665d33ebcfcba4929f6" # Liquidity Dummy Implementation
   - "0xb387f9C2092cF7c4943F97842887eBff7AE96EB3" # DexReservesResolver
   - "0xF047ab4c75cebf0eB9ed34Ae2c186f3611aEAfa6" # Zircuit Pool
+  - "0x6967e68f7f9b3921181f27e66aa9c3ac7e13dbc0"
+  - "0xeb5d71d488c419a099862251a1025629d806622e"
 # A list of protocol types names created by your Substreams module.
 protocol_type_names:
   - "fluid_dex_pool"
@@ -36,7 +38,7 @@ tests:
           - "0x4956b52aE2fF65D74CA2d61207523288e4528f96"
           - "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"
         static_attributes:
-          dex_id: "28"
+          dex_id: "0x1c"
           dex_address: "0x50facbcfbf9352523f82c67832e6d3d7ce731d4c"
           supply_token_0_slot: "0x8cdd48d57d7a0500306ba51419496ed1d6e620f8b1881423bc44ba7d8b0d7229"
           borrow_token_0_slot: "0xa5e702f311f8cb9cbd816fb0a973daa32f23963ae12fbd0c51ea7bd47db013be"
@@ -44,5 +46,6 @@ tests:
           borrow_token_1_slot: "0x3450d9912503566f31fb7afbc6e2472a493e6f8d1c92c6b4c71664482b90ec18"
           exchange_price_token_0_slot: "0x3d48a0f7ec4bc62511be98206f2f4960f610e558f2ba847164812fc6cfe4bfe5"
           exchange_price_token_1_slot: "0xa8e1248eddf82e10c0adc6c737b6d8da17674abf51801ea5a4549f41c2dfdf21"
+          manual_updates: "0x01"
         creation_tx: "0xe595a12c86bf056248db383e1689bd41754fffb7636a8d5ea5d96b48a323cd74"
 
