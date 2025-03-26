@@ -48,6 +48,8 @@ use ethabi::ethereum_types::Address;
 use substreams_helper::{event_handler::EventHandler, hex::Hexable};
 
 pub const LIQUIDITY_CONTRACT_ADDRESS: &[u8] = &hex!("52Aa899454998Be5b000Ad077a46Bbe360F4e497");
+// TODO: Derive this via an event: https://github.com/Instadapp/fluid-contracts-public/blob/main/contracts/infiniteProxy/events.sol#L12-L15
+pub const USER_MODULE_IMPL_ADDRESS: &[u8] = &hex!("6967e68F7f9b3921181f27E66Aa9c3ac7e13dBc0");
 // TODO: make this configurable for multichain support
 pub const DEX_RESERVES_RESOLVER: &[u8] = &hex!("b387f9C2092cF7c4943F97842887eBff7AE96EB3");
 
@@ -85,9 +87,13 @@ fn get_new_dexes(
                 tx: Some(tycho_tx.clone()),
                 components: vec![ProtocolComponent {
                     id: event.dex.to_hex(),
-                    tokens: vec![],
+                    tokens: vec![
+                        hex!("4956b52aE2fF65D74CA2d61207523288e4528f96").to_vec(),
+                        hex!("A0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48").to_vec()
+                    ],
                     contracts: vec![
                         LIQUIDITY_CONTRACT_ADDRESS.to_vec(),
+                        USER_MODULE_IMPL_ADDRESS.to_vec(),
                         DEX_RESERVES_RESOLVER.to_vec(),
                         event.dex.clone(),
                         implementations.2.to_vec(),
@@ -127,17 +133,17 @@ fn get_new_dexes(
                         },
                         Attribute {
                             name: "borrow_token_1_slot".to_string(),
-                            value: constants_view.9.to_vec(),
-                            change: ChangeType::Creation.into(),
-                        },
-                        Attribute {
-                            name: "exchange_price_token_0_slot".to_string(),
                             value: constants_view.10.to_vec(),
                             change: ChangeType::Creation.into(),
                         },
                         Attribute {
-                            name: "exchange_price_token_1_slot".to_string(),
+                            name: "exchange_price_token_0_slot".to_string(),
                             value: constants_view.11.to_vec(),
+                            change: ChangeType::Creation.into(),
+                        },
+                        Attribute {
+                            name: "exchange_price_token_1_slot".to_string(),
+                            value: constants_view.12.to_vec(),
                             change: ChangeType::Creation.into(),
                         },
                     ],
