@@ -116,7 +116,8 @@ fn maybe_create_component(
                     },
                     Attribute {
                         change: ChangeType::Creation.into(),
-                        name: "balance_owner".to_string(),
+                        name: "balance_owner".to_string(), /* TODO: We should use AccountBalances
+                                                            * instead */
                         value: hex!("e0e0e08A6A4b9Dc7bD67BCB7aadE5cF48157d444").to_vec(),
                     },
                 ],
