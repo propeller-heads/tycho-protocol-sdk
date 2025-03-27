@@ -1,0 +1,206 @@
+syntax = "proto3";
+
+import "google/protobuf/timestamp.proto";
+
+package contract.v1;
+
+message Events {
+    repeated elasticfactory_ConfigMasterUpdated elasticfactory_config_master_updateds = 1;
+    repeated elasticfactory_FeeConfigurationUpdated elasticfactory_fee_configuration_updateds = 2;
+    repeated elasticfactory_NftManagerAdded elasticfactory_nft_manager_addeds = 3;
+    repeated elasticfactory_NftManagerRemoved elasticfactory_nft_manager_removeds = 4;
+    repeated elasticfactory_PoolCreated elasticfactory_pool_createds = 5;
+    repeated elasticfactory_SwapFeeEnabled elasticfactory_swap_fee_enableds = 6;
+    repeated elasticfactory_VestingPeriodUpdated elasticfactory_vesting_period_updateds = 7;
+    repeated elasticfactory_WhitelistDisabled elasticfactory_whitelist_disableds = 8;
+    repeated elasticfactory_WhitelistEnabled elasticfactory_whitelist_enableds = 9;
+    repeated pool_Approval pool_approvals = 10;
+    repeated pool_Burn pool_burns = 11;
+    repeated pool_BurnRTokens pool_burn_r_tokens = 12;
+    repeated pool_Flash pool_flashes = 13;
+    repeated pool_Initialize pool_initializes = 14;
+    repeated pool_Mint pool_mints = 15;
+    repeated pool_Swap pool_swaps = 16;
+    repeated pool_Transfer pool_transfers = 17;
+}
+
+message elasticfactory_ConfigMasterUpdated {
+    string evt_tx_hash = 1;
+    uint32 evt_index = 2;
+    google.protobuf.Timestamp evt_block_time = 3;
+    uint64 evt_block_number = 4;
+    bytes old_config_master = 5;
+    bytes new_config_master = 6;
+}
+
+message elasticfactory_FeeConfigurationUpdated {
+    string evt_tx_hash = 1;
+    uint32 evt_index = 2;
+    google.protobuf.Timestamp evt_block_time = 3;
+    uint64 evt_block_number = 4;
+    bytes fee_to = 5;
+    uint64 government_fee_units = 6;
+}
+
+message elasticfactory_NftManagerAdded {
+    string evt_tx_hash = 1;
+    uint32 evt_index = 2;
+    google.protobuf.Timestamp evt_block_time = 3;
+    uint64 evt_block_number = 4;
+    bytes u_nft_manager = 5;
+    bool added = 6;
+}
+
+message elasticfactory_NftManagerRemoved {
+    string evt_tx_hash = 1;
+    uint32 evt_index = 2;
+    google.protobuf.Timestamp evt_block_time = 3;
+    uint64 evt_block_number = 4;
+    bytes u_nft_manager = 5;
+    bool removed = 6;
+}
+
+message elasticfactory_PoolCreated {
+    string evt_tx_hash = 1;
+    uint32 evt_index = 2;
+    google.protobuf.Timestamp evt_block_time = 3;
+    uint64 evt_block_number = 4;
+    bytes token0 = 5;
+    bytes token1 = 6;
+    uint64 swap_fee_units = 7;
+    int64 tick_distance = 8;
+    bytes pool = 9;
+}
+
+message elasticfactory_SwapFeeEnabled {
+    string evt_tx_hash = 1;
+    uint32 evt_index = 2;
+    google.protobuf.Timestamp evt_block_time = 3;
+    uint64 evt_block_number = 4;
+    uint64 swap_fee_units = 5;
+    int64 tick_distance = 6;
+}
+
+message elasticfactory_VestingPeriodUpdated {
+    string evt_tx_hash = 1;
+    uint32 evt_index = 2;
+    google.protobuf.Timestamp evt_block_time = 3;
+    uint64 evt_block_number = 4;
+    uint64 vesting_period = 5;
+}
+
+message elasticfactory_WhitelistDisabled {
+    string evt_tx_hash = 1;
+    uint32 evt_index = 2;
+    google.protobuf.Timestamp evt_block_time = 3;
+    uint64 evt_block_number = 4;
+}
+
+message elasticfactory_WhitelistEnabled {
+    string evt_tx_hash = 1;
+    uint32 evt_index = 2;
+    google.protobuf.Timestamp evt_block_time = 3;
+    uint64 evt_block_number = 4;
+}
+
+message pool_Approval {
+    string evt_tx_hash = 1;
+    uint32 evt_index = 2;
+    google.protobuf.Timestamp evt_block_time = 3;
+    uint64 evt_block_number = 4;
+    string evt_address = 5;
+    bytes owner = 6;
+    bytes spender = 7;
+    string value = 8;
+}
+
+message pool_Burn {
+    string evt_tx_hash = 1;
+    uint32 evt_index = 2;
+    google.protobuf.Timestamp evt_block_time = 3;
+    uint64 evt_block_number = 4;
+    string evt_address = 5;
+    bytes owner = 6;
+    int64 tick_lower = 7;
+    int64 tick_upper = 8;
+    string qty = 9;
+    string qty0 = 10;
+    string qty1 = 11;
+}
+
+message pool_BurnRTokens {
+    string evt_tx_hash = 1;
+    uint32 evt_index = 2;
+    google.protobuf.Timestamp evt_block_time = 3;
+    uint64 evt_block_number = 4;
+    string evt_address = 5;
+    bytes owner = 6;
+    string qty = 7;
+    string qty0 = 8;
+    string qty1 = 9;
+}
+
+message pool_Flash {
+    string evt_tx_hash = 1;
+    uint32 evt_index = 2;
+    google.protobuf.Timestamp evt_block_time = 3;
+    uint64 evt_block_number = 4;
+    string evt_address = 5;
+    bytes sender = 6;
+    bytes recipient = 7;
+    string qty0 = 8;
+    string qty1 = 9;
+    string paid0 = 10;
+    string paid1 = 11;
+}
+
+message pool_Initialize {
+    string evt_tx_hash = 1;
+    uint32 evt_index = 2;
+    google.protobuf.Timestamp evt_block_time = 3;
+    uint64 evt_block_number = 4;
+    string evt_address = 5;
+    string sqrt_p = 6;
+    int64 tick = 7;
+}
+
+message pool_Mint {
+    string evt_tx_hash = 1;
+    uint32 evt_index = 2;
+    google.protobuf.Timestamp evt_block_time = 3;
+    uint64 evt_block_number = 4;
+    string evt_address = 5;
+    bytes sender = 6;
+    bytes owner = 7;
+    int64 tick_lower = 8;
+    int64 tick_upper = 9;
+    string qty = 10;
+    string qty0 = 11;
+    string qty1 = 12;
+}
+
+message pool_Swap {
+    string evt_tx_hash = 1;
+    uint32 evt_index = 2;
+    google.protobuf.Timestamp evt_block_time = 3;
+    uint64 evt_block_number = 4;
+    string evt_address = 5;
+    bytes sender = 6;
+    bytes recipient = 7;
+    string delta_qty0 = 8;
+    string delta_qty1 = 9;
+    string sqrt_p = 10;
+    string liquidity = 11;
+    int64 current_tick = 12;
+}
+
+message pool_Transfer {
+    string evt_tx_hash = 1;
+    uint32 evt_index = 2;
+    google.protobuf.Timestamp evt_block_time = 3;
+    uint64 evt_block_number = 4;
+    string evt_address = 5;
+    bytes from = 6;
+    bytes to = 7;
+    string value = 8;
+}
