@@ -1,0 +1,25 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+import "forge-std/Test.sol";
+import "../src/CowAMMAdapter.sol";
+
+contract CowAMMAdapterTest is Test {
+    CowAMMAdapter adapter;
+    address tokenA = address(0x1);
+    address tokenB = address(0x2);
+    address lpToken = address(0x3);
+
+    function setUp() public {
+        adapter = new CowAMMAdapter(address(this));
+    }
+
+    function testSwapExactAmountIn() public {
+        uint256 result = adapter.swapExactAmountIn(tokenA, tokenB, 100, 90);
+        assertEq(result, 90, "Swap result mismatch!");
+    }
+
+    function testSwapLpToToken() public {
+        uint256 result = adapter.swapLpToToken(lpToken, tokenA, 1);
+        assertEq(result, 100, "LP Token swap failed!");
+    }
+}
