@@ -261,7 +261,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "ethereum-ekubo"
+name = "ethereum-ekubo-v2"
 version = "0.1.0"
 dependencies = [
  "anyhow",

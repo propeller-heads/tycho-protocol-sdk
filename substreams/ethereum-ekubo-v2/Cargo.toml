@@ -1,16 +1,16 @@
 [package]
-name = "ethereum-ekubo"
+name = "ethereum-ekubo-v2"
 version = "0.1.0"
 edition = "2021"
 
 [lib]
-name = "ethereum_ekubo"
+name = "ethereum_ekubo_v2"
 crate-type = ["cdylib"]
 
 [dependencies]
 substreams = "0.5.22"
 substreams-ethereum = "0.9.9"
-substreams-helper = { path = "../crates/substreams-helper" } # TODO Update to git once pushed
+substreams-helper = { path = "../crates/substreams-helper" }                                              # TODO Update to git once pushed
 prost = "0.11"
 tycho-substreams = { git = "https://github.com/propeller-heads/tycho-protocol-sdk.git", rev = "3c08359" }
 anyhow = "1.0.95"
