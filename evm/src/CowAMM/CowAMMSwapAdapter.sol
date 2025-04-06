@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 pragma solidity ^0.8.13;
 
+import {console2} from "forge-std/console2.sol";
 import {IERC20} from "openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import {IERC20Metadata} from
     "openzeppelin-contracts/contracts/token/ERC20/extensions/IERC20Metadata.sol";
@@ -223,7 +224,7 @@ uint256 constant RESERVE_LIMIT_FACTOR = 3;
 contract CowAMMSwapAdapter is ISwapAdapter {
     using SafeERC20 for IERC20;
     using BNumLib for uint256; 
-
+ 
     uint256 constant BONE = 10 ** 18;
 
     IBPool immutable pool;
@@ -243,13 +244,12 @@ contract CowAMMSwapAdapter is ISwapAdapter {
       override 
     returns (Fraction[] memory calculatedPrices) {
         calculatedPrices = new Fraction[](specifiedAmounts.length);
-        // tokens = getTokens(poolId); ..if its the first one that comes lexicographically, we'll just check 
-        // it against the < comparison, it might not even matter, we don't know for now, until testing
-        //address(bytes20(poolId))
         for (uint256 i = 0; i < specifiedAmounts.length; i++) {
-            calculatedPrices[i] = getPriceAt(specifiedAmounts[i], buyToken, sellToken);
+            calculatedPrices[i] = getPriceAt(specifiedAmounts[i], sellToken, buyToken);
         }
     }
+/** @dev Computes how many tokens can be taken out of a pool if `tokenAmountIn` are sent, given the current balances and
+     * price bounds. */
 
     function calcOutGivenIn(
         uint256 tokenBalanceIn,
@@ -268,6 +268,8 @@ contract CowAMMSwapAdapter is ISwapAdapter {
         tokenAmountOut = tokenBalanceOut.bmul(bar);
         return tokenAmountOut;
     }
+/** @dev Computes how many tokens must be sent to a pool in order to take `tokenAmountOut`, given the current balances
+     * and price bounds. */
 
     function calcInGivenOut(
         uint256 tokenBalanceIn,
@@ -281,7 +283,7 @@ contract CowAMMSwapAdapter is ISwapAdapter {
         uint256 diff = tokenBalanceOut.bsub(tokenAmountOut);
         uint256 y = tokenBalanceOut.bdiv(diff);
         uint256 foo = y.bpow(weightRatio);
-        foo = BONE.bsub(BONE);
+        foo = foo.bsub(BONE);
         tokenAmountIn = BONE.bsub(swapFee);
         tokenAmountIn = (tokenBalanceIn.bmul(foo)).bdiv(tokenAmountIn);
         return tokenAmountIn; 
@@ -298,14 +300,21 @@ contract CowAMMSwapAdapter is ISwapAdapter {
         address sellToken,
         address buyToken
         // address poolId 
-  ) internal view returns (Fraction memory) {
-    
+  ) public view returns (Fraction memory) {
+    if (specifiedAmount == 0) {
+          revert Unavailable("Specified amount cannot be zero!");
+    }
     uint256 tokenBalanceIn = IERC20(sellToken).balanceOf(address(pool));
     uint256 tokenWeightIn = pool.getDenormalizedWeight(sellToken);
 
     uint256 tokenBalanceOut = IERC20(buyToken).balanceOf(address(pool));
     uint256 tokenWeightOut = pool.getDenormalizedWeight(buyToken);
 
+    // uint256 swapFee = pool.getSwapFee(); // swap fee on CowPools is 99.9%
+    // uint256 spotPrice = pool.getSpotPriceSansFee(buyToken, sellToken); // you have to divide it by 10^18
+    // uint256 spotPriceScaledDown = spotPrice / BONE;
+
+    // console2.log("this is the spotPrice", spotPrice);
     uint256 amountOut = calcOutGivenIn(
                     tokenBalanceIn,
                     tokenWeightIn,
@@ -319,10 +328,11 @@ contract CowAMMSwapAdapter is ISwapAdapter {
                     tokenWeightIn,
                     tokenBalanceOut,
                     tokenWeightOut,
-                    specifiedAmount,
-                    0
-    );
-
+                    amountOut, 
+                    0    
+    ); 
+  console2.log("this is amount Out : ", amountOut);
+  console2.log("this is amount in : ", amountIn);
     return Fraction(amountOut, amountIn);
 }
 
@@ -423,11 +433,13 @@ contract CowAMMSwapAdapter is ISwapAdapter {
         external
         returns (uint256[] memory limits)
     { 
-    // theres no explicit limit set for CowAMM so will use the limit for balancer
+    // theres no explicit limit set for CowAMM so will use the same limit for balancer
 
         uint256 sellTokenBal = pool.getBalance(sellToken);
-    
+
         uint256 buyTokenBal = pool.getBalance(buyToken);
+        
+        limits = new uint256[](2);
 
         if (sellTokenBal > buyTokenBal) {
             limits[0] = sellTokenBal * RESERVE_LIMIT_FACTOR / 10;
@@ -438,9 +450,9 @@ contract CowAMMSwapAdapter is ISwapAdapter {
         }
     }
     function getCapabilities(
-        bytes32 poolId,
-        address sellToken,
-        address buyToken
+        bytes32,
+        address,
+        address
     ) external returns (Capability[] memory capabilities) {
         capabilities = new Capability[](4);
         capabilities[0] = Capability.SellOrder;
@@ -449,11 +461,14 @@ contract CowAMMSwapAdapter is ISwapAdapter {
         capabilities[3] = Capability.HardLimits;
     }
 
-    function getTokens(bytes32 _poolId)
+    function getTokens( 
+        bytes32
+    )
         external
+        view
         returns (address[] memory tokens)
     {
-         tokens = pool.getFinalTokens();
+        tokens = pool.getCurrentTokens();
     }
 
     function getPoolIds(uint256 offset, uint256 limit)
