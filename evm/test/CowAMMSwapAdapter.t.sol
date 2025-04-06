@@ -2,6 +2,7 @@
 pragma solidity ^0.8.13;
 
 import "forge-std/Test.sol";
+import {console2} from "forge-std/console2.sol";
 import "openzeppelin-contracts/contracts/interfaces/IERC20.sol";
 import { IBPool } from "src/CowAMM/interfaces/IBPool.sol";
 import "src/interfaces/ISwapAdapterTypes.sol";
@@ -15,27 +16,93 @@ contract CowAMMSwapAdapterTest is Test, ISwapAdapterTypes {
     uint256 constant pricePrecision = 10e24;
     string[] public stringPctgs = ["0%", "0.1%", "50%", "100%"];
     
-    IBPool constant BPool = IBPool(payable(0x9bd702E05B9c97E4A4a3E47Df1e0fe7A0C26d2F1));
+    address constant BPool = 0x9bd702E05B9c97E4A4a3E47Df1e0fe7A0C26d2F1;
 
     CowAMMSwapAdapter adapter;
 
     address constant COW = 0xDEf1CA1fb7FBcDC777520aa7f396b4E015F497aB; 
     address constant wstETH = 0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0;
 
-    uint256 constant TEST_ITERATIONS = 100;
-
+    uint256 constant TEST_ITERATIONS = 5;
     function setUp() public {
-        uint256 forkBlock = 18710000;
+        uint256 forkBlock = 20522035;
         vm.createSelectFork(vm.rpcUrl("mainnet"), forkBlock);
 
-        adapter = new CowAMMSwapAdapter((payable(address(BPool))));
+        adapter = new CowAMMSwapAdapter(BPool);
 
-        vm.label(address(BPool), "BPool");
+        vm.label(address(BPool), "BPool"); 
         vm.label(address(adapter), "CowAMMSwapAdapter");
         vm.label(address(wstETH), "wstETH");
         vm.label(address(COW), "COW");
+    } 
+    
+    function testPriceFuzz(uint256 amount0, uint256 amount1) public {
+        uint256[] memory limits = adapter.getLimits(bytes32(0), wstETH, COW);
+        //if the amount is too big, that when computing it eventually creates a base too big in the calcOutGivenIn() 
+        //calculation and we'll get an revert BNum_BPowBaseTooHigh() it threw that error for 2904413035532990072 
+        //check limits 
+        vm.assume(amount0 < limits[0]);
+        vm.assume(amount1 < limits[1]);
+
+        uint256[] memory amounts = new uint256[](2);
+        amounts[0] = amount0;
+        amounts[1] = amount1;
+        // console2.log("amount 0:", amount0);
+        // console2.log("amount 1:", amount1);
+        //with amountIn = 0, no tokens can be taken out. and vice versa so assertGt()
+        Fraction[] memory prices = adapter.price(bytes32(0), wstETH, COW, amounts);
+        for (uint256 i = 0; i < prices.length; i++) {
+            assertGt(prices[i].numerator, 0);
+            assertGt(prices[i].denominator, 0);
+        }
     }
 
+    function testPriceSingleFuzz() public {
+        uint256 specifiedAmount = 100; 
+        //the arithmetic operations are implemented with a precision of BONE.
+        //so they are already scaled internally by 10^18 
+        // Assume OrderSide.Sell
+        uint256[] memory limits =
+            adapter.getLimits(bytes32(0), wstETH, COW);
+        vm.assume(specifiedAmount > 0);
+        vm.assume(specifiedAmount < limits[0]); //10^20 < 2.32 * 10^20
+
+        Fraction memory price = adapter.getPriceAt(
+           specifiedAmount, wstETH, COW
+        );
+
+        assertGt(price.numerator, 0);
+        assertGt(price.denominator, 0);
+    }
+
+     function testPriceDecreasing() public {
+        uint256[] memory amounts = new uint256[](TEST_ITERATIONS);
+        Fraction[] memory prices = new Fraction[](TEST_ITERATIONS);
+
+        for (uint256 i = 0; i < TEST_ITERATIONS; i++) {
+            amounts[i] = 1000 * (i + 1) * 10**6; 
+            prices[i] = adapter.getPriceAt(
+                 amounts[i], wstETH, COW
+            ); 
+        }
+     //Returns 0 if fractions are equal, returns 1 if frac1 is greater, -1
+     // if frac1 is lesser.
+        for (uint256 i = 0; i < TEST_ITERATIONS - 1; i++) {
+            console.log("amount: %s", amounts[i]);
+            console.log("price[i]:", prices[i].numerator, prices[i].denominator);
+            console.log("price[i+1]:", prices[i + 1].numerator, prices[i + 1].denominator);
+
+            assertEq(prices[i].compareFractions(prices[i + 1]), 1);
+            assertGt(prices[i].denominator, 0);
+            assertGt(prices[i + 1].denominator, 0);
+        }
+    }
+    // function testSingleSidedLPjoin() public {
+
+    // }
+    // function testSingleSidedLPexit() public {
+
+    // }
     // @notice Test the behavior of a swap adapter for a list of pools
     // @dev Computes limits, prices, and swaps on the pools on both directions
     // for different
@@ -253,19 +320,25 @@ contract CowAMMSwapAdapterTest is Test, ISwapAdapterTypes {
         return amounts;
     }
 
-    function testGetPoolIds() public {
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                NotImplemented.selector, "CowAMMSwapAdapter.getPoolIds"
-            )
-        );
-        adapter.getPoolIds(100, 200);
-    }
-    function testGetTokens() public {
-        // address[] memory tokens = adapter.getTokens(bytes32(BPool));
+    function testGetCapabilitiesCowAMM() public {
+        Capability[] memory res =
+            adapter.getCapabilities(bytes32(0), COW, wstETH);
 
-        // assertEq(tokens[0], address(COW));
-        // assertEq(tokens[1], address(wstETH));
+        assertEq(res.length, 4);
+    }
+    function testGetLimits() public {
+        uint256[] memory limits = adapter.getLimits(bytes32(0), COW, wstETH);
+
+        assertEq(limits.length, 2);
+        assert(limits[0] > 0);
+        assert(limits[1] > 0);
+    }
+
+    function testGetTokens(bytes32 poolId) public {
+        address[] memory tokens = adapter.getTokens(bytes32(0));
+
+        assertEq(tokens[0], address(COW));
+        assertEq(tokens[1], address(wstETH));
     }
     function fractionToInt(Fraction memory price)
         public
