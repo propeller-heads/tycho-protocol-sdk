@@ -261,6 +261,44 @@ dependencies = [
 ]
 
 [[package]]
+name = "ethereum-ekubo-v2"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "ethabi 18.0.0",
+ "hex",
+ "itertools 0.10.5",
+ "num-bigint",
+ "prost 0.11.9",
+ "serde",
+ "serde_qs",
+ "substreams",
+ "substreams-ethereum",
+ "substreams-helper 0.0.2 (git+https://github.com/propeller-heads/tycho-protocol-sdk.git?rev=e4609be)",
+ "tycho-substreams 0.2.0 (git+https://github.com/propeller-heads/tycho-protocol-sdk.git?rev=3c08359)",
+]
+
+[[package]]
+name = "ethereum-pancakeswap-v3"
+version = "0.1.2"
+dependencies = [
+ "anyhow",
+ "ethabi 18.0.0",
+ "getrandom",
+ "hex",
+ "hex-literal 0.4.1",
+ "itertools 0.13.0",
+ "num-bigint",
+ "prost 0.11.9",
+ "substreams",
+ "substreams-entity-change",
+ "substreams-ethereum",
+ "substreams-helper 0.0.2 (git+https://github.com/propeller-heads/tycho-protocol-sdk.git?rev=b8aeaa3)",
+ "tiny-keccak",
+ "tycho-substreams 0.2.0 (git+https://github.com/propeller-heads/tycho-protocol-sdk.git?rev=b8aeaa3)",
+]
+
+[[package]]
 name = "ethereum-sfrax"
 version = "0.1.0"
 dependencies = [
@@ -384,7 +422,7 @@ dependencies = [
 
 [[package]]
 name = "ethereum-uniswap-v3-logs-only"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "anyhow",
  "ethabi 18.0.0",
@@ -479,7 +517,7 @@ checksum = "162ee34ebcb7c64a8abebc059ce0fee27c2262618d7b60ed8faf72fef13c3650"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.96",
+ "syn 2.0.100",
 ]
 
 [[package]]
@@ -621,7 +659,7 @@ checksum = "a0eb5a3343abf848c0984fe4604b2b105da9539376e24fc0a3b0007411ae4fd9"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.96",
+ "syn 2.0.100",
 ]
 
 [[package]]
@@ -818,7 +856,7 @@ dependencies = [
  "pest_meta",
  "proc-macro2",
  "quote",
- "syn 2.0.96",
+ "syn 2.0.100",
 ]
 
 [[package]]
@@ -982,7 +1020,7 @@ dependencies = [
  "itertools 0.12.1",
  "proc-macro2",
  "quote",
- "syn 2.0.96",
+ "syn 2.0.100",
 ]
 
 [[package]]
@@ -1119,7 +1157,7 @@ dependencies = [
  "regex",
  "relative-path",
  "rustc_version",
- "syn 2.0.96",
+ "syn 2.0.100",
  "unicode-ident",
 ]
 
@@ -1190,7 +1228,7 @@ checksum = "5a9bf7cf98d04a2b28aead066b7496853d4779c9cc183c440dbac457641e19a0"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.96",
+ "syn 2.0.100",
 ]
 
 [[package]]
@@ -1433,6 +1471,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "substreams-helper"
+version = "0.0.2"
+source = "git+https://github.com/propeller-heads/tycho-protocol-sdk.git?rev=e4609be#e4609bed0bb3c73a13864a951b8cb64c523bc148"
+dependencies = [
+ "anyhow",
+ "base64",
+ "bigdecimal",
+ "downcast-rs",
+ "ethabi 18.0.0",
+ "hex",
+ "hex-literal 0.4.1",
+ "num-bigint",
+ "pad",
+ "prost 0.11.9",
+ "prost-types 0.12.6",
+ "substreams",
+ "substreams-entity-change",
+ "substreams-ethereum",
+ "thiserror 1.0.69",
+ "tiny-keccak",
+]
+
+[[package]]
 name = "substreams-macro"
 version = "0.5.22"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1457,9 +1518,9 @@ dependencies = [
 
 [[package]]
 name = "syn"
-version = "2.0.96"
+version = "2.0.100"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d5d0adab1ae378d7f53bdebc67a39f1f151407ef230f0ce2883572f5d8985c80"
+checksum = "b09a44accad81e1ba1cd74a32461ba89dee89095ba17b32f5d03683b1b1fc2a0"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1511,7 +1572,7 @@ checksum = "4fee6c4efc90059e10f81e6d42c60a18f76588c3d74cb83a0b242a2b6c7504c1"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.96",
+ "syn 2.0.100",
 ]
 
 [[package]]
@@ -1522,7 +1583,7 @@ checksum = "e1d8749b4531af2117677a5fcd12b1348a3fe2b81e36e61ffeac5c4aa3273e36"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.96",
+ "syn 2.0.100",
 ]
 
 [[package]]
@@ -1783,5 +1844,5 @@ checksum = "fa4f8080344d4671fb4e831a13ad1e68092748387dfc4f55e356242fae12ce3e"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.96",
+ "syn 2.0.100",
 ]
