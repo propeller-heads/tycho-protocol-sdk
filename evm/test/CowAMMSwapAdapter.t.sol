@@ -25,7 +25,7 @@ contract CowAMMSwapAdapterTest is Test, ISwapAdapterTypes {
 
     uint256 constant TEST_ITERATIONS = 5;
     function setUp() public {
-        uint256 forkBlock = 20522035;
+        uint256 forkBlock = 20522303;
         vm.createSelectFork(vm.rpcUrl("mainnet"), forkBlock);
 
         adapter = new CowAMMSwapAdapter(BPool);
@@ -85,16 +85,60 @@ contract CowAMMSwapAdapterTest is Test, ISwapAdapterTypes {
                  amounts[i], wstETH, COW
             ); 
         }
-     //Returns 0 if fractions are equal, returns 1 if frac1 is greater, -1
-     // if frac1 is lesser.
         for (uint256 i = 0; i < TEST_ITERATIONS - 1; i++) {
-            console.log("amount: %s", amounts[i]);
-            console.log("price[i]:", prices[i].numerator, prices[i].denominator);
-            console.log("price[i+1]:", prices[i + 1].numerator, prices[i + 1].denominator);
-
             assertEq(prices[i].compareFractions(prices[i + 1]), 1);
             assertGt(prices[i].denominator, 0);
             assertGt(prices[i + 1].denominator, 0);
+        }
+    }
+     function testSwapFuzz(uint256 specifiedAmount, bool isBuy) public {
+
+        OrderSide side = isBuy ? OrderSide.Buy : OrderSide.Sell;
+
+        uint256[] memory limits = adapter.getLimits(bytes32(0), wstETH, COW);
+        
+
+        if (side == OrderSide.Buy) {
+            //the limit values change so limit[0] desnt cut it 
+            vm.assume(specifiedAmount < limits[0]);
+
+            // TODO calculate the amountIn by using price function as in
+            // BalancerV2 testPriceDecreasing
+            deal(COW, address(this), type(uint256).max);
+            IERC20(COW).approve(address(adapter), type(uint256).max);
+        } else {
+            vm.assume(specifiedAmount < limits[1]);
+            //set specified amount of COW tokens to address
+            deal(wstETH, address(this), specifiedAmount);
+            IERC20(wstETH).approve(address(adapter), specifiedAmount);
+        }
+
+        uint256 wstETH_balance = IERC20(wstETH).balanceOf(address(this));
+        uint256 cow_balance = IERC20(COW).balanceOf(address(this));
+
+        Trade memory trade =
+            adapter.swap(bytes32(0), wstETH, COW, side, specifiedAmount);
+
+        if (trade.calculatedAmount > 0) {
+            if (side == OrderSide.Buy) {
+                assertEq(
+                    specifiedAmount,
+                    IERC20(COW).balanceOf(address(this)) - cow_balance
+                );
+                assertEq(
+                    trade.calculatedAmount,
+                    wstETH_balance - IERC20(wstETH).balanceOf(address(this))
+                );
+            } else {
+                assertEq(
+                    specifiedAmount,
+                    wstETH_balance - IERC20(wstETH).balanceOf(address(this))
+                );
+                assertEq(
+                    trade.calculatedAmount,
+                    IERC20(COW).balanceOf(address(this)) - cow_balance
+                );
+            }
         }
     }
     // function testSingleSidedLPjoin() public {
@@ -135,12 +179,12 @@ contract CowAMMSwapAdapterTest is Test, ISwapAdapterTypes {
     // 2. Be positive
     // 3. Always be >= the executed price and >= the price after the swap
     function testPricesForPair(
-        bytes32 poolId,
+        bytes32,
         address tokenIn,
         address tokenOut,
         bool hasPriceImpact
     ) internal {
-        uint256 sellLimit = adapter.getLimits(poolId, tokenIn, tokenOut)[0];
+        uint256 sellLimit = adapter.getLimits(bytes32(0), wstETH, COW)[0];
         assertGt(sellLimit, 0, "Sell limit should be greater than 0");
 
         console2.log(
@@ -151,13 +195,13 @@ contract CowAMMSwapAdapterTest is Test, ISwapAdapterTypes {
         );
 
         bool hasMarginalPrices = hasCapability(
-            adapter.getCapabilities(poolId, tokenIn, tokenOut),
+            adapter.getCapabilities(bytes32(0), tokenIn, tokenOut),
             Capability.MarginalPrice
         );
         uint256[] memory amounts =
             calculateTestAmounts(sellLimit, hasMarginalPrices);
         Fraction[] memory prices =
-            adapter.price(poolId, tokenIn, tokenOut, amounts);
+            adapter.price(bytes32(0), tokenIn, tokenOut, amounts);
         assertGt(
             fractionToInt(prices[0]),
             fractionToInt(prices[prices.length - 1]),
@@ -190,7 +234,7 @@ contract CowAMMSwapAdapterTest is Test, ISwapAdapterTypes {
 
             console2.log("TEST: Swapping %d of %s", amounts[j], tokenIn);
             trade = adapter.swap(
-                poolId, tokenIn, tokenOut, OrderSide.Sell, amounts[j]
+                bytes32(0), tokenIn, tokenOut, OrderSide.Sell, amounts[j]
             );
             uint256 executedPrice =
                 trade.calculatedAmount * pricePrecision / amounts[j];
@@ -238,17 +282,17 @@ contract CowAMMSwapAdapterTest is Test, ISwapAdapterTypes {
         uint256 amountAboveLimit = sellLimit * 105 / 100;
 
         bool hasHardLimits = hasCapability(
-            adapter.getCapabilities(poolId, tokenIn, tokenOut),
+            adapter.getCapabilities(bytes32(0), tokenIn, tokenOut),
             Capability.HardLimits
         );
 
         if (hasHardLimits) {
             testRevertAboveLimit(
-                poolId, tokenIn, tokenOut, amountAboveLimit
+                bytes32(0), tokenIn, tokenOut, amountAboveLimit
             );
         } else {
             testOperationsAboveLimit(
-                poolId, tokenIn, tokenOut, amountAboveLimit
+                bytes32(0), tokenIn, tokenOut, amountAboveLimit
             );
         }
 
