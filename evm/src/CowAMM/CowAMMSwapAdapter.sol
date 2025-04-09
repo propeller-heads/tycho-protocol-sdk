@@ -219,7 +219,8 @@ library BNumLib {
 
 /// @dev This is the CowAMM swap adapter.
 
-uint256 constant RESERVE_LIMIT_FACTOR = 3;
+uint256 constant MAX_IN_FACTOR = 5;
+uint256 constant MAX_OUT_FACTOR = 33;
 
 contract CowAMMSwapAdapter is ISwapAdapter {
     using SafeERC20 for IERC20;
@@ -396,7 +397,7 @@ contract CowAMMSwapAdapter is ISwapAdapter {
         if (sellToken != address(0) && buyToken != address(0)) {
             uint256 amountOut = sell(sellToken, buyToken, specifiedAmount);
             trade.calculatedAmount = amountOut;
-            trade.price = getPriceAt(specifiedAmount,sellToken,buyToken); // Example price calculation
+            trade.price = getPriceAt(specifiedAmount, sellToken, buyToken); // Example price calculation
         } 
             // Single Sided LP Providing (Join Pool)
         else {
@@ -433,7 +434,6 @@ contract CowAMMSwapAdapter is ISwapAdapter {
         external
         returns (uint256[] memory limits)
     { 
-    // theres no explicit limit set for CowAMM so will use the same limit for balancer
 
         uint256 sellTokenBal = pool.getBalance(sellToken);
 
@@ -441,12 +441,40 @@ contract CowAMMSwapAdapter is ISwapAdapter {
         
         limits = new uint256[](2);
 
-        if (sellTokenBal > buyTokenBal) {
-            limits[0] = sellTokenBal * RESERVE_LIMIT_FACTOR / 10;
-            limits[1] = buyTokenBal *  RESERVE_LIMIT_FACTOR / 10;
+        console2.log("sell token balance", sellTokenBal);
+        console2.log("buy token balance", buyTokenBal);
+        
+        //wstETH 100000000000000000 [1e17]
+        //amountIn 2904413035532990072 [2.904e18]
+        //COW 1547000000000000000000 [1.547e21]
+        //minAmountOut - 0
+        // max price - 115792089237316195423570985008687907853269984665640564039457584007913129639935 [1.157e77]
+
+        // "sell token balance": "100000000000000000 [1e17]",
+        // "buy token balance": "1547000000000000000000 [1.547e21]",
+        // "buy token limit 0": "773500000000000000000 [7.735e20]",
+        // "sell token limit 1": "330000000000000000 [3.3e17]", // issue is we are multiplying it by 3.3 instead of 33% of sellToken balance
+        // "return": [
+        //   "773500000000000000000 [7.735e20]",
+        //   "330000000000000000 [3.3e17]"
+        // ]
+
+        // 3 / 10 = 0.30
+        // 33 /100 = 0.33 
+        //They're different
+        // lesson there
+//wstETH balance is more than COW balance 
+        if (sellTokenBal > buyTokenBal) { //false
+            limits[0] = sellTokenBal * MAX_IN_FACTOR / 10;
+            limits[1] = buyTokenBal *  MAX_OUT_FACTOR / 100;
+            console2.log("sell token limit 0", limits[0]);
+            console2.log("buy token limit 1", limits[1]);
         } else {
-            limits[0] = buyTokenBal *  RESERVE_LIMIT_FACTOR / 10;
-            limits[1] = sellTokenBal * RESERVE_LIMIT_FACTOR / 10;
+            limits[0] = buyTokenBal *  MAX_IN_FACTOR / 10; 
+            //problem is our test is now using the limit for buyTokenBal
+            limits[1] = sellTokenBal * MAX_OUT_FACTOR / 100; 
+            console2.log("buy token limit 0", limits[0]);
+            console2.log("sell token limit 1", limits[1]);
         }
     }
     function getCapabilities(
@@ -492,8 +520,29 @@ contract CowAMMSwapAdapter is ISwapAdapter {
 
         uint256 tokenAmountIn;
 
+        uint256 tokenInBalance = IERC20(sellToken).balanceOf(address(pool));
+        uint256 tokenInWeight = pool.getDenormalizedWeight(sellToken);
+
+        uint256 tokenOutBalance = IERC20(buyToken).balanceOf(address(pool));
+        uint256 tokenOutWeight = pool.getDenormalizedWeight(buyToken);
+
+        uint256 minAmountOut = calcOutGivenIn(
+                    tokenInBalance,
+                    tokenInWeight,
+                    tokenOutBalance,
+                    tokenOutWeight,
+                    amount,
+                    0
+        ); 
+                                                    //expectedAmountOut
+        uint256 tokenOutBalanceFinal = tokenOutBalance - minAmountOut;
+        uint256 spotPriceAfterSwapWithoutFee = (tokenInBalance / tokenInWeight) / (tokenOutBalanceFinal / tokenOutWeight);
+        uint256 spotPriceAfterSwap = spotPriceAfterSwapWithoutFee.bmul(
+          BONE.bdiv(BONE.bsub(0))
+        );
+
         (tokenAmountIn,) = pool.swapExactAmountIn(
-            sellToken, amount, buyToken, 0, type(uint256).max
+            sellToken, amount, buyToken, minAmountOut, spotPriceAfterSwap
         );
         calculatedAmount = tokenAmountIn;
     }
@@ -513,9 +562,32 @@ contract CowAMMSwapAdapter is ISwapAdapter {
         IERC20(buyToken).approve(address(pool), amountOut);
         uint256 tokenAmountOut;
 
+        uint256 tokenInBalance = IERC20(sellToken).balanceOf(address(pool));
+        uint256 tokenInWeight = pool.getDenormalizedWeight(sellToken);
+
+        uint256 tokenOutBalance = IERC20(buyToken).balanceOf(address(pool));
+        uint256 tokenOutWeight = pool.getDenormalizedWeight(buyToken);
+
+        //maxAmountIn
+        uint256 maxAmountIn = calcInGivenOut(
+                    tokenInBalance,
+                    tokenInWeight,
+                    tokenOutBalance,
+                    tokenOutWeight, 
+                    amountOut,
+                    0
+        ); 
+        //calculations as seen in the tests
+        uint256 tokenInBalanceFinal = tokenInBalance + maxAmountIn;
+        uint256 spotPriceAfterSwapWithoutFee = (tokenInBalanceFinal / tokenInWeight) / (tokenOutBalance / tokenOutWeight);
+        uint256 spotPriceAfterSwap = spotPriceAfterSwapWithoutFee.bmul(
+          BONE.bdiv(BONE.bsub(0))
+        );
+
         (tokenAmountOut,) = pool.swapExactAmountOut(
-            sellToken, 0, buyToken, amountOut, type(uint256).max
+            sellToken, maxAmountIn, buyToken, amountOut, spotPriceAfterSwap
         );
         calculatedAmount = tokenAmountOut;
     }
 }
+
