@@ -36,6 +36,31 @@ pub struct TickDeltas {
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
+pub struct OrderSaleRateDelta {
+    /// bytes32
+    #[prost(bytes="vec", tag="1")]
+    pub pool_id: ::prost::alloc::vec::Vec<u8>,
+    #[prost(uint64, tag="2")]
+    pub time: u64,
+    /// int112
+    #[prost(bytes="vec", tag="3")]
+    pub sale_rate_delta0: ::prost::alloc::vec::Vec<u8>,
+    /// int112
+    #[prost(bytes="vec", tag="4")]
+    pub sale_rate_delta1: ::prost::alloc::vec::Vec<u8>,
+    #[prost(uint64, tag="5")]
+    pub ordinal: u64,
+    #[prost(message, optional, tag="6")]
+    pub transaction: ::core::option::Option<Transaction>,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct OrderSaleRateDeltas {
+    #[prost(message, repeated, tag="1")]
+    pub deltas: ::prost::alloc::vec::Vec<OrderSaleRateDelta>,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct LiquidityChange {
     /// bytes32
     #[prost(bytes="vec", tag="1")]
@@ -43,7 +68,7 @@ pub struct LiquidityChange {
     /// uint128 or int128, depending on change_type
     #[prost(bytes="vec", tag="2")]
     pub value: ::prost::alloc::vec::Vec<u8>,
-    #[prost(enumeration="LiquidityChangeType", tag="3")]
+    #[prost(enumeration="ChangeType", tag="3")]
     pub change_type: i32,
     #[prost(uint64, tag="4")]
     pub ordinal: u64,
@@ -55,6 +80,31 @@ pub struct LiquidityChange {
 pub struct LiquidityChanges {
     #[prost(message, repeated, tag="1")]
     pub changes: ::prost::alloc::vec::Vec<LiquidityChange>,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct SaleRateChange {
+    /// bytes32
+    #[prost(bytes="vec", tag="1")]
+    pub pool_id: ::prost::alloc::vec::Vec<u8>,
+    /// uint112 or int112, depending on change_type
+    #[prost(bytes="vec", tag="2")]
+    pub token0_value: ::prost::alloc::vec::Vec<u8>,
+    /// uint112 or int112, depending on change_type
+    #[prost(bytes="vec", tag="3")]
+    pub token1_value: ::prost::alloc::vec::Vec<u8>,
+    #[prost(enumeration="ChangeType", tag="4")]
+    pub change_type: i32,
+    #[prost(uint64, tag="5")]
+    pub ordinal: u64,
+    #[prost(message, optional, tag="6")]
+    pub transaction: ::core::option::Option<Transaction>,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct SaleRateChanges {
+    #[prost(message, repeated, tag="1")]
+    pub changes: ::prost::alloc::vec::Vec<SaleRateChange>,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -73,6 +123,9 @@ pub struct PoolDetails {
 pub struct BlockTransactionEvents {
     #[prost(message, repeated, tag="1")]
     pub block_transaction_events: ::prost::alloc::vec::Vec<block_transaction_events::TransactionEvents>,
+    /// block timestamp
+    #[prost(uint64, tag="2")]
+    pub timestamp: u64,
 }
 /// Nested message and enum types in `BlockTransactionEvents`.
 pub mod block_transaction_events {
@@ -94,7 +147,7 @@ pub mod block_transaction_events {
             /// bytes32
             #[prost(bytes="vec", tag="2")]
             pub pool_id: ::prost::alloc::vec::Vec<u8>,
-            #[prost(oneof="pool_log::Event", tags="3, 4, 5, 6, 7")]
+            #[prost(oneof="pool_log::Event", tags="3, 4, 5, 6, 7, 8, 9")]
             pub event: ::core::option::Option<pool_log::Event>,
         }
         /// Nested message and enum types in `PoolLog`.
@@ -176,6 +229,7 @@ pub mod block_transaction_events {
                     Unknown = 0,
                     Base = 1,
                     Oracle = 2,
+                    Twamm = 3,
                 }
                 impl Extension {
                     /// String value of the enum field names used in the ProtoBuf definition.
@@ -187,6 +241,7 @@ pub mod block_transaction_events {
                             Extension::Unknown => "EXTENSION_UNKNOWN",
                             Extension::Base => "EXTENSION_BASE",
                             Extension::Oracle => "EXTENSION_ORACLE",
+                            Extension::Twamm => "EXTENSION_TWAMM",
                         }
                     }
                     /// Creates an enum from field names used in the ProtoBuf definition.
@@ -195,6 +250,7 @@ pub mod block_transaction_events {
                             "EXTENSION_UNKNOWN" => Some(Self::Unknown),
                             "EXTENSION_BASE" => Some(Self::Base),
                             "EXTENSION_ORACLE" => Some(Self::Oracle),
+                            "EXTENSION_TWAMM" => Some(Self::Twamm),
                             _ => None,
                         }
                     }
@@ -211,6 +267,46 @@ pub mod block_transaction_events {
                 pub amount1: ::prost::alloc::vec::Vec<u8>,
             }
             #[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+            pub struct VirtualOrdersExecuted {
+                /// int112
+                #[prost(bytes="vec", tag="1")]
+                pub sale_rate_token0: ::prost::alloc::vec::Vec<u8>,
+                /// int112
+                #[prost(bytes="vec", tag="2")]
+                pub sale_rate_token1: ::prost::alloc::vec::Vec<u8>,
+            }
+            #[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+            pub struct OrderUpdated {
+                #[prost(message, optional, tag="1")]
+                pub order_key: ::core::option::Option<order_updated::OrderKey>,
+                /// int112
+                #[prost(bytes="vec", tag="2")]
+                pub sale_rate_delta: ::prost::alloc::vec::Vec<u8>,
+            }
+            /// Nested message and enum types in `OrderUpdated`.
+            pub mod order_updated {
+                #[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+                pub struct OrderKey {
+                    /// address
+                    #[prost(bytes="vec", tag="1")]
+                    pub sell_token: ::prost::alloc::vec::Vec<u8>,
+                    /// address
+                    #[prost(bytes="vec", tag="2")]
+                    pub buy_token: ::prost::alloc::vec::Vec<u8>,
+                    #[prost(fixed64, tag="3")]
+                    pub fee: u64,
+                    /// block timestamp
+                    #[prost(uint64, tag="4")]
+                    pub start_time: u64,
+                    /// block timestamp
+                    #[prost(uint64, tag="5")]
+                    pub end_time: u64,
+                }
+            }
+            #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Oneof)]
             pub enum Event {
                 #[prost(message, tag="3")]
@@ -223,25 +319,29 @@ pub mod block_transaction_events {
                 PoolInitialized(PoolInitialized),
                 #[prost(message, tag="7")]
                 FeesAccumulated(FeesAccumulated),
+                #[prost(message, tag="8")]
+                VirtualOrdersExecuted(VirtualOrdersExecuted),
+                #[prost(message, tag="9")]
+                OrderUpdated(OrderUpdated),
             }
         }
     }
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
 #[repr(i32)]
-pub enum LiquidityChangeType {
+pub enum ChangeType {
     Delta = 0,
     Absolute = 1,
 }
-impl LiquidityChangeType {
+impl ChangeType {
     /// String value of the enum field names used in the ProtoBuf definition.
     ///
     /// The values are not transformed in any way and thus are considered stable
     /// (if the ProtoBuf definition does not change) and safe for programmatic use.
     pub fn as_str_name(&self) -> &'static str {
         match self {
-            LiquidityChangeType::Delta => "DELTA",
-            LiquidityChangeType::Absolute => "ABSOLUTE",
+            ChangeType::Delta => "DELTA",
+            ChangeType::Absolute => "ABSOLUTE",
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.

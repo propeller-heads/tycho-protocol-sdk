@@ -22,7 +22,20 @@ message TickDeltas {
   repeated TickDelta deltas = 1;
 }
 
-enum LiquidityChangeType {
+message OrderSaleRateDelta {
+  bytes pool_id = 1; // bytes32
+  uint64 time = 2;
+  bytes sale_rate_delta0 = 3; // int112
+  bytes sale_rate_delta1 = 4; // int112
+  uint64 ordinal = 5;
+  Transaction transaction = 6;
+}
+
+message OrderSaleRateDeltas {
+  repeated OrderSaleRateDelta deltas = 1;
+}
+
+enum ChangeType {
   DELTA = 0;
   ABSOLUTE = 1;
 }
@@ -30,13 +43,26 @@ enum LiquidityChangeType {
 message LiquidityChange {
   bytes pool_id = 1; // bytes32
   bytes value = 2; // uint128 or int128, depending on change_type
-  LiquidityChangeType change_type = 3;
+  ChangeType change_type = 3;
   uint64 ordinal = 4;
   Transaction transaction = 5;
 }
 
 message LiquidityChanges {
   repeated LiquidityChange changes = 1;
+}
+
+message SaleRateChange {
+  bytes pool_id = 1; // bytes32
+  bytes token0_value = 2; // uint112 or int112, depending on change_type
+  bytes token1_value = 3; // uint112 or int112, depending on change_type
+  ChangeType change_type = 4;
+  uint64 ordinal = 5;
+  Transaction transaction = 6;
+}
+
+message SaleRateChanges {
+  repeated SaleRateChange changes = 1;
 }
 
 message PoolDetails {
@@ -47,6 +73,7 @@ message PoolDetails {
 
 message BlockTransactionEvents {
   repeated TransactionEvents block_transaction_events = 1;
+  uint64 timestamp = 2; // block timestamp
 
   message TransactionEvents {
     Transaction transaction = 1;
@@ -62,6 +89,8 @@ message BlockTransactionEvents {
         PositionFeesCollected position_fees_collected = 5;
         PoolInitialized pool_initialized = 6;
         FeesAccumulated fees_accumulated = 7;
+        VirtualOrdersExecuted virtual_orders_executed = 8;
+        OrderUpdated order_updated = 9;
       }
 
       message Swapped {
@@ -97,12 +126,31 @@ message BlockTransactionEvents {
           EXTENSION_UNKNOWN = 0;
           EXTENSION_BASE = 1;
           EXTENSION_ORACLE = 2;
+          EXTENSION_TWAMM = 3;
         }
       }
 
       message FeesAccumulated {
         bytes amount0 = 1; // uint128
         bytes amount1 = 2; // uint128
+      }
+
+      message VirtualOrdersExecuted {
+        bytes sale_rate_token0 = 1; // int112
+        bytes sale_rate_token1 = 2; // int112
+      }
+
+      message OrderUpdated {
+        OrderKey order_key = 1;
+        bytes sale_rate_delta = 2; // int112
+
+        message OrderKey {
+          bytes sell_token = 1; // address
+          bytes buy_token = 2; // address
+          fixed64 fee = 3;
+          uint64 start_time = 4; // block timestamp
+          uint64 end_time = 5; // block timestamp
+        }
       }
     }
   }
