@@ -23,7 +23,7 @@ pub fn map_order_sale_rate_deltas(block_tx_events: BlockTransactionEvents) -> Or
                     .flat_map(move |log| {
                         let tx = tx.clone();
 
-                        maybe_order_sale_rate_delta(log.event.unwrap())
+                        order_sale_rate_deltas(log.event.unwrap())
                             .into_iter()
                             .map(move |partial| OrderSaleRateDelta {
                                 pool_id: log.pool_id.clone(),
@@ -45,7 +45,7 @@ struct PartialOrderSaleRateDelta {
     sale_rate_delta1: Vec<u8>,
 }
 
-fn maybe_order_sale_rate_delta(ev: Event) -> Vec<PartialOrderSaleRateDelta> {
+fn order_sale_rate_deltas(ev: Event) -> Vec<PartialOrderSaleRateDelta> {
     match ev {
         Event::OrderUpdated(ev) => {
             let (sale_rate_delta0, sale_rate_delta1) = sale_rate_deltas_from_order_update(&ev);
