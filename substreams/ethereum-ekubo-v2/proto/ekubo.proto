@@ -86,12 +86,9 @@ message BlockTransactionEvents {
       oneof event {
         Swapped swapped = 3;
         PositionUpdated position_updated = 4;
-        PositionFeesCollected position_fees_collected = 5;
-        PoolInitialized pool_initialized = 6;
-        FeesAccumulated fees_accumulated = 7;
-        VirtualOrdersExecuted virtual_orders_executed = 8;
-        OrderUpdated order_updated = 9;
-        OrderProceedsWithdrawn order_proceeds_withdrawn = 10;
+        PoolInitialized pool_initialized = 5;
+        VirtualOrdersExecuted virtual_orders_executed = 6;
+        OrderUpdated order_updated = 7;
       }
 
       message Swapped {
@@ -110,11 +107,6 @@ message BlockTransactionEvents {
         bytes delta1 = 5; // int128
       }
 
-      message PositionFeesCollected {
-        bytes amount0 = 1; // uint128
-        bytes amount1 = 2; // uint128
-      }
-
       message PoolInitialized {
         bytes token0 = 1; // address
         bytes token1 = 2; // address
@@ -129,11 +121,6 @@ message BlockTransactionEvents {
           EXTENSION_ORACLE = 2;
           EXTENSION_TWAMM = 3;
         }
-      }
-
-      message FeesAccumulated {
-        bytes amount0 = 1; // uint128
-        bytes amount1 = 2; // uint128
       }
 
       message VirtualOrdersExecuted {
@@ -152,11 +139,6 @@ message BlockTransactionEvents {
           uint64 start_time = 4; // block timestamp
           uint64 end_time = 5; // block timestamp
         }
-      }
-
-      message OrderProceedsWithdrawn {
-        bytes token = 1; // address
-        bytes amount = 2; // uint128
       }
     }
   }

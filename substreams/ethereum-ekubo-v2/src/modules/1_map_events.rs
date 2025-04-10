@@ -13,7 +13,7 @@ use crate::{
         block_transaction_events::{
             transaction_events::{
                 pool_log::{
-                    order_updated::OrderKey, pool_initialized::Extension, Event, FeesAccumulated, OrderProceedsWithdrawn, OrderUpdated, PoolInitialized, PositionFeesCollected, PositionUpdated, Swapped, VirtualOrdersExecuted
+                    order_updated::OrderKey, pool_initialized::Extension, Event, OrderUpdated, PoolInitialized, PositionUpdated, Swapped, VirtualOrdersExecuted
                 },
                 PoolLog,
             },
@@ -85,14 +85,6 @@ fn maybe_pool_log(log: &Log, config: &DeploymentConfig) -> Option<PoolLog> {
                     delta1: ev.delta1.to_signed_bytes_be(),
                 }),
             )
-        } else if let Some(ev) = core_events::PositionFeesCollected::match_and_decode(log) {
-            (
-                ev.pool_id.to_vec(),
-                Event::PositionFeesCollected(PositionFeesCollected {
-                    amount0: ev.amount0.to_bytes_be().1,
-                    amount1: ev.amount1.to_bytes_be().1,
-                }),
-            )
         } else if let Some(ev) = core_events::PoolInitialized::match_and_decode(log) {
             let pool_config = PoolConfig::from(ev.pool_key.2);
 
@@ -119,14 +111,6 @@ fn maybe_pool_log(log: &Log, config: &DeploymentConfig) -> Option<PoolLog> {
                     tick: ev.tick.to_i32(),
                     sqrt_ratio: float_sqrt_ratio_to_fixed(ev.sqrt_ratio),
                     extension: extension.into(),
-                }),
-            )
-        } else if let Some(ev) = core_events::FeesAccumulated::match_and_decode(log) {
-            (
-                ev.pool_id.to_vec(),
-                Event::FeesAccumulated(FeesAccumulated {
-                    amount0: ev.amount0.to_bytes_be().1,
-                    amount1: ev.amount1.to_bytes_be().1,
                 }),
             )
         } else {
@@ -161,18 +145,6 @@ fn maybe_pool_log(log: &Log, config: &DeploymentConfig) -> Option<PoolLog> {
                         end_time: key.4.to_u64(),
                     }),
                     sale_rate_delta: ev.sale_rate_delta.to_signed_bytes_be(),
-                }),
-            )
-        } else if let Some(ev) = twamm_events::OrderProceedsWithdrawn::match_and_decode(log) {
-            let key = ev.order_key;
-
-            (
-                PoolKey
-                    ::from_order_key(&key, &log.address)
-                    .into_pool_id(),
-                Event::OrderProceedsWithdrawn(OrderProceedsWithdrawn {
-                    token: key.1,
-                    amount: ev.amount.to_bytes_be().1,
                 }),
             )
         } else {

@@ -147,7 +147,7 @@ pub mod block_transaction_events {
             /// bytes32
             #[prost(bytes="vec", tag="2")]
             pub pool_id: ::prost::alloc::vec::Vec<u8>,
-            #[prost(oneof="pool_log::Event", tags="3, 4, 5, 6, 7, 8, 9, 10")]
+            #[prost(oneof="pool_log::Event", tags="3, 4, 5, 6, 7")]
             pub event: ::core::option::Option<pool_log::Event>,
         }
         /// Nested message and enum types in `PoolLog`.
@@ -189,16 +189,6 @@ pub mod block_transaction_events {
                 /// int128
                 #[prost(bytes="vec", tag="5")]
                 pub delta1: ::prost::alloc::vec::Vec<u8>,
-            }
-            #[allow(clippy::derive_partial_eq_without_eq)]
-#[derive(Clone, PartialEq, ::prost::Message)]
-            pub struct PositionFeesCollected {
-                /// uint128
-                #[prost(bytes="vec", tag="1")]
-                pub amount0: ::prost::alloc::vec::Vec<u8>,
-                /// uint128
-                #[prost(bytes="vec", tag="2")]
-                pub amount1: ::prost::alloc::vec::Vec<u8>,
             }
             #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -258,16 +248,6 @@ pub mod block_transaction_events {
             }
             #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
-            pub struct FeesAccumulated {
-                /// uint128
-                #[prost(bytes="vec", tag="1")]
-                pub amount0: ::prost::alloc::vec::Vec<u8>,
-                /// uint128
-                #[prost(bytes="vec", tag="2")]
-                pub amount1: ::prost::alloc::vec::Vec<u8>,
-            }
-            #[allow(clippy::derive_partial_eq_without_eq)]
-#[derive(Clone, PartialEq, ::prost::Message)]
             pub struct VirtualOrdersExecuted {
                 /// int112
                 #[prost(bytes="vec", tag="1")]
@@ -307,16 +287,6 @@ pub mod block_transaction_events {
                 }
             }
             #[allow(clippy::derive_partial_eq_without_eq)]
-#[derive(Clone, PartialEq, ::prost::Message)]
-            pub struct OrderProceedsWithdrawn {
-                /// address
-                #[prost(bytes="vec", tag="1")]
-                pub token: ::prost::alloc::vec::Vec<u8>,
-                /// uint128
-                #[prost(bytes="vec", tag="2")]
-                pub amount: ::prost::alloc::vec::Vec<u8>,
-            }
-            #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Oneof)]
             pub enum Event {
                 #[prost(message, tag="3")]
@@ -324,17 +294,11 @@ pub mod block_transaction_events {
                 #[prost(message, tag="4")]
                 PositionUpdated(PositionUpdated),
                 #[prost(message, tag="5")]
-                PositionFeesCollected(PositionFeesCollected),
-                #[prost(message, tag="6")]
                 PoolInitialized(PoolInitialized),
-                #[prost(message, tag="7")]
-                FeesAccumulated(FeesAccumulated),
-                #[prost(message, tag="8")]
+                #[prost(message, tag="6")]
                 VirtualOrdersExecuted(VirtualOrdersExecuted),
-                #[prost(message, tag="9")]
+                #[prost(message, tag="7")]
                 OrderUpdated(OrderUpdated),
-                #[prost(message, tag="10")]
-                OrderProceedsWithdrawn(OrderProceedsWithdrawn),
             }
         }
     }

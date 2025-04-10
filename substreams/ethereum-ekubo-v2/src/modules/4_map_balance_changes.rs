@@ -35,7 +35,7 @@ fn map_balance_changes(
                         let component_id_bytes = component_id.into_bytes();
                         let tx = tx.clone();
 
-                        balance_deltas(log.event.unwrap(), pool_details, block_tx_events.timestamp)
+                        balance_deltas(log.event.unwrap(), pool_details)
                             .into_iter()
                             .map(move |reduced| BalanceDelta {
                                 ord: log.ordinal,
@@ -55,7 +55,7 @@ struct ReducedBalanceDelta {
     delta: Vec<u8>,
 }
 
-fn balance_deltas(ev: Event, pool_details: PoolDetails, timestamp: u64) -> Vec<ReducedBalanceDelta> {
+fn balance_deltas(ev: Event, pool_details: PoolDetails) -> Vec<ReducedBalanceDelta> {
     match ev {
         Event::Swapped(ev) => vec![
             ReducedBalanceDelta { token: pool_details.token0, delta: ev.delta0 },
@@ -78,50 +78,6 @@ fn balance_deltas(ev: Event, pool_details: PoolDetails, timestamp: u64) -> Vec<R
                 )
                 .to_signed_bytes_be(),
             },
-        ],
-        Event::PositionFeesCollected(ev) => vec![
-            ReducedBalanceDelta {
-                token: pool_details.token0,
-                delta: BigInt::from_unsigned_bytes_be(&ev.amount0)
-                    .neg()
-                    .to_signed_bytes_be(),
-            },
-            ReducedBalanceDelta {
-                token: pool_details.token1,
-                delta: BigInt::from_unsigned_bytes_be(&ev.amount1)
-                    .neg()
-                    .to_signed_bytes_be(),
-            },
-        ],
-        Event::FeesAccumulated(ev) => vec![
-            ReducedBalanceDelta { token: pool_details.token0, delta: BigInt::from_unsigned_bytes_be(&ev.amount0).to_signed_bytes_be() },
-            ReducedBalanceDelta { token: pool_details.token1, delta: BigInt::from_unsigned_bytes_be(&ev.amount1).to_signed_bytes_be() },
-        ],
-        Event::OrderUpdated(ev) => {
-            let key = ev.order_key.unwrap();
-
-            let real_order_start = Ord::max(timestamp, key.start_time);
-            let order_duration = key.end_time - real_order_start;
-
-            let sale_rate_delta = BigInt::from_signed_bytes_be(&ev.sale_rate_delta);
-            let is_negative = sale_rate_delta < BigInt::zero();
-            let sale_rate_delta_abs = sale_rate_delta.absolute();
-
-            let mut amount: BigInt = (sale_rate_delta_abs * order_duration) >> 32;
-
-            if is_negative {
-                amount = amount.neg();
-            }
-
-            vec![
-                ReducedBalanceDelta {
-                    token: key.sell_token,
-                    delta: adjust_delta_by_fee(amount, pool_details.fee).to_signed_bytes_be(),
-                },
-            ]
-        }
-        Event::OrderProceedsWithdrawn(ev) => vec![
-            ReducedBalanceDelta { token: ev.token, delta: BigInt::from_unsigned_bytes_be(&ev.amount).neg().to_signed_bytes_be() }
         ],
         _ => vec![],
     }
