@@ -35,7 +35,7 @@ fn map_balance_changes(
                         let component_id_bytes = component_id.into_bytes();
                         let tx = tx.clone();
 
-                        balance_deltas(log.event.unwrap(), pool_details)
+                        balance_deltas(log.event.unwrap(), pool_details, block_tx_events.timestamp)
                             .into_iter()
                             .map(move |reduced| BalanceDelta {
                                 ord: log.ordinal,
@@ -55,56 +55,74 @@ struct ReducedBalanceDelta {
     delta: Vec<u8>,
 }
 
-fn balance_deltas(ev: Event, pool_details: PoolDetails) -> Vec<ReducedBalanceDelta> {
+fn balance_deltas(ev: Event, pool_details: PoolDetails, timestamp: u64) -> Vec<ReducedBalanceDelta> {
     match ev {
-        Event::Swapped(swapped) => {
-            vec![
-                ReducedBalanceDelta { token: pool_details.token0, delta: swapped.delta0 },
-                ReducedBalanceDelta { token: pool_details.token1, delta: swapped.delta1 },
-            ]
-        }
-        Event::PositionUpdated(position_updated) => {
-            vec![
-                ReducedBalanceDelta {
-                    token: pool_details.token0,
-                    delta: adjust_delta_by_fee(
-                        BigInt::from_signed_bytes_be(&position_updated.delta0),
-                        pool_details.fee,
-                    )
+        Event::Swapped(ev) => vec![
+            ReducedBalanceDelta { token: pool_details.token0, delta: ev.delta0 },
+            ReducedBalanceDelta { token: pool_details.token1, delta: ev.delta1 },
+        ],
+        Event::PositionUpdated(ev) => vec![
+            ReducedBalanceDelta {
+                token: pool_details.token0,
+                delta: adjust_delta_by_fee(
+                    BigInt::from_signed_bytes_be(&ev.delta0),
+                    pool_details.fee,
+                )
+                .to_signed_bytes_be(),
+            },
+            ReducedBalanceDelta {
+                token: pool_details.token1,
+                delta: adjust_delta_by_fee(
+                    BigInt::from_signed_bytes_be(&ev.delta1),
+                    pool_details.fee,
+                )
+                .to_signed_bytes_be(),
+            },
+        ],
+        Event::PositionFeesCollected(ev) => vec![
+            ReducedBalanceDelta {
+                token: pool_details.token0,
+                delta: BigInt::from_unsigned_bytes_be(&ev.amount0)
+                    .neg()
                     .to_signed_bytes_be(),
-                },
-                ReducedBalanceDelta {
-                    token: pool_details.token1,
-                    delta: adjust_delta_by_fee(
-                        BigInt::from_signed_bytes_be(&position_updated.delta1),
-                        pool_details.fee,
-                    )
+            },
+            ReducedBalanceDelta {
+                token: pool_details.token1,
+                delta: BigInt::from_unsigned_bytes_be(&ev.amount1)
+                    .neg()
                     .to_signed_bytes_be(),
-                },
-            ]
-        }
-        Event::PositionFeesCollected(position_fees_collected) => {
+            },
+        ],
+        Event::FeesAccumulated(ev) => vec![
+            ReducedBalanceDelta { token: pool_details.token0, delta: BigInt::from_unsigned_bytes_be(&ev.amount0).to_signed_bytes_be() },
+            ReducedBalanceDelta { token: pool_details.token1, delta: BigInt::from_unsigned_bytes_be(&ev.amount1).to_signed_bytes_be() },
+        ],
+        Event::OrderUpdated(ev) => {
+            let key = ev.order_key.unwrap();
+
+            let real_order_start = Ord::max(timestamp, key.start_time);
+            let order_duration = key.end_time - real_order_start;
+
+            let sale_rate_delta = BigInt::from_signed_bytes_be(&ev.sale_rate_delta);
+            let is_negative = sale_rate_delta < BigInt::zero();
+            let sale_rate_delta_abs = sale_rate_delta.absolute();
+
+            let mut amount: BigInt = (sale_rate_delta_abs * order_duration) >> 32;
+
+            if is_negative {
+                amount = amount.neg();
+            }
+
             vec![
                 ReducedBalanceDelta {
-                    token: pool_details.token0,
-                    delta: BigInt::from_unsigned_bytes_be(&position_fees_collected.amount0)
-                        .neg()
-                        .to_signed_bytes_be(),
-                },
-                ReducedBalanceDelta {
-                    token: pool_details.token1,
-                    delta: BigInt::from_unsigned_bytes_be(&position_fees_collected.amount1)
-                        .neg()
-                        .to_signed_bytes_be(),
+                    token: key.sell_token,
+                    delta: adjust_delta_by_fee(amount, pool_details.fee).to_signed_bytes_be(),
                 },
             ]
         }
-        Event::FeesAccumulated(fees_accumulated) => {
-            vec![
-                ReducedBalanceDelta { token: pool_details.token0, delta: fees_accumulated.amount0 },
-                ReducedBalanceDelta { token: pool_details.token1, delta: fees_accumulated.amount1 },
-            ]
-        }
+        Event::OrderProceedsWithdrawn(ev) => vec![
+            ReducedBalanceDelta { token: ev.token, delta: BigInt::from_unsigned_bytes_be(&ev.amount).neg().to_signed_bytes_be() }
+        ],
         _ => vec![],
     }
 }

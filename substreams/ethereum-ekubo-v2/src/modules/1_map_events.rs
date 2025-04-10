@@ -13,9 +13,7 @@ use crate::{
         block_transaction_events::{
             transaction_events::{
                 pool_log::{
-                    order_updated::OrderKey, pool_initialized::Extension, Event, FeesAccumulated,
-                    OrderUpdated, PoolInitialized, PositionFeesCollected, PositionUpdated, Swapped,
-                    VirtualOrdersExecuted,
+                    order_updated::OrderKey, pool_initialized::Extension, Event, FeesAccumulated, OrderProceedsWithdrawn, OrderUpdated, PoolInitialized, PositionFeesCollected, PositionUpdated, Swapped, VirtualOrdersExecuted
                 },
                 PoolLog,
             },
@@ -150,25 +148,10 @@ fn maybe_pool_log(log: &Log, config: &DeploymentConfig) -> Option<PoolLog> {
         } else if let Some(ev) = twamm_events::OrderUpdated::match_and_decode(log) {
             let key = ev.order_key;
 
-            let (token0, token1) = if key.1 > key.0 { (&key.0, &key.1) } else { (&key.1, &key.0) };
-
             (
-                PoolKey {
-                    token0: <&[u8; 20]>::try_from(token0.as_slice())
-                        .unwrap()
-                        .into(),
-                    token1: <&[u8; 20]>::try_from(token1.as_slice())
-                        .unwrap()
-                        .into(),
-                    config: PoolConfig {
-                        fee: key.2.to_u64(),
-                        tick_spacing: 0,
-                        extension: <&[u8; 20]>::try_from(log.address.as_slice())
-                            .unwrap()
-                            .into(),
-                    },
-                }
-                .into_pool_id(),
+                PoolKey
+                    ::from_order_key(&key, &log.address)
+                    .into_pool_id(),
                 Event::OrderUpdated(OrderUpdated {
                     order_key: Some(OrderKey {
                         sell_token: key.0,
@@ -178,6 +161,18 @@ fn maybe_pool_log(log: &Log, config: &DeploymentConfig) -> Option<PoolLog> {
                         end_time: key.4.to_u64(),
                     }),
                     sale_rate_delta: ev.sale_rate_delta.to_signed_bytes_be(),
+                }),
+            )
+        } else if let Some(ev) = twamm_events::OrderProceedsWithdrawn::match_and_decode(log) {
+            let key = ev.order_key;
+
+            (
+                PoolKey
+                    ::from_order_key(&key, &log.address)
+                    .into_pool_id(),
+                Event::OrderProceedsWithdrawn(OrderProceedsWithdrawn {
+                    token: key.1,
+                    amount: ev.amount.to_bytes_be().1,
                 }),
             )
         } else {

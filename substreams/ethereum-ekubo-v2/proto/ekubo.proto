@@ -91,6 +91,7 @@ message BlockTransactionEvents {
         FeesAccumulated fees_accumulated = 7;
         VirtualOrdersExecuted virtual_orders_executed = 8;
         OrderUpdated order_updated = 9;
+        OrderProceedsWithdrawn order_proceeds_withdrawn = 10;
       }
 
       message Swapped {
@@ -151,6 +152,11 @@ message BlockTransactionEvents {
           uint64 start_time = 4; // block timestamp
           uint64 end_time = 5; // block timestamp
         }
+      }
+
+      message OrderProceedsWithdrawn {
+        bytes token = 1; // address
+        bytes amount = 2; // uint128
       }
     }
   }
