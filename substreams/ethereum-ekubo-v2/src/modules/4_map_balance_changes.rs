@@ -87,8 +87,10 @@ fn balance_deltas(ev: Event, pool_details: PoolDetails) -> Vec<ReducedBalanceDel
 // here (i.e. subtract from the component's balance)
 fn adjust_delta_by_fee(delta: BigInt, fee: u64) -> BigInt {
     if delta < BigInt::zero() {
-        let denom = BigInt::from_signed_bytes_be(&hex!("0100000000000000000000000000000000"));
-        (delta * denom.clone()) / (denom - fee)
+        let denom = BigInt::from_signed_bytes_be(&hex!("010000000000000000"));
+        let (quotient, remainder) = (delta * denom.clone()).div_rem(&(denom - fee));
+
+        quotient - (!remainder.is_zero()) as u8
     } else {
         delta
     }
