@@ -143,8 +143,8 @@ fn maybe_pool_log(log: &Log, config: &DeploymentConfig) -> Option<PoolLog> {
             (
                 data[0..32].to_vec(),
                 Event::VirtualOrdersExecuted(VirtualOrdersExecuted {
-                    sale_rate_token0: data[32..46].to_vec(),
-                    sale_rate_token1: data[46..60].to_vec(),
+                    token0_sale_rate: data[32..46].to_vec(),
+                    token1_sale_rate: data[46..60].to_vec(),
                 }),
             )
         } else if let Some(ev) = twamm_events::OrderUpdated::match_and_decode(log) {

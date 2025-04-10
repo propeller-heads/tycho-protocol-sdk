@@ -188,7 +188,7 @@ fn map_protocol_changes(
                 .entry(tx.index)
                 .or_insert_with(|| TransactionChangesBuilder::new(&tx.into()));
 
-            let (sale_rate_token0, sale_rate_token1) = (
+            let (token0_sale_rate, token1_sale_rate) = (
                 bigint_from_set_sum_store_delta_value(store_deltas[0].new_value.clone()),
                 bigint_from_set_sum_store_delta_value(store_deltas[1].new_value.clone()),
             );
@@ -197,13 +197,13 @@ fn map_protocol_changes(
                 component_id: change.pool_id.to_hex(),
                 attributes: vec![
                     Attribute {
-                        name: "sale_rate_token0".to_string(),
-                        value: sale_rate_token0.to_bytes_be().1,
+                        name: "token0_sale_rate".to_string(),
+                        value: token0_sale_rate.to_bytes_be().1,
                         change: ChangeType::Update.into(),
                     },
                     Attribute {
-                        name: "sale_rate_token1".to_string(),
-                        value: sale_rate_token1.to_bytes_be().1,
+                        name: "token1_sale_rate".to_string(),
+                        value: token1_sale_rate.to_bytes_be().1,
                         change: ChangeType::Update.into(),
                     },
                 ],

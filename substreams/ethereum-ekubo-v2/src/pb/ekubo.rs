@@ -271,10 +271,10 @@ pub mod block_transaction_events {
             pub struct VirtualOrdersExecuted {
                 /// int112
                 #[prost(bytes="vec", tag="1")]
-                pub sale_rate_token0: ::prost::alloc::vec::Vec<u8>,
+                pub token0_sale_rate: ::prost::alloc::vec::Vec<u8>,
                 /// int112
                 #[prost(bytes="vec", tag="2")]
-                pub sale_rate_token1: ::prost::alloc::vec::Vec<u8>,
+                pub token1_sale_rate: ::prost::alloc::vec::Vec<u8>,
             }
             #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]

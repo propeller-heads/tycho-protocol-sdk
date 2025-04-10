@@ -43,21 +43,21 @@ fn maybe_liquidity_change(log: &PoolLog, timestamp: u64) -> Option<PartialSaleRa
     match log.event.as_ref().unwrap() {
         Event::VirtualOrdersExecuted(ev) => Some(PartialSaleRateChange {
             change_type: ChangeType::Absolute,
-            token0_value: ev.sale_rate_token0.clone(),
-            token1_value: ev.sale_rate_token1.clone(),
+            token0_value: ev.token0_sale_rate.clone(),
+            token1_value: ev.token1_sale_rate.clone(),
         }),
         Event::OrderUpdated(ev) => {
             // A virtual order execution always happens before an order update
             let last_execution_time = timestamp;
 
-            let (sale_rate_delta0, sale_rate_delta1) = sale_rate_deltas_from_order_update(ev);
+            let (token0_sale_rate_delta, token1_sale_rate_delta) = sale_rate_deltas_from_order_update(ev);
             let key = ev.order_key.as_ref().unwrap();
 
             (last_execution_time >= key.start_time && last_execution_time < key.end_time).then_some(
                 PartialSaleRateChange {
                     change_type: ChangeType::Delta,
-                    token0_value: sale_rate_delta0,
-                    token1_value: sale_rate_delta1,
+                    token0_value: token0_sale_rate_delta,
+                    token1_value: token1_sale_rate_delta,
                 },
             )
         }

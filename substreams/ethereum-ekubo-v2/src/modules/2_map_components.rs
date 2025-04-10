@@ -56,12 +56,12 @@ fn maybe_create_component(
                 [
                     Attribute {
                         change: ChangeType::Creation.into(),
-                        name: "sale_rate_token0".to_string(),
+                        name: "token0_sale_rate".to_string(),
                         value: vec![],
                     },
                     Attribute {
                         change: ChangeType::Creation.into(),
-                        name: "sale_rate_token1".to_string(),
+                        name: "token1_sale_rate".to_string(),
                         value: vec![],
                     },
                     Attribute {

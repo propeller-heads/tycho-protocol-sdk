@@ -136,8 +136,8 @@ message BlockTransactionEvents {
       }
 
       message VirtualOrdersExecuted {
-        bytes sale_rate_token0 = 1; // int112
-        bytes sale_rate_token1 = 2; // int112
+        bytes token0_sale_rate = 1; // int112
+        bytes token1_sale_rate = 2; // int112
       }
 
       message OrderUpdated {
