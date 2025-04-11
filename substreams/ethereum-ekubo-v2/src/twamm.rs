@@ -1,14 +1,11 @@
 use substreams::scalar::BigInt;
 
-use crate::{pb::ekubo::block_transaction_events::transaction_events::pool_log::OrderUpdated, pool_key::{PoolConfig, PoolKey}};
+use crate::{
+    pb::ekubo::block_transaction_events::transaction_events::pool_log::OrderUpdated,
+    pool_key::{PoolConfig, PoolKey},
+};
 
-pub type OrderKey = (
-    Vec<u8>,
-    Vec<u8>,
-    BigInt,
-    BigInt,
-    BigInt,
-);
+pub type OrderKey = (Vec<u8>, Vec<u8>, BigInt, BigInt, BigInt);
 
 impl PoolKey {
     pub fn from_order_key(key: &OrderKey, twamm_address: &Vec<u8>) -> Self {

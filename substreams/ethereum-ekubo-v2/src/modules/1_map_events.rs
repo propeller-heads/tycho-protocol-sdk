@@ -13,7 +13,8 @@ use crate::{
         block_transaction_events::{
             transaction_events::{
                 pool_log::{
-                    order_updated::OrderKey, pool_initialized::Extension, Event, OrderUpdated, PoolInitialized, PositionUpdated, Swapped, VirtualOrdersExecuted
+                    order_updated::OrderKey, pool_initialized::Extension, Event, OrderUpdated,
+                    PoolInitialized, PositionUpdated, Swapped, VirtualOrdersExecuted,
                 },
                 PoolLog,
             },
@@ -133,9 +134,7 @@ fn maybe_pool_log(log: &Log, config: &DeploymentConfig) -> Option<PoolLog> {
             let key = ev.order_key;
 
             (
-                PoolKey
-                    ::from_order_key(&key, &log.address)
-                    .into_pool_id(),
+                PoolKey::from_order_key(&key, &log.address).into_pool_id(),
                 Event::OrderUpdated(OrderUpdated {
                     order_key: Some(OrderKey {
                         sell_token: key.0,

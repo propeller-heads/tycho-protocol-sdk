@@ -65,12 +65,12 @@ mod tests {
     #[test]
     fn test_pool_id_computation() {
         let pool_key = PoolKey {
-            token0: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"
+            token0: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48" // USDC
                 .parse()
-                .unwrap(), // USDC
-            token1: "0xdAC17F958D2ee523a2206206994597C13D831ec7"
+                .unwrap(),
+            token1: "0xdAC17F958D2ee523a2206206994597C13D831ec7" // USDT
                 .parse()
-                .unwrap(), // USDT
+                .unwrap(),
             config: PoolConfig { fee: 922337203685477, tick_spacing: 100, extension: H160::zero() },
         };
 
