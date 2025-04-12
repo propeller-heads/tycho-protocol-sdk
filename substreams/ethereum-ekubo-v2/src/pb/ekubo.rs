@@ -44,10 +44,9 @@ pub struct OrderSaleRateDelta {
     pub time: u64,
     /// int112
     #[prost(bytes="vec", tag="3")]
-    pub sale_rate_delta0: ::prost::alloc::vec::Vec<u8>,
-    /// int112
-    #[prost(bytes="vec", tag="4")]
-    pub sale_rate_delta1: ::prost::alloc::vec::Vec<u8>,
+    pub sale_rate_delta: ::prost::alloc::vec::Vec<u8>,
+    #[prost(bool, tag="4")]
+    pub is_token1: bool,
     #[prost(uint64, tag="5")]
     pub ordinal: u64,
     #[prost(message, optional, tag="6")]

@@ -1,9 +1,6 @@
-use crate::{
-    pb::ekubo::{
-        block_transaction_events::transaction_events::{pool_log::Event, PoolLog},
-        BlockTransactionEvents, ChangeType, SaleRateChange, SaleRateChanges,
-    },
-    twamm::sale_rate_deltas_from_order_update,
+use crate::pb::ekubo::{
+    block_transaction_events::transaction_events::{pool_log::Event, PoolLog},
+    BlockTransactionEvents, ChangeType, SaleRateChange, SaleRateChanges,
 };
 
 #[substreams::handlers::map]
@@ -50,15 +47,22 @@ fn maybe_sale_rate_change(log: &PoolLog, timestamp: u64) -> Option<PartialSaleRa
             // A virtual order execution always happens before an order update
             let last_execution_time = timestamp;
 
-            let (token0_sale_rate_delta, token1_sale_rate_delta) =
-                sale_rate_deltas_from_order_update(ev);
             let key = ev.order_key.as_ref().unwrap();
 
-            (last_execution_time >= key.start_time && last_execution_time < key.end_time).then_some(
-                PartialSaleRateChange {
-                    change_type: ChangeType::Delta,
-                    token0_value: token0_sale_rate_delta,
-                    token1_value: token1_sale_rate_delta,
+            (last_execution_time >= key.start_time && last_execution_time < key.end_time).then(
+                || {
+                    let (token0_sale_rate_delta, token1_sale_rate_delta) =
+                        if key.sell_token > key.buy_token {
+                            (vec![], ev.sale_rate_delta.clone())
+                        } else {
+                            (ev.sale_rate_delta.clone(), vec![])
+                        };
+
+                    PartialSaleRateChange {
+                        change_type: ChangeType::Delta,
+                        token0_value: token0_sale_rate_delta,
+                        token1_value: token1_sale_rate_delta,
+                    }
                 },
             )
         }

@@ -1,11 +1,7 @@
 use std::{collections::HashMap, str::FromStr};
 
 use itertools::Itertools;
-use substreams::{
-    key,
-    pb::substreams::{StoreDelta, StoreDeltas},
-    scalar::BigInt,
-};
+use substreams::{key, pb::substreams::StoreDeltas, scalar::BigInt};
 use substreams_ethereum::pb::eth;
 use substreams_helper::hex::Hexable;
 use tycho_substreams::{
@@ -98,16 +94,11 @@ fn map_protocol_changes(
         .into_iter()
         .zip(ticks_map_deltas.deltas)
         .for_each(|(store_delta, tick_delta)| {
-            let (new_value, old_value) = (
-                BigInt::from_store_bytes(&store_delta.new_value),
+            let (old_value, new_value) = (
                 BigInt::from_store_bytes(&store_delta.old_value),
+                BigInt::from_store_bytes(&store_delta.new_value),
             );
 
-            let attribute = Attribute {
-                name: format!("ticks/{}", tick_delta.tick_index),
-                value: new_value.to_signed_bytes_be(),
-                change: change_type_from_delta(&old_value, &new_value).into(),
-            };
             let tx = tick_delta.transaction.unwrap();
             let builder = transaction_changes
                 .entry(tx.index)
@@ -115,43 +106,39 @@ fn map_protocol_changes(
 
             builder.add_entity_change(&EntityChanges {
                 component_id: tick_delta.pool_id.to_hex(),
-                attributes: vec![attribute],
+                attributes: vec![Attribute {
+                    name: format!("ticks/{}", tick_delta.tick_index),
+                    value: new_value.to_signed_bytes_be(),
+                    change: change_type_from_delta(&old_value, &new_value).into(),
+                }],
             });
         });
 
     // TWAMM order sale rate deltas
     order_sale_rate_store_deltas
         .deltas
-        .chunks(2)
+        .into_iter()
         .zip(order_sale_rate_map_deltas.deltas)
-        .for_each(|(store_deltas, sale_rate_delta)| {
-            let maybe_virtual_order_attribute = |store_delta: &StoreDelta, token| {
-                let (old_value, new_value) = (
-                    BigInt::from_store_bytes(&store_delta.old_value),
-                    BigInt::from_store_bytes(&store_delta.new_value),
-                );
-
-                (old_value != new_value).then(|| Attribute {
-                    name: format!("orders/{}/{}", token, sale_rate_delta.time),
-                    value: new_value.to_signed_bytes_be(),
-                    change: change_type_from_delta(&old_value, &new_value).into(),
-                })
-            };
-
+        .for_each(|(store_delta, sale_rate_delta)| {
             let tx = sale_rate_delta.transaction.unwrap();
             let builder = transaction_changes
                 .entry(tx.index)
                 .or_insert_with(|| TransactionChangesBuilder::new(&tx.into()));
 
+            let (old_value, new_value) = (
+                BigInt::from_store_bytes(&store_delta.old_value),
+                BigInt::from_store_bytes(&store_delta.new_value),
+            );
+
+            let token = if sale_rate_delta.is_token1 { "token1" } else { "token0" };
+
             builder.add_entity_change(&EntityChanges {
                 component_id: sale_rate_delta.pool_id.to_hex(),
-                attributes: [
-                    maybe_virtual_order_attribute(&store_deltas[0], "token0"),
-                    maybe_virtual_order_attribute(&store_deltas[1], "token1"),
-                ]
-                .into_iter()
-                .flatten()
-                .collect(),
+                attributes: vec![Attribute {
+                    name: format!("orders/{}/{}", token, sale_rate_delta.time),
+                    value: new_value.to_signed_bytes_be(),
+                    change: change_type_from_delta(&old_value, &new_value).into(),
+                }],
             });
         });
 

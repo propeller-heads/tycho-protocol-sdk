@@ -14,16 +14,12 @@ pub fn store_order_sale_rates(order_sale_rate_deltas: OrderSaleRateDeltas, store
         .for_each(|delta| {
             let pool_id = delta.pool_id.to_hex();
             let time = delta.time;
+            let token = if delta.is_token1 { "token1" } else { "token0" };
 
             store.add(
                 delta.ordinal,
-                format!("pool:{}:time:{}:token0", pool_id, time),
-                BigInt::from_signed_bytes_be(&delta.sale_rate_delta0),
-            );
-            store.add(
-                delta.ordinal,
-                format!("pool:{}:time:{}:token1", pool_id, time),
-                BigInt::from_signed_bytes_be(&delta.sale_rate_delta1),
+                format!("pool:{}:{}:time:{}:", pool_id, token, time),
+                BigInt::from_signed_bytes_be(&delta.sale_rate_delta),
             );
         });
 }
