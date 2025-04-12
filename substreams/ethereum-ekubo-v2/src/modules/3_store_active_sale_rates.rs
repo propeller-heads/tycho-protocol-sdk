@@ -4,7 +4,7 @@ use substreams::{
 };
 use substreams_helper::hex::Hexable;
 
-use crate::pb::ekubo::{ChangeType, SaleRateChanges};
+use crate::{pb::ekubo::SaleRateChanges, store::store_method_from_change_type};
 
 #[substreams::handlers::store]
 pub fn store_active_sale_rates(sale_rate_changes: SaleRateChanges, store: StoreSetSumBigInt) {
@@ -14,31 +14,19 @@ pub fn store_active_sale_rates(sale_rate_changes: SaleRateChanges, store: StoreS
         .for_each(|changes| {
             let pool_id = changes.pool_id.to_hex();
 
-            match changes.change_type() {
-                ChangeType::Delta => {
-                    store.sum(
-                        changes.ordinal,
-                        format!("pool:{}:token0", pool_id),
-                        BigInt::from_signed_bytes_be(&changes.token0_value),
-                    );
-                    store.sum(
-                        changes.ordinal,
-                        format!("pool:{}:token1", pool_id),
-                        BigInt::from_signed_bytes_be(&changes.token1_value),
-                    );
-                }
-                ChangeType::Absolute => {
-                    store.set(
-                        changes.ordinal,
-                        format!("pool:{}:token0", pool_id),
-                        BigInt::from_unsigned_bytes_be(&changes.token0_value),
-                    );
-                    store.set(
-                        changes.ordinal,
-                        format!("pool:{}:token1", pool_id),
-                        BigInt::from_unsigned_bytes_be(&changes.token1_value),
-                    );
-                }
-            }
+            let store_method = store_method_from_change_type(changes.change_type());
+
+            store_method(
+                &store,
+                changes.ordinal,
+                format!("pool:{}:token0", pool_id),
+                BigInt::from_signed_bytes_be(&changes.token0_value),
+            );
+            store_method(
+                &store,
+                changes.ordinal,
+                format!("pool:{}:token1", pool_id),
+                BigInt::from_signed_bytes_be(&changes.token1_value),
+            );
         });
 }

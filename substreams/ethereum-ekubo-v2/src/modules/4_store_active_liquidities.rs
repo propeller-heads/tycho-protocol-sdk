@@ -4,27 +4,19 @@ use substreams::{
 };
 use substreams_helper::hex::Hexable;
 
-use crate::pb::ekubo::{ChangeType, LiquidityChanges};
+use crate::{pb::ekubo::LiquidityChanges, store::store_method_from_change_type};
 
 #[substreams::handlers::store]
 pub fn store_active_liquidities(liquidity_changes: LiquidityChanges, store: StoreSetSumBigInt) {
     liquidity_changes
         .changes
         .into_iter()
-        .for_each(|changes| match changes.change_type() {
-            ChangeType::Delta => {
-                store.sum(
-                    changes.ordinal,
-                    format!("pool:{}", changes.pool_id.to_hex()),
-                    BigInt::from_signed_bytes_be(&changes.value),
-                );
-            }
-            ChangeType::Absolute => {
-                store.set(
-                    changes.ordinal,
-                    format!("pool:{}", changes.pool_id.to_hex()),
-                    BigInt::from_unsigned_bytes_be(&changes.value),
-                );
-            }
+        .for_each(|changes| {
+            store_method_from_change_type(changes.change_type())(
+                &store,
+                changes.ordinal,
+                format!("pool:{}", changes.pool_id.to_hex()),
+                BigInt::from_signed_bytes_be(&changes.value),
+            );
         });
 }
