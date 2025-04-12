@@ -310,12 +310,6 @@ contract CowAMMSwapAdapter is ISwapAdapter {
 
     uint256 tokenBalanceOut = IERC20(buyToken).balanceOf(address(pool));
     uint256 tokenWeightOut = pool.getDenormalizedWeight(buyToken);
-
-    // uint256 swapFee = pool.getSwapFee(); // swap fee on CowPools is 99.9%
-    // uint256 spotPrice = pool.getSpotPriceSansFee(buyToken, sellToken); // you have to divide it by 10^18
-    // uint256 spotPriceScaledDown = spotPrice / BONE;
-
-    // console2.log("this is the spotPrice", spotPrice);
     uint256 amountOut = calcOutGivenIn(
                     tokenBalanceIn,
                     tokenWeightIn,
@@ -336,47 +330,38 @@ contract CowAMMSwapAdapter is ISwapAdapter {
   console2.log("this is amount in : ", amountIn);
     return Fraction(amountOut, amountIn);
 }
+  function calcSpotPriceConstraints(
+    uint256 tokenAmountIn,
+    uint256 tokenAmountOut,
+    uint256 tokenInBalance,
+    uint256 tokenInWeight,
+    uint256 tokenOutBalance,
+    uint256 tokenOutWeight,
+    uint256 maxPrice
+  ) internal {
+      uint256 spotPriceBefore = (tokenInBalance.bdiv(tokenInWeight)).bdiv(tokenOutBalance.bdiv(tokenOutWeight));
 
-//This alternative implementation was inspired by IntegralSwapAdapter, will test it out too
-//    function getPriceAt(
-//         address sellToken,
-//         address buyToken,
-//         address poolId
-//   ) internal pure returns (Fraction memory) {
-    
-//     uint256 tokenBalanceIn = IERC20(sellToken).balanceOf(poolId);
-//     uint256 tokenWeightIn = pool.getDenormalizedWeight(sellToken);
+      if (spotPriceBefore > maxPrice) {
+          revert IBPool.BPool_SpotPriceAboveMaxPrice();
+      }
+                                      
+      tokenInBalance = tokenInBalance.badd(tokenAmountIn);
+      tokenOutBalance = tokenOutBalance.bsub(tokenAmountOut);
 
-//     uint256 tokenBalanceOut = IERC20(buyToken).balanceOf(poolId);
-//     uint256 tokenWeightOut = pool.getDenormalizedWeight(buyToken);
-
-//      // get token decimals
-//     uint256 sellTokenDecimals = 10 ** IERC20Metadata(sellToken).decimals();
-//     uint256 buyTokenDecimals = 10 ** IERC20Metadata(buyToken).decimals();
-
-//     uint256 numer = BONE.bdiv(tokenBalanceIn, tokenWeightIn);
-//     uint256 denom = BONE.bdiv(tokenBalanceOut, tokenWeightOut);
-//     uint256 ratio = BONE.bdiv(numer, denom);
-//     uint256 scale = BONE.bdiv(BONE, BONE.bsub(BONE, swapFee));
-//     spotPrice = BONE.bmul(ratio, scale);
-//      /**
-//          * @dev
-//          * Denominator works as a "standardizer" for the price rather than a
-//          * reserve value
-//          * We can calculate CowAMM prices directly 
-//          * it is therefore used to maintain integrity for the Fraction division,
-//          * as numerator and denominator could have different token decimals(es.
-//          * ETH(18)-USDC(6)).
-//          * Both numerator and denominator are also multiplied by
-//          * STANDARD_TOKEN_DECIMALS
-//          * to ensure that precision losses are minimized or null.
-//          */
-//     return Fraction(
-//         spotPrice * STANDARD_TOKEN_DECIMALS,
-//         STANDARD_TOKEN_DECIMALS * sellTokenDecimals * 1 // no swap fee so i just put 1
-//                 / buyTokenDecimals
-//     );
-// }
+      //  We are simulating with no fees
+      uint256 spotPriceAfter = (tokenInBalance.bdiv(tokenInWeight)).bdiv(tokenOutBalance.bdiv(tokenOutWeight));
+      
+      if (spotPriceAfter < spotPriceBefore) {
+        revert IBPool.BPool_SpotPriceAfterBelowSpotPriceBefore();
+      }
+      if (spotPriceAfter > maxPrice) {
+        revert IBPool.BPool_SpotPriceAboveMaxPrice();
+      }
+      if (spotPriceBefore > tokenAmountIn.bdiv(tokenAmountOut)) {
+        revert IBPool.BPool_SpotPriceBeforeAboveTokenRatio();
+      }
+  }
+  
 // or using pool.getSpotPrice(tokenIn, tokenOut); directly and do the fraction above
     function swap(
         bytes32,
@@ -386,48 +371,55 @@ contract CowAMMSwapAdapter is ISwapAdapter {
         uint256 specifiedAmount
     ) external returns (Trade memory trade) {
     require(sellToken != buyToken, "Tokens must be different");
+    require(specifiedAmount != 0);
+
     if (specifiedAmount == 0) {
           return trade;
     }
-
-    // address poolAddress = address(bytes20(poolId));
+    // we have to check if the input are LP Tokens, how do we do that 
     uint256 gasBefore = gasleft();
     if (side == OrderSide.Sell) {
             // Standard Token Swap
         if (sellToken != address(0) && buyToken != address(0)) {
             uint256 amountOut = sell(sellToken, buyToken, specifiedAmount);
             trade.calculatedAmount = amountOut;
-            trade.price = getPriceAt(specifiedAmount, sellToken, buyToken); // Example price calculation
+            trade.price = getPriceAt(specifiedAmount, sellToken, buyToken); // Example price calculation redoes the getBalance calculations all over
         } 
-            // Single Sided LP Providing (Join Pool)
+            // Single Sided LP Providing (Join Pool) minting BPT 
         else {
           if (sellToken != address(0) && buyToken == address(0)) {
-            // tokens = getTokens(_poolId);
-            //if (first token in tokens is token we want to join then pass amount to left)
-            // or maybe we can just use that lexicographic sorting 
-            //how can we tell which one (token in the pool) comes first ? 
-            // pool.joinPool(specifiedAmount, [0, 0]); //amountOut
+            //does one LP token === one COW/wstETH how would we know?
+            // pool.joinPool(specifiedAmount, [specifiedAmount,uint256(0)]); //amountOut
             trade.calculatedAmount = specifiedAmount; // Assuming 1:1 LP deposit
             trade.price = Fraction(0, 1); // No direct price change
-          } 
+          } else {
+            // pool.joinPool(specifiedAmount, [ ,specifiedAmount]); //amountOut
+            trade.calculatedAmount = specifiedAmount; // Assuming 1:1 LP deposit
+            trade.price = Fraction(0, 1); // No direct price change
+          }
         }
     } 
     else {
-        if (sellToken == address(0) && buyToken != address(0)) {
-            // Single sided LP Withdrawal (Burn) (Exit Pool)
-            // pool.exitPool(specifiedAmount, [type(uint256).max,0]);
-            trade.calculatedAmount = specifiedAmount; // Assuming 1:1 LP withdrawal
-            trade.price = Fraction(0, 1);
-        } 
-        else { 
-          if (sellToken != address(0) && buyToken != address(0)) {
+        if (sellToken != address(0) && buyToken != address(0)) {
             // Buy Side Swap
             uint256 amountOut = buy(sellToken, buyToken, specifiedAmount);
             trade.calculatedAmount = amountOut;
             trade.price = getPriceAt(specifiedAmount,sellToken,buyToken);
-          } 
+        } 
+        else { 
+          if (sellToken != address(0) && buyToken != address(0)) {
+             // Single sided LP Withdrawal (Burn) (Exit Pool)
+            // pool.exitPool(specifiedAmount, [specifiedAmount,]);
+            trade.calculatedAmount = specifiedAmount; // Assuming 1:1 LP withdrawal
+            trade.price = Fraction(0, 1);
+          }  else {
+            // pool.joinPool(specifiedAmount, [ ,specifiedAmount]); //amountOut
+            trade.calculatedAmount = specifiedAmount; // Assuming 1:1 LP deposit
+            trade.price = Fraction(0, 1); // No direct price change
+          }
         }
     } 
+    trade.gasUsed = gasBefore - gasleft();
  }
 
     function getLimits(bytes32, address sellToken, address buyToken)
@@ -518,15 +510,13 @@ contract CowAMMSwapAdapter is ISwapAdapter {
         IERC20(sellToken).safeTransferFrom(msg.sender, address(this), amount);
         IERC20(sellToken).approve(address(pool), amount);
 
-        uint256 tokenAmountIn;
-
         uint256 tokenInBalance = IERC20(sellToken).balanceOf(address(pool));
         uint256 tokenInWeight = pool.getDenormalizedWeight(sellToken);
 
         uint256 tokenOutBalance = IERC20(buyToken).balanceOf(address(pool));
         uint256 tokenOutWeight = pool.getDenormalizedWeight(buyToken);
 
-        uint256 minAmountOut = calcOutGivenIn(
+        uint256 tokenAmountOut = calcOutGivenIn(
                     tokenInBalance,
                     tokenInWeight,
                     tokenOutBalance,
@@ -534,19 +524,38 @@ contract CowAMMSwapAdapter is ISwapAdapter {
                     amount,
                     0
         ); 
-                                                    //expectedAmountOut
-        uint256 tokenOutBalanceFinal = tokenOutBalance - minAmountOut;
-        uint256 spotPriceAfterSwapWithoutFee = (tokenInBalance / tokenInWeight) / (tokenOutBalanceFinal / tokenOutWeight);
-        uint256 spotPriceAfterSwap = spotPriceAfterSwapWithoutFee.bmul(
-          BONE.bdiv(BONE.bsub(0))
+         /** Our limits cover this case so no need to include this constraint
+         if (tokenAmountIn > bmul(tokenInBalance, MAX_IN_RATIO)) {
+            revert BPool_TokenAmountInAboveMaxRatio();
+         } **/
+
+        /** 
+          if the amount of token calculated out is less than the amount 
+          of buyTokens we are to receive, revert , no need because the minAmountOut, 
+          is the expected amount we want to receive which is still tokenAmountOut here
+        */                   
+        // if (tokenAmountOut < minAmountOut) {
+        //     revert IBPool.BPool_TokenAmountOutBelowMinOut();
+        // }; 
+        uint256 tokenInBalanceFinal = tokenInBalance.badd(amount);
+        uint256 tokenOutBalanceFinal = tokenOutBalance.bsub(tokenAmountOut);
+        // maxPrice is just the spotPriceAfterSwap 
+        uint256 spotPriceAfterSwapWithoutFee = (tokenInBalanceFinal.bdiv(tokenInWeight)).bdiv(tokenOutBalanceFinal.bdiv(tokenOutWeight));
+        // uint256 spotPriceAfterSwap = spotPriceAfterSwapWithoutFee.bmul(
+        //           BONE.bdiv(BONE.bsub(0)));
+        //calculates the constraints for the spotPrice 
+        calcSpotPriceConstraints(
+          amount,
+          tokenAmountOut,
+          tokenInBalance,
+          tokenInWeight,
+          tokenOutBalance, 
+          tokenOutWeight,
+          spotPriceAfterSwapWithoutFee
         );
 
-        (tokenAmountIn,) = pool.swapExactAmountIn(
-            sellToken, amount, buyToken, minAmountOut, spotPriceAfterSwap
-        );
-        calculatedAmount = tokenAmountIn;
+        calculatedAmount = tokenAmountOut;
     }
-
     /// @notice Executes a buy order on the contract.
     /// @param sellToken The token being sold.
     /// @param buyToken The token being bought.
@@ -560,7 +569,6 @@ contract CowAMMSwapAdapter is ISwapAdapter {
             msg.sender, address(this), calculatedAmount
         );
         IERC20(buyToken).approve(address(pool), amountOut);
-        uint256 tokenAmountOut;
 
         uint256 tokenInBalance = IERC20(sellToken).balanceOf(address(pool));
         uint256 tokenInWeight = pool.getDenormalizedWeight(sellToken);
@@ -577,17 +585,27 @@ contract CowAMMSwapAdapter is ISwapAdapter {
                     amountOut,
                     0
         ); 
-        //calculations as seen in the tests
-        uint256 tokenInBalanceFinal = tokenInBalance + maxAmountIn;
-        uint256 spotPriceAfterSwapWithoutFee = (tokenInBalanceFinal / tokenInWeight) / (tokenOutBalance / tokenOutWeight);
-        uint256 spotPriceAfterSwap = spotPriceAfterSwapWithoutFee.bmul(
-          BONE.bdiv(BONE.bsub(0))
+        /**
+        if the buy tokens we receive is greater than what was
+        calculated out (maxAmountIn), revert
+      */
+        // if (tokenAmountIn > maxAmountIn) {
+        //     revert BPool_TokenAmountInAboveMaxAmountIn();
+        // }
+        uint256 tokenInBalanceFinal = tokenInBalance.badd(maxAmountIn);
+        uint256 tokenOutBalanceFinal = tokenOutBalance.bsub(amountOut);
+        // maxPrice is just the spotPriceAfterSwap 
+        uint256 spotPriceAfterSwapWithoutFee = (tokenInBalanceFinal.bdiv(tokenInWeight)).bdiv(tokenOutBalanceFinal.bdiv(tokenOutWeight));
+        calcSpotPriceConstraints( 
+          maxAmountIn,
+          amountOut,
+          tokenInBalance,
+          tokenInWeight,
+          tokenOutBalance,
+          tokenOutWeight,
+          spotPriceAfterSwapWithoutFee
         );
-
-        (tokenAmountOut,) = pool.swapExactAmountOut(
-            sellToken, maxAmountIn, buyToken, amountOut, spotPriceAfterSwap
-        );
-        calculatedAmount = tokenAmountOut;
+        calculatedAmount = maxAmountIn;
     }
 }
 
