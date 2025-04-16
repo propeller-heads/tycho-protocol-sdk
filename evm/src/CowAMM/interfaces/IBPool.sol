@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity ^0.8.13;
 
-interface IBPool {
+import {IERC20} from "openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
+
+interface IBPool is IERC20 {
   /**
    * @dev Struct for token records.
    * @param bound If token is bound to pool.
