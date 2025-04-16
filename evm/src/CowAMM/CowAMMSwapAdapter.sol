@@ -348,41 +348,7 @@ contract CowAMMSwapAdapter is ISwapAdapter {
   console2.log("this is amount in : ", amountIn);
     return Fraction(amountOut, amountIn); 
 }
-  function calcSpotPriceConstraints(
-    uint256 tokenAmountIn,
-    uint256 tokenAmountOut,
-    uint256 tokenInBalance,
-    uint256 tokenInWeight,
-    uint256 tokenOutBalance,
-    uint256 tokenOutWeight,
-    uint256 maxPrice
-  ) internal {
-      uint256 spotPriceBefore = (tokenInBalance.bdiv(tokenInWeight)).bdiv(tokenOutBalance.bdiv(tokenOutWeight));
-      if (spotPriceBefore > maxPrice) {
-          revert IBPool.BPool_SpotPriceAboveMaxPrice();
-      }
-      //everything above is before calcInGivenOut but problem is getting maxPrice depends on calcOut , which comes after so its sort like a circular dep, this version is okay tbh
-
-      tokenInBalance = tokenInBalance.badd(tokenAmountIn);
-      tokenOutBalance = tokenOutBalance.bsub(tokenAmountOut);
-
-      //  We are simulating with zero fees
-      uint256 spotPriceAfter = (tokenInBalance.bdiv(tokenInWeight)).bdiv(tokenOutBalance.bdiv(tokenOutWeight)); 
-      if (spotPriceAfter < spotPriceBefore) {
-        revert IBPool.BPool_SpotPriceAfterBelowSpotPriceBefore();
-      }
-      if (spotPriceAfter > maxPrice) {
-        revert IBPool.BPool_SpotPriceAboveMaxPrice();
-      }
-      console2.log("spotpricebefore:",spotPriceBefore);
-      console2.log("tokenAmountIn:", tokenAmountIn);
-      console2.log("tokenAmountOut:", tokenAmountOut);
-      console2.log("tokenAmountIn / tokenAmountOut:", tokenAmountIn.bdiv(tokenAmountOut));
-      if (spotPriceBefore > tokenAmountIn.bdiv(tokenAmountOut)) {
-        revert IBPool.BPool_SpotPriceBeforeAboveTokenRatio();
-      }
-  }
-  
+ 
     function swap(
         bytes32,
         address sellToken,
@@ -396,91 +362,104 @@ contract CowAMMSwapAdapter is ISwapAdapter {
     if (specifiedAmount == 0) {
           return trade;
     }
-    // sellToken OrderSide.sell exitPool
-    // buyToken OrderSide.sell exitPool
-    // sellToken OrderSide.buy joinPool 
-    // buyToken OrderSide.buy joinPool
 
-    // we have to check if the input are LP Tokens, how do we do that 
     uint256 gasBefore = gasleft();
-    if (side == OrderSide.Sell) {
-            // Standard Token Swap
-        if (sellToken != address(pool) && buyToken != address(pool)) {
-            uint256 amountOut = sell(sellToken, buyToken, specifiedAmount);
-            trade.calculatedAmount = amountOut;
-            trade.price = getPriceAt(specifiedAmount, sellToken, buyToken); // Example price calculation redoes the getBalance calculations all over
-        } 
-          //LP Providing (Join Pool)
-        else {
-          // BCoW50COW50wstETH is sellToken, wstETH is buy Token
-          if (sellToken == address(pool)) { 
-            uint256[] memory maxAmountsIn = new uint256[](2);
-            maxAmountsIn[0] = specifiedAmount;
-            maxAmountsIn[1] = specifiedAmount;
-            pool.exitPool(specifiedAmount, maxAmountsIn);
-            address[] memory tokens = pool.getCurrentTokens();
-            address newSellToken;
-            // get the other token in the pool and sell the amount for buyToken eg;
-            if (tokens[0] != buyToken) {
-              newSellToken = tokens[1];
-            } else {
-              newSellToken = tokens[0];
-            }
-            // not using swap here we just need to estimate the output so, don't want to recurse
-            uint256 extraTokenAmount = sell(newSellToken, buyToken, specifiedAmount);
-            // the amount of token redeemed + the superfluous token swapped 
-            trade.calculatedAmount = specifiedAmount + extraTokenAmount; 
-            trade.price = Fraction(0, 1); // No direct price change
-          } else {
-            uint256[] memory maxAmountsIn = new uint256[](2);
-            maxAmountsIn[0] = specifiedAmount;
-            maxAmountsIn[1] = specifiedAmount;
-            pool.exitPool(specifiedAmount, maxAmountsIn); //amountOut
-            uint256 extraTokenAmount = sell(sellToken, buyToken, specifiedAmount);
-            trade.calculatedAmount = specifiedAmount + extraTokenAmount; // Assuming 1:1 LP deposit
-            trade.price = Fraction(0, 1); // No direct price change
-          }
+    if (sellToken != address(pool) && buyToken != address(pool)) {
+        // Standard Token-to-Token Swap
+        if (side == OrderSide.Sell) {
+            trade.calculatedAmount = sell(sellToken, buyToken, specifiedAmount);
+            trade.price = getPriceAt(specifiedAmount, sellToken, buyToken);
+        } else {
+            uint256 amountIn = buy(sellToken, buyToken, specifiedAmount);
+            trade.calculatedAmount = amountIn;
+            trade.price = getPriceAt(trade.calculatedAmount, sellToken, buyToken);
         }
     } 
+    
+    else if (sellToken == address(pool) && buyToken != address(pool)) {
+        // Exiting Pool (LP token is being sold)
+        require(side == OrderSide.Sell, "Exiting pool must be OrderSide.Sell");
+        //We have to get the proportion of the pools total supply the amount of LP tokens we want to sell is 
+        console2.log("this is the pools total supply", pool.totalSupply());
+        uint256 SHARE_PROPORTION = pool.totalSupply() / specifiedAmount;    
+        console2.log("this is the pools share proportion", SHARE_PROPORTION);
+        //The amount of Pool tokens to burn 
+        //uint256 poolAmountIn = pool.totalSupply() / SHARE_PROPORTION; // this is still specifiedAmount
+        address[] memory tokens = pool.getCurrentTokens();
+
+        //get the other token in the pool
+        address secondaryToken = tokens[0] == buyToken ? tokens[1] : tokens[0];
+
+        uint256 token0Balance = IERC20(secondaryToken).balanceOf(address(pool));
+        uint256 token1Balance = IERC20(buyToken).balanceOf(address(pool));
+        /**
+         The minimum amount of each token we'll receive is gotten by calculating the
+         equivalent proportion of each token balance.
+
+         When burning n pool shares, caller expects enough amount X of every token t
+         should be sent to satisfy:
+         Xt = n/BPT.totalSupply() * t.balanceOf(BPT)
+         **/
+        uint256 expectedToken0Out = token0Balance / SHARE_PROPORTION;
+        uint256 expectedToken1Out = token1Balance / SHARE_PROPORTION;
+
+        uint256[] memory minAmountsOut = new uint256[](2);
+        minAmountsOut[0] = expectedToken0Out;
+        minAmountsOut[1] = expectedToken1Out;
+
+        pool.exitPool(specifiedAmount, minAmountsOut);
+
+        //swapped the extra token in the pool to buyToken
+        uint256 swappedAmount = sell(secondaryToken, buyToken, specifiedAmount);
+        trade.calculatedAmount = specifiedAmount + swappedAmount;
+        trade.price = Fraction(0, 1);
+    } 
+    
+    else if (sellToken != address(pool) && buyToken == address(pool)) {
+        // Joining Pool (LP token is being bought)
+        require(side == OrderSide.Buy, "Joining pool must be OrderSide.Buy");
+        console2.log("this is the pools total supply", pool.totalSupply());
+        uint256 SHARE_PROPORTION = pool.totalSupply() / specifiedAmount;    
+        console2.log("this is the pools share proportion", SHARE_PROPORTION);
+        //The amount of Pool tokens to receive
+        //uint256 poolAmountOut = pool.totalSupply() / SHARE_PROPORTION; // this is still specifiedAmount
+        address[] memory tokens = pool.getCurrentTokens();
+
+        //get the other token in the pool
+        address secondaryToken = tokens[0] == buyToken ? tokens[1] : tokens[0];
+
+        uint256 token0Balance = IERC20(secondaryToken).balanceOf(address(pool));
+        uint256 token1Balance = IERC20(buyToken).balanceOf(address(pool));
+        // when minting n pool shares, enough amount X of every token t should be provided to statisfy
+        // Xt = n/BPT.totalSupply() * t.balanceOf(BPT)
+        uint256 requiredToken0Out = token0Balance / SHARE_PROPORTION;
+        uint256 requiredToken1Out = token1Balance / SHARE_PROPORTION;
+
+        uint256[] memory maxAmountsIn = new uint256[](2);
+        maxAmountsIn[0] = requiredToken0Out;
+        maxAmountsIn[1] = requiredToken1Out;
+
+        pool.joinPool(specifiedAmount, maxAmountsIn);
+        trade.calculatedAmount = specifiedAmount;
+        trade.price = Fraction(0, 1);
+    } 
+    
+    else if (sellToken == address(pool) && buyToken == address(pool)) {
+        // Invalid: Swapping LP token to LP token is not supported
+        revert("Cannot swap between LP tokens");
+    } 
+    
     else {
-        if (sellToken != address(pool) && buyToken != address(pool)) {
-            // Buy Side Swap
-            uint256 amountOut = buy(sellToken, buyToken, specifiedAmount);
-            trade.calculatedAmount = amountOut;
-            trade.price = getPriceAt(trade.calculatedAmount, sellToken, buyToken); 
-        } 
-        else { 
-          if (buyToken == address(pool)) {
-             // Single sided LP Withdrawal (Burn) (Exit Pool)
-            uint256[] memory maxAmountsIn = new uint256[](2);
-            maxAmountsIn[0] = specifiedAmount;
-            maxAmountsIn[1] = specifiedAmount;
-            pool.joinPool(specifiedAmount, maxAmountsIn);
-            address[] memory tokens = pool.getCurrentTokens();
-            address newBuyToken;
-            // get the other token in the pool and sell the amount for buyToken eg;
-            if (tokens[0] != sellToken) {
-              newBuyToken = tokens[1];
-            } else {
-              newBuyToken = tokens[0];
-            }
-            uint256 extraTokenAmount = buy(sellToken, newBuyToken, specifiedAmount);
-            trade.calculatedAmount = specifiedAmount + extraTokenAmount; // Assuming 1:1 LP withdrawal
-            trade.price = Fraction(0, 1);
-          }  else {
-            // pool.joinPool(specifiedAmount, [ ,specifiedAmount]); //amountOut
-            trade.calculatedAmount = specifiedAmount; // Assuming 1:1 LP deposit
-            trade.price = Fraction(0, 1); // No direct price change
-          }
-        }
-    } 
+        // Should never reach here
+        revert("Invalid token and side combination");
+    }
     trade.gasUsed = gasBefore - gasleft();
  }
 
     function getLimits(bytes32, address sellToken, address buyToken)
         external
         returns (uint256[] memory limits)
-    { 
+    {     
         uint256 sellTokenBal = pool.getBalance(sellToken);
         uint256 buyTokenBal = pool.getBalance(buyToken);
         limits = new uint256[](2);
@@ -506,7 +485,7 @@ contract CowAMMSwapAdapter is ISwapAdapter {
         view
         returns (address[] memory tokens)
     {
-        tokens = pool.getCurrentTokens();
+        tokens = pool.getFinalTokens();
     }
 
     function getPoolIds(uint256 offset, uint256 limit)
@@ -547,27 +526,12 @@ contract CowAMMSwapAdapter is ISwapAdapter {
                     amount,
                     0
         );
-        uint256 tokenInBalanceFinal = tokenInBalance.badd(amount);
-        uint256 tokenOutBalanceFinal = tokenOutBalance.bsub(tokenAmountOut);
-        // maxPrice is just the spotPriceAfterSwap 
-        uint256 spotPriceAfterSwapWithoutFee = (tokenInBalanceFinal.bdiv(tokenInWeight)).bdiv(tokenOutBalanceFinal.bdiv(tokenOutWeight));
-        //calculates the constraints for the spotPrice 
-        calcSpotPriceConstraints(
-          amount,
-          tokenAmountOut,
-          tokenInBalance,
-          tokenInWeight,
-          tokenOutBalance, 
-          tokenOutWeight,
-          spotPriceAfterSwapWithoutFee
-        );
-
         calculatedAmount = tokenAmountOut;
     }
     /// @notice Executes a buy order on the contract.
     /// @param sellToken The token being sold.
     /// @param buyToken The token being bought.
-    /// @param amountOut The amount of buyToken to receive.
+    /// @param amountOut The amount of buyTokens to buy. 
     /// @return calculatedAmount The amount of tokens received.
     function buy(address sellToken, address buyToken, uint256 amountOut)
         internal
@@ -607,20 +571,6 @@ contract CowAMMSwapAdapter is ISwapAdapter {
 
         console2.log("this is the max amountIn", tokenAmountIn);
     
-        uint256 tokenInBalanceFinal = tokenInBalance.badd(tokenAmountIn);
-        uint256 tokenOutBalanceFinal = tokenOutBalance.bsub(amountOut);
-        // maxPrice is just the spotPriceAfterSwap 
-        uint256 spotPriceAfterSwapWithoutFee = (tokenInBalanceFinal.bdiv(tokenInWeight)).bdiv(tokenOutBalanceFinal.bdiv(tokenOutWeight));
-
-        // calcSpotPriceConstraints( 
-        //   tokenAmountIn,
-        //   amountOut,
-        //   tokenInBalance,
-        //   tokenInWeight,
-        //   tokenOutBalance,
-        //   tokenOutWeight,
-        //   spotPriceAfterSwapWithoutFee
-        // );
         calculatedAmount = tokenAmountIn;
     }
 }
