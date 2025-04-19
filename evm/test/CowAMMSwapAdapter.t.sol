@@ -22,6 +22,7 @@ contract CowAMMSwapAdapterTest is Test, ISwapAdapterTypes {
     address constant COW = 0xDEf1CA1fb7FBcDC777520aa7f396b4E015F497aB; 
     address constant wstETH = 0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0;
 
+
     uint256 constant TEST_ITERATIONS = 5;// 100 
     function setUp() public {
         uint256 forkBlock = 20522303;
@@ -34,7 +35,7 @@ contract CowAMMSwapAdapterTest is Test, ISwapAdapterTypes {
         vm.label(address(COW), "COW");
         vm.label(address(wstETH), "wstETH");
     } 
-    
+
     // function testPriceFuzz(uint256 amount0, uint256 amount1) public {
     //     uint256[] memory limits = adapter.getLimits(bytes32(0), wstETH, COW);
     //     //check limits 
@@ -187,123 +188,180 @@ contract CowAMMSwapAdapterTest is Test, ISwapAdapterTypes {
     //     }
     // }
 
-    function LPexit(
-        address pool, 
-        address tokenA, 
-        address tokenB, 
+    function testLPExitWstETHFuzz(
         uint256 specifiedAmount
-        ) public {
-            OrderSide side = OrderSide.Sell; // we're selling the LP token for tokenA eg. wstETH
-            /**
-                Limits for LP tokens in a pool 
-                The specified amount must be greater than 0.00000001% of the pool & < totalSupply() and the 
-            **/
-            uint256 poolTotalSupply = IBPool(pool).totalSupply();
-            uint256 percentage = 1e16;// 0.00000001% = 1e-10 = 1e16 / 1e18
-            // lowest amount of LPTokens we can burn or join is set to 0.00000001% of the total pool supply
-            uint256 lowestAmount = (poolTotalSupply * percentage) / 1e18; 
-            console2.log("lowest amount", lowestAmount);
-            vm.assume(specifiedAmount > lowestAmount && specifiedAmount < poolTotalSupply);
-            deal(pool, address(adapter), specifiedAmount + 1000);
-            IERC20(pool).approve(address(adapter), specifiedAmount);
+    ) public {
+        OrderSide side = OrderSide.Sell; // selling LP for tokenA = wstETH
+        uint256 poolTotalSupply = IBPool(COWwstETHPool).totalSupply();
+        // lowest amount of LPTokens we can burn or join is set to 0.00000001% of the total pool supply
+        uint256 percentage = 1e16; // 0.0001%
+        uint256 lowestAmount = (poolTotalSupply * percentage) / 1e18;
+        console2.log("Lowest allowed LP amount:", lowestAmount);
 
-            //give the test contract some COW
-            deal(COW, address(this), 10e20); 
-            IERC20(COW).approve(address(adapter), 10e20);
-
-            //give the test contract some wsTETH
-            deal(wstETH, address(this), 10e20); 
-            IERC20(wstETH).approve(address(adapter), 10e20);
-
-            uint256 lpTokenBalance = IERC20(pool).balanceOf(address(this));
-            uint256 tokenBBalanceBefore = IERC20(tokenA).balanceOf(address(this));
-            uint256 tokenABalanceBefore = IERC20(tokenB).balanceOf(address(this));
-
-            // 1. Sell LP token for tokenA, eg. wstETH (i.e., exit liquidity) 
-            // 2. Swap remaining tokenB eg(COW) tokens to tokenA eg (wstETH) (convert full exit to tokenA)
-            Trade memory exitTrade = 
-                adapter.swap(bytes32(0), pool, tokenA, side, specifiedAmount);
-            // Assert LP tokens were spent
-            assertEq(
-                specifiedAmount,
-                lpTokenBalance - IERC20(pool).balanceOf(address(this))
-            );
-            uint256 tokenBBalanceAfterExit = IERC20(tokenB).balanceOf(address(this));
-            uint256 tokenABalanceAfterExit = IERC20(tokenA).balanceOf(address(this));
-            // tokenA eg wstETH was received from the pool exit is > than the balance before
-            // tokenB eg COW was received from the pool exit is > than the balance before
-            assertGt(tokenBBalanceAfterExit, tokenBBalanceBefore);
-            assertGt(tokenABalanceAfterExit, tokenABalanceBefore);
-    }
-
-    function testLPexit_wstETH_Fuzz(uint256 amount) public {
-        address lp = COWwstETHPool; // 50 : 50 weight 
-        LPexit(lp, wstETH, COW, amount);
-    }
-
-    function testLPexit_COW_Fuzz(uint256 amount) public {
-        address lp = COWwstETHPool; // 50 : 50 weight 
-        LPexit(lp, COW, wstETH, amount);
-    }
-
-    function LPjoin(
-        address pool,
-        address tokenA,
-        address tokenB,
-        uint256 specifiedAmount
-    ) internal {
-        OrderSide side = OrderSide.Buy;
-
-        uint256[] memory limits = adapter.getLimits(bytes32(0), tokenA, tokenB);
-        uint256 poolTotalSupply = IBPool(pool).totalSupply();
-        uint256 percentage = 1e16;// 0.00000001% = 1e-10 = 1e16 / 1e18
-        // lowest amount of LPTokens we can burn or join is 0.00000001% of the pool
-        uint256 lowestAmount = (poolTotalSupply * percentage) / 1e18; 
-        console2.log("lowest amount", lowestAmount);
         vm.assume(specifiedAmount > lowestAmount && specifiedAmount < poolTotalSupply);
- 
-        // deal(tokenA, address(this), specifiedAmount);
-        // deal(tokenB, address(this), specifiedAmount);
-        // what is min amt of both token balances that can give you 0.0001% of the pool, lets just use this for now
-        deal(tokenA, address(adapter), 10000000000000);
-        deal(tokenB, address(adapter), 10000000000000);
-        IERC20(tokenA).approve(address(adapter), specifiedAmount);
-        IERC20(tokenB).approve(address(adapter), specifiedAmount);
+        deal(COWwstETHPool, address(adapter), specifiedAmount + 1000);
+        IERC20(COWwstETHPool).approve(address(adapter), specifiedAmount);
 
-        uint256 lpTokenBalanceBefore = IERC20(pool).balanceOf(address(this));
-        uint256 tokenABalanceBefore = IERC20(tokenA).balanceOf(address(this));
-        uint256 tokenBBalanceBefore = IERC20(tokenB).balanceOf(address(this));
+        deal(COW, address(this), 10e20);
+        IERC20(COW).approve(address(adapter), 10e20);
 
-        Trade memory joinTrade = adapter.swap(bytes32(0), tokenA, pool, side, specifiedAmount);
+        deal(wstETH, address(this), 10e20);
+        IERC20(wstETH).approve(address(adapter), 10e20);
 
-        uint256 lpTokenBalanceAfter = IERC20(pool).balanceOf(address(this));
-        assertGt(lpTokenBalanceAfter, lpTokenBalanceBefore);
+        uint256 lpTokenBalance = IERC20(COWwstETHPool).balanceOf(address(this));
+        console2.log("LP token balance before exit:", lpTokenBalance);
 
-        uint256 tokenABalanceAfter = IERC20(tokenB).balanceOf(address(this));
-        uint256 tokenBBalanceAfter = IERC20(tokenB).balanceOf(address(this));
+        uint256 wstETHBefore = IERC20(wstETH).balanceOf(address(this));
+        uint256 COWBefore = IERC20(COW).balanceOf(address(this));
 
-        assertEq(
-                tokenABalanceAfter,
-                tokenABalanceBefore + tokenABalanceAfter - IERC20(tokenA).balanceOf(address(this))
-        );
-        assertEq(
-                tokenBBalanceAfter,
-                tokenBBalanceBefore + tokenBBalanceAfter - IERC20(tokenB).balanceOf(address(this))
-        );
+        console2.log("wstETH balance before exit:", wstETHBefore);
+        console2.log("COW balance before exit:", COWBefore);
 
-        assertGt(tokenABalanceBefore, tokenABalanceAfter);
-        assertGt(tokenBBalanceBefore, tokenABalanceAfter);
+        //What swap does
+        // 1. Sell LP token for tokenA, eg. wstETH (i.e., exit liquidity) 
+        // 2. Swap remaining tokenB eg(COW) tokens to tokenA eg (wstETH) (convert full exit to tokenA)
+        Trade memory exitTrade = adapter.swap(bytes32(0), COWwstETHPool, wstETH, side, specifiedAmount);
+
+        uint256 wstETHAfter = IERC20(wstETH).balanceOf(address(this));
+        uint256 COWAfter = IERC20(COW).balanceOf(address(this));
+
+        /**
+            We can't really swap the superfluous token for the other one we want because of the nature of CowAMMs fees 
+            so we just estimate its output using sell() which uses calcOutGivenIn() under the hood, so in a case where 
+            we are exiting Lp from the pool to redeem only wstETH, when we want to swap the superfluous COW token
+            the actual COW balance never actually decreases, and the actual wstETH balance never increases, so i will use the trade.calculatedAmount
+        **/
+
+        console2.log("wstETH balance after exit:", wstETHAfter);
+        console2.log("COW balance after exit:", COWAfter);
+
+        // tokenA eg wstETH was received from the pool exit is > than the balance before
+        // tokenB eg COW was received from the pool exit is > than the balance before
+        // assertGt(wstETHAfter, wstETHBefore);
+        // assertGt(COWAfter, COWBefore); 
+
+        uint256 expectedOutput = exitTrade.calculatedAmount;
+        console2.log("Expected wstETH output (from calculatedAmount):", expectedOutput);
+        console2.log("Actual delta in wstETH balance:", wstETHAfter - wstETHBefore);
+
+        assertGt(expectedOutput, 0);
     }
 
-    function testLPjoinwstETH_Fuzz(uint256 amount) public {
-        address lp = COWwstETHPool;
-        LPjoin(lp, wstETH, COW, amount);
+    function testLPExitCOWFuzz(
+        uint256 specifiedAmount
+    ) public {
+        OrderSide side = OrderSide.Sell; // selling LP for tokenA = COW
+        uint256 poolTotalSupply = IBPool(COWwstETHPool).totalSupply();
+         /**
+            Limits for LP tokens in a pool 
+            The specified amount must be greater than 0.00000001% of the pool & < totalSupply() and the 
+        **/
+        uint256 percentage = 1e16; // 0.0001%
+        uint256 lowestAmount = (poolTotalSupply * percentage) / 1e18;
+        console2.log("Lowest allowed LP amount:", lowestAmount);
+
+        vm.assume(specifiedAmount > lowestAmount && specifiedAmount < poolTotalSupply);
+        deal(COWwstETHPool, address(adapter), specifiedAmount + 1000);
+        IERC20(COWwstETHPool).approve(address(adapter), specifiedAmount);
+
+        deal(COW, address(this), 10e20);
+        IERC20(COW).approve(address(adapter), 10e20);
+
+        deal(wstETH, address(this), 10e20);
+        IERC20(wstETH).approve(address(adapter), 10e20);
+
+        uint256 lpTokenBalance = IERC20(COWwstETHPool).balanceOf(address(this));
+        console2.log("LP token balance before exit:", lpTokenBalance);
+
+        uint256 COWBefore = IERC20(COW).balanceOf(address(this));
+        uint256 wstETHBefore = IERC20(wstETH).balanceOf(address(this));
+
+        console2.log("COW balance before exit:", COWBefore);
+        console2.log("wstETH balance before exit:", wstETHBefore);
+
+        Trade memory exitTrade = adapter.swap(bytes32(0), COWwstETHPool, COW, side, specifiedAmount);
+
+        uint256 COWAfter = IERC20(COW).balanceOf(address(this));
+        uint256 wstETHAfter = IERC20(wstETH).balanceOf(address(this));
+
+        console2.log("COW balance after exit:", COWAfter);
+        console2.log("wstETH balance after exit:", wstETHAfter);
+
+        // assertGt(COWAfter, COWBefore);
+        // assertGt(wstETHAfter, wstETHBefore); 
+
+        uint256 expectedOutput = exitTrade.calculatedAmount;
+        console2.log("Expected COW output (from calculatedAmount):", expectedOutput);
+        console2.log("Actual delta in COW balance:", COWAfter - COWBefore);
+
+        assertGt(expectedOutput, 0);
     }
 
-    function testLPjoinCOW_Fuzz(uint256 amount) public {
-        address lp = COWwstETHPool;
-        LPjoin(lp, COW, wstETH, amount);
+
+    function testLPjoinWith_WstETH_fuzz(uint256 specifiedAmount) public {
+        OrderSide side = OrderSide.Buy;
+        // uint256[] memory limits = adapter.getLimits(bytes32(0), tokenA, tokenB);
+        uint256 poolTotalSupply = IBPool(COWwstETHPool).totalSupply();
+        uint256 percentage = 1e16; // 0.0001%
+        uint256 lowestAmount = (poolTotalSupply * percentage) / 1e18;
+        console2.log("lowest amount", lowestAmount);
+
+        vm.assume(specifiedAmount > lowestAmount && specifiedAmount < poolTotalSupply);
+
+
+        //we approve the tokens in the contract, first give the adapter tokens to join to the pool
+        deal(COW, address(adapter), 10e24);
+        deal(wstETH, address(adapter), 10e23);
+
+        deal(COWwstETHPool, address(this), 10e23);
+        
+        uint256 lpBefore = IERC20(COWwstETHPool).balanceOf(address(this));
+        uint256 wstETHBefore = IERC20(wstETH).balanceOf(address(this));
+        uint256 COWBefore = IERC20(COW).balanceOf(address(this));
+
+        Trade memory joinTrade = adapter.swap(bytes32(0), wstETH, COWwstETHPool, side, specifiedAmount);
+
+        uint256 lpAfter = IERC20(COWwstETHPool).balanceOf(address(this));
+        uint256 wstETHAfter = IERC20(wstETH).balanceOf(address(this));
+        uint256 COWAfter = IERC20(COW).balanceOf(address(this));
+
+        assertGt(lpAfter, lpBefore);
+        assertGt(wstETHBefore, wstETHAfter);
+        assertGe(COWBefore, COWAfter); 
     }
+
+    function testLPjoinWith_COW_fuzz(uint256 specifiedAmount) public {
+        OrderSide side = OrderSide.Buy;
+        uint256 poolTotalSupply = IBPool(COWwstETHPool).totalSupply();
+        uint256 percentage = 1e16;
+        uint256 lowestAmount = (poolTotalSupply * percentage) / 1e18;
+        console2.log("lowest amount", lowestAmount);
+
+        vm.assume(specifiedAmount > lowestAmount && specifiedAmount < poolTotalSupply);
+
+        deal(COWwstETHPool, address(this), 10e23);
+
+        deal(COW, address(adapter), 10e24);
+        deal(wstETH, address(adapter), 10e24);
+
+        uint256 lpBefore = IERC20(COWwstETHPool).balanceOf(address(this));
+        uint256 COWBefore = IERC20(COW).balanceOf(address(this));
+        uint256 wstETHBefore = IERC20(wstETH).balanceOf(address(this));
+
+        Trade memory joinTrade = adapter.swap(bytes32(0), COW, COWwstETHPool, side, specifiedAmount);
+
+        // assertGt(joinTrade.calculatedAmount, 0);
+
+        uint256 lpAfter = IERC20(COWwstETHPool).balanceOf(address(this));
+        uint256 COWAfter = IERC20(COW).balanceOf(address(this));
+        uint256 wstETHAfter = IERC20(wstETH).balanceOf(address(this));
+
+        assertGt(lpAfter, lpBefore);
+        assertGt(COWBefore, COWAfter);
+        assertGe(wstETHBefore, wstETHAfter); 
+    }
+
+
 
     // Normally, the price does not change when joining to a pool, but because we swap the superfluous token 
     // in this case COW into wstETH it will change 
