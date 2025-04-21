@@ -281,21 +281,12 @@ contract CowAMMSwapAdapter is ISwapAdapter {
         uint256 swapFee
     ) internal pure returns (uint256 tokenAmountIn) {
         uint256 weightRatio = tokenWeightOut.bdiv(tokenWeightIn);
-        console2.log("weightratio", weightRatio); //1e18 
-        console2.log("this is the token balance out", tokenBalanceOut); 
-        console2.log("this is the token amount out", tokenAmountOut); //why is token amount out 1.544e21? instead of 
         uint256 diff = tokenBalanceOut.bsub(tokenAmountOut);
-        console2.log("this is the diff", diff);
         uint256 y = tokenBalanceOut.bdiv(diff);
-        console2.log("this is the base y", y);  
         uint256 foo = y.bpow(weightRatio);  
-        console2.log("this is foo 1", foo);
-        foo = foo.bsub(BONE); //1
-        console2.log("this is foo 2", foo);
+        foo = foo.bsub(BONE); 
         tokenAmountIn = BONE.bsub(swapFee);
-        console2.log("this is tokenAmountIn 1", tokenAmountIn);
-        tokenAmountIn = (tokenBalanceIn.bmul(foo)).bdiv(tokenAmountIn);// 1e17 . 1 / 1e18 
-        console2.log("this is tokenAmountIn 2", tokenAmountIn);
+        tokenAmountIn = (tokenBalanceIn.bmul(foo)).bdiv(tokenAmountIn);
         return tokenAmountIn; 
     }
      function calcSpotPrice(
@@ -347,8 +338,6 @@ contract CowAMMSwapAdapter is ISwapAdapter {
                     amountOut, 
                     0    
     ); 
-  console2.log("this is amount Out : ", amountOut);
-  console2.log("this is amount in : ", amountIn);
     return Fraction(amountOut, amountIn); 
 }
 
@@ -366,9 +355,6 @@ contract CowAMMSwapAdapter is ISwapAdapter {
     if (specifiedAmount == 0) {
           return trade;
     }
-    //scale the inputs by BONE (1e18)
-    specifiedAmount = specifiedAmount.bmul(BONE);
-
     uint256 gasBefore = gasleft();
     if (sellToken != address(pool) && buyToken != address(pool)) {
         // Standard Token-to-Token Swap
@@ -385,29 +371,15 @@ contract CowAMMSwapAdapter is ISwapAdapter {
     else if (sellToken == address(pool) && buyToken != address(pool)) {
         // Exiting Pool (LP token is being sold)
         require(side == OrderSide.Sell, "Exiting pool must be OrderSide.Sell");
-        //We have to get the proportion of the pools total supply the amount of LP tokens we want to sell is 
         uint256 totalSupply = pool.totalSupply();
         /**
-          What percentage of totalSupply is specifiedAmount? 
-          We have to get the proportion of the pools total supply the amount of LP tokens we want to buy is 
-          since the percentage is scaled by BONE (1e18), to get this we'll have to divide it by BONE.
-
-          The percentage also gets approximated, in an example of (5.983e19 / 1.99e20 ) * 100, its actually 29.8% using normal arithmetic but is 30% using BONE math 
+        We have to get the proportion of the pools total supply the amount of LP tokens we want to buy is 
+                              totalSupply 
+         share_proportion =  ---------------
+                              specifiedAmount 
         **/
-        // uint256 percentage = ((specifiedAmount.bdiv(totalSupply)).bmul(100)).bdiv(BONE);
-        // // We want the share proportion, which is less than 100, to get that we divide it by the percentage we get 
-        // uint256 SHARE_PROPORTION = uint256(100).bdiv(percentage); 
         uint256 SHARE_PROPORTION = ((totalSupply.bdiv(specifiedAmount)));
-        console2.log("this is the pools share proportion", SHARE_PROPORTION);
-        /**
-                        totalSupply 
-         percentage =  ---------------
-                        specifiedAmount 
 
-         Share Proportion = 100 / percentage 
-
-         or go straight and say Share Proportion = totalSupply / specifiedAmount
-        **/
         address[] memory tokens = pool.getFinalTokens();
 
         //get the other token in the pool
@@ -415,25 +387,25 @@ contract CowAMMSwapAdapter is ISwapAdapter {
         
         uint256 token0Balance = IERC20(tokens[0]).balanceOf(address(pool));
         uint256 token1Balance = IERC20(tokens[1]).balanceOf(address(pool));
-
         /**
-         The minimum amount of each token we'll receive is gotten by calculating the
-         equivalent proportion of each token balance by dividing it by the SHARE_PROPORTION
-
-         When burning n pool shares, caller expects enough amount X of every token t
-         should be sent to satisfy:
-         Xt = n/BPT.totalSupply() * t.balanceOf(BPT)
-         **/
-        
-        //we have to make sure that both expectedTokenOut satisfies the limit constraints 
-        //for the pool so that when we're selling the superfluous token into the same pool, 
-        //it doesnt throw an BPool_TokenAmountInAboveMaxRatio() error because (more than 50%
-        //of the pools current balance is trying to be sold into it)
-        //getLimits is not visible for some reason 
+          we have to make sure that both expectedTokenOut satisfies the limit constraints 
+          for the pool so that when we're selling the superfluous token into the same pool, 
+          it doesnt throw an BPool_TokenAmountInAboveMaxRatio() error because (more than 50%
+          of the pools current balance is trying to be sold into it)
+          getLimits is not visible for some reason
+        **/
 
         uint256 limit0 = token0Balance * MAX_IN_FACTOR / 10;
         uint256 limit1 = token1Balance * MAX_IN_FACTOR / 10;
 
+        /**
+            The minimum amount of each token we'll receive is gotten by calculating the
+            equivalent proportion of each token balance by dividing it by the SHARE_PROPORTION
+
+            When burning n pool shares, caller expects enough amount X of every token t
+            should be sent to satisfy:
+            Xt = n/BPT.totalSupply() * t.balanceOf(BPT)
+        **/
         uint256 expectedToken0Out = token0Balance.bdiv(SHARE_PROPORTION);
         uint256 expectedToken1Out = token1Balance.bdiv(SHARE_PROPORTION);  //this 
         
@@ -442,34 +414,15 @@ contract CowAMMSwapAdapter is ISwapAdapter {
         }
 
         if (expectedToken1Out > limit1) {
-          revert("The amount of expectedToken1Out surpasses the limits for the amount that can be swapped into the poo");
+          revert("The amount of expectedToken1Out surpasses the limits for the amount that can be swapped into the pool");
         }
-
-        console2.log("this is the expectedToken0Out", expectedToken0Out);
-        console2.log("this is the expectedToken1Out", expectedToken1Out);
 
         uint256[] memory minAmountsOut = new uint256[](2);
         minAmountsOut[0] = expectedToken0Out.bsub(expectedToken0Out.bmul(1e15));
         minAmountsOut[1] = expectedToken1Out.bsub(expectedToken1Out.bmul(1e15));
-        pool.exitPool(specifiedAmount, minAmountsOut); //COW to wstETH
-        //amountIn is [5.983e19], minAmountsOut are [4.641e20, 3e16]
-        //balance of token a is [1.547e21] 
-        //balance of token b is [1e17]  -> 7.008e16 + 2.991e16 = 9.999e16 
-        //the balance of wstETH in the pool is now 7.008e16 , now we want to sell 2.991e16 back into the pool for COW
-        //2.991e16 is now 42% of the new pool balance - 7.008e16 
-        //swapped the extra token in the pool to buyToken, that is the token we wanted to burn the LPtokens for 
-        //we obviously want to swap the amount of the other token that we got so thats what we want 
-        //The problem now is, if we successfully 
-        //from the lp tokens, we get the expected amount out and they each must be < that the limits for the current balance 
-        //so that when we want to swap the superfluous token it'll be possible and not cause issues 
-        // it has to be both of them that has the limits because they are in the same proportion
+        pool.exitPool(specifiedAmount, minAmountsOut); 
         uint256 amountToSell = tokens[0] == buyToken ? expectedToken1Out : expectedToken0Out;
-        console2.log("amount To sell", amountToSell); // sell 3e16 wsteth correct 
-        console2.log("secondaryToken", secondaryToken); // should be wsteth
-        console2.log("buyToken",buyToken); // should be COW
-        
-        uint256 swappedAmount = sell(secondaryToken, buyToken, amountToSell);
-        trade.calculatedAmount = specifiedAmount + swappedAmount;
+        trade.calculatedAmount = sell(secondaryToken, buyToken, amountToSell);
         trade.price = getPriceAt(amountToSell, secondaryToken, buyToken);
     } 
     
@@ -485,7 +438,6 @@ contract CowAMMSwapAdapter is ISwapAdapter {
         uint256 token0Balance = IERC20(tokens[0]).balanceOf(address(pool));
         uint256 token1Balance = IERC20(tokens[1]).balanceOf(address(pool));
 
-        
         uint256 limit0 = token0Balance * MAX_IN_FACTOR / 10;
         uint256 limit1 = token1Balance * MAX_IN_FACTOR / 10;
 
@@ -495,9 +447,10 @@ contract CowAMMSwapAdapter is ISwapAdapter {
         uint256 requiredToken1Out = token1Balance.bdiv(SHARE_PROPORTION);
 
         uint256[] memory maxAmountsIn = new uint256[](2);
+        //hacky fix
         //the tokenAmountIn calculation internally can be slightly higher than the 
         //maxAmountIn and throw a BPool_TokenAmountInAboveMaxAmountIn() error, 
-        //so lets add 0.1% of each requiredTokenOut to both of them
+        //so lets add 0.1% of each requiredTokenOut to both of them 
 
         //0.1% = 1 / 100 = 0.001 * 1e18 = 1e15
         requiredToken0Out = requiredToken0Out.badd(requiredToken0Out.bmul(1e15));
@@ -510,24 +463,23 @@ contract CowAMMSwapAdapter is ISwapAdapter {
         if (requiredToken1Out > limit1) {
           revert("The amount of requiredToken1In surpasses the limits for the amount that can be swapped into the pool");
         }
-        
+
         maxAmountsIn[0] = requiredToken0Out;
         maxAmountsIn[1] = requiredToken1Out;
 
-        //approve spending the tokens to send them to the pool
+        //approve spending the tokens to send (join) them to the pool
         IERC20(tokens[0]).approve(address(pool), maxAmountsIn[0]);
         IERC20(tokens[1]).approve(address(pool), maxAmountsIn[1]);
 
         pool.joinPool(specifiedAmount, maxAmountsIn);
-
-        uint256 swappedAmount = sell(secondaryToken, sellToken, specifiedAmount);
-        trade.calculatedAmount = specifiedAmount + swappedAmount;
-        trade.price = getPriceAt(specifiedAmount, secondaryToken, sellToken);
+        uint256 amountToSell = tokens[0] == buyToken ? requiredToken0Out : requiredToken1Out;
+        trade.calculatedAmount = buy(secondaryToken, sellToken, amountToSell);
+        trade.price = getPriceAt(trade.calculatedAmount, secondaryToken, sellToken);
     } 
     
     else if (sellToken == address(pool) && buyToken == address(pool)) {
         // Invalid: Swapping LP token to LP token is not supported
-        revert("Cannot swap between LP tokens");
+        revert("Cannot swap between LP tokens"); 
     } 
     
     else {
@@ -589,9 +541,6 @@ contract CowAMMSwapAdapter is ISwapAdapter {
         //zero division error in the bnum methods 
         amount = amount.bmul(BONE);
 
-        // IERC20(sellToken).safeTransferFrom(msg.sender, address(this), amount);
-        // IERC20(sellToken).approve(address(pool), amount);
-
         uint256 tokenInBalance = IERC20(sellToken).balanceOf(address(pool));
         uint256 tokenInWeight = pool.getDenormalizedWeight(sellToken);
 
@@ -635,13 +584,6 @@ contract CowAMMSwapAdapter is ISwapAdapter {
           revert IBPool.BPool_TokenAmountOutAboveMaxOut();
         } 
 
-        console2.log("This is the tokenBalanceIn from buy", tokenInBalance);
-        console2.log("This is the tokenWeightIn from buy", tokenInWeight);
-        console2.log("This is the tokenBalanceOut from buy", tokenOutBalance);
-        console2.log("This is the tokenWeightOut from buy", tokenOutWeight);
-        console2.log("This is the amountOut from buy", amountOut);
-        //maxAmountIn
-
         uint256 tokenAmountIn = calcInGivenOut(
                     tokenInBalance,
                     tokenInWeight,
@@ -650,13 +592,6 @@ contract CowAMMSwapAdapter is ISwapAdapter {
                     amountOut,  
                     0
         ); 
-        console2.log("this is the amountin from buy method", tokenAmountIn);
-        // IERC20(sellToken).safeTransferFrom(
-        //     msg.sender, address(this), tokenAmountIn
-        // );
-        // IERC20(sellToken).approve(address(pool), tokenAmountIn);
-
-        console2.log("this is the max amountIn", tokenAmountIn);
     
         calculatedAmount = tokenAmountIn;
     }
