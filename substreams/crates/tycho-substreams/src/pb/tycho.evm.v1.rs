@@ -133,10 +133,10 @@ pub struct EntityChanges {
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ContractSlot {
     /// A contract's storage slot.
-    #[prost(bytes="vec", tag="2")]
+    #[prost(bytes="vec", tag="1")]
     pub slot: ::prost::alloc::vec::Vec<u8>,
     /// The new value for this storage slot.
-    #[prost(bytes="vec", tag="3")]
+    #[prost(bytes="vec", tag="2")]
     pub value: ::prost::alloc::vec::Vec<u8>,
 }
 /// A struct for following the token balance changes for a contract.
