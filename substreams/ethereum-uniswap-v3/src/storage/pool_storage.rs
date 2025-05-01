@@ -77,7 +77,7 @@ impl<'a> UniswapPoolStorage<'a> {
                         };
                         attributes.push(Attribute {
                             name: storage_location.name.to_string(),
-                            value: value.to_signed_bytes_le(),
+                            value: value.to_signed_bytes_be(),
                             change: ChangeType::Update.into(),
                         });
                     }
