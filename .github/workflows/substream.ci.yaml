@@ -13,63 +13,39 @@ jobs:
         with:
           submodules: recursive
 
-      - name: Check if substreams files changed
-        id: changed-files
+      - name: Check if any Substreams files changed
+        id: substreams-files-changed
         uses: tj-actions/changed-files@v35
         with:
           files: substreams/**
 
       - name: Setup toolchain
-        if: steps.changed-files.outputs.any_changed == 'true'
+        if: steps.substreams-files-changed.outputs.any_changed == 'true'
         uses: dtolnay/rust-toolchain@v1
         with:
           toolchain: nightly
           components: clippy, rustfmt
 
       - name: Setup Rust Cache
-        if: steps.changed-files.outputs.any_changed == 'true'
+        if: steps.substreams-files-changed.outputs.any_changed == 'true'
         uses: Swatinem/rust-cache@v2
         with:
           cache-on-failure: true
 
-      - name: Get changed directories and package names
-        if: steps.changed-files.outputs.any_changed == 'true'
-        id: changed_dirs
-        run: |
-          # Convert space-separated list to newline-separated list and process
-          echo '${{ steps.changed-files.outputs.all_changed_files }}' | tr ' ' '\n' | grep '^substreams/' | grep -v 'Cargo.lock$' > changed_files.txt
-          
-          # Extract unique directory paths
-          CHANGED_DIRS=$(cat changed_files.txt | cut -d'/' -f1-2 | sort -u)
-          
-          # Initialize empty array for package names
-          PACKAGE_NAMES=()
-          
-          # Loop through directories and find package names
-          while IFS= read -r dir; do
-            if [ -f "$dir/Cargo.toml" ]; then
-              PACKAGE_NAME=$(grep -m1 '^name = ' "$dir/Cargo.toml" | cut -d'"' -f2)
-              if [ -n "$PACKAGE_NAME" ]; then
-                PACKAGE_NAMES+=("$PACKAGE_NAME")
-              fi
-            fi
-          done <<< "$CHANGED_DIRS"
-          
-          # Join package names with spaces and store
-          if [ ${#PACKAGE_NAMES[@]} -gt 0 ]; then
-            echo "package_names=${PACKAGE_NAMES[*]}" >> $GITHUB_OUTPUT
-            echo "Found packages: ${PACKAGE_NAMES[*]}"
-          else
-            echo "No valid packages found"
-            echo "package_names=" >> $GITHUB_OUTPUT
-          fi
+      - name: Get changed Substreams package names
+        if: steps.substreams-files-changed.outputs.any_changed == 'true'
+        id: changed_packages
+        uses: ./.github/actions/substreams-check
+        with:
+          changed-files: ${{ steps.substreams-files-changed.outputs.all_changed_files }}
 
       - name: Run checks
-        if: steps.changed-files.outputs.any_changed == 'true'
+        if: steps.substreams-files-changed.outputs.any_changed == 'true'
+        shell: bash
         run: |
           cd substreams
-          if [ -n "${{ steps.changed_dirs.outputs.package_names }}" ]; then
-            for package in ${{ steps.changed_dirs.outputs.package_names }}; do
+          if [ -n "${{ steps.changed_packages.outputs.package_names }}" ]; then
+            for package in ${{ steps.changed_packages.outputs.package_names }}; do
               echo "Running checks for package: $package"
               cargo +nightly fmt --package "$package" -- --check
               cargo +nightly clippy --package "$package" -- -D warnings
@@ -79,7 +55,7 @@ jobs:
           fi
 
       - name: Skip check
-        if: steps.changed-files.outputs.any_changed != 'true'
+        if: steps.substreams-files-changed.outputs.any_changed != 'true'
         run: echo "No changes to substreams directory, skipping lint check"
 
   test:
@@ -91,63 +67,39 @@ jobs:
         with:
           submodules: recursive
 
-      - name: Check if substreams files changed
-        id: changed-files
+      - name: Check if any Substreams files changed
+        id: substreams-files-changed
         uses: tj-actions/changed-files@v35
         with:
           files: substreams/**
 
       - name: Setup toolchain
-        if: steps.changed-files.outputs.any_changed == 'true'
+        if: steps.substreams-files-changed.outputs.any_changed == 'true'
         uses: dtolnay/rust-toolchain@v1
         with:
           toolchain: stable
           targets: wasm32-unknown-unknown
 
       - name: Setup Rust Cache
-        if: steps.changed-files.outputs.any_changed == 'true'
+        if: steps.substreams-files-changed.outputs.any_changed == 'true'
         uses: Swatinem/rust-cache@v2
         with:
           cache-on-failure: true
 
-      - name: Get changed directories and package names
-        if: steps.changed-files.outputs.any_changed == 'true'
-        id: changed_dirs
-        run: |
-          # Convert space-separated list to newline-separated list and process
-          echo '${{ steps.changed-files.outputs.all_changed_files }}' | tr ' ' '\n' | grep '^substreams/' | grep -v 'Cargo.lock$' > changed_files.txt
-          
-          # Extract unique directory paths
-          CHANGED_DIRS=$(cat changed_files.txt | cut -d'/' -f1-2 | sort -u)
-          
-          # Initialize empty array for package names
-          PACKAGE_NAMES=()
-          
-          # Loop through directories and find package names
-          while IFS= read -r dir; do
-            if [ -f "$dir/Cargo.toml" ]; then
-              PACKAGE_NAME=$(grep -m1 '^name = ' "$dir/Cargo.toml" | cut -d'"' -f2)
-              if [ -n "$PACKAGE_NAME" ]; then
-                PACKAGE_NAMES+=("$PACKAGE_NAME")
-              fi
-            fi
-          done <<< "$CHANGED_DIRS"
-          
-          # Join package names with spaces and store
-          if [ ${#PACKAGE_NAMES[@]} -gt 0 ]; then
-            echo "package_names=${PACKAGE_NAMES[*]}" >> $GITHUB_OUTPUT
-            echo "Found packages: ${PACKAGE_NAMES[*]}"
-          else
-            echo "No valid packages found"
-            echo "package_names=" >> $GITHUB_OUTPUT
-          fi
+      - name: Get changed Substreams package names
+        if: steps.substreams-files-changed.outputs.any_changed == 'true'
+        id: changed_packages
+        uses: ./.github/actions/substreams-check
+        with:
+          changed-files: ${{ steps.substreams-files-changed.outputs.all_changed_files }}
 
       - name: Run checks
-        if: steps.changed-files.outputs.any_changed == 'true'
+        if: steps.substreams-files-changed.outputs.any_changed == 'true'
+        shell: bash
         run: |
           cd substreams
-          if [ -n "${{ steps.changed_dirs.outputs.package_names }}" ]; then
-            for package in ${{ steps.changed_dirs.outputs.package_names }}; do
+          if [ -n "${{ steps.changed_packages.outputs.package_names }}" ]; then
+            for package in ${{ steps.changed_packages.outputs.package_names }}; do
               echo "Running checks for package: $package"
               cargo build --package "$package" --target wasm32-unknown-unknown
               cargo test --package "$package"
@@ -157,5 +109,5 @@ jobs:
           fi
 
       - name: Skip check
-        if: steps.changed-files.outputs.any_changed != 'true'
+        if: steps.substreams-files-changed.outputs.any_changed != 'true'
         run: echo "No changes to substreams directory, skipping test check"
