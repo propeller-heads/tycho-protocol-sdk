@@ -1,3 +1,4 @@
 #![allow(clippy::all)]
-pub mod BCowFactory;
-pub mod GPv2Settlement;
+pub mod b_cow_factory;
+pub mod b_cow_pool;
+pub mod gpv2_settlement;
