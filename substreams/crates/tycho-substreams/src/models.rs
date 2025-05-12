@@ -28,6 +28,7 @@ pub struct TransactionChangesBuilder {
     entity_changes: HashMap<String, InterimEntityChanges>,
     component_changes: HashMap<String, ProtocolComponent>,
     balance_changes: HashMap<(Vec<u8>, Vec<u8>), BalanceChange>,
+    entrypoints: Vec<EntryPoint>,
 }
 
 impl TransactionChangesBuilder {
@@ -151,6 +152,13 @@ impl TransactionChangesBuilder {
             .insert((change.component_id.clone(), change.token.clone()), change.clone());
     }
 
+    /// Adds a new entrypoint to the transaction. It appends to the list of already existing
+    /// entrypoints.
+    pub fn add_entrypoint(&mut self, entrypoint: &EntryPoint) {
+        self.entrypoints
+            .push(entrypoint.clone());
+    }
+
     pub fn build(self) -> Option<TransactionChanges> {
         let tx_changes = TransactionChanges {
             tx: self.tx,
@@ -172,6 +180,7 @@ impl TransactionChangesBuilder {
                 .balance_changes
                 .into_values()
                 .collect::<Vec<_>>(),
+            entrypoints: self.entrypoints,
         };
         if tx_changes.is_empty() {
             None
