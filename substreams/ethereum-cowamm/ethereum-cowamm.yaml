@@ -1,6 +1,6 @@
 specVersion: v0.1.0
 package:
-  name: "substreams_cowamm"
+  name: "ethereum_cowamm"
   version: v0.1.0
 
 protobuf:
@@ -66,3 +66,6 @@ modules:
         mode: deltas
     output:
       type: proto:tycho.evm.v1.BlockChanges
+
+params:
+  map_components: factory_address=0xf76c421bAb7df8548604E60deCCcE50477C10462 

@@ -300,18 +300,15 @@ impl ImplementationType {
     }
 }
 // WARNING: DEPRECATED. Please use common.proto's TransactionChanges and BlockChanges instead.
-// This file contains proto definitions specific to the VM integration.
+// This file contains the definition for the native integration of Substreams.
 
-/// A set of changes aggregated by transaction.
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct TransactionContractChanges {
-    /// The transaction instance that results in the changes.
+pub struct TransactionEntityChanges {
     #[prost(message, optional, tag="1")]
     pub tx: ::core::option::Option<Transaction>,
-    /// Contains the changes induced by the above transaction, aggregated on a per-contract basis.
     #[prost(message, repeated, tag="2")]
-    pub contract_changes: ::prost::alloc::vec::Vec<ContractChange>,
+    pub entity_changes: ::prost::alloc::vec::Vec<EntityChanges>,
     /// An array of newly added components.
     #[prost(message, repeated, tag="3")]
     pub component_changes: ::prost::alloc::vec::Vec<ProtocolComponent>,
@@ -322,13 +319,13 @@ pub struct TransactionContractChanges {
 /// A set of transaction changes within a single block.
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct BlockContractChanges {
+pub struct BlockEntityChanges {
     /// The block for which these changes are collectively computed.
     #[prost(message, optional, tag="1")]
     pub block: ::core::option::Option<Block>,
     /// The set of transaction changes observed in the specified block.
     #[prost(message, repeated, tag="2")]
-    pub changes: ::prost::alloc::vec::Vec<TransactionContractChanges>,
+    pub changes: ::prost::alloc::vec::Vec<TransactionEntityChanges>,
 }
 /// A message containing relative balance changes.
 ///
