@@ -9,9 +9,9 @@ use crate::{
 
 #[allow(dead_code)]
 /// Helper function to extract all storage changes on a block.
-/// This is used by the DCI as raw block information for it to extract which changes are relevant to
-/// be indexed.This is used only for the contracts it has dynamically identified and is
-/// indexing, the core protocol itself should still be properly integrated and indexed by the
+/// The raw block information collected is intended to be used by the DCI (Dynamic Contract Indexer) to extract 
+/// and index relevant changes. This is specifically for dynamically identified contracts that the DCI has chosen to 
+/// index. Note that core protocol data should still be properly integrated and indexed by the
 /// substreams package as per usual.
 ///
 /// ## Warning
