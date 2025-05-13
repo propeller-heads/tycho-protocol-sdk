@@ -1,6 +1,9 @@
 use std::collections::HashMap;
 
-use substreams_ethereum::pb::{eth, eth::v2::block::DetailLevel};
+use substreams_ethereum::pb::{
+    eth,
+    eth::v2::{block::DetailLevel, StorageChange},
+};
 
 use crate::{
     models::{ContractSlot, StorageChanges, Transaction},
@@ -24,49 +27,41 @@ fn get_block_storage_changes(block: &eth::v2::Block) -> Vec<TransactionStorageCh
     if block.detail_level != Into::<i32>::into(DetailLevel::DetaillevelExtended) {
         panic!("Only extended blocks are supported");
     }
-    let mut block_storage_changes = vec![];
+    let mut block_storage_changes = Vec::with_capacity(block.transaction_traces.len());
 
     for block_tx in block.transactions() {
         let transaction: Transaction = block_tx.into();
 
-        let mut storage_changes = vec![];
+        let mut changes_by_address: HashMap<Vec<u8>, Vec<StorageChange>> = HashMap::new();
         for call in block_tx.calls.iter() {
             // Filter out calls that are reverted
             if !call.state_reverted {
                 for storage_change in call.storage_changes.iter() {
-                    storage_changes.push(storage_change.clone());
+                    changes_by_address
+                        .entry(storage_change.address.clone())
+                        .or_default()
+                        .push(storage_change.clone());
                 }
             }
         }
 
-        // This is needed to get only the latest storage change for each address and slot
-        storage_changes.sort_unstable_by_key(|change| change.ordinal);
-        let mut storage_changes_per_address_and_slot: HashMap<(Vec<u8>, Vec<u8>), ContractSlot> =
-            HashMap::new();
-        for storage_change in storage_changes.iter() {
-            let contract_slot = ContractSlot {
-                slot: storage_change.clone().key,
-                value: storage_change.clone().new_value,
-            };
-            storage_changes_per_address_and_slot.insert(
-                (storage_change.address.clone(), storage_change.key.clone()),
-                contract_slot,
-            );
-        }
+        // For each address, sort by ordinal and collect latest changes per slot
+        let tx_storage_changes: Vec<StorageChanges> = changes_by_address
+            .into_iter()
+            .map(|(address, mut changes)| {
+                changes.sort_unstable_by_key(|change| change.ordinal);
 
-        let tx_storage_changes: Vec<StorageChanges> = storage_changes_per_address_and_slot
-            .into_iter()
-            .fold(
-                HashMap::new(),
-                |mut acc: HashMap<Vec<u8>, Vec<ContractSlot>>, ((address, _key), slot)| {
-                    acc.entry(address)
-                        .or_default()
-                        .push(slot);
-                    acc
-                },
-            )
-            .into_iter()
-            .map(|(address, slots)| StorageChanges { address, slots })
+                // Collect latest change per slot
+                let mut latest_changes: HashMap<Vec<u8>, ContractSlot> = HashMap::new();
+                for change in changes {
+                    latest_changes.insert(
+                        change.key.clone(),
+                        ContractSlot { slot: change.key, value: change.new_value },
+                    );
+                }
+
+                StorageChanges { address, slots: latest_changes.into_values().collect() }
+            })
             .collect();
 
         block_storage_changes.push(TransactionStorageChanges {
