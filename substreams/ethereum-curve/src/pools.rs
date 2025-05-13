@@ -127,7 +127,7 @@ fn parse_params(params: &str) -> Result<HashMap<String, PoolQueryParams>, anyhow
         .split(PARAMS_SEPERATOR)
         .map(|param| {
             let pool: PoolQueryParams = serde_qs::from_str(param)
-                .with_context(|| format!("Failed to parse pool query params: {0}", param))?;
+                .with_context(|| format!("Failed to parse pool query params: {param}"))?;
             Ok((pool.tx_hash.clone(), pool))
         })
         .collect::<Result<HashMap<_, _>>>()

@@ -681,7 +681,7 @@ pub fn address_map(
                         }),
                     },
                     vec![EntityChanges {
-                        component_id: format!("0x{}", id),
+                        component_id: format!("0x{id}"),
                         attributes: vec![
                             Attribute {
                                 name: "stateless_contract_addr_0".into(),
@@ -947,7 +947,7 @@ pub fn address_map(
                         }),
                     },
                     vec![EntityChanges {
-                        component_id: format!("0x{}", id),
+                        component_id: format!("0x{id}"),
                         attributes: vec![
                             Attribute {
                                 name: "stateless_contract_addr_0".into(),
