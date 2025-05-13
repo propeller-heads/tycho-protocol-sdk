@@ -120,9 +120,9 @@ message EntityChanges {
 // A key value entry into contract storage.
 message ContractSlot {
   // A contract's storage slot.
-  bytes slot = 1;
+  bytes slot = 2;
   // The new value for this storage slot.
-  bytes value = 2;
+  bytes value = 3;
 }
 
 // A struct for following the token balance changes for a contract.

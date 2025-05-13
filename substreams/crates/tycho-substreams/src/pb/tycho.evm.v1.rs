@@ -133,10 +133,10 @@ pub struct EntityChanges {
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ContractSlot {
     /// A contract's storage slot.
-    #[prost(bytes="vec", tag="1")]
+    #[prost(bytes="vec", tag="2")]
     pub slot: ::prost::alloc::vec::Vec<u8>,
     /// The new value for this storage slot.
-    #[prost(bytes="vec", tag="2")]
+    #[prost(bytes="vec", tag="3")]
     pub value: ::prost::alloc::vec::Vec<u8>,
 }
 /// A struct for following the token balance changes for a contract.
@@ -176,8 +176,9 @@ pub struct ContractChange {
 // DCI entities
 
 /// An entrypoint to be used for DCI analysis
+#[derive(Eq, Hash)]
 #[allow(clippy::derive_partial_eq_without_eq)]
-#[derive(Clone, PartialEq, ::prost::Message, Eq, Hash)]
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct EntryPoint {
     /// The entrypoint id. Recommended to use 'target:signature'.
     #[prost(string, tag="1")]
