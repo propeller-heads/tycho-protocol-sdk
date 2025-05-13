@@ -177,7 +177,7 @@ pub struct ContractChange {
 
 /// An entrypoint to be used for DCI analysis
 #[allow(clippy::derive_partial_eq_without_eq)]
-#[derive(Clone, PartialEq, ::prost::Message)]
+#[derive(Clone, PartialEq, ::prost::Message, Eq, Hash)]
 pub struct EntryPoint {
     /// The entrypoint id. Recommended to use 'target:signature'.
     #[prost(string, tag="1")]
