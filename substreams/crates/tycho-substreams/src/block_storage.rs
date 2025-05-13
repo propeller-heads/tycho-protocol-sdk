@@ -14,6 +14,9 @@ use crate::{
 /// index. Note that core protocol data should still be properly integrated and indexed by the
 /// substreams package as per usual.
 ///
+/// ## Panics
+/// Panics if the provided block is not an extended block model, as indicated by its detail level.
+///
 /// ## Warning
 /// ⚠️ This function *only* works if the **extended block model** is available,
 /// more [here](https://streamingfastio.medium.com/new-block-model-to-accelerate-chain-integration-9f65126e5425)
