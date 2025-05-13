@@ -4,7 +4,7 @@ use std::{collections::HashMap, iter::zip};
 use substreams_ethereum::pb::eth::v2::TransactionTrace;
 use tycho_substreams::prelude::*;
 
-const PARAMS_SEPERATOR: &str = ",";
+const PARAMS_SEPERATOR: &str = "#";
 
 #[derive(Debug, Deserialize, PartialEq)]
 struct PoolQueryParams {
