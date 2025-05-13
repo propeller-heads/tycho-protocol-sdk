@@ -337,7 +337,7 @@ impl ProtocolComponent {
     ///
     /// # Example
     ///
-    /// ```
+    /// ```ignore
     /// let attributes_to_check = vec![
     ///     ("attribute1".to_string(), vec![1, 2, 3]),
     ///     ("attribute2".to_string(), vec![4, 5, 6]),
@@ -379,7 +379,7 @@ impl ProtocolComponent {
     ///
     /// # Example
     ///
-    /// ```
+    /// ```ignore
     /// let attribute_name = "attribute1";
     /// if let Some(value) = instance.get_attribute_value(attribute_name) {
     ///     // Use the attribute value
