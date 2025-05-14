@@ -4,7 +4,10 @@ use substreams_ethereum::{
 };
 
 use crate::abi;
-use tycho_substreams::{attributes::json_serialize_bigint_list, prelude::*};
+use tycho_substreams::{
+    attributes::{json_serialize_address_list, json_serialize_bigint_list},
+    prelude::*,
+};
 
 use crate::consts::*;
 use substreams::scalar::BigInt;
@@ -97,13 +100,7 @@ pub fn address_map(
             Some((
                 ProtocolComponent {
                     id: hex::encode(component_id),
-                    tx: Some(Transaction {
-                        to: tx.to.clone(),
-                        from: tx.from.clone(),
-                        hash: tx.hash.clone(),
-                        index: tx.index.into(),
-                    }),
-                    tokens,
+                    tokens: tokens.clone(),
                     contracts: vec![
                         component_id.into(),
                         pool_added.token.clone(),
@@ -133,6 +130,11 @@ pub fn address_map(
                         Attribute {
                             name: "lp_token".into(),
                             value: pool_added.token,
+                            change: ChangeType::Creation.into(),
+                        },
+                        Attribute {
+                            name: "coins".into(),
+                            value: json_serialize_address_list(&tokens),
                             change: ChangeType::Creation.into(),
                         },
                     ],
@@ -210,13 +212,7 @@ pub fn address_map(
                 Some((
                     ProtocolComponent {
                         id: hex::encode(component_id),
-                        tx: Some(Transaction {
-                            to: tx.to.clone(),
-                            from: tx.from.clone(),
-                            hash: tx.hash.clone(),
-                            index: tx.index.into(),
-                        }),
-                        tokens,
+                        tokens: tokens.clone(),
                         contracts: vec![component_id.into()],
                         static_att: vec![
                             Attribute {
@@ -237,6 +233,11 @@ pub fn address_map(
                             Attribute {
                                 name: "factory".into(),
                                 value: address_to_bytes_with_0x(&META_POOL_FACTORY),
+                                change: ChangeType::Creation.into(),
+                            },
+                            Attribute {
+                                name: "coins".into(),
+                                value: json_serialize_address_list(&tokens),
                                 change: ChangeType::Creation.into(),
                             },
                         ],
@@ -328,6 +329,7 @@ pub fn address_map(
             //                     ),
             //                     change: ChangeType::Creation.into(),
             //                 },
+            //                 TODO:ADD COINS
             //             ],
             //             change: ChangeType::Creation.into(),
             //             protocol_type: Some(ProtocolType {
@@ -416,6 +418,7 @@ pub fn address_map(
         //                         ),
         //                         change: ChangeType::Creation.into(),
         //                     },
+        //                 TODO:ADD COINS
         //                 ],
         //                 change: ChangeType::Creation.into(),
         //                 protocol_type: Some(ProtocolType {
@@ -450,13 +453,7 @@ pub fn address_map(
                 Some((
                     ProtocolComponent {
                         id: hex::encode(component_id),
-                        tx: Some(Transaction {
-                            to: tx.to.clone(),
-                            from: tx.from.clone(),
-                            hash: tx.hash.clone(),
-                            index: tx.index.into(),
-                        }),
-                        tokens: pool_added.coins,
+                        tokens: pool_added.coins.clone(),
                         contracts: vec![component_id.into(), CRYPTO_SWAP_NG_FACTORY.into()],
                         static_att: vec![
                             Attribute {
@@ -482,6 +479,11 @@ pub fn address_map(
                             Attribute {
                                 name: "asset_types".into(),
                                 value: json_serialize_bigint_list(&add_pool.asset_types),
+                                change: ChangeType::Creation.into(),
+                            },
+                            Attribute {
+                                name: "coins".into(),
+                                value: json_serialize_address_list(&pool_added.coins),
                                 change: ChangeType::Creation.into(),
                             },
                         ],
@@ -518,13 +520,7 @@ pub fn address_map(
                 Some((
                     ProtocolComponent {
                         id: hex::encode(component_id),
-                        tx: Some(Transaction {
-                            to: tx.to.clone(),
-                            from: tx.from.clone(),
-                            hash: tx.hash.clone(),
-                            index: tx.index.into(),
-                        }),
-                        tokens: vec![pool_added.coin, lp_token],
+                        tokens: vec![pool_added.coin.clone(), lp_token.clone()],
                         contracts: vec![
                             component_id.into(),
                             CRYPTO_SWAP_NG_FACTORY.into(),
@@ -561,6 +557,11 @@ pub fn address_map(
                             Attribute {
                                 name: "asset_type".into(),
                                 value: add_pool.asset_type.to_signed_bytes_be(),
+                                change: ChangeType::Creation.into(),
+                            },
+                            Attribute {
+                                name: "coins".into(),
+                                value: json_serialize_address_list(&[pool_added.coin, lp_token]),
                                 change: ChangeType::Creation.into(),
                             },
                         ],
@@ -612,13 +613,7 @@ pub fn address_map(
                 Some((
                     ProtocolComponent {
                         id: id.clone(),
-                        tx: Some(Transaction {
-                            to: tx.to.clone(),
-                            from: tx.from.clone(),
-                            hash: tx.hash.clone(),
-                            index: tx.index.into(),
-                        }),
-                        tokens,
+                        tokens: tokens.clone(),
                         contracts: vec![pool_added.pool, TRICRYPTO_FACTORY.into()],
                         static_att: vec![
                             Attribute {
@@ -641,6 +636,11 @@ pub fn address_map(
                                 value: address_to_bytes_with_0x(&TRICRYPTO_FACTORY),
                                 change: ChangeType::Creation.into(),
                             },
+                            Attribute {
+                                name: "coins".into(),
+                                value: json_serialize_address_list(&tokens),
+                                change: ChangeType::Creation.into(),
+                            },
                         ],
                         change: ChangeType::Creation.into(),
                         protocol_type: Some(ProtocolType {
@@ -651,7 +651,7 @@ pub fn address_map(
                         }),
                     },
                     vec![EntityChanges {
-                        component_id: format!("0x{}", id),
+                        component_id: format!("0x{id}"),
                         attributes: vec![
                             Attribute {
                                 name: "stateless_contract_addr_0".into(),
@@ -728,13 +728,7 @@ pub fn address_map(
                 Some((
                     ProtocolComponent {
                         id: hex::encode(component_id),
-                        tx: Some(Transaction {
-                            to: tx.to.clone(),
-                            from: tx.from.clone(),
-                            hash: tx.hash.clone(),
-                            index: tx.index.into(),
-                        }),
-                        tokens,
+                        tokens: tokens.clone(),
                         contracts: vec![component_id.into()],
                         static_att: vec![
                             Attribute {
@@ -755,6 +749,11 @@ pub fn address_map(
                             Attribute {
                                 name: "factory".into(),
                                 value: address_to_bytes_with_0x(&STABLESWAP_FACTORY),
+                                change: ChangeType::Creation.into(),
+                            },
+                            Attribute {
+                                name: "coins".into(),
+                                value: json_serialize_address_list(&tokens),
                                 change: ChangeType::Creation.into(),
                             },
                         ],
@@ -868,13 +867,7 @@ pub fn address_map(
                 Some((
                     ProtocolComponent {
                         id: id.clone(),
-                        tx: Some(Transaction {
-                            to: tx.to.clone(),
-                            from: tx.from.clone(),
-                            hash: tx.hash.clone(),
-                            index: tx.index.into(),
-                        }),
-                        tokens: pool_added.coins.into(),
+                        tokens: pool_added.coins.clone().into(),
                         contracts: vec![pool_added.pool, TWOCRYPTO_FACTORY.into()],
                         static_att: vec![
                             Attribute {
@@ -897,6 +890,11 @@ pub fn address_map(
                                 value: address_to_bytes_with_0x(&TWOCRYPTO_FACTORY),
                                 change: ChangeType::Creation.into(),
                             },
+                            Attribute {
+                                name: "coins".into(),
+                                value: json_serialize_address_list(&pool_added.coins),
+                                change: ChangeType::Creation.into(),
+                            },
                         ],
                         change: ChangeType::Creation.into(),
                         protocol_type: Some(ProtocolType {
@@ -907,7 +905,7 @@ pub fn address_map(
                         }),
                     },
                     vec![EntityChanges {
-                        component_id: format!("0x{}", id),
+                        component_id: format!("0x{id}"),
                         attributes: vec![
                             Attribute {
                                 name: "stateless_contract_addr_0".into(),
