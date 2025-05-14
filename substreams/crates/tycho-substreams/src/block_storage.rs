@@ -33,16 +33,13 @@ fn get_block_storage_changes(block: &eth::v2::Block) -> Vec<TransactionStorageCh
         let transaction: Transaction = block_tx.into();
 
         let mut changes_by_address: HashMap<Vec<u8>, Vec<StorageChange>> = HashMap::new();
-        for call in block_tx.calls.iter() {
-            // Filter out calls that are reverted
-            if !call.state_reverted {
-                for storage_change in call.storage_changes.iter() {
-                    changes_by_address
-                        .entry(storage_change.address.clone())
-                        .or_default()
-                        .push(storage_change.clone());
-                }
-            }
+        for storage_change in block_tx.calls.iter()
+            .filter(|call| !call.state_reverted)
+            .flat_map(|call| call.storage_changes.iter()) {
+            changes_by_address
+                .entry(storage_change.address.clone())
+                .or_default()
+                .push(storage_change.clone());
         }
 
         // For each address, sort by ordinal and collect latest changes per slot
