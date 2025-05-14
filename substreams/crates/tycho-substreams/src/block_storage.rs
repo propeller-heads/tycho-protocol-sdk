@@ -33,9 +33,12 @@ fn get_block_storage_changes(block: &eth::v2::Block) -> Vec<TransactionStorageCh
         let transaction: Transaction = block_tx.into();
 
         let mut changes_by_address: HashMap<Vec<u8>, Vec<StorageChange>> = HashMap::new();
-        for storage_change in block_tx.calls.iter()
+        for storage_change in block_tx
+            .calls
+            .iter()
             .filter(|call| !call.state_reverted)
-            .flat_map(|call| call.storage_changes.iter()) {
+            .flat_map(|call| call.storage_changes.iter())
+        {
             changes_by_address
                 .entry(storage_change.address.clone())
                 .or_default()
