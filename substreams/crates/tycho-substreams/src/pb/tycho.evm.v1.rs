@@ -200,7 +200,7 @@ pub struct EntryPointParams {
     /// The entrypoint id.
     #[prost(string, tag="1")]
     pub entrypoint_id: ::prost::alloc::string::String,
-    /// \[optional\] The component that uses these entrypoint parameters.
+    /// \[optional\] The component that uses these entrypoint parameters. Currently used for debugging purposes only.
     #[prost(string, tag="2")]
     pub component_id: ::prost::alloc::string::String,
     /// The strategy and its corresponding data
@@ -222,12 +222,12 @@ pub mod entry_point_params {
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct RpcTraceData {
-    /// \[optional\] The caller to be used for the trace
+    /// \[optional\] The caller to be used for the trace. If none is provided a chain default will be used.
     #[prost(bytes="vec", tag="1")]
     pub caller: ::prost::alloc::vec::Vec<u8>,
-    /// The call_data to be used for the trace
+    /// The calldata to be used for the trace
     #[prost(bytes="vec", tag="2")]
-    pub call_data: ::prost::alloc::vec::Vec<u8>,
+    pub calldata: ::prost::alloc::vec::Vec<u8>,
 }
 /// A contract and associated storage changes
 #[allow(clippy::derive_partial_eq_without_eq)]

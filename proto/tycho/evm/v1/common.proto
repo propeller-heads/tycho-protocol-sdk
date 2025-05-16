@@ -167,7 +167,7 @@ message EntryPoint {
 message EntryPointParams {
   // The entrypoint id.
   string entrypoint_id = 1;
-  // [optional] The component that uses these entrypoint parameters.
+  // [optional] The component that uses these entrypoint parameters. Currently used for debugging purposes only.
   string component_id = 2;
   // The strategy and its corresponding data
   oneof trace_data {
@@ -178,10 +178,10 @@ message EntryPointParams {
 
 // RPC tracing strategy with its data
 message RPCTraceData {
-  // [optional] The caller to be used for the trace
+  // [optional] The caller to be used for the trace. If none is provided a chain default will be used.
   bytes caller = 1;
-  // The call_data to be used for the trace
-  bytes call_data = 2;
+  // The calldata to be used for the trace
+  bytes calldata = 2;
 }
 
 // A contract and associated storage changes
