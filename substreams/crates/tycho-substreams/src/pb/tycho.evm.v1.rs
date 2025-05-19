@@ -194,6 +194,7 @@ pub struct EntryPoint {
     pub component_id: ::prost::alloc::string::String,
 }
 /// Parameters to trace the entrypoint
+#[derive(Eq, Hash)]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct EntryPointParams {
@@ -210,6 +211,7 @@ pub struct EntryPointParams {
 /// Nested message and enum types in `EntryPointParams`.
 pub mod entry_point_params {
     /// The strategy and its corresponding data
+    #[derive(Eq, Hash)]
     #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Oneof)]
     pub enum TraceData {
@@ -219,6 +221,7 @@ pub mod entry_point_params {
     }
 }
 /// RPC tracing strategy with its data
+#[derive(Eq, Hash)]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct RpcTraceData {
