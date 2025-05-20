@@ -10,7 +10,7 @@ pub fn create_entrypoint(
     target: Vec<u8>,
     signature: String,
     component_id: String,
-    trace_data: Option<TraceData>,
+    trace_data: TraceData,
 ) -> (EntryPoint, EntryPointParams) {
     let entrypoint_id = get_entrypoint_id(&target, &signature);
     let entrypoint = EntryPoint {
@@ -19,7 +19,8 @@ pub fn create_entrypoint(
         signature,
         component_id: component_id.clone(),
     };
-    let entrypoint_params = EntryPointParams { entrypoint_id, component_id, trace_data };
+    let entrypoint_params =
+        EntryPointParams { entrypoint_id, component_id, trace_data: Some(trace_data) };
     (entrypoint, entrypoint_params)
 }
 
@@ -27,13 +28,13 @@ pub fn create_entrypoint(
 pub fn add_entrypoint_params(
     target: Vec<u8>,
     signature: String,
-    trace_data: Option<TraceData>,
+    trace_data: TraceData,
     component_id: Option<String>,
 ) -> EntryPointParams {
     EntryPointParams {
         entrypoint_id: get_entrypoint_id(&target, &signature),
         component_id: component_id.unwrap_or_default(),
-        trace_data,
+        trace_data: Some(trace_data),
     }
 }
 
@@ -44,5 +45,5 @@ pub fn add_component_to_entrypoint(
     component_id: String,
 ) -> EntryPoint {
     let entrypoint_id = get_entrypoint_id(&target, &signature);
-    EntryPoint { id: entrypoint_id.clone(), target, signature, component_id }
+    EntryPoint { id: entrypoint_id, target, signature, component_id }
 }
