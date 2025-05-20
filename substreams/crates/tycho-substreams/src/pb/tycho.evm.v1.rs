@@ -202,8 +202,8 @@ pub struct EntryPointParams {
     #[prost(string, tag="1")]
     pub entrypoint_id: ::prost::alloc::string::String,
     /// \[optional\] The component that uses these entrypoint parameters. Currently used for debugging purposes only.
-    #[prost(string, tag="2")]
-    pub component_id: ::prost::alloc::string::String,
+    #[prost(string, optional, tag="2")]
+    pub component_id: ::core::option::Option<::prost::alloc::string::String>,
     /// The strategy and its corresponding data
     #[prost(oneof="entry_point_params::TraceData", tags="3")]
     pub trace_data: ::core::option::Option<entry_point_params::TraceData>,

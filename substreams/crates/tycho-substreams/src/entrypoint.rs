@@ -1,6 +1,6 @@
 use crate::models::{entry_point_params::TraceData, EntryPoint, EntryPointParams};
 
-fn get_entrypoint_id(target: &Vec<u8>, signature: &String) -> String {
+fn get_entrypoint_id(target: &[u8], signature: &str) -> String {
     let target = hex::encode(target);
     format!("{target}:{signature}")
 }
@@ -19,8 +19,11 @@ pub fn create_entrypoint(
         signature,
         component_id: component_id.clone(),
     };
-    let entrypoint_params =
-        EntryPointParams { entrypoint_id, component_id, trace_data: Some(trace_data) };
+    let entrypoint_params = EntryPointParams {
+        entrypoint_id,
+        component_id: Some(component_id),
+        trace_data: Some(trace_data),
+    };
     (entrypoint, entrypoint_params)
 }
 
@@ -33,7 +36,7 @@ pub fn add_entrypoint_params(
 ) -> EntryPointParams {
     EntryPointParams {
         entrypoint_id: get_entrypoint_id(&target, &signature),
-        component_id: component_id.unwrap_or_default(),
+        component_id,
         trace_data: Some(trace_data),
     }
 }
