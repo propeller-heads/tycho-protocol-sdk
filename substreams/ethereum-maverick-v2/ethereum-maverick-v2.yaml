@@ -2,6 +2,7 @@ specVersion: v0.1.0
 package:
   name: "ethereum_maverick_v2"
   version: v0.1.0
+  url: https://github.com/propeller-heads/tycho-protocol-sdk/tree/main/substreams/ethereum-maverick-v2
 
 protobuf:
   files:
