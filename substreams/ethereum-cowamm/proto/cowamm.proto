@@ -1,0 +1,14 @@
+
+syntax = "proto3";
+
+package cowamm;
+
+message CowPool {
+  bytes address = 1;
+  bytes tokenA = 2;
+  bytes tokenB = 3;
+  bytes weightA = 4;
+  bytes weightB = 5;
+  bytes fee = 6;
+  bytes created_tx_hash = 7;
+} 
