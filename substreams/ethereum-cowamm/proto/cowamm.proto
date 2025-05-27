@@ -7,8 +7,32 @@ message CowPool {
   bytes address = 1;
   bytes tokenA = 2;
   bytes tokenB = 3;
-  bytes weightA = 4;
-  bytes weightB = 5;
-  bytes fee = 6;
-  bytes created_tx_hash = 7;
+  bytes lpToken = 4;
+  uint64 weightA = 5;
+  uint64 weightB = 6;
+  uint64 fee = 7;
+  bytes created_tx_hash = 8;
 } 
+
+message CowPools {
+  repeated CowPool pools = 1;
+} 
+
+message CowPoolBind {
+  bytes address = 1;
+  bytes token = 2;
+  uint64 weight = 3;
+}
+message CowPoolBinds {
+   repeated CowPoolBinds binds = 1;
+}
+
+message CowPoolCreation {
+  bytes address = 1;
+  bytes lpToken = 2;
+  bytes created_tx_hash = 3;
+}
+
+message CowPoolCreations {
+  repeated CowPoolCreation pools = 1;
+}
