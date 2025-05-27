@@ -198,7 +198,7 @@ pub fn map_protocol_changes(
         .for_each(|tx_component| {
             // initialise builder if not yet present for this tx
             let tx = tx_component.tx.as_ref().unwrap();
-            let builder = transaction_changes
+            let builder = transaction_changes 
                 .entry(tx.index)
                 .or_insert_with(|| TransactionChangesBuilder::new(tx));
 
