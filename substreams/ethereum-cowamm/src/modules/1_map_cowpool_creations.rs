@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use crate::{modules::utils::Params};
 use crate::pb::cowamm::{CowPoolCreation, CowPoolCreations};
 use anyhow::{Ok, Result};
@@ -17,7 +16,7 @@ use tycho_substreams::prelude::*;
 
 //address of CowPool creations
 #[substreams::handlers::map]
-fn map_cowpool_creations(block: Block) -> Result<CowpoolCreations, substreams::errors::Error> {
+pub fn map_cowpool_creations(params: String, block: Block) -> Result<CowPoolCreations> {
     const COWAMM_POOL_CREATED_TOPIC: &str = "0x0d03834d0d86c7f57e877af40e26f176dc31bd637535d4ba153d1ac9de88a7ea";
 
     let params = Params::parse_from_query(&params)?;
@@ -25,27 +24,32 @@ fn map_cowpool_creations(block: Block) -> Result<CowpoolCreations, substreams::e
 
     let cow_pool_creations = block
         .logs()
-        .iter()
         .filter(|log| {
-            log.address == factory_address && 
-            log.topics.get(0).map(|t| hex::encode(t)) == Some(COWAMM_POOL_CREATED_TOPIC)
+            log.address() == factory_address && 
+            log.topics()
+                .get(0)
+                .map(|t| hex::encode(t)) == Some(COWAMM_POOL_CREATED_TOPIC.to_string())
         })
         .filter_map(|log| {                   
             let address = &log
-                .topics
+                .topics()
                 .get(1)
-                .map(|topic| topic.as_slice()[12..].to_vec()); // we get the last 20 bytes which is BCowPool address
+                .map(|topic| topic.as_slice()[12..].to_vec())?; // we get the last 20 bytes which is BCowPool address
             
-            let tx_hash = log.transaction.hash.clone();
+            let tx_hash = log.receipt.transaction.hash.clone();
+            // let tx = log.receipt.transaction; //LogView.receipt.TransactionTrace // theres an into trait to convert `TransactionTrace` to the custom `Transaction` type 
 
             Some(CowPoolCreation {
-                address: address,
-                lp_token: address, //address of lptoken is same as the pool address
+                address: address.clone(), 
+                lp_token: address.clone(), //address of lptoken is same as the pool address
+                // tx: Some(tx.into()), // Option<cowamm::Transaction>
                 created_tx_hash: tx_hash,
             })
         })
-        .collect<Vec<CowPoolCreation>>();
+        .collect::<Vec<CowPoolCreation>>();
 
     Ok(CowPoolCreations { pools: cow_pool_creations })
 }
 
+
+// i need to rethink my data model design , the Transaction type should not be part of the CowPool 
