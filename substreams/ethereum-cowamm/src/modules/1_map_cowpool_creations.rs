@@ -1,18 +1,12 @@
 use crate::{modules::utils::Params};
 use crate::pb::cowamm::{CowPoolCreation, CowPoolCreations};
 use anyhow::{Ok, Result};
-use ethabi::ethereum_types::Address;
-use substreams::{prelude::BigInt};
-use hex_literal::hex;
-use serde::Deserialize;
-use substreams_ethereum::pb::eth::v2::{Call,Block, Log, TransactionTrace};
-use tycho_substreams::prelude::*;
+use substreams_ethereum::pb::eth::v2::{Block};
 
 
 //This is the first topic (topics[0]) that is present in COWAMMPoolCreated events 
 //sample  = https://etherscan.io/tx/0x124f2fa9c181003529e34c22e7380b505f1f5e18e44c3868560e4ddc724cc191#eventlog
-
-//the remaininng part of topics[1] the last topic is the address of the BCowPool
+//the remaining part of topics[1] the last topic is the address of the BCowPool
 
 //address of CowPool creations
 #[substreams::handlers::map]
@@ -37,12 +31,10 @@ pub fn map_cowpool_creations(params: String, block: Block) -> Result<CowPoolCrea
                 .map(|topic| topic.as_slice()[12..].to_vec())?; // we get the last 20 bytes which is BCowPool address
             
             let tx_hash = log.receipt.transaction.hash.clone();
-            // let tx = log.receipt.transaction; //LogView.receipt.TransactionTrace // theres an into trait to convert `TransactionTrace` to the custom `Transaction` type 
 
             Some(CowPoolCreation {
                 address: address.clone(), 
                 lp_token: address.clone(), //address of lptoken is same as the pool address
-                // tx: Some(tx.into()), // Option<cowamm::Transaction>
                 created_tx_hash: tx_hash,
             })
         })
@@ -52,4 +44,3 @@ pub fn map_cowpool_creations(params: String, block: Block) -> Result<CowPoolCrea
 }
 
 
-// i need to rethink my data model design , the Transaction type should not be part of the CowPool 
