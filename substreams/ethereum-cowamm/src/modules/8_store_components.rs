@@ -37,7 +37,6 @@ pub fn store_components(
                     .find(|attr| attr.name == "fee")
                     .expect("every cow pool should have swap_fee as static attribute")
                     .value).to_u64(), //or should i just use 0?
-                tx: "tx",
                 created_tx_hash: tx_pc.tx.as_ref().unwrap().hash.clone(),
             };
             store.set_if_not_exists(0, format!("Pool:{}", pool_address), &pool);

@@ -1,17 +1,13 @@
+use std::collections::HashSet;
 use crate::pb::cowamm::{CowPoolCreations,CowPoolBind, CowPoolBinds};
 use anyhow::{Ok, Result};
-use ethabi::ethereum_types::Address;
-use substreams::{prelude::BigInt};
-use hex_literal::hex;
-use serde::Deserialize;
-use substreams_ethereum::pb::eth::v2::{Call,Block, Log,};
-use tycho_substreams::prelude::*;
+use substreams_ethereum::pb::eth::v2::{Block};
 
 #[substreams::handlers::map]
 pub fn map_cowpool_binds(block: Block, creations: CowPoolCreations) -> Result<CowPoolBinds> {
     const BIND_TOPIC: &str = "0xe4e1e53800000000000000000000000000000000000000000000000000000000";
 
-    let creation_addrs: std::collections::HashSet<&Vec<u8>> = creations.pools.iter().map(|c| &c.address).collect();
+    let creation_addrs: HashSet<&Vec<u8>> = creations.pools.iter().map(|c| &c.address).collect();
 
     let cowpool_binds = block
         .logs()
