@@ -18,7 +18,11 @@ pub fn store_components(
                 address: hex::decode(pool_address.trim_start_matches("0x")).unwrap(),
                 token_a: pc.tokens[0].clone(),
                 token_b: pc.tokens[1].clone(),
-                lp_token: pc.tokens[2].clone(),
+                lp_token: pc.static_att
+                    .iter()
+                    .find(|attr| attr.name == "lp_token")
+                    .expect("every cow pool should have lp_token as static attribute")
+                    .value.clone(), //look at this later
                 weight_a: BigInt::from_signed_bytes_be(&pc
                     .static_att
                     .iter()
@@ -31,12 +35,7 @@ pub fn store_components(
                     .find(|attr| attr.name == "denormalized_weight_b")
                     .expect("every cow pool should have denormalized_weight_b as static attribute")
                     .value).to_u64(),
-                fee: BigInt::from_signed_bytes_be(&pc    
-                    .static_att
-                    .iter()
-                    .find(|attr| attr.name == "fee")
-                    .expect("every cow pool should have swap_fee as static attribute")
-                    .value).to_u64(), //or should i just use 0?
+                fee: 0 as u64,
                 created_tx_hash: tx_pc.tx.as_ref().unwrap().hash.clone(),
             };
             store.set_if_not_exists(0, format!("Pool:{}", pool_address), &pool);

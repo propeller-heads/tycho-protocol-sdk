@@ -32,14 +32,14 @@ pub struct CowPoolBind {
     pub address: ::prost::alloc::vec::Vec<u8>,
     #[prost(bytes="vec", tag="2")]
     pub token: ::prost::alloc::vec::Vec<u8>,
-    #[prost(uint64, tag="3")]
-    pub weight: u64,
+    #[prost(bytes="vec", tag="3")]
+    pub weight: ::prost::alloc::vec::Vec<u8>,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct CowPoolBinds {
     #[prost(message, repeated, tag="1")]
-    pub binds: ::prost::alloc::vec::Vec<CowPoolBinds>,
+    pub binds: ::prost::alloc::vec::Vec<CowPoolBind>,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]

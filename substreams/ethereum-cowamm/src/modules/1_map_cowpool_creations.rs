@@ -2,7 +2,8 @@ use crate::{modules::utils::Params};
 use crate::pb::cowamm::{CowPoolCreation, CowPoolCreations};
 use anyhow::{Ok, Result};
 use substreams_ethereum::pb::eth::v2::{Block};
-
+use substreams::log::info;
+use substreams_helper::hex::Hexable;
 
 //This is the first topic (topics[0]) that is present in COWAMMPoolCreated events 
 //sample  = https://etherscan.io/tx/0x124f2fa9c181003529e34c22e7380b505f1f5e18e44c3868560e4ddc724cc191#eventlog
@@ -18,11 +19,11 @@ pub fn map_cowpool_creations(params: String, block: Block) -> Result<CowPoolCrea
 
     let cow_pool_creations = block
         .logs()
-        .filter(|log| {
+        .filter(|log| {     
             log.address() == factory_address && 
             log.topics()
                 .get(0)
-                .map(|t| hex::encode(t)) == Some(COWAMM_POOL_CREATED_TOPIC.to_string())
+                .map(|t| t.to_hex()) == Some(COWAMM_POOL_CREATED_TOPIC.to_string())
         })
         .filter_map(|log| {                   
             let address = &log
@@ -31,7 +32,6 @@ pub fn map_cowpool_creations(params: String, block: Block) -> Result<CowPoolCrea
                 .map(|topic| topic.as_slice()[12..].to_vec())?; // we get the last 20 bytes which is BCowPool address
             
             let tx_hash = log.receipt.transaction.hash.clone();
-
             Some(CowPoolCreation {
                 address: address.clone(), 
                 lp_token: address.clone(), //address of lptoken is same as the pool address
@@ -39,7 +39,6 @@ pub fn map_cowpool_creations(params: String, block: Block) -> Result<CowPoolCrea
             })
         })
         .collect::<Vec<CowPoolCreation>>();
-
     Ok(CowPoolCreations { pools: cow_pool_creations })
 }
 
