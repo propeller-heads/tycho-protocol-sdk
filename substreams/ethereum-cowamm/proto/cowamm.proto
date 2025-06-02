@@ -5,11 +5,11 @@ package cowamm;
 
 message CowPool {
   bytes address = 1;
-  bytes tokenA = 2;
-  bytes tokenB = 3;
-  bytes lpToken = 4;
-  uint64 weightA = 5;
-  uint64 weightB = 6;
+  bytes token_a = 2;
+  bytes token_b = 3;
+  bytes lp_token = 4;
+  uint64 weight_a = 5;
+  uint64 weight_b = 6;
   uint64 fee = 7;
   bytes created_tx_hash = 8;
 } 
@@ -21,15 +21,16 @@ message CowPools {
 message CowPoolBind {
   bytes address = 1;
   bytes token = 2;
-  uint64 weight = 3;
+  bytes weight = 3;
 }
+
 message CowPoolBinds {
-   repeated CowPoolBinds binds = 1;
+   repeated CowPoolBind binds = 1;
 }
 
 message CowPoolCreation {
   bytes address = 1;
-  bytes lpToken = 2;
+  bytes lp_token = 2;
   bytes created_tx_hash = 3;
 }
 
