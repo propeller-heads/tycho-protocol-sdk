@@ -1,5 +1,4 @@
 pub use map_cowpool_creations::map_cowpool_creations;
-pub use store_cowpool_creations::store_cowpool_creations;
 pub use map_cowpool_binds::map_cowpool_binds;
 pub use store_cowpool_binds::store_cowpool_binds;
 pub use map_cowpools::map_cowpools;
@@ -13,9 +12,6 @@ pub use map_protocol_changes::map_protocol_changes;
 
 #[path = "1_map_cowpool_creations.rs"]
 mod map_cowpool_creations;
-
-#[path = "1_store_cowpool_creations.rs"]
-mod store_cowpool_creations;
 
 #[path = "2_map_cowpool_binds.rs"]
 mod map_cowpool_binds;
