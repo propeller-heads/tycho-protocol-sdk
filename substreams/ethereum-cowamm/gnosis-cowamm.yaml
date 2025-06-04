@@ -5,40 +5,85 @@ package:
 
 protobuf:
   files:
-    - tycho/evm/v1/vm.proto
     - tycho/evm/v1/common.proto
+    - tycho/evm/v1/entity.proto
     - tycho/evm/v1/utils.proto
+    - cowamm.proto
   importPaths:
+    - ./proto/
     - ../../proto
 
 binaries:
-  default:
+  default: 
     type: wasm/rust-v1
     file: ../target/wasm32-unknown-unknown/release/ethereum_cowamm.wasm
-
 
 network: mainnet
 
 modules:
-  - name: map_components
+  - name: map_cowpool_creations
     kind: map
-    initialBlock: 1
+    initialBlock: 35267413
+    inputs:
+      - params: string
+      - source: sf.ethereum.type.v2.Block
+    output:
+      type: proto:cowamm.CowPoolCreations
+
+  - name: map_cowpool_binds
+    kind: map
+    initialBlock: 35267413
     inputs:
       - source: sf.ethereum.type.v2.Block
     output:
-      type: proto:tycho.evm.v1.BlockTransactionProtocolComponents
+      type: proto:cowamm.CowPoolBinds
+    
+  - name: store_cowpool_binds
+    kind: store
+    initialBlock: 35267413 
+    updatePolicy: append
+    valueType: string
+    inputs:
+      - map: map_cowpool_binds
 
+  - name: map_cowpools
+    kind: map
+    inputs:
+      - map: map_cowpool_creations
+      - store: store_cowpool_binds
+        mode: get
+    output:
+      type: proto:cowamm.CowPools
+    
+  - name: store_cowpools
+    kind: store
+    initialBlock: 35267413
+    updatePolicy: set
+    valueType: proto:cowamm.CowPool
+    inputs:
+      - map: map_cowpools
+
+  - name: map_components
+    kind: map
+    inputs:
+      - params: string
+      - source: sf.ethereum.type.v2.Block
+      - store: store_cowpools
+        mode: get
+    output:
+      type: proto:tycho.evm.v1.BlockTransactionProtocolComponents
+    
   - name: store_components
     kind: store
-    initialBlock: 1
-    updatePolicy: set
+    initialBlock: 35267413 	
+    updatePolicy: set_if_not_exists
     valueType: string
     inputs:
       - map: map_components
 
-  - name: map_relative_component_balance
+  - name: map_relative_balances
     kind: map
-    initialBlock: 1
+    initialBlock: 35267413
     inputs:
       - source: sf.ethereum.type.v2.Block
       - store: store_components
@@ -47,19 +92,20 @@ modules:
 
   - name: store_balances
     kind: store
-    initialBlock: 1
+    initialBlock: 35267413
     updatePolicy: add
     valueType: bigint
     inputs:
-      - map: map_relative_component_balance
+      - map: map_relative_balances
 
-  - name: map_changes
+  - name: map_protocol_changes
     kind: map
-    initialBlock: 1
+    initialBlock: 35267413
     inputs:
+      - params: string
       - source: sf.ethereum.type.v2.Block
       - map: map_components
-      - map: map_relative_component_balance
+      - map: map_relative_balances
       - store: store_components
       - store: store_balances
         mode: deltas
@@ -67,4 +113,6 @@ modules:
       type: proto:tycho.evm.v1.BlockChanges
 
 params:
-   map_components: factory_address=0x703Bd8115E6F21a37BB5Df97f78614ca72Ad7624
+  map_cowpool_creations: factory_address=703Bd8115E6F21a37BB5Df97f78614ca72Ad7624 
+  map_components: factory_address=703Bd8115E6F21a37BB5Df97f78614ca72Ad7624 
+  map_protocol_changes: factory_address=703Bd8115E6F21a37BB5Df97f78614ca72Ad7624 

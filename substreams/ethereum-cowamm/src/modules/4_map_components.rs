@@ -3,7 +3,6 @@ use crate::{modules::utils::Params};
 use anyhow::{Ok, Result};
 use ethabi::ethereum_types::Address;
 use substreams::{prelude::BigInt};
-use hex_literal::hex;
 use crate::pb::cowamm::{CowPool, CowPools};
 use substreams_ethereum::pb::eth::v2::{Block};
 use substreams_ethereum::Event;
@@ -23,7 +22,7 @@ fn create_component(
 
     Some(
         ProtocolComponent::new(&pool.address.to_hex())
-        .with_tokens(&[pool.token_a.as_slice(), pool.token_a.as_slice()])  //remember the address of the contract is the address of the lp token  
+        .with_tokens(&[pool.token_a.as_slice(), pool.token_b.as_slice()]) 
         .with_contracts(&[
             factory_address,
             pool.address.as_slice()
@@ -53,8 +52,12 @@ pub fn map_components(params: String, block: Block, store: StoreGetProto<CowPool
                         .logs_with_calls()
                         .filter(|(log, _)| log.address == factory_address)
                         .filter_map(|(log, call)| {
-                            let tx_hash = hex::encode(&tx.hash);
-                            let pool = store.get_last(tx_hash)?;
+                            let pool_address = &log
+                                .topics
+                                .get(1)
+                                .map(|topic| topic.as_slice()[12..].to_vec())?; 
+                            let pool_key = format!("Pool:0x{}",hex::encode(&pool_address));
+                            let pool = store.get_last(pool_key).expect("failed to get pool from store");
                             create_component(&factory_address, pool.clone())
                         })
                         .collect::<Vec<_>>();

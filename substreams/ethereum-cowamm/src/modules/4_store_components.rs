@@ -11,34 +11,34 @@ pub fn store_components(
     map: BlockTransactionProtocolComponents,
     store: StoreSetIfNotExistsProto<CowPool>,
 ) {
-    for tx_pc in map.tx_components { //tx_components here is new_pools
+    for tx_pc in map.tx_components { 
         for pc in tx_pc.components {
-            let pool_address = &pc.id; //tx_pc.components here is TransactionProtocolComponents
+            let pool_address = &pc.id; 
             let pool = CowPool {
-                address: hex::decode(pool_address.trim_start_matches("0x")).unwrap(),
+                address: hex::decode(pool_address.trim_start_matches("0x")).expect("failed to decode pool address"),
                 token_a: pc.tokens[0].clone(),
                 token_b: pc.tokens[1].clone(),
                 lp_token: pc.static_att
                     .iter()
                     .find(|attr| attr.name == "lp_token")
                     .expect("every cow pool should have lp_token as static attribute")
-                    .value.clone(), //look at this later
+                    .value.clone(), 
                 weight_a: BigInt::from_signed_bytes_be(&pc
                     .static_att
                     .iter()
-                    .find(|attr| attr.name == "denormalized_weight_a")
-                    .expect("every cow pool should have denormalized_weight_a as static attribute")
+                    .find(|attr| attr.name == "normalized_weight_a")
+                    .expect("every cow pool should have normalized_weight_a as static attribute")
                     .value).to_u64(),
                 weight_b: BigInt::from_signed_bytes_be(&pc    
                     .static_att
                     .iter()
-                    .find(|attr| attr.name == "denormalized_weight_b")
-                    .expect("every cow pool should have denormalized_weight_b as static attribute")
+                    .find(|attr| attr.name == "normalized_weight_b")
+                    .expect("every cow pool should have normalized_weight_b as static attribute")
                     .value).to_u64(),
                 fee: 0 as u64,
                 created_tx_hash: tx_pc.tx.as_ref().unwrap().hash.clone(),
             };
             store.set_if_not_exists(0, format!("Pool:{}", pool_address), &pool);
-        }
+        } 
     }
 }
