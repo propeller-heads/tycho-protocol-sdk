@@ -431,7 +431,7 @@ impl InterimEntityChanges {
         // attributes.
         // Note: If it's already present in `self.attributes` it means this is not a real
         // creation (it can be a deletion -> creation sequence for example), in that case we don't
-        // wan't to mark it as created.
+        // want to mark it as created.
         if attr.change == i32::from(ChangeType::Creation) &&
             !self.attributes.contains_key(&attr.name)
         {
