@@ -9,7 +9,6 @@ use substreams_helper::hex::Hexable;
 use tycho_substreams::{
     balances::aggregate_balances_changes, contract::extract_contract_changes_builder, prelude::*,
 };
-use serde::Deserialize;
 
 #[substreams::handlers::map]
 fn map_protocol_changes(
