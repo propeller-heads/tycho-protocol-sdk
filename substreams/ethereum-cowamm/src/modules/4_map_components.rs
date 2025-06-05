@@ -1,19 +1,15 @@
-use std::collections::HashMap;
 use crate::{modules::utils::Params};
 use anyhow::{Ok, Result};
 use ethabi::ethereum_types::Address;
 use substreams::{prelude::BigInt};
-use crate::pb::cowamm::{CowPool, CowPools};
+use crate::pb::cowamm::{CowPool};
 use substreams_ethereum::pb::eth::v2::{Block};
 use substreams_ethereum::Event;
 use tycho_substreams::prelude::*;
-use crate::abi::{b_cow_factory::events::CowammPoolCreated, b_cow_pool::functions::Bind};
-use substreams_helper::{event_handler::EventHandler, hex::Hexable};
+use substreams_helper::{hex::Hexable};
 use substreams::{
-    pb::substreams::StoreDeltas,
     store::{StoreGet, StoreGetProto},
 };
-use substreams::log::info;
 
 fn create_component(
     factory_address: &[u8],
@@ -50,7 +46,7 @@ pub fn map_components(params: String, block: Block, store: StoreGetProto<CowPool
                     let components = tx
                         .logs_with_calls()
                         .filter(|(log, _)| log.address == factory_address)
-                        .filter_map(|(log, call)| {
+                        .filter_map(|(log, _)| {
                             let pool_address = &log
                                 .topics
                                 .get(1)

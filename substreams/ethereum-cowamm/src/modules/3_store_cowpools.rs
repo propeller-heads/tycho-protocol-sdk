@@ -1,5 +1,4 @@
 use substreams::{
-    scalar::BigInt,
     prelude::{StoreSet, StoreSetProto},
     store::StoreNew,
 };

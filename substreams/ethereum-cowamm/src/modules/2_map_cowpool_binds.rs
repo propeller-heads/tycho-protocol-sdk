@@ -1,13 +1,7 @@
-use std::collections::HashSet;
-use crate::pb::cowamm::{CowPoolCreation, CowPoolBind, CowPoolBinds};
+use crate::pb::cowamm::{CowPoolBind, CowPoolBinds};
 use anyhow::{Ok, Result};
-use substreams::{
-    pb::substreams::StoreDeltas,
-    store::{StoreGet, StoreGetProto},
-};
 use substreams_ethereum::pb::eth::v2::{Block};
 use substreams_helper::hex::Hexable;
-use substreams::log::info;
 
 
 #[substreams::handlers::map]
@@ -27,7 +21,6 @@ pub fn map_cowpool_binds(block: Block) -> Result<CowPoolBinds> {
             if data.len() < 165 { return None; } 
             let token = data.get(80..100)?.to_vec();
             let weight_bytes = data.get(132..164)?;
-            let weight = substreams::scalar::BigInt::from_signed_bytes_be(weight_bytes); 
             Some(
                CowPoolBind {
                 address: address,

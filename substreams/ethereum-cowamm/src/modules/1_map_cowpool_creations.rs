@@ -2,7 +2,6 @@ use crate::{modules::utils::Params};
 use crate::pb::cowamm::{CowPoolCreation, CowPoolCreations};
 use anyhow::{Ok, Result};
 use substreams_ethereum::pb::eth::v2::{Block};
-use substreams::log::info;
 use substreams_helper::hex::Hexable;
 
 
