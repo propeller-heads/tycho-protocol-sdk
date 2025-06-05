@@ -1,11 +1,8 @@
-use std::collections::HashMap;
 use serde_json::json;
 use substreams::{
-    scalar::BigInt,
     store::{StoreNew, StoreAppend, Appender},
 };
 use crate::pb::cowamm::{CowPoolBinds};
-use substreams::log::info;
 
 #[substreams::handlers::store]
 pub fn store_cowpool_binds(binds: CowPoolBinds, store: StoreAppend<String>) {
