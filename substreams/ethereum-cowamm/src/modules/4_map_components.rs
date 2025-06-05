@@ -22,14 +22,13 @@ fn create_component(
 
     Some(
         ProtocolComponent::new(&pool.address.to_hex())
-        .with_tokens(&[pool.token_a.as_slice(), pool.token_b.as_slice()]) 
+        .with_tokens(&[pool.token_a.as_slice(), pool.token_b.as_slice(), pool.lp_token.as_slice()]) 
         .with_contracts(&[
             factory_address,
             pool.address.as_slice()
         ])
         .with_attributes(&[  
             ("fee", BigInt::from(0).to_signed_bytes_be()),
-            ("lp_token", pool.lp_token),
             ("normalized_weight_a", BigInt::from(pool.weight_a).to_signed_bytes_be()), 
             ("normalized_weight_b", BigInt::from(pool.weight_b).to_signed_bytes_be()),
         ])
