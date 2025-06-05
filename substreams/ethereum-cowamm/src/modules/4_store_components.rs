@@ -18,11 +18,7 @@ pub fn store_components(
                 address: hex::decode(pool_address.trim_start_matches("0x")).expect("failed to decode pool address"),
                 token_a: pc.tokens[0].clone(),
                 token_b: pc.tokens[1].clone(),
-                lp_token: pc.static_att
-                    .iter()
-                    .find(|attr| attr.name == "lp_token")
-                    .expect("every cow pool should have lp_token as static attribute")
-                    .value.clone(), 
+                lp_token:pc.tokens[2].clone(),
                 weight_a: BigInt::from_signed_bytes_be(&pc
                     .static_att
                     .iter()
