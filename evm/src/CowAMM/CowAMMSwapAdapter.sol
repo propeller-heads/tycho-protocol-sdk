@@ -219,7 +219,8 @@ library BNumLib {
 
 /// @dev This is the CowAMM swap adapter.
 
-uint256 constant MAX_IN_FACTOR = 5;
+// 50% and 33%?
+uint256 constant MAX_IN_FACTOR = 50;
 uint256 constant MAX_OUT_FACTOR = 33;
 
 contract CowAMMSwapAdapter is ISwapAdapter {
@@ -234,16 +235,56 @@ contract CowAMMSwapAdapter is ISwapAdapter {
         pool =  IBPool(pool_);
     }
 
+// we are calculating the price as a fraction of the amount we'll get out
     function price(
         bytes32,
         address sellToken,
         address buyToken,
-        uint256[] memory specifiedAmounts
     ) 
+    if (specifiedAmount == 0) {
+          revert "Specified amount cannot be zero!";
+    }
+    //scale the value by BONE (1e18)
+    specifiedAmount = specifiedAmount.bmul(BONE);
+
+    uint256 tokenBalanceIn = IERC20(sellToken).balanceOf(address(pool));
+    uint256 tokenWeightIn = pool.getDenormalizedWeight(sellToken);
+
+    uint256 tokenBalanceOut = IERC20(buyToken).balanceOf(address(pool));
+    uint256 tokenWeightOut = pool.getDenormalizedWeight(buyToken);
+
+    uint256 newTokenBalanceIn = tokenBalanceIn.badd(specifiedAmount);
+    uint256 newTokenBalanceOut =  tokenBalanceOut.bsub(specifiedAmount);
+
+    uint256 epsilon = 1e6; //small amount
+
+    uint256 amountOut = calcOutGivenIn(
+                    newTokenBalanceIn,
+                    tokenWeightIn,
+                    newTokenBalanceOut,
+                    tokenWeightOut,
+                    amountOut, 
+                    0    
+    ); 
+
+    return Fraction(marginalOut, epsilon); 
+}
+
+    /// @notice Calculates pool prices for specified amounts
+    /// @param specifiedAmount The amount of the token being sold.
+    /// @param sellToken The address of the token being sold.
+    /// @param buyToken The address of the token being bought 
+    /// @return The price as a fraction corresponding to the provided amount.
+   function getPriceAt(
+        uint256 specifiedAmount,
+        address sellToken,
+        address buyToken
+  ) public view returns (Fraction memory) {
       external 
       view 
       override 
     returns (Fraction[] memory calculatedPrices) {
+        uint256[] memory specifiedAmounts
         calculatedPrices = new Fraction[](specifiedAmounts.length);
         for (uint256 i = 0; i < specifiedAmounts.length; i++) {
             calculatedPrices[i] = getPriceAt(specifiedAmounts[i], sellToken, buyToken);
@@ -289,58 +330,8 @@ contract CowAMMSwapAdapter is ISwapAdapter {
         tokenAmountIn = (tokenBalanceIn.bmul(foo)).bdiv(tokenAmountIn);
         return tokenAmountIn; 
     }
-     function calcSpotPrice(
-      uint256 tokenInBalance,
-      uint256 tokenInWeight,
-      uint256 tokenOutBalance,
-      uint256 tokenOutWeight
-    ) internal pure returns (uint256 spotPrice) {
-       spotPrice = tokenInBalance.bdiv(tokenInWeight).bdiv(
-             tokenOutBalance.bdiv(tokenOutWeight)
-       ); 
-    }
-    //we are calculating the price as a fraction of the amount we'll get out
-    /// @notice Calculates pool prices for specified amounts
-    /// @param specifiedAmount The amount of the token being sold.
-    /// @param sellToken The address of the token being sold.
-    /// @param buyToken The address of the token being bought 
-    /// @return The price as a fraction corresponding to the provided amount.
-   function getPriceAt(
-        uint256 specifiedAmount,
-        address sellToken,
-        address buyToken
-  ) public view returns (Fraction memory) {
-    if (specifiedAmount == 0) {
-          revert Unavailable("Specified amount cannot be zero!");
-    }
-    //scale the value by BONE (1e18)
-    specifiedAmount = specifiedAmount.bmul(BONE);
-
-    uint256 tokenBalanceIn = IERC20(sellToken).balanceOf(address(pool));
-    uint256 tokenWeightIn = pool.getDenormalizedWeight(sellToken);
-
-    uint256 tokenBalanceOut = IERC20(buyToken).balanceOf(address(pool));
-    uint256 tokenWeightOut = pool.getDenormalizedWeight(buyToken);
-
-    uint256 amountOut = calcOutGivenIn(
-                    tokenBalanceIn,
-                    tokenWeightIn,
-                    tokenBalanceOut,
-                    tokenWeightOut,
-                    specifiedAmount,
-                    0
-    );
-    uint256 amountIn = calcInGivenOut(
-                    tokenBalanceIn,
-                    tokenWeightIn,
-                    tokenBalanceOut,
-                    tokenWeightOut,
-                    amountOut, 
-                    0    
-    ); 
-    return Fraction(amountOut, amountIn); 
-}
-
+ 
+    //
     
     function swap(
         bytes32,
@@ -352,9 +343,6 @@ contract CowAMMSwapAdapter is ISwapAdapter {
     require(sellToken != buyToken, "Tokens must be different");
     require(specifiedAmount != 0);
 
-    if (specifiedAmount == 0) {
-          return trade;
-    }
     uint256 gasBefore = gasleft();
     if (sellToken != address(pool) && buyToken != address(pool)) {
         // Standard Token-to-Token Swap
@@ -395,8 +383,8 @@ contract CowAMMSwapAdapter is ISwapAdapter {
           getLimits is not visible for some reason
         **/
 
-        uint256 limit0 = token0Balance * MAX_IN_FACTOR / 10;
-        uint256 limit1 = token1Balance * MAX_IN_FACTOR / 10;
+        uint256 limit0 = token0Balance * MAX_IN_FACTOR / 100;
+        uint256 limit1 = token1Balance * MAX_IN_FACTOR / 100;
 
         /**
             The minimum amount of each token we'll receive is gotten by calculating the
@@ -438,8 +426,8 @@ contract CowAMMSwapAdapter is ISwapAdapter {
         uint256 token0Balance = IERC20(tokens[0]).balanceOf(address(pool));
         uint256 token1Balance = IERC20(tokens[1]).balanceOf(address(pool));
 
-        uint256 limit0 = token0Balance * MAX_IN_FACTOR / 10;
-        uint256 limit1 = token1Balance * MAX_IN_FACTOR / 10;
+        uint256 limit0 = token0Balance * MAX_IN_FACTOR / 100;
+        uint256 limit1 = token1Balance * MAX_IN_FACTOR / 100;
 
         // when minting n pool shares, enough amount X of every token t should be provided to statisfy
         // Xt = n/BPT.totalSupply() * t.balanceOf(BPT)
@@ -495,7 +483,7 @@ contract CowAMMSwapAdapter is ISwapAdapter {
         uint256 sellTokenBal = pool.getBalance(sellToken);
         uint256 buyTokenBal = pool.getBalance(buyToken);
         limits = new uint256[](2);
-        limits[0] = sellTokenBal * MAX_IN_FACTOR / 10;
+        limits[0] = sellTokenBal * MAX_IN_FACTOR / 100;
         limits[1] = buyTokenBal * MAX_OUT_FACTOR / 100;
     }
 
@@ -517,15 +505,21 @@ contract CowAMMSwapAdapter is ISwapAdapter {
         external
         view
         returns (address[] memory tokens)
-    {
-        tokens = pool.getFinalTokens();
+    {   
+        address[] memory finalTokens = pool.getFinalTokens();
+
+        tokens = new address[](3);
+        tokens[0] = finalTokens[0];
+        tokens[1] = finalTokens[1];
+        tokens[2] = address(pool)
+        tokens
     }
 
     function getPoolIds(uint256 offset, uint256 limit)
         external
         returns (bytes32[] memory ids)
     {
-        revert NotImplemented("TemplateSwapAdapter.getPoolIds");
+        revert NotImplemented("CowAMMSwapAdapter.getPoolIds");
     }
 
     /// @notice Executes a sell order on the contract.
