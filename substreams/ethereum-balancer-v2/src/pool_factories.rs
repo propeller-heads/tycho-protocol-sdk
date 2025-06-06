@@ -184,7 +184,7 @@ pub fn address_map(
             Some(
                 ProtocolComponent::new(&format!("0x{}", hex::encode(pool_registered.pool_id)))
                     .with_contracts(&[pool_created.pool.clone(), VAULT_ADDRESS.to_vec()])
-                    .with_tokens(&tokens_registered.tokens)
+                    .with_tokens(&tokens_registered.tokens) //TODO: does it make sense to inclue BPT token here?
                     .with_attributes(&[
                         ("pool_type", "ComposableStablePoolFactory".as_bytes()),
                         ("bpt", &pool_created.pool),

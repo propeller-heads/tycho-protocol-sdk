@@ -63,7 +63,8 @@ class TychoRunner:
         """Run the Tycho indexer with the specified SPKG and block range."""
 
         env = os.environ.copy()
-        env["RUST_LOG"] = "tycho_indexer=info"
+        env["RUST_LOG"] = "tycho_indexer=debug,tycho_ethereum=info,tycho_storage=debug"
+        env["RUST_BACKTRACE"] = "full"
 
         all_accounts = self._initialized_accounts + initialized_accounts
 
@@ -85,6 +86,8 @@ class TychoRunner:
                     "--stop-block",
                     # +2 is to make up for the cache in the index side.
                     str(end_block + 2),
+                    "--dci-plugin",
+                    "rpc",
                 ]
                 + (
                     [

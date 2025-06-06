@@ -232,8 +232,19 @@ class TestRunner:
                 )
 
             related_contracts.update(component_related_contracts)
+            related_contracts.update(  # Contract related to the entrypoints
+                [
+                    HexBytes("0x72D07D7DcA67b8A406aD1Ec34ce969c90bFEE768"),
+                    HexBytes("0xb8ffc3cd6e7cf5a098a1c92f48009765b24088dc"),
+                    HexBytes("0xae7ab96520de3a18e5e111b5eaab095312d7fe84"),
+                    HexBytes("0x7f39c581f595b53c5cb19bd0b3f8da6c935e2ca0"),
+                    HexBytes("0x2b33cf282f867a7ff693a66e11b0fcc5552e4425"),
+                    HexBytes("0x17144556fd3424edc8fc8a4c940b2d04936d17eb"),
+                ]
+            )
             related_contracts = [a.hex() for a in related_contracts]
 
+            print(f"Getting contract states for {related_contracts}")
             contract_states = self.tycho_rpc_client.get_contract_state(
                 ContractStateParams(contract_ids=related_contracts)
             )
@@ -325,7 +336,7 @@ class TestRunner:
                     # Try to sell 0.1% of the protocol balance
                     try:
                         sell_amount = (
-                                Decimal(prctg) * pool_state.balances[sell_token.address]
+                            Decimal(prctg) * pool_state.balances[sell_token.address]
                         )
                         amount_out, gas_used, _ = pool_state.get_amount_out(
                             sell_token, sell_amount, buy_token
