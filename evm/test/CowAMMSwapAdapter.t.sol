@@ -6,11 +6,10 @@ import "forge-std/Test.sol";
 import {console2} from "forge-std/console2.sol";
 import "openzeppelin-contracts/contracts/interfaces/IERC20.sol";
 import { IBPool } from "src/CowAMM/interfaces/IBPool.sol";
-import "src/interfaces/ISwapAdapterTypes.sol";
 import "src/libraries/FractionMath.sol";
 import "src/CowAMM/CowAMMSwapAdapter.sol";
 
-contract CowAMMSwapAdapterTest is Test, ISwapAdapterTypes {
+contract CowAMMSwapAdapterTest is AdapterTest {
     using FractionMath for Fraction;
 
     uint256 constant pricePrecision = 10e24;
