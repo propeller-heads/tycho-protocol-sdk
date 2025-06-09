@@ -69,6 +69,9 @@ contract BalancerV3SwapAdapter is BalancerSwapHelpers {
         uint256 specifiedAmount
     ) external override returns (Trade memory trade) {
         if (specifiedAmount == 0) {
+            // Price defaults to Fraction(0, 0) which breaks simulation. We need
+            // to explicitly set it.
+            trade.price = Fraction(0, 1);
             return trade;
         }
 
