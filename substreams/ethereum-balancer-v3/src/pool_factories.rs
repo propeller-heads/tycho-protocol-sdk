@@ -6,7 +6,7 @@ use abi::{
     stable_pool_factory_contract::{
         events::PoolCreated as StablePoolCreated, functions::Create as StablePoolCreate,
     },
-    weigthed_pool_factory_contract::{
+    weighted_pool_factory_contract::{
         events::PoolCreated as WeightedPoolCreated, functions::Create as WeightedPoolCreate,
     },
 };
