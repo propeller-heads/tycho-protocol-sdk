@@ -25,7 +25,9 @@ use substreams_ethereum::{
     Event, Function,
 };
 use tycho_substreams::{
-    balances::aggregate_balances_changes, contract::extract_contract_changes_builder, prelude::*,
+    attributes::json_deserialize_address_list, balances::aggregate_balances_changes,
+    block_storage::get_block_storage_changes, contract::extract_contract_changes_builder,
+    entrypoint::create_entrypoint, models::entry_point_params::TraceData, prelude::*,
 };
 
 pub const VAULT_ADDRESS: &[u8] = &hex!("bA1333333333a1BA1108E8412f11850A5C319bA9");
@@ -358,6 +360,29 @@ pub fn map_protocol_changes(
                 .components
                 .iter()
                 .for_each(|component| {
+                    let rate_providers = component
+                        .static_att
+                        .iter()
+                        .find(|att| att.name == "rate_providers")
+                        .map(|att| json_deserialize_address_list(&att.value));
+
+                    if let Some(rate_providers) = rate_providers {
+                        for rate_provider in rate_providers {
+                            let trace_data = TraceData::Rpc(RpcTraceData {
+                                caller: None,
+                                calldata: "0x679aefce".as_bytes().to_vec(), // getRate()
+                            });
+                            let (entrypoint, entrypoint_params) = create_entrypoint(
+                                rate_provider,
+                                "getRate()".to_string(),
+                                component.id.clone(),
+                                trace_data,
+                            );
+                            builder.add_entrypoint(&entrypoint);
+                            builder.add_entrypoint_params(&entrypoint_params);
+                        }
+                    }
+
                     builder.add_protocol_component(component);
                     let entity_change = EntityChanges {
                         component_id: component.id.clone(),
@@ -449,6 +474,8 @@ pub fn map_protocol_changes(
                 })
         });
 
+    let block_storage_changes = get_block_storage_changes(&block);
+
     // Process all `transaction_changes` for final output in the `BlockChanges`,
     //  sorted by transaction index (the key).
     Ok(BlockChanges {
@@ -458,6 +485,7 @@ pub fn map_protocol_changes(
             .sorted_unstable_by_key(|(index, _)| *index)
             .filter_map(|(_, builder)| builder.build())
             .collect::<Vec<_>>(),
+        storage_changes: block_storage_changes,
     })
 }
 
