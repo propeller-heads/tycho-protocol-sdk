@@ -156,9 +156,10 @@ class TestRunner:
             component.id: component for component in protocol_components
         }
 
-        step = "Protocol component validation"
         try:
             # Step 1: Validate the protocol components
+            step = "Protocol component validation"
+
             for expected_component in expected_components:
                 comp_id = expected_component.id.lower()
                 if comp_id not in components_by_id:
@@ -176,10 +177,10 @@ class TestRunner:
 
             print(f"\n✅ {step} passed.\n")
 
+            # Step 2: Validate the token balances
             step = "Token balance validation"
 
             if not self.config.skip_balance_check:
-                token_balances: dict[str, dict[HexBytes, int]] = defaultdict(dict)
                 for component in protocol_components:
                     comp_id = component.id.lower()
                     for token in component.tokens:
@@ -196,7 +197,6 @@ class TestRunner:
                         else:
                             balance_hex = HexBytes("0x00")
                         tycho_balance = int(balance_hex)
-                        token_balances[comp_id][token] = tycho_balance
 
                         node_balance = get_token_balance(token, comp_id, stop_block)
                         if node_balance != tycho_balance:
@@ -210,6 +210,7 @@ class TestRunner:
             else:
                 print(f"\nℹ️  {step} skipped. \n")
 
+            # Step 3: Validate the simulation
             step = "Simulation validation"
 
             # Loads from Tycho-Indexer the state of all the contracts that are related to the protocol components.
