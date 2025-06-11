@@ -1,7 +1,4 @@
-use crate::{
-    abi::{self, vault_contract::events::LiquidityAddedToBuffer},
-    modules::VAULT_ADDRESS,
-};
+use crate::{abi, modules::VAULT_ADDRESS};
 use abi::{
     stable_pool_factory_contract::{
         events::PoolCreated as StablePoolCreated, functions::Create as StablePoolCreate,
@@ -12,11 +9,10 @@ use abi::{
 };
 use substreams::{hex, scalar::BigInt};
 use substreams_ethereum::{
-    pb::eth::v2::{Call, Log, TransactionTrace},
+    pb::eth::v2::{Call, Log},
     Event, Function,
 };
 use tycho_substreams::{
-    abi::erc20::events::Transfer,
     attributes::{json_serialize_address_list, json_serialize_bigint_list},
     prelude::*,
 };
@@ -111,35 +107,4 @@ pub fn address_map(
         }
         _ => None,
     }
-}
-
-#[allow(dead_code)]
-fn find_underlying_token(tx: &TransactionTrace, underlying_amount: BigInt) -> Option<Vec<u8>> {
-    tx.receipt()
-        .logs()
-        .filter_map(|log| {
-            if let Some(Transfer { to, value, .. }) = Transfer::match_and_decode(log) {
-                if to == VAULT_ADDRESS && value == underlying_amount {
-                    return Some(log.address().to_vec());
-                }
-            }
-            None
-        })
-        .next()
-}
-
-// this adds a buffer protocol component, they are internal pool managed by balancer but they can be
-// used as a vault-type component for swapping for instance USDT <-> waETHUSDT (aave wrapped USDT)
-#[allow(dead_code)]
-pub fn buffer_map(log: &Log, tx: &TransactionTrace) -> Option<ProtocolComponent> {
-    LiquidityAddedToBuffer::match_and_decode(log).map(
-        |LiquidityAddedToBuffer { wrapped_token, amount_underlying, .. }| {
-            let underlying_token = find_underlying_token(tx, amount_underlying).unwrap(); // must exist
-            ProtocolComponent::new(&format!("0x{}", hex::encode(&wrapped_token)))
-                .with_contracts(&[wrapped_token.to_vec(), VAULT_ADDRESS.to_vec()])
-                .with_tokens(&[wrapped_token.as_slice(), underlying_token.as_slice()])
-                .with_attributes(&[("pool_type", "buffer".as_bytes()), ("erc4626", &[1u8])])
-                .as_swap_type("balancer_v3_pool", ImplementationType::Vm)
-        },
-    )
 }

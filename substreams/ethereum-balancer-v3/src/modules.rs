@@ -46,10 +46,6 @@ pub fn map_components(block: eth::v2::Block) -> Result<BlockTransactionProtocolC
             {
                 components.push(component);
             }
-            // Not supported yet because they rely on rate providers. Need DCI.
-            // if let Some(buffer_component) = pool_factories::buffer_map(log, tx) {
-            //     components.push(buffer_component);
-            // }
         }
         if !components.is_empty() {
             tx_components.push(TransactionProtocolComponents { tx: Some(tx.into()), components });
@@ -320,6 +316,7 @@ pub fn map_protocol_changes(
     //   convert into `TransactionChanges`
     let default_attributes = vec![
         Attribute {
+            // TODO: remove this and track account_balances instead
             name: "balance_owner".to_string(),
             value: VAULT_ADDRESS.to_vec(),
             change: ChangeType::Creation.into(),
