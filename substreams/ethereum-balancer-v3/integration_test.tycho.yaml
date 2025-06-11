@@ -13,7 +13,7 @@ initialized_accounts:
 tests:
   - name: test_stable_pool_creation
     start_block: 21374757
-    stop_block: 21374767
+    stop_block: 21375057
     initialized_accounts:
       - "0xf4b5D1C22F35a460b91edD7F33Cefe619E2fAaF4" # Rate provider - temporarily here for pre-DCI testing
       - "0xcdAa68ce322728FE4185a60f103C194F1E2c47BC" # Rate provider - temporarily here for pre-DCI testing
@@ -47,9 +47,9 @@ tests:
         skip_simulation: true # This test is only for creation, simulation tests are below
         creation_tx: "0xaf0f8da4b7b148f156605673c6ac56657f67c47001aadd5b3b64d6cb787daad4"
 
-  - name: test_erc4626_pool_creation
+  - name: test_erc4626_pool_creation # stable pool
     start_block: 21375196
-    stop_block: 21375206
+    stop_block: 21375396
     initialized_accounts:
       - "0xEdf63cce4bA70cbE74064b7687882E71ebB0e988" # Rate provider - temporarily here for pre-DCI testing
       - "0x8f4E8439b970363648421C692dd897Fb9c0Bd1D9" # Rate provider - temporarily here for pre-DCI testing
@@ -67,7 +67,7 @@ tests:
         skip_simulation: false
         creation_tx: "0x536baa8f18a5f9e32b08f695593f47d996a509edc886ccab6f89b001f2d2b4e4"
 
-  - name: test_swap_g_usdc
+  - name: test_swap_g_usdc # weighted pool
     start_block: 21389576
     stop_block: 21389676
     expected_components:
@@ -83,7 +83,7 @@ tests:
         skip_simulation: false
         creation_tx: "0x50a58ca41af90029a67bc7f4305cceb1e85800246f9c559fa74d8625ddfe14ed"
 
-  - name: test_obs_weth
+  - name: test_obs_weth # weighted pool
     start_block: 21420490
     stop_block: 21420516
     expected_components:
