@@ -1,9 +1,6 @@
 use crate::{
     abi::vault_contract::{
-        events::{
-            LiquidityAdded, LiquidityAddedToBuffer, LiquidityRemoved, LiquidityRemovedFromBuffer,
-            Swap, Unwrap, Wrap,
-        },
+        events::{LiquidityAdded, LiquidityRemoved, PoolPausedStateChanged, Swap},
         functions::{Erc4626BufferWrapOrUnwrap, SendTo, Settle},
     },
     pool_factories,
@@ -188,94 +185,6 @@ pub fn map_relative_balances(
                         })
                         .collect::<Vec<_>>();
                     deltas.extend_from_slice(&deltas_from_removed_liquidity);
-                }
-            }
-            if let Some(LiquidityAddedToBuffer { wrapped_token, amount_underlying, amount_wrapped, .. }) =
-                LiquidityAddedToBuffer::match_and_decode(vault_log.log)
-            {
-                let component_id = format!("0x{}", hex::encode(&wrapped_token));
-                if let Some(ProtocolComponent{ tokens,..}) = store.get_last(format!("pool:{}", &component_id)) {
-                    let underlying_token = tokens[1].to_owned();
-                    deltas.extend_from_slice(&[BalanceDelta {
-                            ord: vault_log.ordinal(),
-                            tx: Some(vault_log.receipt.transaction.into()),
-                            token: wrapped_token.to_vec(),
-                            delta: amount_wrapped.to_signed_bytes_be(),
-                            component_id: component_id.as_bytes().to_vec(),
-                            },
-                        BalanceDelta {
-                            ord: vault_log.ordinal(),
-                            tx: Some(vault_log.receipt.transaction.into()),
-                            token: underlying_token.to_vec(),
-                            delta: amount_underlying.to_signed_bytes_be(),
-                            component_id: component_id.as_bytes().to_vec(),
-                        },
-                    ]);
-                }
-            }
-            if let Some(LiquidityRemovedFromBuffer { wrapped_token, amount_underlying, amount_wrapped, .. }) =
-                LiquidityRemovedFromBuffer::match_and_decode(vault_log.log)
-            {
-                let component_id = format!("0x{}", hex::encode(&wrapped_token));
-                if let Some(ProtocolComponent{ tokens,..}) = store.get_last(format!("pool:{}", &component_id)) {
-                    let underlying_token = tokens[1].to_owned();
-                    deltas.extend_from_slice(&[BalanceDelta {
-                            ord: vault_log.ordinal(),
-                            tx: Some(vault_log.receipt.transaction.into()),
-                            token: wrapped_token.to_vec(),
-                            delta: amount_wrapped.neg().to_signed_bytes_be(),
-                            component_id: component_id.as_bytes().to_vec(),
-                            },
-                        BalanceDelta {
-                            ord: vault_log.ordinal(),
-                            tx: Some(vault_log.receipt.transaction.into()),
-                            token: underlying_token.to_vec(),
-                            delta: amount_underlying.neg().to_signed_bytes_be(),
-                            component_id: component_id.as_bytes().to_vec(),
-                        },
-                    ]);
-                }
-            }
-            if let Some(Wrap { wrapped_token, deposited_underlying, minted_shares, .. }) = Wrap::match_and_decode(vault_log.log) {
-                let component_id = format!("0x{}", hex::encode(&wrapped_token));
-                if let Some(ProtocolComponent{ tokens,..}) = store.get_last(format!("pool:{}", &component_id)) {
-                    let underlying_token = tokens[1].to_owned();
-                    deltas.extend_from_slice(&[BalanceDelta {
-                        ord: vault_log.ordinal(),
-                        tx: Some(vault_log.receipt.transaction.into()),
-                        token: underlying_token.to_vec(),
-                        delta: deposited_underlying.to_signed_bytes_be(),
-                        component_id: component_id.as_bytes().to_vec(),
-                    },
-                    BalanceDelta {
-                        ord: vault_log.ordinal(),
-                        tx: Some(vault_log.receipt.transaction.into()),
-                        token: wrapped_token.to_vec(),
-                        delta: minted_shares.to_signed_bytes_be(),
-                        component_id: component_id.as_bytes().to_vec(),
-                    },
-                    ]);
-                }
-            }
-            if let Some(Unwrap { wrapped_token, burned_shares, withdrawn_underlying, .. }) = Unwrap::match_and_decode(vault_log.log) {
-                let component_id = format!("0x{}", hex::encode(&wrapped_token));
-                if let Some(ProtocolComponent{ tokens,..}) = store.get_last(format!("pool:{}", &component_id)) {
-                    let underlying_token = tokens[1].to_owned();
-                    deltas.extend_from_slice(&[BalanceDelta {
-                        ord: vault_log.ordinal(),
-                        tx: Some(vault_log.receipt.transaction.into()),
-                        token: underlying_token.to_vec(),
-                        delta: withdrawn_underlying.neg().to_signed_bytes_be(),
-                        component_id: component_id.as_bytes().to_vec(),
-                    },
-                    BalanceDelta {
-                        ord: vault_log.ordinal(),
-                        tx: Some(vault_log.receipt.transaction.into()),
-                        token: wrapped_token.to_vec(),
-                        delta: burned_shares.neg().to_signed_bytes_be(),
-                        component_id: component_id.as_bytes().to_vec(),
-                    },
-                    ]);
                 }
             }
 
