@@ -221,6 +221,41 @@ pub fn map_protocol_changes(
     //  sort them at the very end.
     let mut transaction_changes: HashMap<_, TransactionChangesBuilder> = HashMap::new();
 
+    // Handle pool pause state changes
+    block
+        .logs()
+        .filter(|log| log.address() == VAULT_ADDRESS)
+        .for_each(|log| {
+            if let Some(PoolPausedStateChanged { pool, paused }) =
+                PoolPausedStateChanged::match_and_decode(log)
+            {
+                let component_id = format!("0x{}", hex::encode(&pool));
+                let tx: Transaction = log.receipt.transaction.into();
+                if components_store
+                    .get_last(format!("pool:{}", &component_id))
+                    .is_some()
+                {
+                    let builder = transaction_changes
+                        .entry(tx.index)
+                        .or_insert_with(|| TransactionChangesBuilder::new(&tx));
+
+                    let entity_change = EntityChanges {
+                        component_id,
+                        attributes: vec![Attribute {
+                            name: "paused".to_string(),
+                            value: vec![1u8],
+                            change: if paused {
+                                ChangeType::Creation.into()
+                            } else {
+                                ChangeType::Deletion.into()
+                            },
+                        }],
+                    };
+                    builder.add_entity_change(&entity_change);
+                }
+            }
+        });
+
     // `ProtocolComponents` are gathered from `map_pools_created` which just need a bit of work to
     //   convert into `TransactionChanges`
     let default_attributes = vec![
@@ -324,8 +359,8 @@ pub fn map_protocol_changes(
         |addr| {
             components_store
                 .get_last(format!("pool:0x{0}", hex::encode(addr)))
-                .is_some() ||
-                addr.eq(VAULT_ADDRESS)
+                .is_some()
+                || addr.eq(VAULT_ADDRESS)
         },
         &mut transaction_changes,
     );
