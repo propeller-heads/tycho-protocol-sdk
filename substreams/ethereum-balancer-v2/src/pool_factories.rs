@@ -22,17 +22,18 @@ fn get_pool_registered(
         .clone()
 }
 
-fn get_token_registered(
-    tx: &TransactionTrace,
-    pool_id: &[u8],
-) -> abi::vault::events::TokensRegistered {
-    tx.logs_with_calls()
-        .filter(|(log, _)| log.address == VAULT_ADDRESS)
-        .filter_map(|(log, _)| abi::vault::events::TokensRegistered::match_and_decode(log))
-        .find(|ev| ev.pool_id == pool_id)
-        .unwrap()
-        .clone()
-}
+// TODO: add this back if we need to track BPT
+// fn get_token_registered(
+//     tx: &TransactionTrace,
+//     pool_id: &[u8],
+// ) -> abi::vault::events::TokensRegistered {
+//     tx.logs_with_calls()
+//         .filter(|(log, _)| log.address == VAULT_ADDRESS)
+//         .filter_map(|(log, _)| abi::vault::events::TokensRegistered::match_and_decode(log))
+//         .find(|ev| ev.pool_id == pool_id)
+//         .unwrap()
+//         .clone()
+// }
 
 // This is the main function that handles the creation of `ProtocolComponent`s with `Attribute`s
 //  based on the specific factory address. There's 3 factory groups that are represented here:
