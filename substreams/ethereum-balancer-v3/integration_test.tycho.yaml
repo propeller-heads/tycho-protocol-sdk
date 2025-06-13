@@ -11,9 +11,9 @@ initialized_accounts:
   - "0xbA1333333333a1BA1108E8412f11850A5C319bA9"
 
 tests:
-  - name: test_stable_pool_creation
+  - name: test_stable_pool
     start_block: 21374757
-    stop_block: 21374767
+    stop_block: 21374777
     expected_components:
       - id: "0xc4ce391d82d164c166df9c8336ddf84206b2f812"
         tokens:
@@ -23,9 +23,9 @@ tests:
           manual_updates: "0x01"
           pool_type: "0x537461626c65506f6f6c466163746f7279"
           bpt: "0xc4ce391d82d164c166df9c8336ddf84206b2f812"
-          erc4626: "0x01"
           fee: "0x5af3107a4000"
-        skip_simulation: true # Skipped because this pool relies on rate providers (it uses ERC4626)
+          rate_providers: "0x5b22307866346235643163323266333561343630623931656464376633336365666536313965326661616634222c22307863646161363863653332323732386665343138356136306631303363313934663165326334376263225d"
+        skip_simulation: false
         creation_tx: "0xecfe638ea155e78ca2698bea0bee5f86c2f77abe3e9dc93ed19ab6e674165b95"
 
   - name: test_weighted_pool_creation
@@ -38,16 +38,15 @@ tests:
           - "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2"
         static_attributes:
           manual_updates: "0x01"
-          erc4626: "0x00"
           normalized_weights: "0x5b22307830623161326263326563353030303030222c22307830326336386166306262313430303030225d"
           fee: "0x038d7ea4c68000"
           pool_type: "0x5765696768746564506f6f6c466163746f7279"
         skip_simulation: true # This test is only for creation, simulation tests are below
         creation_tx: "0xaf0f8da4b7b148f156605673c6ac56657f67c47001aadd5b3b64d6cb787daad4"
 
-  - name: test_erc4626_pool_creation
+  - name: test_erc4626_pool_creation # stable pool
     start_block: 21375196
-    stop_block: 21375206
+    stop_block: 21375216
     expected_components:
       - id: "0x89BB794097234E5E930446C0CeC0ea66b35D7570"
         tokens:
@@ -57,12 +56,12 @@ tests:
           manual_updates: "0x01"
           pool_type: "0x537461626c65506f6f6c466163746f7279"
           bpt: "0x89bb794097234e5e930446c0cec0ea66b35d7570"
-          erc4626: "0x01"
           fee: "0x2d79883d2000"
-        skip_simulation: true # Skipped because this pool relies on rate providers (it uses ERC4626)
+          rate_providers: "0x5b22307865646636336363653462613730636265373430363462373638373838326537316562623065393838222c22307838663465383433396239373033363336343834323163363932646438393766623963306264316439225d"
+        skip_simulation: false
         creation_tx: "0x536baa8f18a5f9e32b08f695593f47d996a509edc886ccab6f89b001f2d2b4e4"
 
-  - name: test_swap_g_usdc
+  - name: test_swap_g_usdc # weighted pool
     start_block: 21389576
     stop_block: 21389676
     expected_components:
@@ -72,14 +71,13 @@ tests:
           - "0x440017A1b021006d556d7fc06A54c32E42Eb745B"
         static_attributes:
           pool_type: "0x5765696768746564506f6f6c466163746f7279"
-          erc4626: "0x00"
           manual_updates: "0x01"
           normalized_weights: "0x5b22307830366630356235396433623230303030222c22307830366630356235396433623230303030225d"
           fee: "0x0aa87bee538000"
         skip_simulation: false
         creation_tx: "0x50a58ca41af90029a67bc7f4305cceb1e85800246f9c559fa74d8625ddfe14ed"
 
-  - name: test_obs_weth
+  - name: test_obs_weth # weighted pool
     start_block: 21420490
     stop_block: 21420516
     expected_components:
@@ -89,7 +87,6 @@ tests:
           - "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2"
         static_attributes:
           pool_type: "0x5765696768746564506f6f6c466163746f7279"
-          erc4626: "0x00"
           manual_updates: "0x01"
           normalized_weights: "0x5b22307830646264326663313337613330303030222c2230783233383666323666633130303030225d"
           fee: "0x038d7ea4c68000"
@@ -106,7 +103,6 @@ tests:
           - "0x249ca82617ec3dfb2589c4c17ab7ec9765350a18"
         static_attributes:
           pool_type: "0x5765696768746564506f6f6c466163746f7279"
-          erc4626: "0x00"
           manual_updates: "0x01"
           normalized_weights: "0x5b22307830326336386166306262313430303030222c22307830623161326263326563353030303030225d"
           fee: "0x038d7ea4c68000"
