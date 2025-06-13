@@ -11,12 +11,9 @@ initialized_accounts:
   - "0xbA1333333333a1BA1108E8412f11850A5C319bA9"
 
 tests:
-  - name: test_stable_pool_creation
+  - name: test_stable_pool
     start_block: 21374757
-    stop_block: 21375057
-    initialized_accounts:
-      - "0xf4b5D1C22F35a460b91edD7F33Cefe619E2fAaF4" # Rate provider - temporarily here for pre-DCI testing
-      - "0xcdAa68ce322728FE4185a60f103C194F1E2c47BC" # Rate provider - temporarily here for pre-DCI testing
+    stop_block: 21374777
     expected_components:
       - id: "0xc4ce391d82d164c166df9c8336ddf84206b2f812"
         tokens:
@@ -49,10 +46,7 @@ tests:
 
   - name: test_erc4626_pool_creation # stable pool
     start_block: 21375196
-    stop_block: 21375396
-    initialized_accounts:
-      - "0xEdf63cce4bA70cbE74064b7687882E71ebB0e988" # Rate provider - temporarily here for pre-DCI testing
-      - "0x8f4E8439b970363648421C692dd897Fb9c0Bd1D9" # Rate provider - temporarily here for pre-DCI testing
+    stop_block: 21375216
     expected_components:
       - id: "0x89BB794097234E5E930446C0CeC0ea66b35D7570"
         tokens:
