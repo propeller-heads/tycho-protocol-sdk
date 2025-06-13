@@ -209,7 +209,7 @@ pub fn map_protocol_changes(
                         for rate_provider in rate_providers {
                             let trace_data = TraceData::Rpc(RpcTraceData {
                                 caller: None,
-                                calldata: "0x679aefce".as_bytes().to_vec(), // getRate()
+                                calldata: hex::decode("679aefce").unwrap(), // getRate()
                             });
                             let (entrypoint, entrypoint_params) = create_entrypoint(
                                 rate_provider,
