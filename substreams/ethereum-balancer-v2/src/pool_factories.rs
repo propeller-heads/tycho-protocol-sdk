@@ -185,9 +185,9 @@ pub fn address_map(
             Some(
                 ProtocolComponent::new(&format!("0x{}", hex::encode(pool_registered.pool_id)))
                     .with_contracts(&[pool_created.pool.clone(), VAULT_ADDRESS.to_vec()])
-                    // .with_tokens(&tokens_registered.tokens) //TODO: does it make sense to inclue
-                    // BPT token here?
-                    .with_tokens(&create_call.tokens) //TODO: does it make sense to inclue BPT token here?
+                    // .with_tokens(&tokens_registered.tokens) // TODO: add this back if we need to
+                    // track BPT
+                    .with_tokens(&create_call.tokens)
                     .with_attributes(&[
                         ("pool_type", "ComposableStablePoolFactory".as_bytes()),
                         ("bpt", &pool_created.pool),
@@ -273,8 +273,8 @@ pub fn address_map(
             )
         }
 
-        // ❌ EulerLinearPoolFactory is disabled and no pools have relevant liquidity
-        // hex!("5F43FBa61f63Fa6bFF101a0A0458cEA917f6B347") => {
+        // ❌ EulerLinearPoolFactory: factory is disabled and no existing pools have relevant
+        // liquidity hex!("5F43FBa61f63Fa6bFF101a0A0458cEA917f6B347") => {
         //     let create_call =
         //         abi::euler_linear_pool_factory::functions::Create::match_and_decode(call)?;
         //     let pool_created =
@@ -341,7 +341,7 @@ pub fn address_map(
         // }
 
         // ❌ The `ManagedPoolFactory` is a bit ✨ unique ✨, so we'll leave it commented out for
-        // now Take a look at it's `Create` call to see how the params are structured.
+        // now. Take a look at it's `Create` call to see how the params are structured.
         // hex!("BF904F9F340745B4f0c4702c7B6Ab1e808eA6b93") => {
         //     let create_call =
         // abi::managed_pool_factory::functions::Create::match_and_decode(call)?;
@@ -363,8 +363,8 @@ pub fn address_map(
         //     })
         // }
 
-        // ❌ SiloLinearPoolFactory is disabled and no pools have relevant liquidity
-        // hex!("4E11AEec21baF1660b1a46472963cB3DA7811C89") => {
+        // ❌ SiloLinearPoolFactory: factory is disabled and no existing pools have relevant
+        // liquidity hex!("4E11AEec21baF1660b1a46472963cB3DA7811C89") => {
         //     let create_call =
         //         abi::silo_linear_pool_factory::functions::Create::match_and_decode(call)?;
         //     let pool_created =
@@ -399,8 +399,8 @@ pub fn address_map(
         //     )
         // }
 
-        // ❌ YearnLinearPoolFactory is disabled and no pools have relevant liquidity
-        // hex!("5F5222Ffa40F2AEd6380D022184D6ea67C776eE0") => {
+        // ❌ YearnLinearPoolFactory: factory is disabled and no existing pools have relevant
+        // liquidity hex!("5F5222Ffa40F2AEd6380D022184D6ea67C776eE0") => {
         //     let create_call =
         //         abi::yearn_linear_pool_factory::functions::Create::match_and_decode(call)?;
         //     let pool_created =
