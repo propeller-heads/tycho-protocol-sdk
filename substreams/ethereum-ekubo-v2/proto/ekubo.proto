@@ -2,7 +2,8 @@ syntax = "proto3";
 
 package ekubo;
 
-// Copy of tycho.evm.v1.Transaction to be able to implement conversions to/from TransactionTrace
+// Copy of tycho.evm.v1.Transaction to be able to implement conversions to/from
+// TransactionTrace
 message Transaction {
   bytes hash = 1;
   bytes from = 2;
@@ -18,9 +19,7 @@ message TickDelta {
   Transaction transaction = 5;
 }
 
-message TickDeltas {
-  repeated TickDelta deltas = 1;
-}
+message TickDeltas { repeated TickDelta deltas = 1; }
 
 message OrderSaleRateDelta {
   bytes pool_id = 1; // bytes32
@@ -31,9 +30,7 @@ message OrderSaleRateDelta {
   Transaction transaction = 6;
 }
 
-message OrderSaleRateDeltas {
-  repeated OrderSaleRateDelta deltas = 1;
-}
+message OrderSaleRateDeltas { repeated OrderSaleRateDelta deltas = 1; }
 
 enum ChangeType {
   DELTA = 0;
@@ -42,18 +39,16 @@ enum ChangeType {
 
 message LiquidityChange {
   bytes pool_id = 1; // bytes32
-  bytes value = 2; // uint128 or int128, depending on change_type
+  bytes value = 2;   // uint128 or int128, depending on change_type
   ChangeType change_type = 3;
   uint64 ordinal = 4;
   Transaction transaction = 5;
 }
 
-message LiquidityChanges {
-  repeated LiquidityChange changes = 1;
-}
+message LiquidityChanges { repeated LiquidityChange changes = 1; }
 
 message SaleRateChange {
-  bytes pool_id = 1; // bytes32
+  bytes pool_id = 1;      // bytes32
   bytes token0_value = 2; // uint112 or int112, depending on change_type
   bytes token1_value = 3; // uint112 or int112, depending on change_type
   ChangeType change_type = 4;
@@ -61,9 +56,7 @@ message SaleRateChange {
   Transaction transaction = 6;
 }
 
-message SaleRateChanges {
-  repeated SaleRateChange changes = 1;
-}
+message SaleRateChanges { repeated SaleRateChange changes = 1; }
 
 message PoolDetails {
   bytes token0 = 1; // address
@@ -92,26 +85,26 @@ message BlockTransactionEvents {
       }
 
       message Swapped {
-        bytes delta0 = 1; // int128
-        bytes delta1 = 2; // int128
+        bytes delta0 = 1;           // int128
+        bytes delta1 = 2;           // int128
         bytes sqrt_ratio_after = 3; // uint192
-        bytes liquidity_after = 4; // uint128
-        sint32 tick_after = 5; // int32
+        bytes liquidity_after = 4;  // uint128
+        sint32 tick_after = 5;      // int32
       }
 
       message PositionUpdated {
-        sint32 lower = 1; // int32
-        sint32 upper = 2; // int32
+        sint32 lower = 1;          // int32
+        sint32 upper = 2;          // int32
         bytes liquidity_delta = 3; // int128
-        bytes delta0 = 4; // int128
-        bytes delta1 = 5; // int128
+        bytes delta0 = 4;          // int128
+        bytes delta1 = 5;          // int128
       }
 
       message PoolInitialized {
-        bytes token0 = 1; // address
-        bytes token1 = 2; // address
-        bytes config = 3; // bytes32
-        sint32 tick = 4; // int32
+        bytes token0 = 1;     // address
+        bytes token1 = 2;     // address
+        bytes config = 3;     // bytes32
+        sint32 tick = 4;      // int32
         bytes sqrt_ratio = 5; // uint192
         Extension extension = 6;
 
@@ -120,6 +113,7 @@ message BlockTransactionEvents {
           EXTENSION_BASE = 1;
           EXTENSION_ORACLE = 2;
           EXTENSION_TWAMM = 3;
+          EXTENSION_MEV_RESIST = 4;
         }
       }
 
@@ -134,10 +128,10 @@ message BlockTransactionEvents {
 
         message OrderKey {
           bytes sell_token = 1; // address
-          bytes buy_token = 2; // address
+          bytes buy_token = 2;  // address
           fixed64 fee = 3;
           uint64 start_time = 4; // block timestamp
-          uint64 end_time = 5; // block timestamp
+          uint64 end_time = 5;   // block timestamp
         }
       }
     }

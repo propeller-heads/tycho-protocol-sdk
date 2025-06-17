@@ -1,5 +1,6 @@
 // @generated
-/// Copy of tycho.evm.v1.Transaction to be able to implement conversions to/from TransactionTrace
+/// Copy of tycho.evm.v1.Transaction to be able to implement conversions to/from
+/// TransactionTrace
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Transaction {
@@ -219,6 +220,7 @@ pub mod block_transaction_events {
                     Base = 1,
                     Oracle = 2,
                     Twamm = 3,
+                    MevResist = 4,
                 }
                 impl Extension {
                     /// String value of the enum field names used in the ProtoBuf definition.
@@ -231,6 +233,7 @@ pub mod block_transaction_events {
                             Extension::Base => "EXTENSION_BASE",
                             Extension::Oracle => "EXTENSION_ORACLE",
                             Extension::Twamm => "EXTENSION_TWAMM",
+                            Extension::MevResist => "EXTENSION_MEV_RESIST",
                         }
                     }
                     /// Creates an enum from field names used in the ProtoBuf definition.
@@ -240,6 +243,7 @@ pub mod block_transaction_events {
                             "EXTENSION_BASE" => Some(Self::Base),
                             "EXTENSION_ORACLE" => Some(Self::Oracle),
                             "EXTENSION_TWAMM" => Some(Self::Twamm),
+                            "EXTENSION_MEV_RESIST" => Some(Self::MevResist),
                             _ => None,
                         }
                     }

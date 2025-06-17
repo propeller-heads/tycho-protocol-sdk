@@ -98,6 +98,8 @@ fn maybe_pool_log(log: &Log, config: &DeploymentConfig) -> Option<PoolLog> {
                     Extension::Oracle
                 } else if extension == config.twamm {
                     Extension::Twamm
+                } else if extension == config.mev_resist {
+                    Extension::MevResist
                 } else {
                     Extension::Unknown
                 }

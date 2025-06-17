@@ -8,4 +8,6 @@ pub struct DeploymentConfig {
     pub oracle: Vec<u8>,
     #[serde(with = "hex::serde")]
     pub twamm: Vec<u8>,
+    #[serde(with = "hex::serde")]
+    pub mev_resist: Vec<u8>,
 }

@@ -28,7 +28,7 @@ networks:
     initialBlock:
       map_events: 22048334 # First pool initialization https://etherscan.io/tx/0x7c2e697e73dc1f114a5473d1015c411f10585b2b671bee0bd6d5706895e16b27
     params:
-      map_events: "core=e0e0e08A6A4b9Dc7bD67BCB7aadE5cF48157d444&oracle=51d02A5948496a67827242EaBc5725531342527C&twamm=D4279c050DA1F5c5B2830558C7A08E57e12b54eC"
+      map_events: "core=e0e0e08A6A4b9Dc7bD67BCB7aadE5cF48157d444&oracle=51d02A5948496a67827242EaBc5725531342527C&twamm=D4279c050DA1F5c5B2830558C7A08E57e12b54eC&mev_resist=553a2EFc570c9e104942cEC6aC1c18118e54C091"
 
 modules:
   - name: map_events
