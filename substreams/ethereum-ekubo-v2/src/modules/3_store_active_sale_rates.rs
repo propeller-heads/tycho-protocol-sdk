@@ -19,13 +19,13 @@ pub fn store_active_sale_rates(sale_rate_changes: SaleRateChanges, store: StoreS
             store_method(
                 &store,
                 changes.ordinal,
-                format!("pool:{}:token0", pool_id),
+                format!("pool:{pool_id}:token0"),
                 BigInt::from_signed_bytes_be(&changes.token0_value),
             );
             store_method(
                 &store,
                 changes.ordinal,
-                format!("pool:{}:token1", pool_id),
+                format!("pool:{pool_id}:token1"),
                 BigInt::from_signed_bytes_be(&changes.token1_value),
             );
         });

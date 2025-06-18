@@ -18,7 +18,7 @@ pub fn store_order_sale_rates(order_sale_rate_deltas: OrderSaleRateDeltas, store
 
             store.add(
                 delta.ordinal,
-                format!("pool:{}:{}:time:{}:", pool_id, token, time),
+                format!("pool:{pool_id}:{token}:time:{time}:"),
                 BigInt::from_signed_bytes_be(&delta.sale_rate_delta),
             );
         });
