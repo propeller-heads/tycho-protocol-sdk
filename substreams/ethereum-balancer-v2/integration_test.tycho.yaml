@@ -161,7 +161,7 @@ tests:
         skip_simulation: true
         creation_tx: "0x497aa03ce84d236c183204ddfc6762c8e4158da1ebc5e7e18e7f6cceaa497a2a"
 
-  # WeigthedPoolFactoryV1 - 0x8E9aa87E45e92bad84D5F8DD1bff34Fb92637dE9
+  # WeightedPoolFactoryV1 - 0x8E9aa87E45e92bad84D5F8DD1bff34Fb92637dE9
   - name: test_weighted_pool_v1
     start_block: 13899835
     stop_block: 13901090
@@ -178,7 +178,7 @@ tests:
         skip_simulation: false
         creation_tx: "0xc5c3b384644363aa15cf9a0c33dfebd22df351446bce92ee49ead7d5d896b4e9"
 
-  # WeigthedPoolFactoryV2 - 0xcC508a455F5b0073973107Db6a878DdBDab957bC
+  # WeightedPoolFactoryV2 - 0xcC508a455F5b0073973107Db6a878DdBDab957bC
   - name: test_weighted_pool_v2
     start_block: 15732922
     stop_block: 15742922
@@ -197,7 +197,7 @@ tests:
         skip_simulation: true # can't simulate because it has rate provider
         creation_tx: "0x9a949a52e4179d0c57dcffd6884d5787febfb92f8f4b7e114ef8cfbda0292a79"
 
-  # WeigthedPoolFactoryV3 - 0x5Dd94Da3644DDD055fcf6B3E1aa310Bb7801EB8b
+  # WeightedPoolFactoryV3 - 0x5Dd94Da3644DDD055fcf6B3E1aa310Bb7801EB8b
   - name: test_weighted_pool_v3
     start_block: 16975289
     stop_block: 16975290

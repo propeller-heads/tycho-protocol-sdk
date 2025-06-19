@@ -1,9 +1,6 @@
 use crate::{
     abi::vault_contract::{
-        events::{
-            LiquidityAdded, LiquidityAddedToBuffer, LiquidityRemoved, LiquidityRemovedFromBuffer,
-            Swap, Unwrap, Wrap,
-        },
+        events::{LiquidityAdded, LiquidityRemoved, PoolPausedStateChanged, Swap},
         functions::{Erc4626BufferWrapOrUnwrap, SendTo, Settle},
     },
     pool_factories,
@@ -25,7 +22,9 @@ use substreams_ethereum::{
     Event, Function,
 };
 use tycho_substreams::{
-    balances::aggregate_balances_changes, contract::extract_contract_changes_builder, prelude::*,
+    attributes::json_deserialize_address_list, balances::aggregate_balances_changes,
+    block_storage::get_block_storage_changes, contract::extract_contract_changes_builder,
+    entrypoint::create_entrypoint, models::entry_point_params::TraceData, prelude::*,
 };
 
 pub const VAULT_ADDRESS: &[u8] = &hex!("bA1333333333a1BA1108E8412f11850A5C319bA9");
@@ -44,10 +43,6 @@ pub fn map_components(block: eth::v2::Block) -> Result<BlockTransactionProtocolC
             {
                 components.push(component);
             }
-            // Not supported yet because they rely on rate providers. Need DCI.
-            // if let Some(buffer_component) = pool_factories::buffer_map(log, tx) {
-            //     components.push(buffer_component);
-            // }
         }
         if !components.is_empty() {
             tx_components.push(TransactionProtocolComponents { tx: Some(tx.into()), components });
@@ -192,94 +187,6 @@ pub fn map_relative_balances(
                     deltas.extend_from_slice(&deltas_from_removed_liquidity);
                 }
             }
-            if let Some(LiquidityAddedToBuffer { wrapped_token, amount_underlying, amount_wrapped, .. }) =
-                LiquidityAddedToBuffer::match_and_decode(vault_log.log)
-            {
-                let component_id = format!("0x{}", hex::encode(&wrapped_token));
-                if let Some(ProtocolComponent{ tokens,..}) = store.get_last(format!("pool:{}", &component_id)) {
-                    let underlying_token = tokens[1].to_owned();
-                    deltas.extend_from_slice(&[BalanceDelta {
-                            ord: vault_log.ordinal(),
-                            tx: Some(vault_log.receipt.transaction.into()),
-                            token: wrapped_token.to_vec(),
-                            delta: amount_wrapped.to_signed_bytes_be(),
-                            component_id: component_id.as_bytes().to_vec(),
-                            },
-                        BalanceDelta {
-                            ord: vault_log.ordinal(),
-                            tx: Some(vault_log.receipt.transaction.into()),
-                            token: underlying_token.to_vec(),
-                            delta: amount_underlying.to_signed_bytes_be(),
-                            component_id: component_id.as_bytes().to_vec(),
-                        },
-                    ]);
-                }
-            }
-            if let Some(LiquidityRemovedFromBuffer { wrapped_token, amount_underlying, amount_wrapped, .. }) =
-                LiquidityRemovedFromBuffer::match_and_decode(vault_log.log)
-            {
-                let component_id = format!("0x{}", hex::encode(&wrapped_token));
-                if let Some(ProtocolComponent{ tokens,..}) = store.get_last(format!("pool:{}", &component_id)) {
-                    let underlying_token = tokens[1].to_owned();
-                    deltas.extend_from_slice(&[BalanceDelta {
-                            ord: vault_log.ordinal(),
-                            tx: Some(vault_log.receipt.transaction.into()),
-                            token: wrapped_token.to_vec(),
-                            delta: amount_wrapped.neg().to_signed_bytes_be(),
-                            component_id: component_id.as_bytes().to_vec(),
-                            },
-                        BalanceDelta {
-                            ord: vault_log.ordinal(),
-                            tx: Some(vault_log.receipt.transaction.into()),
-                            token: underlying_token.to_vec(),
-                            delta: amount_underlying.neg().to_signed_bytes_be(),
-                            component_id: component_id.as_bytes().to_vec(),
-                        },
-                    ]);
-                }
-            }
-            if let Some(Wrap { wrapped_token, deposited_underlying, minted_shares, .. }) = Wrap::match_and_decode(vault_log.log) {
-                let component_id = format!("0x{}", hex::encode(&wrapped_token));
-                if let Some(ProtocolComponent{ tokens,..}) = store.get_last(format!("pool:{}", &component_id)) {
-                    let underlying_token = tokens[1].to_owned();
-                    deltas.extend_from_slice(&[BalanceDelta {
-                        ord: vault_log.ordinal(),
-                        tx: Some(vault_log.receipt.transaction.into()),
-                        token: underlying_token.to_vec(),
-                        delta: deposited_underlying.to_signed_bytes_be(),
-                        component_id: component_id.as_bytes().to_vec(),
-                    },
-                    BalanceDelta {
-                        ord: vault_log.ordinal(),
-                        tx: Some(vault_log.receipt.transaction.into()),
-                        token: wrapped_token.to_vec(),
-                        delta: minted_shares.to_signed_bytes_be(),
-                        component_id: component_id.as_bytes().to_vec(),
-                    },
-                    ]);
-                }
-            }
-            if let Some(Unwrap { wrapped_token, burned_shares, withdrawn_underlying, .. }) = Unwrap::match_and_decode(vault_log.log) {
-                let component_id = format!("0x{}", hex::encode(&wrapped_token));
-                if let Some(ProtocolComponent{ tokens,..}) = store.get_last(format!("pool:{}", &component_id)) {
-                    let underlying_token = tokens[1].to_owned();
-                    deltas.extend_from_slice(&[BalanceDelta {
-                        ord: vault_log.ordinal(),
-                        tx: Some(vault_log.receipt.transaction.into()),
-                        token: underlying_token.to_vec(),
-                        delta: withdrawn_underlying.neg().to_signed_bytes_be(),
-                        component_id: component_id.as_bytes().to_vec(),
-                    },
-                    BalanceDelta {
-                        ord: vault_log.ordinal(),
-                        tx: Some(vault_log.receipt.transaction.into()),
-                        token: wrapped_token.to_vec(),
-                        delta: burned_shares.neg().to_signed_bytes_be(),
-                        component_id: component_id.as_bytes().to_vec(),
-                    },
-                    ]);
-                }
-            }
 
             deltas
         })
@@ -314,10 +221,46 @@ pub fn map_protocol_changes(
     //  sort them at the very end.
     let mut transaction_changes: HashMap<_, TransactionChangesBuilder> = HashMap::new();
 
+    // Handle pool pause state changes
+    block
+        .logs()
+        .filter(|log| log.address() == VAULT_ADDRESS)
+        .for_each(|log| {
+            if let Some(PoolPausedStateChanged { pool, paused }) =
+                PoolPausedStateChanged::match_and_decode(log)
+            {
+                let component_id = format!("0x{}", hex::encode(&pool));
+                let tx: Transaction = log.receipt.transaction.into();
+                if components_store
+                    .get_last(format!("pool:{}", &component_id))
+                    .is_some()
+                {
+                    let builder = transaction_changes
+                        .entry(tx.index)
+                        .or_insert_with(|| TransactionChangesBuilder::new(&tx));
+
+                    let entity_change = EntityChanges {
+                        component_id,
+                        attributes: vec![Attribute {
+                            name: "paused".to_string(),
+                            value: vec![1u8],
+                            change: if paused {
+                                ChangeType::Creation.into()
+                            } else {
+                                ChangeType::Deletion.into()
+                            },
+                        }],
+                    };
+                    builder.add_entity_change(&entity_change);
+                }
+            }
+        });
+
     // `ProtocolComponents` are gathered from `map_pools_created` which just need a bit of work to
     //   convert into `TransactionChanges`
     let default_attributes = vec![
         Attribute {
+            // TODO: remove this and track account_balances instead
             name: "balance_owner".to_string(),
             value: VAULT_ADDRESS.to_vec(),
             change: ChangeType::Creation.into(),
@@ -358,6 +301,29 @@ pub fn map_protocol_changes(
                 .components
                 .iter()
                 .for_each(|component| {
+                    let rate_providers = component
+                        .static_att
+                        .iter()
+                        .find(|att| att.name == "rate_providers")
+                        .map(|att| json_deserialize_address_list(&att.value));
+
+                    if let Some(rate_providers) = rate_providers {
+                        for rate_provider in rate_providers {
+                            let trace_data = TraceData::Rpc(RpcTraceData {
+                                caller: None,
+                                calldata: hex::decode("679aefce").unwrap(), // getRate()
+                            });
+                            let (entrypoint, entrypoint_params) = create_entrypoint(
+                                rate_provider,
+                                "getRate()".to_string(),
+                                component.id.clone(),
+                                trace_data,
+                            );
+                            builder.add_entrypoint(&entrypoint);
+                            builder.add_entrypoint_params(&entrypoint_params);
+                        }
+                    }
+
                     builder.add_protocol_component(component);
                     let entity_change = EntityChanges {
                         component_id: component.id.clone(),
@@ -449,6 +415,8 @@ pub fn map_protocol_changes(
                 })
         });
 
+    let block_storage_changes = get_block_storage_changes(&block);
+
     // Process all `transaction_changes` for final output in the `BlockChanges`,
     //  sorted by transaction index (the key).
     Ok(BlockChanges {
@@ -458,6 +426,7 @@ pub fn map_protocol_changes(
             .sorted_unstable_by_key(|(index, _)| *index)
             .filter_map(|(_, builder)| builder.build())
             .collect::<Vec<_>>(),
+        storage_changes: block_storage_changes,
     })
 }
 
