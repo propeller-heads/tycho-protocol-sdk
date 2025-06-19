@@ -9,14 +9,14 @@ fn main() -> Result<(), anyhow::Error> {
     let file_names = [
         "abi/vault_contract.abi.json",
         "abi/stable_pool_factory_contract.abi.json",
-        "abi/weigthed_pool_factory_contract.abi.json",
+        "abi/weighted_pool_factory_contract.abi.json",
         "abi/stable_pool_contract.abi.json",
         "abi/weighted_pool_contract.abi.json",
     ];
     let file_output_names = [
         "src/abi/vault_contract.rs",
         "src/abi/stable_pool_factory_contract.rs",
-        "src/abi/weigthed_pool_factory_contract.rs",
+        "src/abi/weighted_pool_factory_contract.rs",
         "src/abi/stable_pool_contract.rs",
         "src/abi/weighted_pool_contract.rs",
     ];

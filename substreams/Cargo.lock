@@ -255,7 +255,7 @@ dependencies = [
 
 [[package]]
 name = "ethereum-balancer-v3"
-version = "0.3.2"
+version = "0.4.0"
 dependencies = [
  "anyhow",
  "bytes",
@@ -273,7 +273,7 @@ dependencies = [
  "serde_qs",
  "substreams",
  "substreams-ethereum",
- "tycho-substreams 0.2.1 (git+https://github.com/propeller-heads/tycho-protocol-sdk.git?rev=52d5021)",
+ "tycho-substreams 0.2.1 (git+https://github.com/propeller-heads/tycho-protocol-sdk.git?rev=51995f9)",
 ]
 
 [[package]]
