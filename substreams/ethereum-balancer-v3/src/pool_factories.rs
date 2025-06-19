@@ -44,6 +44,10 @@ pub fn address_map(
             let WeightedPoolCreated { pool } = WeightedPoolCreated::match_and_decode(log)?;
             let rate_providers = collect_rate_providers(&token_config);
 
+            // TODO: to add "buffers" support for boosted pools, we need to add the unwrapped
+            // version of all ERC4626 tokens to the pool tokens list. Skipped for now - we need
+            // to test that the adapter supports it correctly and ERC4626 overwrites are handled
+            // correctly in simulation.
             let tokens = token_config
                 .into_iter()
                 .map(|t| t.0)
@@ -78,6 +82,11 @@ pub fn address_map(
                 StablePoolCreate::match_and_decode(call)?;
             let StablePoolCreated { pool } = StablePoolCreated::match_and_decode(log)?;
             let rate_providers = collect_rate_providers(&token_config);
+
+            // TODO: to add "buffers" support for boosted pools, we need to add the unwrapped
+            // version of all ERC4626 tokens to the pool tokens list. Skipped for now - we need
+            // to test that the adapter supports it correctly and ERC4626 overwrites are handled
+            // correctly in simulation.
             let tokens = token_config
                 .into_iter()
                 .map(|t| t.0)
