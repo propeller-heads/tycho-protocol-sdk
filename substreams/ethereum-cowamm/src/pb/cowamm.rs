@@ -10,10 +10,10 @@ pub struct CowPool {
     pub token_b: ::prost::alloc::vec::Vec<u8>,
     #[prost(bytes="vec", tag="4")]
     pub lp_token: ::prost::alloc::vec::Vec<u8>,
-    #[prost(uint64, tag="5")]
-    pub weight_a: u64,
-    #[prost(uint64, tag="6")]
-    pub weight_b: u64,
+    #[prost(bytes="vec", tag="5")]
+    pub weight_a: ::prost::alloc::vec::Vec<u8>,
+    #[prost(bytes="vec", tag="6")]
+    pub weight_b: ::prost::alloc::vec::Vec<u8>,
     #[prost(uint64, tag="7")]
     pub fee: u64,
     #[prost(bytes="vec", tag="8")]

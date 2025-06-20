@@ -25,8 +25,8 @@ fn create_component(
         ])
         .with_attributes(&[  
             ("fee", BigInt::from(0).to_signed_bytes_be()),
-            ("normalized_weight_a", BigInt::from(pool.weight_a).to_signed_bytes_be()), 
-            ("normalized_weight_b", BigInt::from(pool.weight_b).to_signed_bytes_be()),
+            ("weight_a", pool.weight_a.as_slice()), 
+            ("weight_b", pool.weight_b.as_slice()),
         ])
         .as_swap_type("cowamm_pool", ImplementationType::Vm)
     )

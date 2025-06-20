@@ -26,6 +26,8 @@ pub fn map_cowpool_binds(block: Block) -> Result<CowPoolBinds> {
                 address: address,
                 token,
                 weight: weight_bytes.to_vec(), 
+                //is it here we would get the liquidity? but the issue is the liq when the pool was bound is not the same as subsequently
+                
             })
         })
         .collect::<Vec<CowPoolBind>>();
