@@ -19,18 +19,18 @@ pub fn store_components(
                 token_a: pc.tokens[0].clone(),
                 token_b: pc.tokens[1].clone(),
                 lp_token:pc.tokens[2].clone(),
-                weight_a: BigInt::from_signed_bytes_be(&pc
+                weight_a: &pc
                     .static_att
                     .iter()
-                    .find(|attr| attr.name == "normalized_weight_a")
-                    .expect("every cow pool should have normalized_weight_a as static attribute")
-                    .value).to_u64(),
-                weight_b: BigInt::from_signed_bytes_be(&pc    
+                    .find(|attr| attr.name == "weight_a")
+                    .expect("every cow pool should have weight_a as static attribute")
+                    .value,
+                weight_b: &pc    
                     .static_att
                     .iter()
-                    .find(|attr| attr.name == "normalized_weight_b")
-                    .expect("every cow pool should have normalized_weight_b as static attribute")
-                    .value).to_u64(),
+                    .find(|attr| attr.name == "weight_b")
+                    .expect("every cow pool should have weight_b as static attribute")
+                    .value,
                 fee: 0 as u64,
                 created_tx_hash: tx_pc.tx.as_ref().unwrap().hash.clone(),
             };
