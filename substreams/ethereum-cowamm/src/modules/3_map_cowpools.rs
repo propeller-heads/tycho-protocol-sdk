@@ -72,26 +72,13 @@ pub fn map_cowpools(creations: CowPoolCreations, binds: StoreGetString) -> Resul
             (&bind2.token, &bind2.weight, &bind1.token, &bind1.weight)
         };
         
-        //calculate normalized weight
-        let w1 = substreams::scalar::BigInt::from_unsigned_bytes_be(&weight_a);   
-        let w2 = substreams::scalar::BigInt::from_unsigned_bytes_be(&weight_b);  
-
-        let BONE = substreams::scalar::BigInt::from(100000000000000000u64); 
-
-        let weight_a_scaled_down = &w1 / &BONE; 
-        let weight_b_scaled_down = &w2 / &BONE;
-        let total = &weight_a_scaled_down + &weight_b_scaled_down;
- 
-        let normalized_weight_a = substreams::scalar::BigInt::from(100) * weight_a_scaled_down / (&total);
-        let normalized_weight_b = substreams::scalar::BigInt::from(100) * weight_b_scaled_down / (&total);
-
         pools.push(CowPool {
             address: creation.address.clone(), 
             token_a: token_a.clone(),
             token_b: token_b.clone(),
             lp_token: creation.lp_token.clone(),
-            weight_a: normalized_weight_a.to_u64(),
-            weight_b: normalized_weight_b.to_u64(),
+            weight_a,
+            weight_b,
             fee: 0,
             created_tx_hash: creation.created_tx_hash.clone(),
         }); 
@@ -139,55 +126,5 @@ mod tests {
         let bind_str = r#"invalid_json"#;
         let result = parse_binds(bind_str);
         assert!(result.is_none());
-    }
-
-    #[test]
-    fn test_weight_normalization_60_40() {
-        let weight_a = substreams::scalar::BigInt::from(600000000000000000u64); // 60 * 1e18
-        let weight_b = substreams::scalar::BigInt::from(400000000000000000u64); // 40 * 1e18
-        let bone = substreams::scalar::BigInt::from(100000000000000000u64);     // 1e18
-
-        let wa = &weight_a / &bone;
-        let wb = &weight_b / &bone;
-        let total = &wa + &wb;
-
-        let norm_a = substreams::scalar::BigInt::from(100) * &wa / &total;
-        let norm_b = substreams::scalar::BigInt::from(100) * &wb / &total;
-
-        assert_eq!(norm_a.to_u64(), 60);
-        assert_eq!(norm_b.to_u64(), 40);
-    }
-
-    #[test]
-    fn test_weight_normalization_50_50() {
-        let weight = substreams::scalar::BigInt::from(500000000000000000u64);
-        let bone = substreams::scalar::BigInt::from(100000000000000000u64);
-
-        let wa = &weight / &bone;
-        let wb = &weight / &bone;
-        let total = &wa + &wb;
-
-        let norm_a = substreams::scalar::BigInt::from(100) * &wa / &total;
-        let norm_b = substreams::scalar::BigInt::from(100) * &wb / &total;
-
-        assert_eq!(norm_a.to_u64(), 50);
-        assert_eq!(norm_b.to_u64(), 50);
-    }
-
-    #[test]
-    fn test_weight_normalization_unbalanced() {
-        let weight_a = substreams::scalar::BigInt::from(300000000000000000u64); // 30
-        let weight_b = substreams::scalar::BigInt::from(700000000000000000u64); // 70
-        let bone = substreams::scalar::BigInt::from(100000000000000000u64);     // 1e18
-
-        let wa = &weight_a / &bone;
-        let wb = &weight_b / &bone;
-        let total = &wa + &wb;
-
-        let norm_a = substreams::scalar::BigInt::from(100) * &wa / &total;
-        let norm_b = substreams::scalar::BigInt::from(100) * &wb / &total;
-
-        assert_eq!(norm_a.to_u64(), 30);
-        assert_eq!(norm_b.to_u64(), 70);
     }
 }
