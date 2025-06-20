@@ -7,7 +7,7 @@ solc_version = "0.8.27" # 0.8.25 and 0.8.26 are broken with via-ir (see https://
 
 [rpc_endpoints]
 mainnet = "${ETH_RPC_URL}"
-
+bsc = "${BSC_RPC_URL}"
 
 [fmt]
 line_length = 80
