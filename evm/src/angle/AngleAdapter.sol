@@ -429,7 +429,7 @@ library LibManager {
         }
     }
 
-    /// @notice Calls a hook if needed after new funds have been transfered to a
+    /// @notice Calls a hook if needed after new funds have been transferred to a
     /// manager
     function invest(uint256 amount, bytes memory config) internal {
         (ManagerType managerType, bytes memory data) =
