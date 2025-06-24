@@ -9,7 +9,9 @@ use substreams::{
 };
 use substreams_ethereum::{pb::eth, Event};
 use tycho_substreams::{
-    balances::aggregate_balances_changes, contract::extract_contract_changes_builder, prelude::*,
+    attributes::json_deserialize_address_list, balances::aggregate_balances_changes,
+    block_storage::get_block_storage_changes, contract::extract_contract_changes_builder,
+    entrypoint::create_entrypoint, models::entry_point_params::TraceData, prelude::*,
 };
 
 pub const VAULT_ADDRESS: &[u8] = &hex!("BA12222222228d8Ba445958a75a0704d566BF2C8");
@@ -74,65 +76,72 @@ pub fn map_relative_balances(
                 abi::vault::events::PoolBalanceChanged::match_and_decode(vault_log.log)
             {
                 let component_id = format!("0x{}", hex::encode(ev.pool_id));
+                let bpt_token = hex::decode(&component_id[2..42]).unwrap();
 
                 if store
                     .get_last(format!("pool:{}", &component_id[..42]))
                     .is_some()
                 {
-                    for (token, delta) in ev
-                        .tokens
-                        .iter()
-                        .zip(ev.deltas.iter())
-                        .filter(|(token, _)| **token != hex::decode(&component_id[2..42]).unwrap())
-                    {
-                        deltas.push(BalanceDelta {
-                            ord: vault_log.ordinal(),
-                            tx: Some(vault_log.receipt.transaction.into()),
-                            token: token.to_vec(),
-                            delta: delta.to_signed_bytes_be(),
-                            component_id: component_id.as_bytes().to_vec(),
-                        });
+                    for (token, delta) in ev.tokens.iter().zip(ev.deltas.iter()) {
+                        // BPT tokens not supported - their balance handling is currently bugged
+                        if *token != bpt_token {
+                            deltas.push(BalanceDelta {
+                                ord: vault_log.ordinal(),
+                                tx: Some(vault_log.receipt.transaction.into()),
+                                token: token.to_vec(),
+                                delta: delta.to_signed_bytes_be(),
+                                component_id: component_id.as_bytes().to_vec(),
+                            });
+                        }
                     }
                 }
             } else if let Some(ev) = abi::vault::events::Swap::match_and_decode(vault_log.log) {
                 let component_id = format!("0x{}", hex::encode(ev.pool_id));
+                let bpt_token = hex::decode(&component_id[2..42]).unwrap();
 
                 if store
                     .get_last(format!("pool:{}", &component_id[..42]))
                     .is_some()
                 {
-                    deltas.extend_from_slice(&[
-                        BalanceDelta {
+                    // BPT tokens not supported - their balance handling is currently bugged
+                    if ev.token_in != bpt_token {
+                        deltas.push(BalanceDelta {
                             ord: vault_log.ordinal(),
                             tx: Some(vault_log.receipt.transaction.into()),
                             token: ev.token_in.to_vec(),
                             delta: ev.amount_in.to_signed_bytes_be(),
                             component_id: component_id.as_bytes().to_vec(),
-                        },
-                        BalanceDelta {
+                        });
+                    }
+                    // BPT tokens not supported - their balance handling is currently bugged
+                    if ev.token_out != bpt_token {
+                        deltas.push(BalanceDelta {
                             ord: vault_log.ordinal(),
                             tx: Some(vault_log.receipt.transaction.into()),
                             token: ev.token_out.to_vec(),
                             delta: ev.amount_out.neg().to_signed_bytes_be(),
                             component_id: component_id.as_bytes().to_vec(),
-                        },
-                    ]);
+                        });
+                    }
                 }
             } else if let Some(ev) =
                 abi::vault::events::PoolBalanceManaged::match_and_decode(vault_log.log)
             {
                 let component_id = format!("0x{}", hex::encode(ev.pool_id));
+                let bpt_token = hex::decode(&component_id[2..42]).unwrap();
                 if store
                     .get_last(format!("pool:{}", &component_id[..42]))
                     .is_some()
+                    // BPT tokens not supported - their balance handling is currently bugged
+                    && ev.token != bpt_token
                 {
-                    deltas.extend_from_slice(&[BalanceDelta {
+                    deltas.push(BalanceDelta {
                         ord: vault_log.ordinal(),
                         tx: Some(vault_log.receipt.transaction.into()),
                         token: ev.token.to_vec(),
                         delta: ev.cash_delta.to_signed_bytes_be(),
                         component_id: component_id.as_bytes().to_vec(),
-                    }]);
+                    });
                 }
             }
 
@@ -197,6 +206,29 @@ pub fn map_protocol_changes(
                 .components
                 .iter()
                 .for_each(|component| {
+                    let rate_providers = component
+                        .static_att
+                        .iter()
+                        .find(|att| att.name == "rate_providers")
+                        .map(|att| json_deserialize_address_list(&att.value));
+
+                    if let Some(rate_providers) = rate_providers {
+                        for rate_provider in rate_providers {
+                            let trace_data = TraceData::Rpc(RpcTraceData {
+                                caller: None,
+                                calldata: hex::decode("679aefce").unwrap(), // getRate()
+                            });
+                            let (entrypoint, entrypoint_params) = create_entrypoint(
+                                rate_provider,
+                                "getRate()".to_string(),
+                                component.id.clone(),
+                                trace_data,
+                            );
+                            builder.add_entrypoint(&entrypoint);
+                            builder.add_entrypoint_params(&entrypoint_params);
+                        }
+                    }
+
                     builder.add_protocol_component(component);
                     let entity_change = EntityChanges {
                         component_id: component.id.clone(),
@@ -261,6 +293,8 @@ pub fn map_protocol_changes(
 
     // Process all `transaction_changes` for final output in the `BlockChanges`,
     //  sorted by transaction index (the key).
+    let block_storage_changes = get_block_storage_changes(&block);
+
     Ok(BlockChanges {
         block: Some((&block).into()),
         changes: transaction_changes
@@ -268,5 +302,6 @@ pub fn map_protocol_changes(
             .sorted_unstable_by_key(|(index, _)| *index)
             .filter_map(|(_, builder)| builder.build())
             .collect::<Vec<_>>(),
+        storage_changes: block_storage_changes,
     })
 }
