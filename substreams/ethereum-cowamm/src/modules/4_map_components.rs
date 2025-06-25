@@ -23,7 +23,10 @@ fn create_component(
             factory_address,
             pool.address.as_slice()
         ])
-        .with_attributes(&[  
+        .with_attributes(&[
+            ("lp_token", pool.lp_token.as_slice()),
+            ("token_a", pool.token_a.as_slice()),
+            ("token_b", pool.token_b.as_slice()),
             ("fee", BigInt::from(0).to_signed_bytes_be()),
             ("weight_a", pool.weight_a.as_slice()), 
             ("weight_b", pool.weight_b.as_slice()),
