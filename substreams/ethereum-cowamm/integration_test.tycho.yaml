@@ -1,7 +1,7 @@
 # Name of the substreams config file in your substreams module. Usually "./substreams.yaml"
 substreams_yaml_path: ./substreams.yaml
 # Name of the adapter contract, usually: ProtocolSwapAdapter"
-adapter_contract: "SwapAdapter"
+adapter_contract: "CowAMMSwapAdapter"
 # Constructor signature of the Adapter contract"
 adapter_build_signature: "constructor(address)"
 # A comma separated list of args to be passed to the contructor of the Adapter contract"
@@ -45,9 +45,13 @@ tests:
           - "0xdac17f958d2ee523a2206206994597c13d831ec7"
           - "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48"
           - "0x6b175474e89094c44da98b954eedeac495271d0f"
-        static_attributes:
-          attr_1: "value"
-          attr_2: "value"
+        static_attributes: 
+           token_a: def1ca1fb7fbcdc777520aa7f396b4e015f497ab,
+           token_b: 0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0,
+           lp_token: 9bd702e05b9c97e4a4a3e47df1e0fe7a0c26d2f1,
+           weight_a: 0000000000000000000000000000000000000000000000000de0b6b3a7640000,
+           weight_b: 0000000000000000000000000000000000000000000000000de0b6b3a7640000,
+           fee: 0x0,
         creation_tx: "0x20793bbf260912aae189d5d261ff003c9b9166da8191d8f9d63ff1c7722f3ac6"
         # Whether or not the script should skip trying to simulate a swap on this component.
         # If set to `true` please always add a reason why it's skipped.
