@@ -28,6 +28,8 @@ pub struct TransactionChangesBuilder {
     entity_changes: HashMap<String, InterimEntityChanges>,
     component_changes: HashMap<String, ProtocolComponent>,
     balance_changes: HashMap<(Vec<u8>, Vec<u8>), BalanceChange>,
+    entrypoints: HashSet<EntryPoint>,
+    entrypoint_params: HashSet<EntryPointParams>,
 }
 
 impl TransactionChangesBuilder {
@@ -151,6 +153,18 @@ impl TransactionChangesBuilder {
             .insert((change.component_id.clone(), change.token.clone()), change.clone());
     }
 
+    /// Adds a new entrypoint to the transaction. It adds to the set of already existing
+    /// entrypoints.
+    pub fn add_entrypoint(&mut self, entrypoint: &EntryPoint) {
+        self.entrypoints
+            .insert(entrypoint.clone());
+    }
+
+    pub fn add_entrypoint_params(&mut self, entrypoint: &EntryPointParams) {
+        self.entrypoint_params
+            .insert(entrypoint.clone());
+    }
+
     pub fn build(self) -> Option<TransactionChanges> {
         let tx_changes = TransactionChanges {
             tx: self.tx,
@@ -171,6 +185,14 @@ impl TransactionChangesBuilder {
             balance_changes: self
                 .balance_changes
                 .into_values()
+                .collect::<Vec<_>>(),
+            entrypoints: self
+                .entrypoints
+                .into_iter()
+                .collect::<Vec<_>>(),
+            entrypoint_params: self
+                .entrypoint_params
+                .into_iter()
                 .collect::<Vec<_>>(),
         };
         if tx_changes.is_empty() {
@@ -325,7 +347,7 @@ impl ProtocolComponent {
     ///
     /// # Example
     ///
-    /// ```
+    /// ```ignore
     /// let attributes_to_check = vec![
     ///     ("attribute1".to_string(), vec![1, 2, 3]),
     ///     ("attribute2".to_string(), vec![4, 5, 6]),
@@ -367,7 +389,7 @@ impl ProtocolComponent {
     ///
     /// # Example
     ///
-    /// ```
+    /// ```ignore
     /// let attribute_name = "attribute1";
     /// if let Some(value) = instance.get_attribute_value(attribute_name) {
     ///     // Use the attribute value
@@ -405,24 +427,33 @@ impl InterimEntityChanges {
     }
 
     pub fn set_attribute(&mut self, attr: &Attribute) {
-        // Add any attribute creation to the map
-        if attr.change == i32::from(ChangeType::Creation) {
+        // If the attribute is created in this transaction, add it to the set of created
+        // attributes.
+        // Note: If it's already present in `self.attributes` it means this is not a real
+        // creation (it can be a deletion -> creation sequence for example), in that case we don't
+        // want to mark it as created.
+        if attr.change == i32::from(ChangeType::Creation) &&
+            !self.attributes.contains_key(&attr.name)
+        {
             self.created_attributes
                 .insert(attr.name.clone());
         }
 
+        // If a freshly created attribute is deleted, remove the creation and don't emit the
+        // deletion.
         if attr.change == i32::from(ChangeType::Deletion) &&
             self.created_attributes
                 .contains(&attr.name)
         {
-            // If a freshly created attribute is deleted, remove the creation.
             self.attributes.remove(&attr.name);
-        } else {
-            self.attributes
-                .entry(attr.name.clone())
-                .and_modify(|existing| *existing = attr.clone())
-                .or_insert(attr.clone());
+            return;
         }
+
+        // Otherwise, add the attribute to the map.
+        self.attributes
+            .entry(attr.name.clone())
+            .and_modify(|existing| *existing = attr.clone())
+            .or_insert(attr.clone());
     }
 }
 
@@ -584,11 +615,129 @@ impl TransactionChanges {
 
 #[cfg(test)]
 mod test {
+    use rstest::rstest;
     use substreams_ethereum::pb::eth::v2::StorageChange;
 
-    use crate::models::{Attribute, ChangeType, EntityChanges};
+    use crate::models::{Attribute, ChangeType, EntityChanges, Transaction, TransactionChanges};
 
     use super::{InterimContractChange, TransactionChangesBuilder};
+
+    fn create_attribute_change(value: u8, change_type: ChangeType) -> EntityChanges {
+        EntityChanges {
+            component_id: "component".to_string(),
+            attributes: vec![Attribute {
+                name: "attribute".to_string(),
+                value: vec![value],
+                change: change_type.into(),
+            }],
+        }
+    }
+
+    fn create_transaction_changes(
+        attribute_value: u8,
+        change_type: ChangeType,
+    ) -> Option<TransactionChanges> {
+        Some(TransactionChanges {
+            tx: Some(Transaction {
+                hash: [].to_vec(),
+                from: [].to_vec(),
+                to: [].to_vec(),
+                index: 0,
+            }),
+            contract_changes: Default::default(),
+            component_changes: Default::default(),
+            balance_changes: Default::default(),
+            entity_changes: vec![EntityChanges {
+                component_id: "component".to_string(),
+                attributes: vec![Attribute {
+                    name: "attribute".to_string(),
+                    value: vec![attribute_value],
+                    change: change_type.into(),
+                }],
+            }],
+            entrypoints: Default::default(),
+            entrypoint_params: Default::default(),
+        })
+    }
+
+    #[rstest]
+    #[case::deletion_creation_deletion(
+        vec![
+            (0, ChangeType::Deletion),
+            (1, ChangeType::Creation),
+            (0, ChangeType::Deletion),
+        ],
+        create_transaction_changes(0, ChangeType::Deletion)
+    )]
+    #[case::creation_deletion_creation(
+        vec![
+            (1, ChangeType::Creation),
+            (0, ChangeType::Deletion),
+            (2, ChangeType::Creation),
+        ],
+        create_transaction_changes(2, ChangeType::Creation)
+    )]
+    #[case::creation_deletion(
+        vec![
+            (1, ChangeType::Creation),
+            (0, ChangeType::Deletion),
+        ],
+        None
+    )]
+    #[case::deletion_creation_deletion_creation(
+        vec![
+            (0, ChangeType::Deletion),
+            (1, ChangeType::Creation),
+            (2, ChangeType::Deletion),
+            (3, ChangeType::Creation),
+        ],
+        create_transaction_changes(3, ChangeType::Creation)
+    )]
+    #[case::creation_deletion_creation_deletion(
+        vec![
+            (1, ChangeType::Creation),
+            (0, ChangeType::Deletion),
+            (2, ChangeType::Creation),
+            (3, ChangeType::Deletion),
+        ],
+        None
+    )]
+    #[case::creation_update(
+        vec![
+            (1, ChangeType::Creation),
+            (2, ChangeType::Update),
+        ],
+        create_transaction_changes(2, ChangeType::Update)
+    )]
+    #[case::creation_update_deletion(
+        vec![
+            (1, ChangeType::Creation),
+            (2, ChangeType::Update),
+            (3, ChangeType::Deletion),
+        ],
+        None
+    )]
+    #[case::deletion_update(
+        vec![
+            (0, ChangeType::Deletion),
+            (1, ChangeType::Update),
+        ],
+        create_transaction_changes(1, ChangeType::Update)
+    )]
+    fn test_attribute_sequences(
+        #[case] changes: Vec<(u8, ChangeType)>,
+        #[case] expected: Option<TransactionChanges>,
+    ) {
+        let mut builder = TransactionChangesBuilder::new(&Transaction::default());
+
+        for (value, change_type) in changes {
+            let change = create_attribute_change(value, change_type);
+            builder.add_entity_change(&change);
+        }
+
+        let tx_changes = builder.build();
+        assert_eq!(tx_changes, expected);
+    }
 
     #[test]
     fn test_transaction_changes_builder_ignored_contract_changes() {
