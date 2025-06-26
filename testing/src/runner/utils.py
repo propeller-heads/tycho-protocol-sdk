@@ -62,7 +62,7 @@ def token_factory(rpc_client: TychoRPCClient) -> callable(HexBytes):
         if to_fetch:
             pagination = PaginationParams(page_size=len(to_fetch), page=0)
             params = TokensParams(token_addresses=to_fetch, pagination=pagination)
-            tokens = _client.get_tokens(params)
+            tokens = _client.get_tokens(params).tokens
             for token in tokens:
                 address = to_checksum_address(token.address)
                 eth_token = EthereumToken(

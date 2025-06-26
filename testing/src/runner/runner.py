@@ -3,7 +3,6 @@ import os
 import shutil
 import subprocess
 import traceback
-from collections import defaultdict
 from datetime import datetime
 from decimal import Decimal
 from pathlib import Path
@@ -24,6 +23,7 @@ from tycho_indexer_client.dto import (
     HexBytes,
     ResponseAccount,
     Snapshot,
+    TracedEntryPointParams,
 )
 from tycho_indexer_client.rpc_client import TychoRPCClient
 
@@ -148,10 +148,10 @@ class TestRunner:
         """Validate the current protocol state against the expected state."""
         protocol_components = self.tycho_rpc_client.get_protocol_components(
             ProtocolComponentsParams(protocol_system="test_protocol")
-        )
+        ).protocol_components
         protocol_states = self.tycho_rpc_client.get_protocol_state(
             ProtocolStateParams(protocol_system="test_protocol")
-        )
+        ).states
         components_by_id = {
             component.id: component for component in protocol_components
         }
@@ -214,7 +214,6 @@ class TestRunner:
             step = "Simulation validation"
 
             # Loads from Tycho-Indexer the state of all the contracts that are related to the protocol components.
-            filtered_components = []
             simulation_components = [
                 c.id for c in expected_components if c.skip_simulation is False
             ]
@@ -225,12 +224,24 @@ class TestRunner:
             for account in initialized_accounts or []:
                 related_contracts.add(HexBytes(account))
 
-            # Filter out components that are not set to be used for the simulation
+            # Collect all contracts that are related to the simulation components
+            filtered_components = []
             component_related_contracts = set()
             for component in protocol_components:
+                # Filter out components that are not set to be used for the simulation
                 if component.id in simulation_components:
+                    # Collect component contracts
                     for a in component.contract_ids:
                         component_related_contracts.add(a)
+                    # Collect DCI detected contracts
+                    traces = self.tycho_rpc_client.get_traced_entry_points(
+                        TracedEntryPointParams(
+                            protocol_system="test_protocol",
+                            component_ids=[component.id],
+                        )
+                    ).traced_entry_points
+                    for _, trace in traces.values():
+                        component_related_contracts.add(trace.accessed_slots.keys())
                     filtered_components.append(component)
 
             # Check if any of the initialized contracts are not listed as component contract dependencies
@@ -241,7 +252,7 @@ class TestRunner:
 
             contract_states = self.tycho_rpc_client.get_contract_state(
                 ContractStateParams(contract_ids=related_contracts)
-            )
+            ).accounts
             if len(filtered_components):
 
                 if len(unspecified_contracts):
@@ -280,7 +291,6 @@ class TestRunner:
         contract_states: list[ResponseAccount],
     ) -> dict[str, list[SimulationFailure]]:
         TychoDBSingleton.initialize()
-        protocol_type_names = self.config.protocol_type_names
 
         block_header = get_block_header(block_number)
         block: EVMBlock = EVMBlock(
@@ -337,7 +347,7 @@ class TestRunner:
                     # Try to sell 0.1% of the protocol balance
                     try:
                         sell_amount = (
-                                Decimal(prctg) * pool_state.balances[sell_token.address]
+                            Decimal(prctg) * pool_state.balances[sell_token.address]
                         )
                         amount_out, gas_used, _ = pool_state.get_amount_out(
                             sell_token, sell_amount, buy_token
