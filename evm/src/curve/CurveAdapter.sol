@@ -50,56 +50,8 @@ contract CurveAdapter is ISwapAdapter {
         address sellToken,
         address buyToken,
         uint256[] memory specifiedAmounts
-    ) external view override returns (Fraction[] memory prices) {
-        SellParamsCache memory sellParams;
-        sellParams.poolAddress = address(bytes20(poolId));
-        sellParams.sellToken = sellToken;
-        sellParams.buyToken = buyToken;
-
-        bool isEthPool; // pool is native ETH pool
-        PoolCoins memory coins = getCoins(sellParams.poolAddress);
-        sellParams.isInt128Pool = isInt128Pool(sellParams.poolAddress, coins);
-
-        /// @dev Support for Native ETH pools, ETH pools cannot be Meta
-        /// therefore we can directly access coins without using underlying
-        if (sellToken == address(0)) {
-            for (uint256 i = 0; i < coins.coinsLength; i++) {
-                if (
-                    coins.addresses[i] == ETH_ADDRESS
-                        || coins.addresses[i] == WETH_ADDRESS
-                ) {
-                    sellParams.sellToken = ETH_ADDRESS;
-                    if (coins.addresses[i] == ETH_ADDRESS) {
-                        isEthPool = true;
-                    }
-                    break;
-                }
-            }
-        } else if (buyToken == address(0)) {
-            for (uint256 i = 0; i < coins.coinsLength; i++) {
-                if (
-                    coins.addresses[i] == ETH_ADDRESS
-                        || coins.addresses[i] == WETH_ADDRESS
-                ) {
-                    sellParams.buyToken = ETH_ADDRESS;
-                    if (coins.addresses[i] == ETH_ADDRESS) {
-                        isEthPool = true;
-                    }
-                    break;
-                }
-            }
-        }
-
-        (sellParams.sellTokenIndex, sellParams.buyTokenIndex) = getCoinsIndices(
-            sellParams.sellToken, sellParams.buyToken, coins, isEthPool
-        );
-
-        prices = new Fraction[](specifiedAmounts.length);
-
-        for (uint256 i = 0; i < specifiedAmounts.length; i++) {
-            sellParams.specifiedAmount = specifiedAmounts[i];
-            prices[i] = getPriceAt(sellParams, false);
-        }
+    ) external override returns (Fraction[] memory prices) {
+        revert NotImplemented("CurveAdapter.price");
     }
 
     /// @inheritdoc ISwapAdapter
@@ -248,7 +200,6 @@ contract CurveAdapter is ISwapAdapter {
     {
         capabilities = new Capability[](2);
         capabilities[0] = Capability.SellOrder;
-        capabilities[1] = Capability.PriceFunction;
     }
 
     /// @inheritdoc ISwapAdapter
@@ -362,6 +313,7 @@ contract CurveAdapter is ISwapAdapter {
     {
         IERC20 buyToken = IERC20(sellParams.buyToken);
         IERC20 sellToken = IERC20(sellParams.sellToken);
+        uint256 nativeTokenBalBefore = address(this).balance;
         uint256 buyTokenBalBefore = (sellParams.buyToken == ETH_ADDRESS)
             ? address(this).balance
             : buyToken.balanceOf(address(this));
@@ -426,11 +378,12 @@ contract CurveAdapter is ISwapAdapter {
                     // @dev we can't use catch here because some Curve pool have
                     // a fallback function implemented. So this call succeed
                     // without doing anything.
-                    if (sellParams.buyToken == ETH_ADDRESS) {
-                        calculatedAmount =
-                            address(this).balance - buyTokenBalBefore;
+                    uint256 maybeNativeReceived =
+                        address(this).balance - nativeTokenBalBefore;
+                    if (maybeNativeReceived > 0) {
+                        calculatedAmount = maybeNativeReceived; // ETH received
                         (bool sent,) = address(msg.sender).call{
-                            value: calculatedAmount
+                            value: maybeNativeReceived
                         }("");
                         require(sent, "Eth transfer failed");
                     } else {

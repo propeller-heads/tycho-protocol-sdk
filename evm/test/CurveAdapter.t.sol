@@ -28,7 +28,7 @@ contract CurveAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
         0x5a6A4D54456819380173272A5E8E9B9904BdF41B;
     address constant ETH_POOL = 0xBfAb6FA95E0091ed66058ad493189D2cB29385E6;
     address constant STETH_POOL = 0xDC24316b9AE028F1497c275EB9192a3Ea0f67022;
-    address[] ADDITIONAL_POOLS_FOR_PRICE;
+    address[] ADDITIONAL_POOLS_FOR_TESTING;
 
     uint256 constant TEST_ITERATIONS = 100;
     IwstETH constant wstETH =
@@ -40,33 +40,37 @@ contract CurveAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
         adapter = new CurveAdapter();
 
         // Additional pools that include custom Int128 pools
-        ADDITIONAL_POOLS_FOR_PRICE = [
+        ADDITIONAL_POOLS_FOR_TESTING = [
             0xEcd5e75AFb02eFa118AF914515D6521aaBd189F1,
             0xEd279fDD11cA84bEef15AF5D39BB4d4bEE23F0cA,
             0x43b4FdFD4Ff969587185cDB6f0BD875c5Fc83f8c,
-            0x87650D7bbfC3A9F10587d7778206671719d9910D,
             0x9EfE1A1Cbd6Ca51Ee8319AFc4573d253C3B732af,
             0x4807862AA8b2bF68830e4C8dc86D0e9A998e085a,
             0xd632f22692FaC7611d2AA1C0D552930D43CAEd3B,
             0xA5407eAE9Ba41422680e2e00537571bcC53efBfD,
             0x5a6A4D54456819380173272A5E8E9B9904BdF41B,
             0x3211C6cBeF1429da3D0d58494938299C92Ad5860,
-            0x50f3752289e1456BfA505afd37B241bca23e685d,
-            0x4eBdF703948ddCEA3B11f675B4D1Fba9d2414A14,
             0xDB6925eA42897ca786a045B252D95aA7370f44b4,
             0xf861483fa7E511fbc37487D91B6FAa803aF5d37c,
-            0x0E9B5B092caD6F1c5E6bc7f89Ffe1abb5c95F1C2,
             0x1e098B32944292969fB58c85bDC85545DA397117,
-            0x21410232B484136404911780bC32756D5d1a9Fa9,
-            0x322135Dd9cBAE8Afa84727d9aE1434b5B3EBA44B,
-            0xC26b89A667578ec7b3f11b2F98d6Fd15C07C54ba,
             0xe0e970a99bc4F53804D8145beBBc7eBc9422Ba7F,
             0x6bfE880Ed1d639bF80167b93cc9c56a39C1Ba2dC,
             0xBDFAe7D2cF2E69E27b75a5287ECD3808F62B5a76,
             0xfB8814D005C5f32874391e888da6eB2fE7a27902,
+            0x0f3159811670c117c372428D4E69AC32325e4D0F,
+            0x4eBdF703948ddCEA3B11f675B4D1Fba9d2414A14,
+            0x0E9B5B092caD6F1c5E6bc7f89Ffe1abb5c95F1C2,
+            0x21410232B484136404911780bC32756D5d1a9Fa9,
+            0x322135Dd9cBAE8Afa84727d9aE1434b5B3EBA44B,
+            0xC26b89A667578ec7b3f11b2F98d6Fd15C07C54ba,
             0x9409280DC1e6D33AB7A8C6EC03e5763FB61772B5,
-            0x5FAE7E604FC3e24fd43A72867ceBaC94c65b404A,
-            0x0f3159811670c117c372428D4E69AC32325e4D0F
+            0x5FAE7E604FC3e24fd43A72867ceBaC94c65b404A
+            // 0x87650D7bbfC3A9F10587d7778206671719d9910D // Uses a token
+            // that can't be `deal`ed with foundry
+            // https://etherscan.io/token/0x2a8e1e676ec238d8a992307b495b45b3feaa5e86
+            // 0x50f3752289e1456BfA505afd37B241bca23e685d, // Uses a token
+            // that can't be `deal`ed with foundry
+            // https://etherscan.io/token/0x3472A5A71965499acd81997a54BBA8D852C6E53d
         ];
 
         vm.label(address(adapter), "CurveAdapter");
@@ -79,74 +83,44 @@ contract CurveAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
 
     receive() external payable {}
 
-    function testPricesForAdditionalPools() public {
-        uint256 len = ADDITIONAL_POOLS_FOR_PRICE.length;
+    function testSwapsForAdditionalPools() public {
+        uint256 len = ADDITIONAL_POOLS_FOR_TESTING.length;
         for (uint256 i = 0; i < len; i++) {
-            bytes32 pair = bytes32(bytes20(ADDITIONAL_POOLS_FOR_PRICE[i]));
+            bytes32 pair = bytes32(bytes20(ADDITIONAL_POOLS_FOR_TESTING[i]));
             address[] memory tokens = adapter.getTokens(pair);
             uint256[] memory amounts = new uint256[](1);
 
-            try ICurveStableSwapPool(ADDITIONAL_POOLS_FOR_PRICE[i]).balances(0)
-            returns (uint256 bal) {
+            try ICurveStableSwapPool(ADDITIONAL_POOLS_FOR_TESTING[i]).balances(
+                0
+            ) returns (uint256 bal) {
                 amounts[0] = bal / 10;
             } catch {
                 amounts[0] = ICurveCustomInt128Pool(
-                    ADDITIONAL_POOLS_FOR_PRICE[i]
+                    ADDITIONAL_POOLS_FOR_TESTING[i]
                 ).balances(int128(0)) / 10;
             }
 
-            // Test Price
-            Fraction[] memory prices =
-                adapter.price(pair, tokens[0], tokens[1], amounts);
+            deal(tokens[0], address(this), amounts[0]);
+            IERC20(tokens[0]).approve(address(adapter), amounts[0]);
+
+            // Test Swap
+            Trade memory trade = adapter.swap(
+                pair,
+                tokens[0],
+                tokens[1],
+                ISwapAdapterTypes.OrderSide.Sell,
+                amounts[0]
+            );
 
             // Test Limits
             uint256[] memory limits =
                 adapter.getLimits(pair, tokens[0], tokens[1]);
 
-            assertGt(prices[0].numerator, 0);
-            assertGt(prices[0].denominator, 0);
+            assertGt(trade.calculatedAmount, 0);
+            assertGt(trade.price.numerator, 0);
+            assertGt(trade.price.denominator, 0);
             assertGt(limits[0], 0);
             assertGt(limits[1], 0);
-        }
-    }
-
-    function testPriceFuzzCurveStableSwap(uint256 amount0, uint256 amount1)
-        public
-    {
-        bytes32 pair = bytes32(bytes20(STABLE_POOL));
-        uint256[] memory limits = adapter.getLimits(pair, USDC, USDT);
-        vm.assume(amount0 < limits[0] && amount0 > 0);
-        vm.assume(amount1 < limits[0] && amount1 > 0);
-
-        uint256[] memory amounts = new uint256[](2);
-        amounts[0] = amount0;
-        amounts[1] = amount1;
-
-        Fraction[] memory prices = adapter.price(pair, USDC, USDT, amounts);
-
-        for (uint256 i = 0; i < prices.length; i++) {
-            assertGt(prices[i].numerator, 0);
-            assertGt(prices[i].denominator, 0);
-        }
-    }
-
-    function testPriceFuzzCurveCryptoSwap(uint256 amount0, uint256 amount1)
-        public
-    {
-        bytes32 pair = bytes32(bytes20(CRYPTO_POOL));
-        uint256[] memory limits = adapter.getLimits(pair, USDT, WETH);
-        vm.assume(amount0 < limits[0] && amount0 > 0);
-        vm.assume(amount1 < limits[0] && amount1 > 0);
-
-        uint256[] memory amounts = new uint256[](2);
-        amounts[0] = amount0;
-        amounts[1] = amount1;
-
-        Fraction[] memory prices = adapter.price(pair, USDT, WETH, amounts);
-
-        for (uint256 i = 0; i < prices.length; i++) {
-            assertGt(prices[i].numerator, 0);
-            assertGt(prices[i].denominator, 0);
         }
     }
 
@@ -427,15 +401,6 @@ contract CurveAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
         uint256[] memory limits = adapter.getLimits(pair, WETH, USDT);
 
         assertEq(limits.length, 2);
-    }
-
-    function testCurvePoolBehaviour() public {
-        bytes32[] memory poolIds =
-            new bytes32[](ADDITIONAL_POOLS_FOR_PRICE.length);
-        for (uint256 i = 0; i < ADDITIONAL_POOLS_FOR_PRICE.length; i++) {
-            poolIds[i] = bytes32(bytes20(ADDITIONAL_POOLS_FOR_PRICE[i]));
-        }
-        runPoolBehaviourTest(adapter, poolIds);
     }
 
     /// @dev custom function to 'deal' stETH tokens as normal deal won't work
