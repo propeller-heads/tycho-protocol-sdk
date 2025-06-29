@@ -12,9 +12,6 @@ import "src/CowAMM/CowAMMSwapAdapter.sol";
 contract CowAMMSwapAdapterTest is AdapterTest {
     using FractionMath for Fraction;
 
-    uint256 constant pricePrecision = 10e24;
-    string[] public stringPctgs = ["0%", "0.1%", "50%", "100%"];
-    
     address constant COWwstETHPool = 0x9bd702E05B9c97E4A4a3E47Df1e0fe7A0C26d2F1; 
 
     CowAMMSwapAdapter adapter;
@@ -36,7 +33,7 @@ contract CowAMMSwapAdapterTest is AdapterTest {
         vm.label(address(wstETH), "wstETH");
     } 
 
-    function testPriceFuzz(uint256 amount0, uint256 amount1) public {
+    function testPriceFuzz(uint256 amount0, uint256 amount1) public view {
         uint256[] memory limits = adapter.getLimits(bytes32(0), wstETH, COW);
         //check limits 
         vm.assume(amount0 < limits[0] && amount0 > 0);
@@ -52,7 +49,7 @@ contract CowAMMSwapAdapterTest is AdapterTest {
         }
     }
 
-    function testPriceSingleFuzz() public {
+    function testPriceSingleFuzz() public view {
         uint256 specifiedAmount = 10000; 
         // Assume OrderSide.Sell
         uint256[] memory limits =
@@ -68,7 +65,7 @@ contract CowAMMSwapAdapterTest is AdapterTest {
         assertGt(price.denominator, 0);
     }
 
-     function testPriceDecreasing() public {
+     function testPriceDecreasing() public view {
         uint256[] memory amounts = new uint256[](TEST_ITERATIONS);
         Fraction[] memory prices = new Fraction[](TEST_ITERATIONS);
 
@@ -407,26 +404,13 @@ contract CowAMMSwapAdapterTest is AdapterTest {
     //     runPoolBehaviourTest(adapter, poolIds);
     // }
 
-    function calculateTestAmounts(uint256 limit, bool hasMarginalPrices)
-        internal
-        pure
-        returns (uint256[] memory)
-    {
-        uint256[] memory amounts = new uint256[](4);
-        amounts[0] = hasMarginalPrices ? 0 : limit / 10000;
-        amounts[1] = limit / 1000;
-        amounts[2] = limit / 2;
-        amounts[3] = limit;
-        return amounts;
-    }
-
-    function testGetCapabilitiesCowAMM() public {
+    function testGetCapabilitiesCowAMM() public view {
         Capability[] memory res =
             adapter.getCapabilities(bytes32(0), COW, wstETH);
 
         assertEq(res.length, 4);
     }
-    function testGetLimits() public {
+    function testGetLimits() public view {
         uint256[] memory limits = adapter.getLimits(bytes32(0), wstETH, COW);
 
         assertEq(limits.length, 2);
@@ -434,31 +418,12 @@ contract CowAMMSwapAdapterTest is AdapterTest {
         assert(limits[1] > 0);
     }
 
-    function testGetTokens(bytes32 poolId) public {
+    function testGetTokens(bytes32 poolId) public view {
         address[] memory tokens = adapter.getTokens(bytes32(0));
 
         assertEq(tokens[0], address(COW));
         assertEq(tokens[1], address(wstETH));
-    }
-    function fractionToInt(Fraction memory price)
-        public
-        pure
-        returns (uint256)
-    {
-        return price.numerator * pricePrecision / price.denominator;
-    }
-
-    function hasCapability(
-        Capability[] memory capabilities,
-        Capability capability
-    ) internal pure returns (bool) {
-        for (uint256 i = 0; i < capabilities.length; i++) {
-            if (capabilities[i] == capability) {
-                return true;
-            }
-        }
-
-        return false;
+        assertEq(tokens[1], address(COWwstETHPool));
     }
     
 }
