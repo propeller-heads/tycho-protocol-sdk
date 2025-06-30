@@ -15,6 +15,7 @@ use tycho_substreams::{
 };
 
 pub const VAULT_ADDRESS: &[u8] = &hex!("BA12222222228d8Ba445958a75a0704d566BF2C8");
+pub const ZERO_ADDRESS: &[u8] = &[0u8; 20];
 
 #[substreams::handlers::map]
 pub fn map_components(block: eth::v2::Block) -> Result<BlockTransactionProtocolComponents> {
@@ -76,65 +77,72 @@ pub fn map_relative_balances(
                 abi::vault::events::PoolBalanceChanged::match_and_decode(vault_log.log)
             {
                 let component_id = format!("0x{}", hex::encode(ev.pool_id));
+                let bpt_token = hex::decode(&component_id[2..42]).unwrap();
 
                 if store
                     .get_last(format!("pool:{}", &component_id[..42]))
                     .is_some()
                 {
-                    for (token, delta) in ev
-                        .tokens
-                        .iter()
-                        .zip(ev.deltas.iter())
-                        .filter(|(token, _)| **token != hex::decode(&component_id[2..42]).unwrap())
-                    {
-                        deltas.push(BalanceDelta {
-                            ord: vault_log.ordinal(),
-                            tx: Some(vault_log.receipt.transaction.into()),
-                            token: token.to_vec(),
-                            delta: delta.to_signed_bytes_be(),
-                            component_id: component_id.as_bytes().to_vec(),
-                        });
+                    for (token, delta) in ev.tokens.iter().zip(ev.deltas.iter()) {
+                        // BPT tokens not supported - their balance handling is currently bugged
+                        if *token != bpt_token {
+                            deltas.push(BalanceDelta {
+                                ord: vault_log.ordinal(),
+                                tx: Some(vault_log.receipt.transaction.into()),
+                                token: token.to_vec(),
+                                delta: delta.to_signed_bytes_be(),
+                                component_id: component_id.as_bytes().to_vec(),
+                            });
+                        }
                     }
                 }
             } else if let Some(ev) = abi::vault::events::Swap::match_and_decode(vault_log.log) {
                 let component_id = format!("0x{}", hex::encode(ev.pool_id));
+                let bpt_token = hex::decode(&component_id[2..42]).unwrap();
 
                 if store
                     .get_last(format!("pool:{}", &component_id[..42]))
                     .is_some()
                 {
-                    deltas.extend_from_slice(&[
-                        BalanceDelta {
+                    // BPT tokens not supported - their balance handling is currently bugged
+                    if ev.token_in != bpt_token {
+                        deltas.push(BalanceDelta {
                             ord: vault_log.ordinal(),
                             tx: Some(vault_log.receipt.transaction.into()),
                             token: ev.token_in.to_vec(),
                             delta: ev.amount_in.to_signed_bytes_be(),
                             component_id: component_id.as_bytes().to_vec(),
-                        },
-                        BalanceDelta {
+                        });
+                    }
+                    // BPT tokens not supported - their balance handling is currently bugged
+                    if ev.token_out != bpt_token {
+                        deltas.push(BalanceDelta {
                             ord: vault_log.ordinal(),
                             tx: Some(vault_log.receipt.transaction.into()),
                             token: ev.token_out.to_vec(),
                             delta: ev.amount_out.neg().to_signed_bytes_be(),
                             component_id: component_id.as_bytes().to_vec(),
-                        },
-                    ]);
+                        });
+                    }
                 }
             } else if let Some(ev) =
                 abi::vault::events::PoolBalanceManaged::match_and_decode(vault_log.log)
             {
                 let component_id = format!("0x{}", hex::encode(ev.pool_id));
+                let bpt_token = hex::decode(&component_id[2..42]).unwrap();
                 if store
                     .get_last(format!("pool:{}", &component_id[..42]))
                     .is_some()
+                    // BPT tokens not supported - their balance handling is currently bugged
+                    && ev.token != bpt_token
                 {
-                    deltas.extend_from_slice(&[BalanceDelta {
+                    deltas.push(BalanceDelta {
                         ord: vault_log.ordinal(),
                         tx: Some(vault_log.receipt.transaction.into()),
                         token: ev.token.to_vec(),
                         delta: ev.cash_delta.to_signed_bytes_be(),
                         component_id: component_id.as_bytes().to_vec(),
-                    }]);
+                    });
                 }
             }
 
@@ -155,7 +163,7 @@ pub fn store_balances(deltas: BlockBalanceDeltas, store: StoreAddBigInt) {
 /// This is the main map that handles most of the indexing of this substream.
 /// Every contract change is grouped by transaction index via the `transaction_changes`
 ///  map. Each block of code will extend the `TransactionChanges` struct with the
-///  cooresponding changes (balance, component, contract), inserting a new one if it doesn't exist.
+///  corresponding changes (balance, component, contract), inserting a new one if it doesn't exist.
 ///  At the very end, the map can easily be sorted by index to ensure the final
 /// `BlockChanges`  is ordered by transactions properly.
 #[substreams::handlers::map]
@@ -207,6 +215,11 @@ pub fn map_protocol_changes(
 
                     if let Some(rate_providers) = rate_providers {
                         for rate_provider in rate_providers {
+                            if rate_provider == ZERO_ADDRESS {
+                                // Skipped: is not a rate provider
+                                continue;
+                            }
+
                             let trace_data = TraceData::Rpc(RpcTraceData {
                                 caller: None,
                                 calldata: hex::decode("679aefce").unwrap(), // getRate()

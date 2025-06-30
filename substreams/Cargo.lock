@@ -174,7 +174,7 @@ dependencies = [
  "serde_json",
  "sha3",
  "thiserror 1.0.69",
- "uint",
+ "uint 0.9.5",
 ]
 
 [[package]]
@@ -191,7 +191,7 @@ dependencies = [
  "serde_json",
  "sha3",
  "thiserror 1.0.69",
- "uint",
+ "uint 0.9.5",
 ]
 
 [[package]]
@@ -240,7 +240,7 @@ dependencies = [
 
 [[package]]
 name = "ethereum-balancer-v2"
-version = "0.3.0"
+version = "0.3.2"
 dependencies = [
  "anyhow",
  "ethabi 18.0.0",
@@ -248,6 +248,29 @@ dependencies = [
  "hex",
  "itertools 0.12.1",
  "num-bigint",
+ "substreams",
+ "substreams-ethereum",
+ "tycho-substreams 0.2.2",
+]
+
+[[package]]
+name = "ethereum-balancer-v3"
+version = "0.4.0"
+dependencies = [
+ "anyhow",
+ "bytes",
+ "ethabi 18.0.0",
+ "getrandom",
+ "hex",
+ "hex-literal 0.4.1",
+ "itertools 0.13.0",
+ "keccak-hash",
+ "num-bigint",
+ "prost 0.11.9",
+ "prost-types 0.12.6",
+ "regex",
+ "serde",
+ "serde_qs",
  "substreams",
  "substreams-ethereum",
  "tycho-substreams 0.2.1 (git+https://github.com/propeller-heads/tycho-protocol-sdk.git?rev=51995f9)",
@@ -418,7 +441,7 @@ dependencies = [
  "impl-rlp",
  "impl-serde 0.3.2",
  "primitive-types 0.11.1",
- "uint",
+ "uint 0.9.5",
 ]
 
 [[package]]
@@ -432,7 +455,7 @@ dependencies = [
  "impl-rlp",
  "impl-serde 0.4.0",
  "primitive-types 0.12.2",
- "uint",
+ "uint 0.9.5",
 ]
 
 [[package]]
@@ -768,6 +791,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "keccak-hash"
+version = "0.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3e1b8590eb6148af2ea2d75f38e7d29f5ca970d5a4df456b3ef19b8b415d0264"
+dependencies = [
+ "primitive-types 0.13.1",
+ "tiny-keccak",
+]
+
+[[package]]
 name = "lazy_static"
 version = "1.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -974,7 +1007,7 @@ dependencies = [
  "impl-codec",
  "impl-rlp",
  "impl-serde 0.3.2",
- "uint",
+ "uint 0.9.5",
 ]
 
 [[package]]
@@ -987,7 +1020,17 @@ dependencies = [
  "impl-codec",
  "impl-rlp",
  "impl-serde 0.4.0",
- "uint",
+ "uint 0.9.5",
+]
+
+[[package]]
+name = "primitive-types"
+version = "0.13.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d15600a7d856470b7d278b3fe0e311fe28c2526348549f8ef2ff7db3299c87f5"
+dependencies = [
+ "fixed-hash 0.8.0",
+ "uint 0.10.0",
 ]
 
 [[package]]
@@ -1686,21 +1729,6 @@ dependencies = [
 [[package]]
 name = "tycho-substreams"
 version = "0.2.1"
-dependencies = [
- "ethabi 18.0.0",
- "hex",
- "itertools 0.12.1",
- "num-bigint",
- "prost 0.11.9",
- "serde",
- "serde_json",
- "substreams",
- "substreams-ethereum",
-]
-
-[[package]]
-name = "tycho-substreams"
-version = "0.2.1"
 source = "git+https://github.com/propeller-heads/tycho-protocol-sdk.git?rev=51995f9#51995f9731ecf549a5ae68c281906c90efe9909a"
 dependencies = [
  "ethabi 18.0.0",
@@ -1731,6 +1759,38 @@ dependencies = [
 ]
 
 [[package]]
+name = "tycho-substreams"
+version = "0.2.2"
+source = "git+https://github.com/propeller-heads/tycho-protocol-sdk.git?tag=0.4.0#cfbf6812bdc9503ff51debcf5e171cd680b4d694"
+dependencies = [
+ "ethabi 18.0.0",
+ "hex",
+ "itertools 0.12.1",
+ "num-bigint",
+ "prost 0.11.9",
+ "serde",
+ "serde_json",
+ "substreams",
+ "substreams-ethereum",
+]
+
+[[package]]
+name = "tycho-substreams"
+version = "0.4.0"
+dependencies = [
+ "ethabi 18.0.0",
+ "hex",
+ "itertools 0.12.1",
+ "num-bigint",
+ "prost 0.11.9",
+ "rstest",
+ "serde",
+ "serde_json",
+ "substreams",
+ "substreams-ethereum",
+]
+
+[[package]]
 name = "typenum"
 version = "1.17.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1747,6 +1807,18 @@ name = "uint"
 version = "0.9.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "76f64bba2c53b04fcab63c01a7d7427eadc821e3bc48c34dc9ba29c501164b52"
+dependencies = [
+ "byteorder",
+ "crunchy",
+ "hex",
+ "static_assertions",
+]
+
+[[package]]
+name = "uint"
+version = "0.10.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "909988d098b2f738727b161a106cfc7cab00c539c2687a8836f8e565976fb53e"
 dependencies = [
  "byteorder",
  "crunchy",
