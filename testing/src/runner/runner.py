@@ -6,7 +6,7 @@ import traceback
 from datetime import datetime
 from decimal import Decimal
 from pathlib import Path
-from typing import List, Dict, Set, Optional, Callable, Any
+from typing import Optional, Callable, Any
 
 import yaml
 from tycho_simulation_py.evm.decoders import ThirdPartyPoolTychoDecoder
@@ -95,7 +95,7 @@ class TestRunner:
         print(f"Running {len(self.config.tests)} tests ...\n")
         print("--------------------------------\n")
 
-        failed_tests: List[str] = []
+        failed_tests: list[str] = []
         count = 1
 
         for test in self.config.tests:
@@ -143,9 +143,9 @@ class TestRunner:
 
     def validate_state(
         self,
-        expected_components: List[ProtocolComponentWithTestConfig],
+        expected_components: list[ProtocolComponentWithTestConfig],
         stop_block: int,
-        initialized_accounts: List[str],
+        initialized_accounts: list[str],
     ) -> TestResult:
         """Validate the current protocol state against the expected state."""
         protocol_components = self.tycho_rpc_client.get_protocol_components(
@@ -154,7 +154,7 @@ class TestRunner:
         protocol_states = self.tycho_rpc_client.get_protocol_state(
             ProtocolStateParams(protocol_system="test_protocol")
         ).states
-        components_by_id: Dict[str, ProtocolComponent] = {
+        components_by_id: dict[str, ProtocolComponent] = {
             component.id: component for component in protocol_components
         }
 
@@ -216,25 +216,25 @@ class TestRunner:
             step = "Simulation validation"
 
             # Loads from Tycho-Indexer the state of all the contracts that are related to the protocol components.
-            simulation_components: List[str] = [
+            simulation_components: list[str] = [
                 c.id for c in expected_components if c.skip_simulation is False
             ]
 
-            related_contracts: List[str] = []
+            related_contracts: set[str] = set()
             for account in self.config.initialized_accounts or []:
-                related_contracts.append(account)
+                related_contracts.add(account)
             for account in initialized_accounts or []:
-                related_contracts.append(account)
+                related_contracts.add(account)
 
             # Collect all contracts that are related to the simulation components
-            filtered_components: List[ProtocolComponent] = []
-            component_related_contracts: List[str] = []
+            filtered_components: list[ProtocolComponent] = []
+            component_related_contracts: set[str] = set()
             for component in protocol_components:
                 # Filter out components that are not set to be used for the simulation
                 if component.id in simulation_components:
                     # Collect component contracts
                     for a in component.contract_ids:
-                        component_related_contracts.append(a.hex())
+                        component_related_contracts.add(a.hex())
                     # Collect DCI detected contracts
                     traces_results = self.tycho_rpc_client.get_traced_entry_points(
                         TracedEntryPointParams(
@@ -244,20 +244,20 @@ class TestRunner:
                     ).traced_entry_points.values()
                     for traces in traces_results:
                         for _, trace in traces:
-                            component_related_contracts.extend(
+                            component_related_contracts.update(
                                 trace["accessed_slots"].keys()
                             )
                     filtered_components.append(component)
 
             # Check if any of the initialized contracts are not listed as component contract dependencies
-            unspecified_contracts: List[str] = [
+            unspecified_contracts: list[str] = [
                 c for c in related_contracts if c not in component_related_contracts
             ]
 
-            related_contracts.extend(component_related_contracts)
+            related_contracts.update(component_related_contracts)
 
             contract_states = self.tycho_rpc_client.get_contract_state(
-                ContractStateParams(contract_ids=related_contracts)
+                ContractStateParams(contract_ids=list(related_contracts))
             ).accounts
             if len(filtered_components):
 
@@ -271,9 +271,9 @@ class TestRunner:
                     stop_block, protocol_states, filtered_components, contract_states
                 )
                 if len(simulation_failures):
-                    error_msgs: List[str] = []
+                    error_msgs: list[str] = []
                     for pool_id, failures in simulation_failures.items():
-                        failures_formatted: List[str] = [
+                        failures_formatted: list[str] = [
                             f"{f.sell_token} -> {f.buy_token}: {f.error}"
                             for f in failures
                         ]
@@ -292,10 +292,10 @@ class TestRunner:
     def simulate_get_amount_out(
         self,
         block_number: int,
-        protocol_states: List[ResponseProtocolState],
-        protocol_components: List[ProtocolComponent],
-        contract_states: List[ResponseAccount],
-    ) -> Dict[str, List[SimulationFailure]]:
+        protocol_states: list[ResponseProtocolState],
+        protocol_components: list[ProtocolComponent],
+        contract_states: list[ResponseAccount],
+    ) -> dict[str, list[SimulationFailure]]:
         TychoDBSingleton.initialize()
 
         block_header = get_block_header(block_number)
@@ -305,7 +305,7 @@ class TestRunner:
             hash_=block_header.hash.hex(),
         )
 
-        failed_simulations: Dict[str, List[SimulationFailure]] = {}
+        failed_simulations: dict[str, list[SimulationFailure]] = {}
 
         try:
             adapter_contract = self.adapter_contract_builder.find_contract(
@@ -382,7 +382,7 @@ class TestRunner:
 
     @staticmethod
     def build_spkg(
-        yaml_file_path: str, modify_func: Callable[[Dict[str, Any]], None]
+        yaml_file_path: str, modify_func: Callable[[dict[str, Any]], None]
     ) -> str:
         """Build a Substreams package with modifications to the YAML file."""
         backup_file_path = f"{yaml_file_path}.backup"
@@ -412,7 +412,7 @@ class TestRunner:
         return spkg_name
 
     @staticmethod
-    def update_initial_block(data: Dict[str, Any], start_block: int) -> None:
+    def update_initial_block(data: dict[str, Any], start_block: int) -> None:
         """Update the initial block for all modules in the configuration data."""
         for module in data["modules"]:
             module["initialBlock"] = start_block
