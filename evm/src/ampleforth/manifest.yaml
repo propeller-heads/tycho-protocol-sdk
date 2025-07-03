@@ -1,0 +1,63 @@
+author:
+  name: ampleforth.org
+  email: dev-support@ampleforth.org
+
+constants:
+  protocol_gas: 30000
+
+contract: AmpleforthSwapAdapter.sol
+
+instances:
+  - chain:
+      name: mainnet
+      id: 0
+
+tests:
+  instances:
+    - pool_id: "0xEDB171C18cE90B633DB442f2A6F72874093b49Ef" # WAMPL
+      sell_token: "0xd46ba6d942050d489dbd938a2c909a5d5039a161" # AMPL
+      buy_token: "0xEDB171C18cE90B633DB442f2A6F72874093b49Ef" # WAMPL
+      block: 13275716
+      chain:
+        id: 0
+        name: mainnet
+
+    - pool_id: "0xEDB171C18cE90B633DB442f2A6F72874093b49Ef" # WAMPL
+      sell_token: "0xEDB171C18cE90B633DB442f2A6F72874093b49Ef" # WAMPL
+      buy_token: "0xd46ba6d942050d489dbd938a2c909a5d5039a161" # AMPL
+      block: 13275716
+      chain:
+        id: 0
+        name: mainnet
+
+    - pool_id: "0x82A91a0D599A45d8E9Af781D67f695d7C72869Bd" # STAMPL
+      sell_token: "0xd46ba6d942050d489dbd938a2c909a5d5039a161" # AMPL
+      buy_token: "0xc1f33e0cf7e40a67375007104b929e49a581bafe" # SPOT
+      block: 20127143
+      chain:
+        id: 0
+        name: mainnet
+
+    - pool_id: "0x82A91a0D599A45d8E9Af781D67f695d7C72869Bd" # STAMPL
+      sell_token: "0xc1f33e0cf7e40a67375007104b929e49a581bafe" # SPOT
+      buy_token: "0xd46ba6d942050d489dbd938a2c909a5d5039a161" # AMPL
+      block: 20127143
+      chain:
+        id: 0
+        name: mainnet
+
+    - pool_id: "0xA088Aef966CAD7fE0B38e28c2E07590127Ab4ccB" # BillBroker
+      sell_token: "0xc1f33e0cf7e40a67375007104b929e49a581bafe" # SPOT
+      buy_token: "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48" # USDC
+      block: 20127143
+      chain:
+        id: 0
+        name: mainnet
+
+    - pool_id: "0xA088Aef966CAD7fE0B38e28c2E07590127Ab4ccB" # BillBroker
+      sell_token: "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48" # USDC
+      buy_token: "0xc1f33e0cf7e40a67375007104b929e49a581bafe" # SPOT
+      block: 20127143
+      chain:
+        id: 0
+        name: mainnet
