@@ -262,10 +262,12 @@ contract CowAMMSwapAdapter is ISwapAdapter {
 
       uint256 tokenBalanceOut = IERC20(buyToken).balanceOf(address(pool));
       uint256 tokenWeightOut = pool.getDenormalizedWeight(buyToken);
- 
+
+      uint256 tokenAmountOut = calcOutGivenIn(tokenBalanceIn, tokenWeightIn, tokenBalanceOut, tokenWeightOut, specifiedAmount, 0);
+
       uint256 newTokenBalanceIn = tokenBalanceIn.badd(specifiedAmount);
-      uint256 newTokenBalanceOut = tokenBalanceOut.bsub(specifiedAmount);
-  
+      uint256 newTokenBalanceOut = tokenBalanceOut.bsub(tokenAmountOut); 
+
       uint256 denom = newTokenBalanceIn.bdiv(tokenWeightIn);
       uint256 num = newTokenBalanceOut.bdiv(tokenWeightOut);
  
@@ -311,42 +313,6 @@ contract CowAMMSwapAdapter is ISwapAdapter {
         tokenAmountIn = BONE.bsub(swapFee);
         tokenAmountIn = (tokenBalanceIn.bmul(foo)).bdiv(tokenAmountIn);
         return tokenAmountIn; 
-    }
-
-    //Gotten from https://github.com/balancer/balancer-v2-monorepo/blob/6c9e24e22d0c46cca6dd15861d3d33da61a60b98/pkg/core/contracts/pools/weighted/WeightedMath.sol#L140
-    //Note - https://github.com/balancer/balancer-v2-monorepo/blob/6c9e24e22d0c46cca6dd15861d3d33da61a60b98/pkg/solidity-utils/contracts/math/FixedPoint.sol#L23 - Here we would use BONE in place of FixedPoint.ONE;
-
-    /**
-    * @notice Calculates the amount of LP tokens to mint when a user joins the pool with exact token amounts, this will be our min constraint 
-    * @dev Based on invariant growth from the added liquidity. No swap fees assumed.
-    * @param balances Current balances of the tokens in the pool
-    * @param normalizedWeights Normalized weights (sum to 1e18)
-    * @param amountsIn Amounts of tokens user is adding (same order as balances)
-    * @param lpTokenTotalSupply Total supply of LP tokens in the pool
-    * @return Amount of LP tokens to mint for the user
-    * 
-    * Formula:
-    *   I' = ∏ ((b_i + a_i) / b_i)^w_i
-    *   lpTokenOut = lpTokenTotalSupply * (I' - 1)
-    */
-    function calcLpTokenOutGivenExactTokensIn(
-        uint256[] memory balances,
-        uint256[] memory normalizedWeights,
-        uint256[] memory amountsIn,
-        uint256 lpTokenTotalSupply
-    ) internal pure returns (uint256) {
-        uint256 invariantRatio = BONE; // represents 1.0 in fixed-point math
-
-        for (uint256 i = 0; i < balances.length; i++) {
-            uint256 balanceRatio = balances[i].badd(amountsIn[i]).bdiv(balances[i]);
-            invariantRatio = invariantRatio.bmul(balanceRatio.bpow(normalizedWeights[i]));
-        }
-
-        if (invariantRatio >= BONE) {
-            return lpTokenTotalSupply.bmul(invariantRatio.bsub(BONE));
-        } else {
-            return 0;
-        }
     }
 
     //gotten from https://github.com/balancer/balancer-v2-monorepo/blob/6c9e24e22d0c46cca6dd15861d3d33da61a60b98/pkg/core/contracts/pools/weighted/WeightedMath.sol#L299
@@ -421,6 +387,8 @@ contract CowAMMSwapAdapter is ISwapAdapter {
 
           uint256[] memory maxTokenAmountsIn = calcTokensOutGivenExactLpTokenIn(balances, specifiedAmount, totalSupply);
           
+          //these constraints are necessary to cause an early return because of the subsequent superfluous token swap we will make in the 
+          //second leg 
           if (maxTokenAmountsIn[0] > limit0) {
             revert("The amount of expectedToken0Out surpasses the limits for the amount that can be swapped into the pool");
           }
@@ -428,10 +396,8 @@ contract CowAMMSwapAdapter is ISwapAdapter {
           if (maxTokenAmountsIn[1] > limit1) {
             revert("The amount of expectedToken1Out surpasses the limits for the amount that can be swapped into the pool");
           }
-
-          uint256[] memory minAmountsOut = new uint256[](2);
-
-          pool.exitPool(specifiedAmount, minAmountsOut); 
+          
+          pool.exitPool(specifiedAmount, maxTokenAmountsIn); 
 
           uint256 amountToSell = tokens[0] == buyToken ? maxTokenAmountsIn[1] : maxTokenAmountsIn[0];
           trade.calculatedAmount = sell(secondaryToken, buyToken, amountToSell);
@@ -441,16 +407,12 @@ contract CowAMMSwapAdapter is ISwapAdapter {
       else if (sellToken != address(pool) && buyToken == address(pool)) {
           // Joining Pool (LP token is being bought)
           require(side == OrderSide.Buy, "Joining pool must be OrderSide.Buy");
+
           uint256 totalSupply = pool.totalSupply();
 
           address[] memory tokens = pool.getFinalTokens();
           //get the other token in the pool
           address secondaryToken = tokens[0] == sellToken ? tokens[1] : tokens[0];
-          
-          uint256[] memory tokenWeights = new uint256[](2);
-
-          tokenWeights[0] = pool.getNormalizedWeight(buyToken);
-          tokenWeights[1] = pool.getNormalizedWeight(secondaryToken);
 
           uint256 token0Balance = IERC20(tokens[0]).balanceOf(address(pool));
           uint256 token1Balance = IERC20(tokens[1]).balanceOf(address(pool));
@@ -464,12 +426,6 @@ contract CowAMMSwapAdapter is ISwapAdapter {
           balances[1] = token1Balance;
 
           uint256[] memory maxTokenAmountsIn = calcTokensOutGivenExactLpTokenIn(balances, specifiedAmount, totalSupply);
-
-          uint256 lpTokenAmountOut = calcLpTokenOutGivenExactTokensIn(balances, tokenWeights, maxTokenAmountsIn, totalSupply);
-
-          //https://github.com/balancer/balancer-v2-monorepo/blob/208901355aa9d30f8924e657ce0ad7646443b7d7/pkg/pool-weighted/contracts/lib/WeightedJoinsLib.sol#L48
-          //minlpTokenAmount is specifiedAmount
-          require(lpTokenAmountOut >= specifiedAmount, "lpToken output lower than minimum requested (specifiedAmount)");
 
           //the limits don't apply when joining or exiting a pool, but we have to put it because of when we are swapping the superfluous token amount out 
           if (maxTokenAmountsIn[0] > limit0) {
@@ -486,9 +442,9 @@ contract CowAMMSwapAdapter is ISwapAdapter {
 
           pool.joinPool(specifiedAmount, maxTokenAmountsIn);
           
-          uint256 amountToSell = tokens[0] == buyToken ? maxTokenAmountsIn[1] : maxTokenAmountsIn[0];
-          trade.calculatedAmount = buy(secondaryToken, sellToken, amountToSell);
-          trade.price = getPriceAt(trade.calculatedAmount, secondaryToken, sellToken);
+          uint256 amountToSell = tokens[0] == sellToken ? maxTokenAmountsIn[1] : maxTokenAmountsIn[0];
+          trade.calculatedAmount = buy(sellToken, secondaryToken, amountToSell);
+          // trade.price = getPriceAt(trade.calculatedAmount, secondaryToken, sellToken);
       } 
       
       else if (sellToken == address(pool) && buyToken == address(pool)) {
@@ -585,6 +541,7 @@ contract CowAMMSwapAdapter is ISwapAdapter {
                     amountIn,
                     0
         );
+        
         calculatedAmount = tokenAmountOut; //Convert to human-readable;
     }
     /// @notice Executes a buy order on the contract.
@@ -606,7 +563,7 @@ contract CowAMMSwapAdapter is ISwapAdapter {
         uint256 tokenOutWeight = pool.getDenormalizedWeight(buyToken);
 
         // Enforce 33% max out constraint
-        uint256 maxOut = tokenOutBalance.bmul(MAX_OUT_FACTOR).bdiv(100);
+        uint256 maxOut = tokenOutBalance.bmul(MAX_OUT_FACTOR).bdiv(100); //w ecannot tak emore thatn 30% of the pools liquidity out 
         
         if (amountOut > maxOut) {
             revert IBPool.BPool_TokenAmountOutAboveMaxOut();
@@ -620,6 +577,7 @@ contract CowAMMSwapAdapter is ISwapAdapter {
                     amountOut,  
                     0
         ); 
+
         calculatedAmount = tokenAmountIn; 
     }
 }
