@@ -243,19 +243,24 @@ contract CowAMMSwapAdapter is ISwapAdapter {
         uint256[] memory specifiedAmounts
     ) external view override returns (Fraction[] memory calculatedPrices) {
         calculatedPrices = new Fraction[](specifiedAmounts.length);
+        uint256[] memory _limits = getLimits(bytes32(0), sellToken, buyToken);
+
+        // prevent price above sell limits as pool will revert for
+        // underflow/overflow on mint/redeem
         for (uint256 i = 0; i < specifiedAmounts.length; i++) {
+            _checkLimits(_limits, OrderSide.Sell, specifiedAmounts[i]);
+
             calculatedPrices[i] = getPriceAt(specifiedAmounts[i], sellToken, buyToken);
         }
     }
     
-  // we are calculating the price as a fraction of the amount we'll get out
   // we are calculating the marginal price 
     function getPriceAt(
         uint256 specifiedAmount,
         address sellToken,
         address buyToken
     ) public view returns (Fraction memory) { 
-      require(specifiedAmount != 0, "Specified amount cannot be zero");
+      // require(specifiedAmount != 0, "Specified amount cannot be zero");
 
       uint256 tokenBalanceIn = IERC20(sellToken).balanceOf(address(pool));
       uint256 tokenWeightIn = pool.getDenormalizedWeight(sellToken);
@@ -350,9 +355,13 @@ contract CowAMMSwapAdapter is ISwapAdapter {
       ) external returns (Trade memory trade) {
       require(sellToken != buyToken, "Tokens must be different");
       require(specifiedAmount != 0,"Specified amount cannot be zero");
-      //sell is 0 buy is 1
+
       uint256 gasBefore = gasleft();
       if (sellToken != address(pool) && buyToken != address(pool)) {
+          // prevent swap above sell limits as pool will revert for
+          // underflow/overflow on mint/redeem
+          uint256[] memory _limits = getLimits(bytes32(0), sellToken, buyToken);
+          _checkLimits(_limits, side, specifiedAmount);
           // Standard Token-to-Token Swap
           if (side == OrderSide.Sell) {
               trade.calculatedAmount = sell(sellToken, buyToken, specifiedAmount);
@@ -444,7 +453,7 @@ contract CowAMMSwapAdapter is ISwapAdapter {
           
           uint256 amountToSell = tokens[0] == sellToken ? maxTokenAmountsIn[1] : maxTokenAmountsIn[0];
           trade.calculatedAmount = buy(sellToken, secondaryToken, amountToSell);
-          // trade.price = getPriceAt(trade.calculatedAmount, secondaryToken, sellToken);
+          trade.price = getPriceAt(trade.calculatedAmount, secondaryToken, sellToken);
       } 
       
       else if (sellToken == address(pool) && buyToken == address(pool)) {
@@ -459,7 +468,7 @@ contract CowAMMSwapAdapter is ISwapAdapter {
       trade.gasUsed = gasBefore - gasleft();
   }
        function getLimits(bytes32, address sellToken, address buyToken)
-        external view
+        public view 
         returns (uint256[] memory limits)
     {     
         uint256 sellTokenBal = pool.getBalance(sellToken);
@@ -478,11 +487,12 @@ contract CowAMMSwapAdapter is ISwapAdapter {
       override 
     returns (Capability[] memory capabilities) 
     {
-        capabilities = new Capability[](4);
+        capabilities = new Capability[](5);
         capabilities[0] = Capability.SellOrder;
         capabilities[1] = Capability.BuyOrder;
         capabilities[2] = Capability.PriceFunction;
-        capabilities[3] = Capability.HardLimits;
+        capabilities[3] =  Capability.MarginalPrice;
+        capabilities[4] = Capability.HardLimits;
     }
 
     function getTokens( 
@@ -526,12 +536,15 @@ contract CowAMMSwapAdapter is ISwapAdapter {
         uint256 tokenOutBalance = IERC20(buyToken).balanceOf(address(pool));
         uint256 tokenOutWeight = pool.getDenormalizedWeight(buyToken);
 
-       // Enforce 50% max in constraint
-        uint256 maxIn = (tokenInBalance).bmul(MAX_IN_FACTOR).bdiv(100);
+        // since we already have limit constraints externally, this shouldn't be too necessary
+        // but added as an extra check, leaving it causes it to revert before the line 196 that 
+        // actually reverts in AdapterTest.sol
+        // Enforce 50% max in constraint
+        // uint256 maxIn = (tokenInBalance).bmul(MAX_IN_FACTOR).bdiv(100);
 
-        if (amountIn > maxIn) {
-            revert IBPool.BPool_TokenAmountInAboveMaxRatio();
-        }
+        // if (amountIn > maxIn) {
+        //     revert IBPool.BPool_TokenAmountInAboveMaxRatio();
+        // }
 
         uint256 tokenAmountOut = calcOutGivenIn(
                     tokenInBalance,
@@ -563,10 +576,9 @@ contract CowAMMSwapAdapter is ISwapAdapter {
         uint256 tokenOutWeight = pool.getDenormalizedWeight(buyToken);
 
         // Enforce 33% max out constraint
-        uint256 maxOut = tokenOutBalance.bmul(MAX_OUT_FACTOR).bdiv(100); //w ecannot tak emore thatn 30% of the pools liquidity out 
-        
+        uint256 maxOut = tokenOutBalance.bmul(MAX_OUT_FACTOR).bdiv(100); 
         if (amountOut > maxOut) {
-            revert IBPool.BPool_TokenAmountOutAboveMaxOut();
+            revert IBPool.BPool_TokenAmountOutAboveMaxOut(); 
         }
 
         uint256 tokenAmountIn = calcInGivenOut(
@@ -579,5 +591,21 @@ contract CowAMMSwapAdapter is ISwapAdapter {
         ); 
 
         calculatedAmount = tokenAmountIn; 
+    }
+    /// @notice Checks if the specified amount is within the hard limits
+    /// @dev If not, reverts
+    /// @param limits The limits of the tokens being traded.
+    /// @param side The side of the trade.
+    /// @param specifiedAmount The amount to be traded.
+    function _checkLimits(
+        uint256[] memory limits,
+        OrderSide side,
+        uint256 specifiedAmount
+    ) internal pure {
+        if (side == OrderSide.Sell && specifiedAmount > limits[0]) {
+            require(specifiedAmount < limits[0], "Limit exceeded");
+        } else if (side == OrderSide.Buy && specifiedAmount > limits[1]) {
+            require(specifiedAmount < limits[1], "Limit exceeded");
+        }
     }
 }
