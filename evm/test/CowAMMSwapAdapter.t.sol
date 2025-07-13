@@ -11,6 +11,7 @@ import "src/CowAMM/CowAMMSwapAdapter.sol";
 
 contract CowAMMSwapAdapterTest is AdapterTest {
     using FractionMath for Fraction;
+    using BNumLib for uint256;
 
     address constant COWwstETHPool = 0x9bd702E05B9c97E4A4a3E47Df1e0fe7A0C26d2F1; 
 
@@ -20,7 +21,7 @@ contract CowAMMSwapAdapterTest is AdapterTest {
     address constant wstETH = 0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0;
 
 
-    uint256 constant TEST_ITERATIONS = 3;
+    uint256 constant TEST_ITERATIONS = 500;
     function setUp() public {
         uint256 forkBlock = 20522303;
         vm.createSelectFork(vm.rpcUrl("mainnet"), forkBlock);
@@ -32,6 +33,29 @@ contract CowAMMSwapAdapterTest is AdapterTest {
         vm.label(address(COW), "COW");
         vm.label(address(wstETH), "wstETH");
     } 
+    //helper function
+    function _calcTokenOutGivenExactLpTokenIn(
+        uint256 balance,
+        uint256 lpTokenAmountIn,
+        uint256 totalLpToken
+    ) internal pure returns (uint256 amountOut) {
+        uint256 lpTokenRatio = lpTokenAmountIn.bdiv(totalLpToken);
+        amountOut = balance.bmul(lpTokenRatio);
+        return amountOut;
+    }
+
+    function _calcTokensOutGivenExactLpTokenIn(
+            uint256[] memory balances,
+            uint256 lpTokenAmountIn,
+            uint256 totalLpToken
+        ) internal pure returns (uint256[] memory amountsOut) {
+            uint256 lpTokenRatio = lpTokenAmountIn.bdiv(totalLpToken);
+            amountsOut = new uint256[](balances.length);
+            for (uint256 i = 0; i < balances.length; i++) {
+                amountsOut[i] = balances[i].bmul(lpTokenRatio);
+            }
+            return amountsOut;
+    }
 
     function testPriceFuzz(uint256 amount0, uint256 amount1) public view {
         uint256[] memory limits = adapter.getLimits(bytes32(0), wstETH, COW);
@@ -191,12 +215,15 @@ contract CowAMMSwapAdapterTest is AdapterTest {
         uint256 specifiedAmount
     ) public {
         OrderSide side = OrderSide.Sell; // selling LP for tokenA = wstETH
-        uint256 poolTotalSupply = IBPool(COWwstETHPool).totalSupply();
+        // uint256 poolTotalSupply = IBPool(COWwstETHPool).totalSupply();
         // lets set lowest amount of LPTokens we can burn or join is set to 0.00000001% of the total pool supply
-        uint256 percentage = 1e16; // 0.0001%
-        uint256 lowestAmount = (poolTotalSupply * percentage) / 1e18; 
+        // uint256 percentage = 1e16; // 0.0001%
+        // uint256 lowestAmount = (poolTotalSupply * percentage) / 1e18; 
 
-        vm.assume(specifiedAmount > lowestAmount && specifiedAmount < poolTotalSupply);
+        //we'll have to compute the shares of both tokens for the corresponding lp token amount and make sure they 
+        //are less than limits[0] and limits[1] to generate the fuzz range for values so no reverts happen
+        // will use 1e18 for now, because i can't just figure out a constraint
+        
         specifiedAmount = 1e18;
 
         deal(COWwstETHPool, address(adapter), specifiedAmount);
@@ -243,7 +270,7 @@ contract CowAMMSwapAdapterTest is AdapterTest {
         uint256 percentage = 1e16; // 0.0001%
         uint256 lowestAmount = (poolTotalSupply * percentage) / 1e18;
 
-        vm.assume(specifiedAmount > lowestAmount && specifiedAmount < poolTotalSupply);
+        // vm.assume(specifiedAmount > lowestAmount && specifiedAmount < poolTotalSupply);
         specifiedAmount = 1e18;
 
         deal(COWwstETHPool, address(adapter), specifiedAmount);
