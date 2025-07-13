@@ -120,7 +120,7 @@ contract AdapterTest is Test, ISwapAdapterTypes {
                 assertGe(
                     executedPrice,
                     priceAtAmount,
-                    "Price should be greated than executed price."
+                    "Price should be greater than executed price."
                 );
                 assertGt(
                     executedPrice,
@@ -130,7 +130,7 @@ contract AdapterTest is Test, ISwapAdapterTypes {
                 assertGt(
                     priceAtZero,
                     executedPrice,
-                    "Price should be greated than price after swap."
+                    "Price should be greater than price after swap."
                 );
             } else {
                 assertGe(
