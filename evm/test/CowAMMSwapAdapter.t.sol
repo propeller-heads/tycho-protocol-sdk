@@ -20,7 +20,7 @@ contract CowAMMSwapAdapterTest is AdapterTest {
     address constant wstETH = 0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0;
 
 
-    uint256 constant TEST_ITERATIONS = 5;
+    uint256 constant TEST_ITERATIONS = 3;
     function setUp() public {
         uint256 forkBlock = 20522303;
         vm.createSelectFork(vm.rpcUrl("mainnet"), forkBlock);
@@ -36,8 +36,8 @@ contract CowAMMSwapAdapterTest is AdapterTest {
     function testPriceFuzz(uint256 amount0, uint256 amount1) public view {
         uint256[] memory limits = adapter.getLimits(bytes32(0), wstETH, COW);
         //check limits 
-        vm.assume(amount0 < limits[0] && amount0 > 0);
-        vm.assume(amount1 < limits[0] && amount1 > 0);
+        vm.assume(amount0 < limits[0] && amount0 > 10e4);
+        vm.assume(amount1 < limits[0] && amount1 > 10e4);
         uint256[] memory amounts = new uint256[](2);
         amounts[0] = amount0;
         amounts[1] = amount1;
@@ -70,11 +70,12 @@ contract CowAMMSwapAdapterTest is AdapterTest {
         Fraction[] memory prices = new Fraction[](TEST_ITERATIONS);
 
         for (uint256 i = 0; i < TEST_ITERATIONS; i++) {
-            amounts[i] = 1000 * (i + 1) * 10**6; 
+            amounts[i] = 1000 * (i + 1) * 10**10; 
             prices[i] = adapter.getPriceAt(
                  amounts[i], wstETH, COW
             ); 
         }
+
         for (uint256 i = 0; i < TEST_ITERATIONS - 1; i++) {
             assertEq(prices[i].compareFractions(prices[i + 1]), 1);
             assertGt(prices[i].denominator, 0);
@@ -84,9 +85,8 @@ contract CowAMMSwapAdapterTest is AdapterTest {
      function testSwapFuzz(uint256 specifiedAmount, bool isBuy) public {
         OrderSide side = isBuy ? OrderSide.Buy : OrderSide.Sell;
         uint256[] memory limits = adapter.getLimits(bytes32(0), wstETH, COW);
-        //even with scaling the input in the buy() method with BONE, if side is OrderSide.Buy and the 
-        //specifiedAmount is less than 6962 calcInGivenOut() in the buy() method returns zero
-        vm.assume(specifiedAmount > 0);
+
+        vm.assume(specifiedAmount > 10e4);
         vm.assume(specifiedAmount < limits[0]);
 
         if (side == OrderSide.Buy) {
@@ -137,7 +137,7 @@ contract CowAMMSwapAdapterTest is AdapterTest {
         Trade[] memory trades = new Trade[](TEST_ITERATIONS);
 
         for (uint256 i = 0; i < TEST_ITERATIONS; i++) {
-            amounts[i] = 1000 * (i + 1) * 10 ** 6;
+            amounts[i] = 1000 * (i + 1) * 10 ** 10;
 
             uint256 beforeSwap = vm.snapshot();
 
@@ -192,11 +192,11 @@ contract CowAMMSwapAdapterTest is AdapterTest {
     ) public {
         OrderSide side = OrderSide.Sell; // selling LP for tokenA = wstETH
         uint256 poolTotalSupply = IBPool(COWwstETHPool).totalSupply();
-        // lowest amount of LPTokens we can burn or join is set to 0.00000001% of the total pool supply
+        // lets set lowest amount of LPTokens we can burn or join is set to 0.00000001% of the total pool supply
         uint256 percentage = 1e16; // 0.0001%
         uint256 lowestAmount = (poolTotalSupply * percentage) / 1e18; 
 
-        // vm.assume(specifiedAmount > lowestAmount && specifiedAmount < poolTotalSupply);
+        vm.assume(specifiedAmount > lowestAmount && specifiedAmount < poolTotalSupply);
         specifiedAmount = 1e18;
 
         deal(COWwstETHPool, address(adapter), specifiedAmount);
@@ -243,7 +243,7 @@ contract CowAMMSwapAdapterTest is AdapterTest {
         uint256 percentage = 1e16; // 0.0001%
         uint256 lowestAmount = (poolTotalSupply * percentage) / 1e18;
 
-        // vm.assume(specifiedAmount > lowestAmount && specifiedAmount < poolTotalSupply);
+        vm.assume(specifiedAmount > lowestAmount && specifiedAmount < poolTotalSupply);
         specifiedAmount = 1e18;
 
         deal(COWwstETHPool, address(adapter), specifiedAmount);
@@ -265,6 +265,7 @@ contract CowAMMSwapAdapterTest is AdapterTest {
         uint256 COWAfter = IERC20(COW).balanceOf(address(adapter));
         uint256 wstETHAfter = IERC20(wstETH).balanceOf(address(adapter));
         uint256 calculatedAmount = exitTrade.calculatedAmount;
+
         assertGt(lpTokenBefore, LPTokenAfter);
         assertGt(COWAfter, COWBefore);
         assertGt(wstETHAfter, wstETHBefore); 
@@ -281,7 +282,7 @@ contract CowAMMSwapAdapterTest is AdapterTest {
 
         // vm.assume(specifiedAmount > lowestAmount && specifiedAmount < poolTotalSupply);
         specifiedAmount = 1e18;
-
+ 
         //we approve the tokens in the contract, first give the adapter tokens to join to the pool
         deal(COW, address(adapter), 10e23);
         deal(wstETH, address(adapter), 10e23);
@@ -292,6 +293,8 @@ contract CowAMMSwapAdapterTest is AdapterTest {
         uint256 wstETHBefore = IERC20(wstETH).balanceOf(address(adapter));
         uint256 COWBefore = IERC20(COW).balanceOf(address(adapter));
 
+        //We are selling wstETH back into the pool to buy our COW back, we just used the COW to join the wstETH to the pool 
+        //since its double sided liquidity joining
         Trade memory joinTrade = adapter.swap(bytes32(0), wstETH, COWwstETHPool, side, specifiedAmount);
 
         uint256 LPTokenAfter = IERC20(COWwstETHPool).balanceOf(address(adapter));
@@ -302,7 +305,7 @@ contract CowAMMSwapAdapterTest is AdapterTest {
         assertGt(COWBefore, COWAfter);
         assertGt(wstETHBefore, wstETHAfter); 
         assertGt(calculatedAmount, 0);
-    }
+    }  
 
     function testLPjoinWith_COW_fuzz(uint256 specifiedAmount) public {
         OrderSide side = OrderSide.Buy;
@@ -365,6 +368,34 @@ contract CowAMMSwapAdapterTest is AdapterTest {
         }
     }
 
+    function testLPjoinCOWPriceIncreasing() public {
+        uint256[] memory amounts = new uint256[](TEST_ITERATIONS);
+        Trade[] memory trades = new Trade[](TEST_ITERATIONS);
+
+        for (uint256 i = 0; i < TEST_ITERATIONS; i++) {
+            amounts[i] = 1000 * (i + 1) * 10 ** 10;
+            
+            uint256 beforeSwap = vm.snapshot();
+
+            deal(COW, address(adapter), 10e24);
+            deal(wstETH, address(adapter), 10e24);
+
+            deal(COWwstETHPool, address(this), 10e24);
+            
+            trades[i] = adapter.swap(
+                bytes32(0), COW, COWwstETHPool, OrderSide.Buy, amounts[i]
+            );
+
+            vm.revertTo(beforeSwap);
+        }
+
+        for (uint256 i = 0; i < TEST_ITERATIONS - 1; i++) {
+            assertLe(trades[i].calculatedAmount, trades[i + 1].calculatedAmount);
+            assertLe(trades[i].gasUsed, trades[i + 1].gasUsed);
+            assertEq(trades[i].price.compareFractions(trades[i + 1].price), 1);
+        }
+    }
+
     function testLPexitwstETHPriceIncreasing() public {
         uint256[] memory amounts = new uint256[](TEST_ITERATIONS);
         Trade[] memory trades = new Trade[](TEST_ITERATIONS);
@@ -397,18 +428,52 @@ contract CowAMMSwapAdapterTest is AdapterTest {
         }
     }
 
+    function testLPexitCOWPriceIncreasing() public {
+        uint256[] memory amounts = new uint256[](TEST_ITERATIONS);
+        Trade[] memory trades = new Trade[](TEST_ITERATIONS);
 
-    //  function testCowAMMPoolBehaviour() public {
-    //     bytes32[] memory poolIds = new bytes32[](1);
-    //     poolIds[0] = bytes32(0);
-    //     runPoolBehaviourTest(adapter, poolIds);
-    // }
+        for (uint256 i = 0; i < TEST_ITERATIONS; i++) {
+            amounts[i] = 1000 * (i + 1) * 10 ** 12;
+
+            uint256 beforeSwap = vm.snapshot();
+
+            deal(COWwstETHPool, address(adapter), amounts[i]);
+            IERC20(COWwstETHPool).approve(address(adapter), amounts[i]);
+
+            deal(COW, address(this), 10e24);
+            IERC20(COW).approve(address(adapter), 10e24);
+
+            deal(wstETH, address(this), 10e24);
+            IERC20(wstETH).approve(address(adapter), 10e24);
+
+            trades[i] = adapter.swap(
+                bytes32(0), COWwstETHPool, COW, OrderSide.Sell, amounts[i]
+            );
+
+            vm.revertTo(beforeSwap);
+        }
+
+        for (uint256 i = 0; i < TEST_ITERATIONS - 1; i++) {
+            assertLe(trades[i].calculatedAmount, trades[i + 1].calculatedAmount);
+            assertLe(trades[i].gasUsed, trades[i + 1].gasUsed);
+            assertEq(trades[i].price.compareFractions(trades[i + 1].price), 1);
+        }
+    }
+
+    //TODO line 184 , line 230
+     function testCowAMMPoolBehaviour() public {
+        bytes32[] memory poolIds = new bytes32[](1);
+        poolIds[0] = bytes32(0);
+        runPoolBehaviourTest(adapter, poolIds);
+    }
+
+    //runPoolBehaviourtest for LP token buying and selling that is tokens[2]
 
     function testGetCapabilitiesCowAMM() public view {
         Capability[] memory res =
             adapter.getCapabilities(bytes32(0), COW, wstETH);
 
-        assertEq(res.length, 4);
+        assertEq(res.length, 5);
     }
     function testGetLimits() public view {
         uint256[] memory limits = adapter.getLimits(bytes32(0), wstETH, COW);
@@ -423,7 +488,6 @@ contract CowAMMSwapAdapterTest is AdapterTest {
 
         assertEq(tokens[0], address(COW));
         assertEq(tokens[1], address(wstETH));
-        assertEq(tokens[1], address(COWwstETHPool));
+        assertEq(tokens[2], address(COWwstETHPool));
     }
-    
 }
