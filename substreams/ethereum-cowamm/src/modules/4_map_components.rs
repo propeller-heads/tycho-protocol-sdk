@@ -26,8 +26,11 @@ fn create_component(
         .with_attributes(&[
             ("token_a", pool.token_a.as_slice()),
             ("token_b", pool.token_b.as_slice()),
+            // ("liquidity_a", pool.liquidity_a.as_slice()),
+            // ("liquidity_b", pool.liquidity_b.as_slice()),
             ("lp_token", pool.lp_token.as_slice()),
-            ("fee", BigInt::from(0).to_signed_bytes_be()),
+            ("lp_token_supply", pool.lp_token_supply.as_slice()),
+            ("fee", &BigInt::from(0).to_signed_bytes_be()),
             ("weight_a", pool.weight_a.as_slice()), 
             ("weight_b", pool.weight_b.as_slice()),
         ])
