@@ -1,5 +1,8 @@
 use anyhow::{anyhow, Result};
 use serde::Deserialize;
+use crate::abi::b_cow_pool::functions;
+use substreams::scalar::BigInt;
+use substreams::Hex;
 
 #[derive(Debug, Deserialize)]
 pub struct Params {
@@ -21,4 +24,17 @@ impl Params {
 
         Ok(factory_address.try_into().unwrap())
     }
+}
+
+pub fn get_lp_token_supply(token_address: String) -> Vec<u8> {
+    // Try to decode the hex string into bytes
+    let Ok(token_address_vec) = Hex::decode(token_address) else {
+        substreams::log::info!("Failed to decode token address");
+        return vec![];
+    };
+
+    // Try to call totalSupply and convert to bytes if successful
+     functions::TotalSupply {}
+        .call(token_address_vec)
+        .map_or_else(|| vec![], |total_supply| total_supply.to_signed_bytes_be())
 }

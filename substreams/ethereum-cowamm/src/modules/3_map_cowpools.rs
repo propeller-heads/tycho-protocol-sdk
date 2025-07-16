@@ -1,8 +1,10 @@
 use serde_json;
 use serde::{Deserialize, Serialize};
 use crate::pb::cowamm::{CowPool, CowPools, CowPoolBind, CowPoolCreations};
+use crate::{modules::utils::get_lp_token_supply};
 use anyhow::{Ok, Result};
 use substreams::{
+    Hex,
     store::{StoreGet, StoreGetString},
 };
 use substreams_helper::{hex::Hexable};
@@ -72,13 +74,16 @@ pub fn map_cowpools(creations: CowPoolCreations, binds: StoreGetString) -> Resul
             (&bind2.token, &bind2.weight, &bind1.token, &bind1.weight)
         };
         
+        let lp_token_supply = get_lp_token_supply(Hex(creation.address.clone()).to_string());
+
         pools.push(CowPool {
             address: creation.address.clone(), 
             token_a: token_a.clone(),
             token_b: token_b.clone(),
             lp_token: creation.lp_token.clone(),
-            weight_a,
-            weight_b,
+            lp_token_supply: lp_token_supply.clone(),
+            weight_a:weight_a.to_vec(),
+            weight_b:weight_b.to_vec(),
             fee: 0,
             created_tx_hash: creation.created_tx_hash.clone(),
         }); 

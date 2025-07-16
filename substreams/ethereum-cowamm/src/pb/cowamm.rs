@@ -11,12 +11,14 @@ pub struct CowPool {
     #[prost(bytes="vec", tag="4")]
     pub lp_token: ::prost::alloc::vec::Vec<u8>,
     #[prost(bytes="vec", tag="5")]
-    pub weight_a: ::prost::alloc::vec::Vec<u8>,
+    pub lp_token_supply: ::prost::alloc::vec::Vec<u8>,
     #[prost(bytes="vec", tag="6")]
+    pub weight_a: ::prost::alloc::vec::Vec<u8>,
+    #[prost(bytes="vec", tag="7")]
     pub weight_b: ::prost::alloc::vec::Vec<u8>,
-    #[prost(uint64, tag="7")]
+    #[prost(uint64, tag="8")]
     pub fee: u64,
-    #[prost(bytes="vec", tag="8")]
+    #[prost(bytes="vec", tag="9")]
     pub created_tx_hash: ::prost::alloc::vec::Vec<u8>,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
