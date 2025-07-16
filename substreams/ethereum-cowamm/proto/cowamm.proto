@@ -8,10 +8,11 @@ message CowPool {
   bytes token_a = 2;
   bytes token_b = 3;
   bytes lp_token = 4;
-  bytes weight_a = 5;
-  bytes weight_b = 6;
-  uint64 fee = 7;
-  bytes created_tx_hash = 8;
+  bytes lp_token_supply = 5;
+  bytes weight_a = 6;
+  bytes weight_b = 7;
+  uint64 fee = 8;
+  bytes created_tx_hash = 9;
 } 
 
 message CowPools {

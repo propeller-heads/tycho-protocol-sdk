@@ -19,18 +19,15 @@ pub fn store_components(
                 token_a: pc.tokens[0].clone(),
                 token_b: pc.tokens[1].clone(),
                 lp_token:pc.tokens[2].clone(),
-                weight_a: &pc
-                    .static_att
-                    .iter()
-                    .find(|attr| attr.name == "weight_a")
-                    .expect("every cow pool should have weight_a as static attribute")
-                    .value,
-                weight_b: &pc    
-                    .static_att
-                    .iter()
-                    .find(|attr| attr.name == "weight_b")
-                    .expect("every cow pool should have weight_b as static attribute")
-                    .value,
+                lp_token_supply: pc
+                    .get_attribute_value("lp_token_supply")
+                    .expect("every cow pool should have lp_token_supply as static attribute"),
+                weight_a: pc
+                    .get_attribute_value("weight_a")
+                    .expect("every cow pool should have weight_a as static attribute"),
+                weight_b: pc
+                    .get_attribute_value("weight_b")
+                    .expect("every cow pool should have weight_b as static attribute"),
                 fee: 0 as u64,
                 created_tx_hash: tx_pc.tx.as_ref().unwrap().hash.clone(),
             };
