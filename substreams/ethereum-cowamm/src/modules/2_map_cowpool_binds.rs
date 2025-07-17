@@ -20,14 +20,14 @@ pub fn map_cowpool_binds(block: Block) -> Result<CowPoolBinds> {
             let address = log.address().to_vec(); 
             if data.len() < 165 { return None; } 
             let token = data.get(80..100)?.to_vec();
-            //the initial amount of tokens will be first bound to the pool, then subsequent increase or decreases will be achieved through exiting and joining the pool 
-            // let liquidity = data.get(100..1nn)?.to_vec();
-            let weight_bytes = data.get(132..164)?;
+            let liquidity = data.get(100..132)?.to_vec(); //or balance
+            let weight = data.get(132..164)?.to_vec();
             Some(
                CowPoolBind {
-                address: address,
+                address,
+                liquidity,
                 token,
-                weight: weight_bytes.to_vec(), 
+                weight, 
             })
         })
         .collect::<Vec<CowPoolBind>>();
