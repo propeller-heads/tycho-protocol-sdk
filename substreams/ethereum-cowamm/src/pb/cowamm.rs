@@ -9,16 +9,20 @@ pub struct CowPool {
     #[prost(bytes="vec", tag="3")]
     pub token_b: ::prost::alloc::vec::Vec<u8>,
     #[prost(bytes="vec", tag="4")]
-    pub lp_token: ::prost::alloc::vec::Vec<u8>,
+    pub liquidity_a: ::prost::alloc::vec::Vec<u8>,
     #[prost(bytes="vec", tag="5")]
-    pub lp_token_supply: ::prost::alloc::vec::Vec<u8>,
+    pub liquidity_b: ::prost::alloc::vec::Vec<u8>,
     #[prost(bytes="vec", tag="6")]
-    pub weight_a: ::prost::alloc::vec::Vec<u8>,
+    pub lp_token: ::prost::alloc::vec::Vec<u8>,
     #[prost(bytes="vec", tag="7")]
-    pub weight_b: ::prost::alloc::vec::Vec<u8>,
-    #[prost(uint64, tag="8")]
-    pub fee: u64,
+    pub lp_token_supply: ::prost::alloc::vec::Vec<u8>,
+    #[prost(bytes="vec", tag="8")]
+    pub weight_a: ::prost::alloc::vec::Vec<u8>,
     #[prost(bytes="vec", tag="9")]
+    pub weight_b: ::prost::alloc::vec::Vec<u8>,
+    #[prost(uint64, tag="10")]
+    pub fee: u64,
+    #[prost(bytes="vec", tag="11")]
     pub created_tx_hash: ::prost::alloc::vec::Vec<u8>,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
@@ -35,6 +39,8 @@ pub struct CowPoolBind {
     #[prost(bytes="vec", tag="2")]
     pub token: ::prost::alloc::vec::Vec<u8>,
     #[prost(bytes="vec", tag="3")]
+    pub liquidity: ::prost::alloc::vec::Vec<u8>,
+    #[prost(bytes="vec", tag="4")]
     pub weight: ::prost::alloc::vec::Vec<u8>,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]

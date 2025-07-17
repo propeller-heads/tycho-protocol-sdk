@@ -13,6 +13,7 @@ use substreams_helper::{hex::Hexable};
 struct CowPoolBindJson {
     address: String,
     token: String,
+    liquidity: String,
     weight: String,
 }
 
@@ -32,6 +33,7 @@ fn parse_binds(bind_str: &str) -> Option<Vec<CowPoolBind>> {
             let cow_bind = CowPoolBind {
                 address: hex::decode(&bind_json.address).expect("Invalid hex for address"),
                 token: hex::decode(&bind_json.token).expect("Invalid hex for token"),
+                liquidity: hex::decode(&bind_json.liquidity).expect("Invalid hex for liquidity"),
                 weight: hex::decode(&bind_json.weight).expect("Invalid hex for weight"),
             };
             binds.push(cow_bind);
@@ -68,10 +70,10 @@ pub fn map_cowpools(creations: CowPoolCreations, binds: StoreGetString) -> Resul
         let bind1 = &parsed_binds[0];
         let bind2 = &parsed_binds[1];
 
-        let (token_a, weight_a, token_b, weight_b) = if bind1.token < bind2.token {
-            (&bind1.token, &bind1.weight, &bind2.token, &bind2.weight)
+        let (token_a, weight_a, liquidity_a, token_b, weight_b, liquidity_b) = if bind1.token < bind2.token {
+            (&bind1.token, &bind1.weight, &bind1.liquidity, &bind2.token, &bind2.weight, &bind2.liquidity)
         } else {
-            (&bind2.token, &bind2.weight, &bind1.token, &bind1.weight)
+            (&bind2.token, &bind2.weight, &bind1.liquidity, &bind2.token, &bind2.weight, &bind2.liquidity)
         };
         
         let lp_token_supply = get_lp_token_supply(Hex(creation.address.clone()).to_string());
@@ -80,10 +82,12 @@ pub fn map_cowpools(creations: CowPoolCreations, binds: StoreGetString) -> Resul
             address: creation.address.clone(), 
             token_a: token_a.clone(),
             token_b: token_b.clone(),
+            liquidity_a: liquidity_a.clone(),
+            liquidity_b: liquidity_b.clone(),
             lp_token: creation.lp_token.clone(),
             lp_token_supply: lp_token_supply.clone(),
-            weight_a:weight_a.to_vec(),
-            weight_b:weight_b.to_vec(),
+            weight_a: weight_a.to_vec(),
+            weight_b: weight_b.to_vec(),
             fee: 0,
             created_tx_hash: creation.created_tx_hash.clone(),
         }); 
