@@ -1,6 +1,6 @@
 specVersion: v0.1.0
 package:
-  name: "substreams_cowamm"
+  name: "ethereum_cowamm"
   version: v0.1.0
 
 protobuf:
@@ -29,14 +29,6 @@ modules:
       - source: sf.ethereum.type.v2.Block
     output:
       type: proto:cowamm.CowPoolCreations
-  
-  # - name: store_cowpool_creations
-  #   kind: store
-  #   initialBlock: 20522030
-  #   updatePolicy: set_if_not_exists
-  #   valueType: proto:cowamm.CowPoolCreation
-  #   inputs:
-  #     - map: map_cowpool_creations
 
   - name: map_cowpool_binds
     kind: map
@@ -84,7 +76,7 @@ modules:
   - name: store_components
     kind: store
     initialBlock: 20522030 	
-    updatePolicy: set
+    updatePolicy: set_if_not_exists
     valueType: string
     inputs:
       - map: map_components
@@ -98,28 +90,30 @@ modules:
     output:
       type: proto:tycho.evm.v1.BlockBalanceDeltas
 
-  # - name: store_balances
-  #   kind: store
-  #   initialBlock: 20522030
-  #   updatePolicy: add
-  #   valueType: bigint
-  #   inputs:
-  #     - map: map_relative_balances
+  - name: store_balances
+    kind: store
+    initialBlock: 20522030
+    updatePolicy: add
+    valueType: bigint
+    inputs:
+      - map: map_relative_balances
 
-  # - name: map_protocol_changes
-  #   kind: map
-  #   initialBlock: 20522030
-  #   inputs:
-  #     - source: sf.ethereum.type.v2.Block
-  #     - map: map_components
-  #     - map: map_relative_balances
-  #     - store: store_components
-  #     - store: store_balances
-  #       mode: deltas
-  #   output:
-  #     type: proto:tycho.evm.v1.BlockChanges
+  - name: map_protocol_changes
+    kind: map
+    initialBlock: 20522030
+    inputs:
+      - params: string
+      - source: sf.ethereum.type.v2.Block
+      - map: map_components
+      - map: map_relative_balances
+      - store: store_components
+      - store: store_balances
+        mode: deltas
+    output:
+      type: proto:tycho.evm.v1.BlockChanges
 
 params:
   map_cowpool_creations: factory_address=f76c421bAb7df8548604E60deCCcE50477C10462 
   map_components: factory_address=f76c421bAb7df8548604E60deCCcE50477C10462 
+  map_protocol_changes: factory_address=f76c421bAb7df8548604E60deCCcE50477C10462 
 

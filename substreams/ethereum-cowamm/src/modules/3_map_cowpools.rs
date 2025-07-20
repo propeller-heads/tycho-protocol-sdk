@@ -113,6 +113,7 @@ mod tests {
         assert_eq!(binds[0].address, hex!("9bd702e05b9c97e4a4a3e47df1e0fe7a0c26d2f1"));
         assert_eq!(binds[0].token, hex!("def1ca1fb7fbcdc777520aa7f396b4e015f497ab"));
         assert_eq!(binds[0].weight, hex!("0000000000000000000000000000000000000000000000000de0b6b3a7640000"));
+        assert_eq!(binds[0].liquidity, hex!("0000000000000000000000000000000000000000000000000de0b6b3a7640000"));
     }
 
     #[test]
@@ -125,9 +126,11 @@ mod tests {
         assert_eq!(binds.len(), 2);
         assert_eq!(binds[0].address, hex!("9bd702e05b9c97e4a4a3e47df1e0fe7a0c26d2f1"));
         assert_eq!(binds[0].token, hex!("def1ca1fb7fbcdc777520aa7f396b4e015f497ab"));
+        assert_eq!(binds[0].liquidity, hex!("0000000000000000000000000000000000000000000000000de0b6b3a7640000"));
         
         assert_eq!(binds[1].address, hex!("9bd702e05b9c97e4a4a3e47df1e0fe7a0c26d2f1"));
         assert_eq!(binds[1].token, hex!("def1ca1fb7fbcdc777520aa7f396b4e015f497ab"));
+        assert_eq!(binds[0].liquidity, hex!("0000000000000000000000000000000000000000000000000de0b6b3a7640000"));
     }
 
     #[test]
