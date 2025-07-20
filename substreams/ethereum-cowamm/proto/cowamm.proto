@@ -24,7 +24,7 @@ message CowPools {
 message CowPoolBind {
   bytes address = 1;
   bytes token = 2;
-  bytes liquidity = 3
+  bytes liquidity = 3;
   bytes weight = 4;
 }
 

@@ -41,8 +41,8 @@ fn create_component(
 #[substreams::handlers::map]
 pub fn map_components(params: String, block: Block, store: StoreGetProto<CowPool>) -> Result<BlockTransactionProtocolComponents> {
     let params = Params::parse_from_query(&params)?;
+    const COWAMM_POOL_CREATED_TOPIC: &str = "0x0d03834d0d86c7f57e877af40e26f176dc31bd637535d4ba153d1ac9de88a7ea";
     let factory_address = params.decode_addresses().unwrap();
-
     let store = &store;
         Ok(BlockTransactionProtocolComponents {
             tx_components: 
@@ -51,13 +51,18 @@ pub fn map_components(params: String, block: Block, store: StoreGetProto<CowPool
                 .filter_map(|tx| {
                     let components = tx
                         .logs_with_calls()
-                        .filter(|(log, _)| log.address == factory_address)
+                        .filter(|(log, _)| { 
+                            log.address == factory_address 
+                            &&  log.topics
+                            .get(0)
+                            .map(|t| t.to_hex()) == Some(COWAMM_POOL_CREATED_TOPIC.to_string())}
+                        )
                         .filter_map(|(log, _)| {
                             let pool_address = &log
                                 .topics
                                 .get(1)
                                 .map(|topic| topic.as_slice()[12..].to_vec())?; 
-                            let pool_key = format!("Pool:0x{}",hex::encode(&pool_address));
+                            let pool_key = format!("Pool:0x{}", hex::encode(&pool_address));
                             let pool = store.get_last(pool_key).expect("failed to get pool from store");
                             create_component(&factory_address, pool.clone())
                         })
