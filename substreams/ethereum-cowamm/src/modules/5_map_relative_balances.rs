@@ -13,12 +13,6 @@ pub fn map_relative_balances(
     let mut balance_deltas = Vec::new();
     for trx in block.transactions() {
         let mut tx_deltas = Vec::new();
-        let tx = Transaction {
-            to: trx.to.clone(),
-            from: trx.from.clone(),
-            hash: trx.hash.clone(),
-            index: trx.index.into(),
-        };
         for log in trx
             .calls
             .iter()
@@ -26,7 +20,7 @@ pub fn map_relative_balances(
             .flat_map(|call| &call.logs)
         {
             if let Some(pool) = pools_store.get_last(format!("Pool:{}", &log.address.to_hex())) {
-                tx_deltas.extend(get_log_changed_balances(&tx, log, &pool));
+                tx_deltas.extend(get_log_changed_balances(&trx.into(), log, &pool));
             } else {
                 continue;
             }

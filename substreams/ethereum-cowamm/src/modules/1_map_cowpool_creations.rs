@@ -25,7 +25,10 @@ pub fn map_cowpool_creations(params: String, block: Block) -> Result<CowPoolCrea
                 .topics()
                 .get(1)
                 .map(|topic| topic.as_slice()[12..].to_vec())?; // we get the last 20 bytes which is BCowPool address
-            
+            // filter again , get the token supply of the pool, if it is zero, ignore it and done index it
+            // but now the problem is that from the data it actually shows it has some supply, because its getting its supply from the start of the block, when it was initialized, thats why their supplies are the same 
+            // so we don't bother about it imo, its value will be taken care of in the balances changes 
+            //what we want to do now is to check if lp token balance tracking through the balance is right - check with the transaction hash
             let tx_hash = log.receipt.transaction.hash.clone();
             Some(CowPoolCreation {
                 address: address.clone(), 
