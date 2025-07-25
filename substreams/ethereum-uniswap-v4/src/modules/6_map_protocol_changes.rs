@@ -18,8 +18,22 @@ pub fn map_protocol_changes(
     events: Events,
     balances_map_deltas: BlockBalanceDeltas,
     balances_store_deltas: StoreDeltas,
-    ticks_map_deltas: TickDeltas,
-    ticks_store_deltas: StoreDeltas,
+    ticks_map_deltas_0: TickDeltas,
+    ticks_store_deltas_0: StoreDeltas,
+    ticks_map_deltas_1: TickDeltas,
+    ticks_store_deltas_1: StoreDeltas,
+    ticks_map_deltas_2: TickDeltas,
+    ticks_store_deltas_2: StoreDeltas,
+    ticks_map_deltas_3: TickDeltas,
+    ticks_store_deltas_3: StoreDeltas,
+    ticks_map_deltas_4: TickDeltas,
+    ticks_store_deltas_4: StoreDeltas,
+    ticks_map_deltas_5: TickDeltas,
+    ticks_store_deltas_5: StoreDeltas,
+    ticks_map_deltas_6: TickDeltas,
+    ticks_store_deltas_6: StoreDeltas,
+    ticks_map_deltas_7: TickDeltas,
+    ticks_store_deltas_7: StoreDeltas,
     pool_liquidity_changes: LiquidityChanges,
     pool_liquidity_store_deltas: StoreDeltas,
 ) -> Result<BlockChanges, substreams::errors::Error> {
@@ -72,41 +86,59 @@ pub fn map_protocol_changes(
                 });
         });
 
-    // Insert ticks net-liquidity changes
-    ticks_store_deltas
-        .deltas
+    // Process all 8 partitioned tick stores
+    // Combine all store deltas and map deltas into pairs
+    let all_tick_changes = vec![
+        (ticks_store_deltas_0, ticks_map_deltas_0),
+        (ticks_store_deltas_1, ticks_map_deltas_1),
+        (ticks_store_deltas_2, ticks_map_deltas_2),
+        (ticks_store_deltas_3, ticks_map_deltas_3),
+        (ticks_store_deltas_4, ticks_map_deltas_4),
+        (ticks_store_deltas_5, ticks_map_deltas_5),
+        (ticks_store_deltas_6, ticks_map_deltas_6),
+        (ticks_store_deltas_7, ticks_map_deltas_7),
+    ];
+
+    // Process all tick changes from all partitions
+    all_tick_changes
         .into_iter()
-        .zip(ticks_map_deltas.deltas)
-        .for_each(|(store_delta, tick_delta)| {
-            let new_value_bigint =
-                BigInt::from_str(&String::from_utf8(store_delta.new_value).unwrap()).unwrap();
+        .for_each(|(store_deltas, map_deltas)| {
+            store_deltas
+                .deltas
+                .into_iter()
+                .zip(map_deltas.deltas)
+                .for_each(|(store_delta, tick_delta)| {
+                    let new_value_bigint =
+                        BigInt::from_str(&String::from_utf8(store_delta.new_value).unwrap())
+                            .unwrap();
 
-            // If old value is empty or the int value is 0, it's considered as a creation.
-            let is_creation = store_delta.old_value.is_empty() ||
-                BigInt::from_str(&String::from_utf8(store_delta.old_value).unwrap())
-                    .unwrap()
-                    .is_zero();
-            let attribute_name = format!("ticks/{}/net-liquidity", tick_delta.tick_index);
-            let attribute = Attribute {
-                name: attribute_name,
-                value: new_value_bigint.to_signed_bytes_be(),
-                change: if is_creation {
-                    ChangeType::Creation.into()
-                } else if new_value_bigint.is_zero() {
-                    ChangeType::Deletion.into()
-                } else {
-                    ChangeType::Update.into()
-                },
-            };
-            let tx = tick_delta.transaction.unwrap();
-            let builder = transaction_changes
-                .entry(tx.index)
-                .or_insert_with(|| TransactionChangesBuilder::new(&tx.into()));
+                    // If old value is empty or the int value is 0, it's considered as a creation.
+                    let is_creation = store_delta.old_value.is_empty() ||
+                        BigInt::from_str(&String::from_utf8(store_delta.old_value).unwrap())
+                            .unwrap()
+                            .is_zero();
+                    let attribute_name = format!("ticks/{}/net-liquidity", tick_delta.tick_index);
+                    let attribute = Attribute {
+                        name: attribute_name,
+                        value: new_value_bigint.to_signed_bytes_be(),
+                        change: if is_creation {
+                            ChangeType::Creation.into()
+                        } else if new_value_bigint.is_zero() {
+                            ChangeType::Deletion.into()
+                        } else {
+                            ChangeType::Update.into()
+                        },
+                    };
+                    let tx = tick_delta.transaction.unwrap();
+                    let builder = transaction_changes
+                        .entry(tx.index)
+                        .or_insert_with(|| TransactionChangesBuilder::new(&tx.into()));
 
-            builder.add_entity_change(&EntityChanges {
-                component_id: tick_delta.pool_address.to_hex(),
-                attributes: vec![attribute],
-            });
+                    builder.add_entity_change(&EntityChanges {
+                        component_id: tick_delta.pool_address.to_hex(),
+                        attributes: vec![attribute],
+                    });
+                });
         });
 
     // Insert liquidity changes
