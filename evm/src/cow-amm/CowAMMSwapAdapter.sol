@@ -57,28 +57,37 @@ contract CowAMMSwapAdapter is ISwapAdapter {
         address sellToken,
         address buyToken
     ) public view returns (Fraction memory) { 
-      // require(specifiedAmount != 0, "Specified amount cannot be zero");
 
       uint256 tokenBalanceIn = IERC20(sellToken).balanceOf(address(pool));
       uint256 tokenWeightIn = pool.getDenormalizedWeight(sellToken);
 
       uint256 tokenBalanceOut = IERC20(buyToken).balanceOf(address(pool));
       uint256 tokenWeightOut = pool.getDenormalizedWeight(buyToken);
-
+    
       uint256 tokenAmountOut = calcOutGivenIn(tokenBalanceIn, tokenWeightIn, tokenBalanceOut, tokenWeightOut, specifiedAmount, 0);
 
       uint256 newTokenBalanceIn = tokenBalanceIn.badd(specifiedAmount);
       uint256 newTokenBalanceOut = tokenBalanceOut.bsub(tokenAmountOut); 
 
-      uint256 denom = newTokenBalanceIn.bdiv(tokenWeightIn);
       uint256 num = newTokenBalanceOut.bdiv(tokenWeightOut);
+      uint256 denom = newTokenBalanceIn.bdiv(tokenWeightIn);
  
       return Fraction(num, denom); 
   }
 
 /** @dev Computes how many tokens can be taken out of a pool if `tokenAmountIn` are sent, given the current balances and
      * price bounds. */
-
+    
+    /**********************************************************************************************
+    // calcOutGivenIn                                                                            //
+    // aO = tokenAmountOut                                                                       //
+    // bO = tokenBalanceOut                                                                      //
+    // bI = tokenBalanceIn              /      /            bI             \    (wI / wO) \      //
+    // aI = tokenAmountIn    aO = bO * |  1 - | --------------------------  | ^            |     //
+    // wI = tokenWeightIn               \      \ ( bI + ( aI * ( 1 - sF )) /              /      //
+    // wO = tokenWeightOut                                                                       //
+    // sF = swapFee                                                                              //
+    **********************************************************************************************/
     function calcOutGivenIn(
         uint256 tokenBalanceIn,
         uint256 tokenWeightIn,
@@ -98,7 +107,24 @@ contract CowAMMSwapAdapter is ISwapAdapter {
     }
 /** @dev Computes how many tokens must be sent to a pool in order to take `tokenAmountOut`, given the current balances
      * and price bounds. */
-
+      /**
+   * @notice Calculate the amount of token in given the amount of token out for a swap
+   * @param tokenBalanceIn The balance of the input token in the pool
+   * @param tokenWeightIn The weight of the input token in the pool
+   * @param tokenBalanceOut The balance of the output token in the pool
+   * @param tokenWeightOut The weight of the output token in the pool
+   * @param tokenAmountOut The amount of the output token
+   * @param swapFee The swap fee of the pool
+   * @return tokenAmountIn The amount of token in given the amount of token out for a swap
+   * @dev Formula:
+   * aI = tokenAmountIn
+   * bO = tokenBalanceOut               /  /     bO      \    (wO / wI)      \
+   * bI = tokenBalanceIn          bI * |  | ------------  | ^            - 1  |
+   * aO = tokenAmountOut    aI =        \  \ ( bO - aO ) /                   /
+   * wI = tokenWeightIn           --------------------------------------------
+   * wO = tokenWeightOut                          ( 1 - sF )
+   * sF = swapFee
+   */
     function calcInGivenOut(
         uint256 tokenBalanceIn,
         uint256 tokenWeightIn,
@@ -204,9 +230,12 @@ contract CowAMMSwapAdapter is ISwapAdapter {
           }
           
           pool.exitPool(specifiedAmount, maxTokenAmountsIn); 
-
+          
+          // if the first token we get from the pool.getFinalTokens() is the token we are buying, then select the other token proportion
+          // because thats the proportion of the superfluous token we want to sell for our buyToken
           uint256 amountToSell = tokens[0] == buyToken ? maxTokenAmountsIn[1] : maxTokenAmountsIn[0];
-          trade.calculatedAmount = sell(secondaryToken, buyToken, amountToSell);
+          uint256 amountOfBuyTokenReceived = tokens[0] == buyToken ? maxTokenAmountsIn[0] : maxTokenAmountsIn[1];
+          trade.calculatedAmount = sell(secondaryToken, buyToken, amountToSell) + amountOfBuyTokenReceived;
           trade.price = getPriceAt(amountToSell, secondaryToken, buyToken);
       } 
       
@@ -247,9 +276,10 @@ contract CowAMMSwapAdapter is ISwapAdapter {
           IERC20(tokens[1]).approve(address(pool), maxTokenAmountsIn[1]);
 
           pool.joinPool(specifiedAmount, maxTokenAmountsIn);
-          
-          uint256 amountToSell = tokens[0] == sellToken ? maxTokenAmountsIn[1] : maxTokenAmountsIn[0];
-          trade.calculatedAmount = buy(sellToken, secondaryToken, amountToSell);
+          //if tokens[0] is sellToken then token0Balance will be the balance of the sellToken 
+          uint256 amountToBuy = tokens[0] == sellToken ? maxTokenAmountsIn[1] : maxTokenAmountsIn[0];
+          trade.calculatedAmount = buy(sellToken, secondaryToken, amountToBuy); // we want to buy the superfluous wstETH , so we get the amount of COW we need , hence -> calc in given out
+          //the final price of the trade will be the price we swapped the superfluous token into, the amountOfSellTokenRedeemed will not be included here
           trade.price = getPriceAt(trade.calculatedAmount, secondaryToken, sellToken);
       } 
       
@@ -271,8 +301,8 @@ contract CowAMMSwapAdapter is ISwapAdapter {
         uint256 sellTokenBal = pool.getBalance(sellToken);
         uint256 buyTokenBal = pool.getBalance(buyToken);
         limits = new uint256[](2);
-        limits[0] = sellTokenBal.bmul(MAX_IN_FACTOR).bdiv(100);
-        limits[1] = buyTokenBal.bmul(MAX_OUT_FACTOR).bdiv(100);
+        limits[0] = (sellTokenBal * MAX_IN_FACTOR) / 100;
+        limits[1] = (buyTokenBal * MAX_OUT_FACTOR) / 100;
     }
 
     function getCapabilities(
@@ -351,14 +381,13 @@ contract CowAMMSwapAdapter is ISwapAdapter {
                     amountIn,
                     0
         );
-        
         calculatedAmount = tokenAmountOut; //Convert to human-readable;
     }
     /// @notice Executes a buy order on the contract.
     /// @param sellToken The token being sold.
     /// @param buyToken The token being bought.
-    /// @param amountOut The amount of buyTokens to buy. 
-    /// @return calculatedAmount The amount of tokens received.
+    /// @param amountOut The amount of tokens to be bought. 
+    /// @return calculatedAmount The amount of tokens sold.
     function buy(address sellToken, address buyToken, uint256 amountOut)
         internal
         view 
@@ -386,7 +415,6 @@ contract CowAMMSwapAdapter is ISwapAdapter {
                     amountOut,  
                     0
         ); 
-
         calculatedAmount = tokenAmountIn; 
     }
     /// @notice Checks if the specified amount is within the hard limits
