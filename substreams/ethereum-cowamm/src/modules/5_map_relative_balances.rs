@@ -31,4 +31,3 @@ pub fn map_relative_balances(
     }
     Ok(BlockBalanceDeltas { balance_deltas })
 }
-

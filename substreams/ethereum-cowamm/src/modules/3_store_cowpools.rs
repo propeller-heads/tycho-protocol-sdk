@@ -1,9 +1,9 @@
+use crate::pb::cowamm::{CowPool, CowPools};
 use substreams::{
     prelude::{StoreSet, StoreSetProto},
     store::StoreNew,
 };
-use crate::pb::cowamm::{CowPool, CowPools};
-use substreams_helper::{hex::Hexable};
+use substreams_helper::hex::Hexable;
 
 #[substreams::handlers::store]
 pub fn store_cowpools(pools_output: CowPools, store: StoreSetProto<CowPool>) {

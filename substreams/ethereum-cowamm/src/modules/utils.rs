@@ -1,6 +1,6 @@
+use crate::abi::b_cow_pool::functions;
 use anyhow::{anyhow, Result};
 use serde::Deserialize;
-use crate::abi::b_cow_pool::functions;
 use substreams::scalar::BigInt;
 use substreams::Hex;
 
@@ -15,8 +15,8 @@ impl Params {
     }
 
     pub fn decode_addresses(&self) -> Result<[u8; 20]> {
-        let factory_address =
-            hex::decode(&self.factory_address).map_err(|e| anyhow!("Invalid factory address hex: {}", e))?;
+        let factory_address = hex::decode(&self.factory_address)
+            .map_err(|e| anyhow!("Invalid factory address hex: {}", e))?;
 
         if factory_address.len() != 20 {
             return Err(anyhow!("factory address must be 20 bytes"));
@@ -34,7 +34,7 @@ pub fn get_lp_token_supply(token_address: String) -> Vec<u8> {
     };
 
     // Try to call totalSupply and convert to bytes if successful
-     functions::TotalSupply {}
+    functions::TotalSupply {}
         .call(token_address_vec)
         .map_or_else(|| vec![], |total_supply| total_supply.to_signed_bytes_be())
 }
