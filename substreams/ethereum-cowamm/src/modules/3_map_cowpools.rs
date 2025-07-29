@@ -66,16 +66,14 @@ pub fn map_cowpools(creations: CowPoolCreations, binds: StoreGetString) -> Resul
             Some(binds) if binds.len() == 2 => binds,
             _ => continue, // skip if parsing fails or not enough binds
         };
-
         let bind1 = &parsed_binds[0];
         let bind2 = &parsed_binds[1];
 
         let (token_a, weight_a, liquidity_a, token_b, weight_b, liquidity_b) = if bind1.token < bind2.token {
             (&bind1.token, &bind1.weight, &bind1.liquidity, &bind2.token, &bind2.weight, &bind2.liquidity)
         } else {
-            (&bind2.token, &bind2.weight, &bind1.liquidity, &bind2.token, &bind2.weight, &bind2.liquidity)
+            (&bind2.token, &bind2.weight, &bind2.liquidity, &bind1.token, &bind1.weight, &bind1.liquidity)
         };
-        
         let lp_token_supply = get_lp_token_supply(Hex(creation.address.clone()).to_string());
 
         pools.push(CowPool {
@@ -103,7 +101,7 @@ mod tests {
 
     #[test]
     fn test_parse_binds_single_entry() {
-        let bind_str = r#"{\"address\":\"9bd702e05b9c97e4a4a3e47df1e0fe7a0c26d2f1\",\"token\":\"def1ca1fb7fbcdc777520aa7f396b4e015f497ab\",\"weight\":\"0000000000000000000000000000000000000000000000000de0b6b3a7640000\"};"#;
+        let bind_str = r#"{\"address\":\"9bd702e05b9c97e4a4a3e47df1e0fe7a0c26d2f1\",\"token\":\"def1ca1fb7fbcdc777520aa7f396b4e015f497ab\",\"weight\":\"0000000000000000000000000000000000000000000000000de0b6b3a7640000\, \"liquidity\":\"0000000000000000000000000000000000000000000000000de0b6b3a7640000\"};"#;
         let result = parse_binds(bind_str);
 
         assert!(result.is_some());
@@ -118,7 +116,7 @@ mod tests {
 
     #[test]
     fn test_parse_binds_multiple_entries() { // change to to an actual proper string lol 
-        let bind_str = r#"{\"address\":\"9bd702e05b9c97e4a4a3e47df1e0fe7a0c26d2f1\",\"token\":\"def1ca1fb7fbcdc777520aa7f396b4e015f497ab\",\"weight\":\"0000000000000000000000000000000000000000000000000de0b6b3a7640000\"};{\"address\":\"9bd702e05b9c97e4a4a3e47df1e0fe7a0c26d2f1\",\"token\":\"7f39c581f595b53c5cb19bd0b3f8da6c935e2ca0\",\"weight\":\"0000000000000000000000000000000000000000000000000de0b6b3a7640000\"};"  bind_last : "{\"address\":\"9bd702e05b9c97e4a4a3e47df1e0fe7a0c26d2f1\",\"token\":\"def1ca1fb7fbcdc777520aa7f396b4e015f497ab\",\"weight\":\"0000000000000000000000000000000000000000000000000de0b6b3a7640000\"};{\"address\":\"9bd702e05b9c97e4a4a3e47df1e0fe7a0c26d2f1\",\"token\":\"7f39c581f595b53c5cb19bd0b3f8da6c935e2ca0\",\"weight\":\"0000000000000000000000000000000000000000000000000de0b6b3a7640000\"};"#;
+        let bind_str = r#"{\"address\":\"9bd702e05b9c97e4a4a3e47df1e0fe7a0c26d2f1\",\"token\":\"def1ca1fb7fbcdc777520aa7f396b4e015f497ab\",\"weight\":\"0000000000000000000000000000000000000000000000000de0b6b3a7640000\", \"liquidity\":\"0000000000000000000000000000000000000000000000000de0b6b3a7640000\};{\"address\":\"9bd702e05b9c97e4a4a3e47df1e0fe7a0c26d2f1\",\"token\":\"7f39c581f595b53c5cb19bd0b3f8da6c935e2ca0\",\"weight\":\"0000000000000000000000000000000000000000000000000de0b6b3a7640000\,\"liquidity\":\"0000000000000000000000000000000000000000000000000de0b6b3a7640000\"};"  bind_last : "{\"address\":\"9bd702e05b9c97e4a4a3e47df1e0fe7a0c26d2f1\",\"token\":\"def1ca1fb7fbcdc777520aa7f396b4e015f497ab\",\"weight\":\"0000000000000000000000000000000000000000000000000de0b6b3a7640000\"};{\"address\":\"9bd702e05b9c97e4a4a3e47df1e0fe7a0c26d2f1\",\"token\":\"7f39c581f595b53c5cb19bd0b3f8da6c935e2ca0\",\"weight\":\"0000000000000000000000000000000000000000000000000de0b6b3a7640000\"};"#;
         let result = parse_binds(bind_str);
 
         assert!(result.is_some());
