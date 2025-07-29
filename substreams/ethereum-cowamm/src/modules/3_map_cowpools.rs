@@ -1,13 +1,13 @@
-use serde_json;
-use serde::{Deserialize, Serialize};
-use crate::pb::cowamm::{CowPool, CowPools, CowPoolBind, CowPoolCreations};
-use crate::{modules::utils::get_lp_token_supply};
+use crate::modules::utils::get_lp_token_supply;
+use crate::pb::cowamm::{CowPool, CowPoolBind, CowPoolCreations, CowPools};
 use anyhow::{Ok, Result};
+use serde::{Deserialize, Serialize};
+use serde_json;
 use substreams::{
-    Hex,
     store::{StoreGet, StoreGetString},
+    Hex,
 };
-use substreams_helper::{hex::Hexable};
+use substreams_helper::hex::Hexable;
 
 #[derive(Debug, Deserialize, Serialize)]
 struct CowPoolBindJson {
@@ -46,15 +46,16 @@ fn parse_binds(bind_str: &str) -> Option<Vec<CowPoolBind>> {
     }
 }
 
-
-
 #[substreams::handlers::map]
-pub fn map_cowpools(creations: CowPoolCreations, binds: StoreGetString) -> Result<CowPools, substreams::errors::Error> {
+pub fn map_cowpools(
+    creations: CowPoolCreations,
+    binds: StoreGetString,
+) -> Result<CowPools, substreams::errors::Error> {
     let mut pools: Vec<CowPool> = Vec::new();
 
     let creations = &creations;
     let binds = &binds;
-    
+
     for creation in creations.pools.iter() {
         let base_key = hex::encode(&creation.address);
         let bind_first = match binds.get_first(&base_key) {
@@ -69,15 +70,30 @@ pub fn map_cowpools(creations: CowPoolCreations, binds: StoreGetString) -> Resul
         let bind1 = &parsed_binds[0];
         let bind2 = &parsed_binds[1];
 
-        let (token_a, weight_a, liquidity_a, token_b, weight_b, liquidity_b) = if bind1.token < bind2.token {
-            (&bind1.token, &bind1.weight, &bind1.liquidity, &bind2.token, &bind2.weight, &bind2.liquidity)
-        } else {
-            (&bind2.token, &bind2.weight, &bind2.liquidity, &bind1.token, &bind1.weight, &bind1.liquidity)
-        };
+        let (token_a, weight_a, liquidity_a, token_b, weight_b, liquidity_b) =
+            if bind1.token < bind2.token {
+                (
+                    &bind1.token,
+                    &bind1.weight,
+                    &bind1.liquidity,
+                    &bind2.token,
+                    &bind2.weight,
+                    &bind2.liquidity,
+                )
+            } else {
+                (
+                    &bind2.token,
+                    &bind2.weight,
+                    &bind2.liquidity,
+                    &bind1.token,
+                    &bind1.weight,
+                    &bind1.liquidity,
+                )
+            };
         let lp_token_supply = get_lp_token_supply(Hex(creation.address.clone()).to_string());
 
         pools.push(CowPool {
-            address: creation.address.clone(), 
+            address: creation.address.clone(),
             token_a: token_a.clone(),
             token_b: token_b.clone(),
             liquidity_a: liquidity_a.clone(),
@@ -88,7 +104,7 @@ pub fn map_cowpools(creations: CowPoolCreations, binds: StoreGetString) -> Resul
             weight_b: weight_b.to_vec(),
             fee: 0,
             created_tx_hash: creation.created_tx_hash.clone(),
-        }); 
+        });
     }
 
     Ok(CowPools { pools })
@@ -110,12 +126,19 @@ mod tests {
 
         assert_eq!(binds[0].address, hex!("9bd702e05b9c97e4a4a3e47df1e0fe7a0c26d2f1"));
         assert_eq!(binds[0].token, hex!("def1ca1fb7fbcdc777520aa7f396b4e015f497ab"));
-        assert_eq!(binds[0].weight, hex!("0000000000000000000000000000000000000000000000000de0b6b3a7640000"));
-        assert_eq!(binds[0].liquidity, hex!("0000000000000000000000000000000000000000000000000de0b6b3a7640000"));
+        assert_eq!(
+            binds[0].weight,
+            hex!("0000000000000000000000000000000000000000000000000de0b6b3a7640000")
+        );
+        assert_eq!(
+            binds[0].liquidity,
+            hex!("0000000000000000000000000000000000000000000000000de0b6b3a7640000")
+        );
     }
 
     #[test]
-    fn test_parse_binds_multiple_entries() { // change to to an actual proper string lol 
+    fn test_parse_binds_multiple_entries() {
+        // change to to an actual proper string lol
         let bind_str = r#"{\"address\":\"9bd702e05b9c97e4a4a3e47df1e0fe7a0c26d2f1\",\"token\":\"def1ca1fb7fbcdc777520aa7f396b4e015f497ab\",\"weight\":\"0000000000000000000000000000000000000000000000000de0b6b3a7640000\", \"liquidity\":\"0000000000000000000000000000000000000000000000000de0b6b3a7640000\};{\"address\":\"9bd702e05b9c97e4a4a3e47df1e0fe7a0c26d2f1\",\"token\":\"7f39c581f595b53c5cb19bd0b3f8da6c935e2ca0\",\"weight\":\"0000000000000000000000000000000000000000000000000de0b6b3a7640000\,\"liquidity\":\"0000000000000000000000000000000000000000000000000de0b6b3a7640000\"};"  bind_last : "{\"address\":\"9bd702e05b9c97e4a4a3e47df1e0fe7a0c26d2f1\",\"token\":\"def1ca1fb7fbcdc777520aa7f396b4e015f497ab\",\"weight\":\"0000000000000000000000000000000000000000000000000de0b6b3a7640000\"};{\"address\":\"9bd702e05b9c97e4a4a3e47df1e0fe7a0c26d2f1\",\"token\":\"7f39c581f595b53c5cb19bd0b3f8da6c935e2ca0\",\"weight\":\"0000000000000000000000000000000000000000000000000de0b6b3a7640000\"};"#;
         let result = parse_binds(bind_str);
 
@@ -124,11 +147,17 @@ mod tests {
         assert_eq!(binds.len(), 2);
         assert_eq!(binds[0].address, hex!("9bd702e05b9c97e4a4a3e47df1e0fe7a0c26d2f1"));
         assert_eq!(binds[0].token, hex!("def1ca1fb7fbcdc777520aa7f396b4e015f497ab"));
-        assert_eq!(binds[0].liquidity, hex!("0000000000000000000000000000000000000000000000000de0b6b3a7640000"));
-        
+        assert_eq!(
+            binds[0].liquidity,
+            hex!("0000000000000000000000000000000000000000000000000de0b6b3a7640000")
+        );
+
         assert_eq!(binds[1].address, hex!("9bd702e05b9c97e4a4a3e47df1e0fe7a0c26d2f1"));
         assert_eq!(binds[1].token, hex!("def1ca1fb7fbcdc777520aa7f396b4e015f497ab"));
-        assert_eq!(binds[0].liquidity, hex!("0000000000000000000000000000000000000000000000000de0b6b3a7640000"));
+        assert_eq!(
+            binds[0].liquidity,
+            hex!("0000000000000000000000000000000000000000000000000de0b6b3a7640000")
+        );
     }
 
     #[test]

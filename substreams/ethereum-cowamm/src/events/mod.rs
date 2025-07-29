@@ -1,18 +1,18 @@
 use crate::{
-    abi::b_cow_pool::events::{LogJoin, LogExit, Transfer},
-    abi::gpv2_settlement::events::{Trade},  
+    abi::b_cow_pool::events::{LogExit, LogJoin, Transfer},
+    abi::gpv2_settlement::events::Trade,
     pb::cowamm::CowPool,
 };
 use substreams_ethereum::{pb::eth::v2::Log, Event};
 use tycho_substreams::prelude::*;
 
-pub mod join_pool;
 pub mod exit_pool;
+pub mod join_pool;
 pub mod trade;
 pub mod transfer;
 /// A trait for extracting changed balance from an event.
 pub trait BalanceEventTrait {
-     /// Get all balance deltas from the event.
+    /// Get all balance deltas from the event.
     ///
     /// # Arguments
     ///
@@ -23,7 +23,8 @@ pub trait BalanceEventTrait {
     /// # Returns
     ///
     /// A vector of `BalanceDelta` that represents the balance deltas.
-    fn get_balance_delta(&self, tx: &Transaction, pool: &CowPool, event: &Log) -> Vec<BalanceDelta>;
+    fn get_balance_delta(&self, tx: &Transaction, pool: &CowPool, event: &Log)
+        -> Vec<BalanceDelta>;
 }
 
 /// Represent every events of a Cow pool.
@@ -39,8 +40,8 @@ impl EventType {
         match self {
             EventType::JoinPool(event) => event,
             EventType::ExitPool(event) => event,
-            EventType::Trade(event) => event,  
-            EventType::Transfer(event) => event,  
+            EventType::Trade(event) => event,
+            EventType::Transfer(event) => event,
         }
     }
 }
@@ -76,7 +77,11 @@ pub fn decode_event(event: &Log) -> Option<EventType> {
 /// # Returns
 ///
 /// A vector of `BalanceDelta` that represents
-pub fn get_log_changed_balances(tx: &Transaction, event: &Log, pool: &CowPool) -> Vec<BalanceDelta> {
+pub fn get_log_changed_balances(
+    tx: &Transaction,
+    event: &Log,
+    pool: &CowPool,
+) -> Vec<BalanceDelta> {
     decode_event(event)
         .map(|e| {
             e.as_event_trait()

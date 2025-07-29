@@ -1,13 +1,15 @@
-use crate::{
-    events::Trade,
-    events::BalanceEventTrait, pb::cowamm::CowPool,
-};
+use crate::{events::BalanceEventTrait, events::Trade, pb::cowamm::CowPool};
 use substreams_ethereum::{pb::eth::v2::Log, Event};
 use substreams_helper::hex::Hexable;
 use tycho_substreams::prelude::*;
 
 impl BalanceEventTrait for Trade {
-    fn get_balance_delta(&self, tx: &Transaction, pool: &CowPool, event: &Log) -> Vec<BalanceDelta> {
+    fn get_balance_delta(
+        &self,
+        tx: &Transaction,
+        pool: &CowPool,
+        event: &Log,
+    ) -> Vec<BalanceDelta> {
         let mut changed_balance = Vec::new();
 
         let sell_token = &self.sell_token;
@@ -21,7 +23,10 @@ impl BalanceEventTrait for Trade {
                 ord: event.ordinal,
                 tx: Some(tx.clone()),
                 token: sell_token.clone(),
-                delta: self.sell_amount.clone().to_signed_bytes_be(),
+                delta: self
+                    .sell_amount
+                    .clone()
+                    .to_signed_bytes_be(),
                 component_id: pool
                     .address
                     .clone()
@@ -36,8 +41,12 @@ impl BalanceEventTrait for Trade {
                 ord: event.ordinal,
                 tx: Some(tx.clone()),
                 token: buy_token.clone(),
-                delta: self.buy_amount.clone().neg().to_signed_bytes_be(),
-                component_id:pool
+                delta: self
+                    .buy_amount
+                    .clone()
+                    .neg()
+                    .to_signed_bytes_be(),
+                component_id: pool
                     .address
                     .clone()
                     .to_hex()
@@ -49,5 +58,3 @@ impl BalanceEventTrait for Trade {
         changed_balance
     }
 }
-
-
