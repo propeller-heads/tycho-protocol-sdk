@@ -8,41 +8,22 @@ use tycho_substreams::prelude::*;
 impl BalanceEventTrait for Transfer {
     fn get_balance_delta(&self, tx: &Transaction, pool: &CowPool, event: &Log) -> Vec<BalanceDelta> {
         let mut changed_balances: Vec<BalanceDelta> = vec![];
-        if self.to != pool.address {
-            return changed_balances;
-        }
-        //joining a pool, lp_tokens are transferred from the pool to the user, so thats a negative delta 
-        if event.address == pool.address && tx.from == pool.address {
-            changed_balances.push(BalanceDelta {
-                ord: event.ordinal,
-                tx: Some(tx.clone()),
-                token: pool.address.clone(),
-                delta: self.value
-                        .neg()
-                        // .clone()
-                        .to_signed_bytes_be(),
-                component_id: pool
-                    .address
-                    .clone()
-                    .to_hex()
-                    .as_bytes()
-                    .to_vec(),
-            })
-        }
+         let pool_addr = &pool.address;
+        const NULL_ADDRESS: [u8; 20] = [0u8; 20]; 
+        //what causes the lp token supply to change is either -> minting or burning 
+         //topics[1]: from address (padded to 32 bytes)
+         //topics[2]: to address (padded to 32 bytes)
 
-        //Track any lp_tokens transferred from the user to the pool, not redemption, just to be sure so thats a positive delta
-        // now the thing is that for each "changed balance array" the lenght is 1 for each instance, so its not like the thing is getting added twice, its happening in another txn 
-        // buts its not its the same txn 
-        // oh when token are redeemed they are not sent to the pool, they are burnt 
+        // when a user redeems tokens, they send the tokens to the null address, effectively burning them and thats a negative delta 
+        // https://etherscan.io/tx/0xc139e807a155b0ca1fdd5e870350fd623801671289982ab6300007cc7556c5a8#eventlog#250
+        if event.address == pool.address && event.topics.get(1).unwrap()[12..] == NULL_ADDRESS {
 
-        else if event.address == pool.address && tx.to == pool.address && tx.from.to_hex() != "0x0000000000000000000000000000000000000000" {
-            substreams::log::info!("pool to address {} 2", tx.to.to_hex());
-            substreams::log::info!("pool from address {} 2", tx.from.to_hex());
             changed_balances.push(BalanceDelta {
                 ord:event.ordinal,
                 tx: Some(tx.clone()),
                 token: pool.address.clone(),
                 delta: self.value
+                        .neg()
                         .clone()
                         .to_signed_bytes_be(),
                 component_id: pool
@@ -53,6 +34,23 @@ impl BalanceEventTrait for Transfer {
                     .to_vec(),
             })
         }
+        //joining a pool, lp_tokens are minted to the pool, from the null address, and then transferred to the user so thats a positive delta 
+        //https://etherscan.io/tx/0x8cf1aa1902994eeaa59b886c848af57d89fec7170c66ef68a541fbc5759e5077#eventlog#387
+        else if event.address == pool.address && event.topics.get(2).unwrap()[12..] == NULL_ADDRESS {
+            changed_balances.push(BalanceDelta {
+                ord: event.ordinal,
+                tx: Some(tx.clone()),
+                token: pool.address.clone(),
+                delta: self.value
+                        .to_signed_bytes_be(),
+                component_id: pool
+                    .address
+                    .clone()
+                    .to_hex()
+                    .as_bytes()
+                    .to_vec(),
+            })
+        } 
         changed_balances
     }
 }
