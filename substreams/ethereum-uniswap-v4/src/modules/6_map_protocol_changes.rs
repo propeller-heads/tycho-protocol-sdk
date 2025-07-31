@@ -8,6 +8,7 @@ use substreams::{pb::substreams::StoreDeltas, scalar::BigInt};
 use substreams_ethereum::pb::eth::v2::{self as eth};
 use substreams_helper::hex::Hexable;
 use tycho_substreams::{balances::aggregate_balances_changes, prelude::*};
+use tycho_substreams::block_storage::get_block_storage_changes;
 
 type PoolAddress = Vec<u8>;
 
@@ -153,6 +154,8 @@ pub fn map_protocol_changes(
             });
         });
 
+    let block_storage_changes = get_block_storage_changes(&block);
+    
     Ok(BlockChanges {
         block: Some((&block).into()),
         changes: transaction_changes
@@ -160,7 +163,7 @@ pub fn map_protocol_changes(
             .sorted_unstable_by_key(|(index, _)| *index)
             .filter_map(|(_, builder)| builder.build())
             .collect::<Vec<_>>(),
-        ..Default::default()
+        storage_changes: block_storage_changes,
     })
 }
 
