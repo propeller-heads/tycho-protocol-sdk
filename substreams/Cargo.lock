@@ -270,7 +270,7 @@ dependencies = [
  "prost-types 0.12.6",
  "regex",
  "serde",
- "serde_qs",
+ "serde_qs 0.13.0",
  "substreams",
  "substreams-ethereum",
  "tycho-substreams 0.2.1 (git+https://github.com/propeller-heads/tycho-protocol-sdk.git?rev=51995f9)",
@@ -291,7 +291,7 @@ dependencies = [
  "prost 0.11.9",
  "prost-types 0.12.6",
  "serde",
- "serde_qs",
+ "serde_qs 0.13.0",
  "substreams",
  "substreams-ethereum",
  "tycho-substreams 0.2.1 (git+https://github.com/propeller-heads/tycho-protocol-sdk.git?rev=52d5021)",
@@ -308,7 +308,7 @@ dependencies = [
  "num-bigint",
  "prost 0.11.9",
  "serde",
- "serde_qs",
+ "serde_qs 0.13.0",
  "substreams",
  "substreams-ethereum",
  "substreams-helper 0.0.2 (git+https://github.com/propeller-heads/tycho-protocol-sdk.git?tag=0.4.0)",
@@ -328,7 +328,7 @@ dependencies = [
  "prost 0.11.9",
  "serde",
  "serde-sibor",
- "serde_qs",
+ "serde_qs 0.13.0",
  "substreams",
  "substreams-ethereum",
  "substreams-helper 0.0.2 (git+https://github.com/propeller-heads/tycho-protocol-sdk.git?rev=52d5021)",
@@ -424,7 +424,7 @@ dependencies = [
  "prost 0.11.9",
  "serde",
  "serde-sibor",
- "serde_qs",
+ "serde_qs 0.13.0",
  "substreams",
  "substreams-ethereum",
  "tycho-substreams 0.2.1 (git+https://github.com/propeller-heads/tycho-protocol-sdk.git?rev=52d5021)",
@@ -470,7 +470,7 @@ dependencies = [
  "num-bigint",
  "prost 0.11.9",
  "serde",
- "serde_qs",
+ "serde_qs 0.13.0",
  "substreams",
  "substreams-ethereum",
  "substreams-helper 0.0.2 (git+https://github.com/propeller-heads/tycho-protocol-sdk.git?rev=b8aeaa3)",
@@ -529,6 +529,8 @@ dependencies = [
  "num-bigint",
  "prost 0.11.9",
  "rstest",
+ "serde",
+ "serde_qs 0.14.0",
  "substreams",
  "substreams-entity-change",
  "substreams-ethereum",
@@ -1348,6 +1350,17 @@ dependencies = [
  "percent-encoding",
  "serde",
  "thiserror 1.0.69",
+]
+
+[[package]]
+name = "serde_qs"
+version = "0.14.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8b417bedc008acbdf6d6b4bc482d29859924114bbe2650b7921fb68a261d0aa6"
+dependencies = [
+ "percent-encoding",
+ "serde",
+ "thiserror 2.0.7",
 ]
 
 [[package]]

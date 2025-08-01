@@ -135,4 +135,10 @@ modules:
       type: proto:tycho.evm.v1.BlockChanges
 
 params:
-  map_pools_created: "498581ff718922c3f8e6a244956af099b2652b2b"
+  map_pools_created: "pool_manager=0x498581ff718922c3f8e6a244956af099b2652b2b\
+&hooks_blacklist[]=0x9ea932730a7787000042e34390b8e435dd839040\
+&hooks_blacklist[]=0x5bf219b3cc11e3f6dd8dc8fc89d7d1deb0431040\
+&hooks_blacklist[]=0xd61a675f8a0c67a73dc3b54fb7318b4d91409040\
+&hooks_blacklist[]=0x5e5d19d22c85a4aef7c1fdf25fb22a5a38f71040\
+&hooks_blacklist[]=0xb476c448da4453208df4e371fee26f4e630d3044\
+&hooks_blacklist[]=0x9b47e436e216b2cb54d6f24154f86d946098d040"
