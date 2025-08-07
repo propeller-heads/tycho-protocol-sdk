@@ -182,7 +182,222 @@ contract CowAMMSwapAdapter is ISwapAdapter {
         return ratio.bmul(scale);
     }
 
-      function swap(
+    enum SwapType { TokenToToken, ExitPool, JoinPool, Invalid }
+
+    function _getSwapType(address sellToken, address buyToken) private view returns (SwapType) {
+        bool sellIsPool = (sellToken == address(pool));
+        bool buyIsPool = (buyToken == address(pool));
+        
+        if (!sellIsPool && !buyIsPool) return SwapType.TokenToToken;
+        if (sellIsPool && !buyIsPool) return SwapType.ExitPool;
+        if (!sellIsPool && buyIsPool) return SwapType.JoinPool;
+        return SwapType.Invalid; // Both are pool tokens
+    }
+    /**
+     * @notice Approves tokens for pool operations
+     */
+    function _approvePoolTokens(address[] memory tokens, uint256[] memory amounts) private {
+        for (uint i = 0; i < tokens.length; i++) {
+            IERC20(tokens[i]).approve(address(pool), amounts[i]);
+        }
+    }
+    /**
+    * @notice Executes standard token-to-token swap
+    */
+    function _executeTokenSwap(
+        address sellToken,
+        address buyToken,
+        OrderSide side,
+        uint256 specifiedAmount
+    ) private returns (Trade memory trade) {
+        // Check swap limits to prevent pool revert
+        uint256[] memory limits = getLimits(bytes32(0), sellToken, buyToken);
+        _checkLimits(limits, side, specifiedAmount);
+        
+        if (side == OrderSide.Sell) {
+            trade.calculatedAmount = sell(sellToken, buyToken, specifiedAmount);
+            trade.price = getPriceAt(specifiedAmount, sellToken, buyToken);
+        } else {
+            trade.calculatedAmount = buy(sellToken, buyToken, specifiedAmount);
+            trade.price = getPriceAt(trade.calculatedAmount, sellToken, buyToken);
+        }
+    }
+
+    /**
+     * @notice Executes pool exit (LP token → underlying token)
+     */
+    function _executePoolExit(
+        address sellToken, // LP token (pool address)
+        address buyToken,  // Desired underlying token
+        OrderSide side,
+        uint256 specifiedAmount // LP tokens to burn
+    ) private returns (Trade memory trade) {
+        require(side == OrderSide.Sell, "SwapAdapter: pool exit must be sell order");
+        
+        PoolExitParams memory params = _getPoolExitParams(buyToken, specifiedAmount);
+        
+        // Validate exit amounts against limits
+        _validatePoolExitLimits(params);
+        
+        // Execute pool exit
+        pool.exitPool(specifiedAmount, params.maxTokenAmountsOut);
+        
+        // If we received excess tokens, swap them for the desired token
+        uint256 swappedAmount = sell(params.tokenToSwap, buyToken, params.amountToSwap);
+        trade.calculatedAmount = params.directAmount + swappedAmount;
+        trade.price = getPriceAt(params.amountToSwap, params.tokenToSwap, buyToken);
+    }
+
+    /**
+     * @notice Executes pool join (underlying token → LP token)
+     */
+    function _executePoolJoin(
+        address sellToken, // Token we have
+        address buyToken,  // LP token (pool address)  
+        OrderSide side,
+        uint256 specifiedAmount // LP tokens desired
+    ) private returns (Trade memory trade) {
+        require(side == OrderSide.Buy, "SwapAdapter: pool join must be buy order");
+        
+        PoolJoinParams memory params = _getPoolJoinParams(sellToken, specifiedAmount);
+        
+        // Validate join amounts against limits  
+        _validatePoolJoinLimits(params);
+        
+        // Buy the secondary token we need for pool entry
+        trade.calculatedAmount = buy(sellToken, params.secondaryToken, params.amountToBuy);
+        trade.price = getPriceAt(trade.calculatedAmount, params.secondaryToken, sellToken);
+        // Approve tokens for pool entry
+        _approvePoolTokens(params.tokens, params.maxTokenAmountsIn);
+        
+        // Join the pool
+        pool.joinPool(specifiedAmount, params.maxTokenAmountsIn);
+    }
+
+     struct PoolExitParams {
+        address[] tokens;
+        uint256[] balances;
+        uint256[] maxTokenAmountsOut;
+        address tokenToSwap;
+        uint256 amountToSwap;
+        uint256 directAmount;
+        uint256 totalSupply;
+    }
+    
+    struct PoolJoinParams {
+        address[] tokens;
+        address secondaryToken;
+        uint256[] balances;
+        uint256[] maxTokenAmountsIn;
+        uint256 amountToBuy;
+        uint256 totalSupply;
+    }
+    
+    /**
+     * @notice Prepares parameters for pool exit operation
+     */
+    function _getPoolExitParams(
+        address buyToken,
+        uint256 lpTokenAmount
+    ) private view returns (PoolExitParams memory params) {
+        params.tokens = pool.getFinalTokens();
+        params.totalSupply = pool.totalSupply();
+        
+        // Get current pool balances
+        params.balances = new uint256[](2);
+        params.balances[0] = IERC20(params.tokens[0]).balanceOf(address(pool));
+        params.balances[1] = IERC20(params.tokens[1]).balanceOf(address(pool));
+        
+        // Calculate tokens received from pool exit
+        params.maxTokenAmountsOut = calcTokensOutGivenExactLpTokenIn(
+            params.balances,
+            lpTokenAmount,
+            params.totalSupply
+        );
+        
+        // Determine which token to swap and which to keep
+        bool buyTokenIsFirst = (params.tokens[0] == buyToken);
+        
+        if (buyTokenIsFirst) {
+            params.directAmount = params.maxTokenAmountsOut[0];
+            params.amountToSwap = params.maxTokenAmountsOut[1];
+            params.tokenToSwap = params.tokens[1];
+        } else {
+            params.directAmount = params.maxTokenAmountsOut[1];
+            params.amountToSwap = params.maxTokenAmountsOut[0];
+            params.tokenToSwap = params.tokens[0];
+        }
+    }
+    
+    /**
+     * @notice Prepares parameters for pool join operation
+     */
+    function _getPoolJoinParams(
+        address sellToken,
+        uint256 lpTokenAmount
+    ) private view returns (PoolJoinParams memory params) {
+        params.tokens = pool.getFinalTokens();
+        params.totalSupply = pool.totalSupply();
+        
+        // Get current pool balances
+        params.balances = new uint256[](2);
+        params.balances[0] = IERC20(params.tokens[0]).balanceOf(address(pool));
+        params.balances[1] = IERC20(params.tokens[1]).balanceOf(address(pool));
+        
+        // Calculate tokens needed for pool join
+        params.maxTokenAmountsIn = calcTokensOutGivenExactLpTokenIn(
+            params.balances,
+            lpTokenAmount,
+            params.totalSupply
+        );
+        
+        // Determine secondary token and amount to buy
+        bool sellTokenIsFirst = (params.tokens[0] == sellToken);
+        
+        if (sellTokenIsFirst) {
+            params.secondaryToken = params.tokens[1];
+            params.amountToBuy = params.maxTokenAmountsIn[1];
+        } else {
+            params.secondaryToken = params.tokens[0];
+            params.amountToBuy = params.maxTokenAmountsIn[0];
+        }
+    }
+    
+    /**
+     * @notice Validates pool exit amounts against limits
+     */
+    function _validatePoolExitLimits(PoolExitParams memory params) private pure {
+        uint256 limit0 = params.balances[0] * MAX_IN_FACTOR / 100;
+        uint256 limit1 = params.balances[1] * MAX_OUT_FACTOR / 100;
+        
+        require(
+            params.maxTokenAmountsOut[0] < limit0,
+            "SwapAdapter: token0 exit amount exceeds limit"
+        );
+        require(
+            params.maxTokenAmountsOut[1] < limit1,
+            "SwapAdapter: token1 exit amount exceeds limit"
+        );
+    }
+    
+    /**
+     * @notice Validates pool join amounts against limits
+     */
+    function _validatePoolJoinLimits(PoolJoinParams memory params) private pure {
+        uint256 limit0 = params.balances[0] * MAX_IN_FACTOR / 100;
+        uint256 limit1 = params.balances[1] * MAX_OUT_FACTOR / 100;
+        
+        require(
+            params.maxTokenAmountsIn[0] < limit0,
+            "SwapAdapter: token0 join amount exceeds limit"
+        );
+        require(
+            params.maxTokenAmountsIn[1] < limit1,
+            "SwapAdapter: token1 join amount exceeds limit"
+        );
+    }
+    
+    function swap(
           bytes32,
           address sellToken,
           address buyToken,
@@ -191,119 +406,133 @@ contract CowAMMSwapAdapter is ISwapAdapter {
       ) external returns (Trade memory trade) {
       require(sellToken != buyToken, "Tokens must be different");
       require(specifiedAmount != 0,"Specified amount cannot be zero");
-    //   uint256 spotPrice = calcSpotPrice(886800000000000000, 1000000000000000000, 50000000000000000, 1000000000000000000, 0);
-    //   console2.log("THIS IS THE SPOT PRICE, {}", spotPrice);
       uint256 gasBefore = gasleft();
-      if (sellToken != address(pool) && buyToken != address(pool)) {
-          // prevent swap above sell limits as pool will revert for
-          // underflow/overflow on mint/redeem
-          uint256[] memory _limits = getLimits(bytes32(0), sellToken, buyToken);
-          _checkLimits(_limits, side, specifiedAmount);
-          // Standard Token-to-Token Swap
-          if (side == OrderSide.Sell) {
-              trade.calculatedAmount = sell(sellToken, buyToken, specifiedAmount);
-              trade.price = getPriceAt(specifiedAmount, sellToken, buyToken);
-          } else {
-              uint256 amountIn = buy(sellToken, buyToken, specifiedAmount);
-              trade.calculatedAmount = amountIn;
-              trade.price = getPriceAt(trade.calculatedAmount, sellToken, buyToken);
-          }
-      } 
-      // TODO THIS WHOLE REGION
-      else if (sellToken == address(pool) && buyToken != address(pool)) {
-          // Exiting Pool (LP token is being sold)
-          require(side == OrderSide.Sell, "Exiting pool must be OrderSide.Sell");
-          uint256 totalSupply = pool.totalSupply();
 
-          address[] memory tokens = pool.getFinalTokens();
+       // Determine swap type based on token addresses
+        SwapType swapType = _getSwapType(sellToken, buyToken);
+        
+        // Execute appropriate swap logic
+        if (swapType == SwapType.TokenToToken) {
+            trade = _executeTokenSwap(sellToken, buyToken, side, specifiedAmount);
+        } else if (swapType == SwapType.ExitPool) {
+            trade = _executePoolExit(sellToken, buyToken, side, specifiedAmount);
+        } else if (swapType == SwapType.JoinPool) {
+            trade = _executePoolJoin(sellToken, buyToken, side, specifiedAmount);
+        } else {
+            revert("SwapAdapter: LP-to-LP swap not supported");
+        }
+        
 
-          //get the other token in the pool
-          address secondaryToken = tokens[0] == buyToken ? tokens[1] : tokens[0];
+    //   if (sellToken != address(pool) && buyToken != address(pool)) {
+    //       // prevent swap above sell limits as pool will revert for
+    //       // underflow/overflow on mint/redeem
+    //       uint256[] memory _limits = getLimits(bytes32(0), sellToken, buyToken);
+    //       _checkLimits(_limits, side, specifiedAmount);
+    //       // Standard Token-to-Token Swap
+    //       if (side == OrderSide.Sell) {
+    //           trade.calculatedAmount = sell(sellToken, buyToken, specifiedAmount);
+    //           trade.price = getPriceAt(specifiedAmount, sellToken, buyToken);
+    //       } else {
+    //           uint256 amountIn = buy(sellToken, buyToken, specifiedAmount);
+    //           trade.calculatedAmount = amountIn;
+    //           trade.price = getPriceAt(trade.calculatedAmount, sellToken, buyToken);
+    //       }
+    //   } 
+    //   // TODO THIS WHOLE REGION
+    //   else if (sellToken == address(pool) && buyToken != address(pool)) {
+    //       // Exiting Pool (LP token is being sold)
+    //       require(side == OrderSide.Sell, "Exiting pool must be OrderSide.Sell");
+    //       uint256 totalSupply = pool.totalSupply();
+
+    //       address[] memory tokens = pool.getFinalTokens();
+
+    //       //get the other token in the pool
+    //       address secondaryToken = tokens[0] == buyToken ? tokens[1] : tokens[0];
           
-          uint256 token0Balance = IERC20(tokens[0]).balanceOf(address(pool));
-          uint256 token1Balance = IERC20(tokens[1]).balanceOf(address(pool));
+    //       uint256 token0Balance = IERC20(tokens[0]).balanceOf(address(pool));
+    //       uint256 token1Balance = IERC20(tokens[1]).balanceOf(address(pool));
 
-          uint256 limit0 = token0Balance.bmul(MAX_IN_FACTOR).bdiv(100);
-          uint256 limit1 = token1Balance.bmul(MAX_OUT_FACTOR).bdiv(100);
+    //       uint256 limit0 = token0Balance.bmul(MAX_IN_FACTOR).bdiv(100);
+    //       uint256 limit1 = token1Balance.bmul(MAX_OUT_FACTOR).bdiv(100);
 
-          uint256[] memory balances = new uint256[](2);
+    //       uint256[] memory balances = new uint256[](2);
 
-          balances[0] = token0Balance;
-          balances[1] = token1Balance;
+    //       balances[0] = token0Balance;
+    //       balances[1] = token1Balance;
 
-          uint256[] memory maxTokenAmountsIn = calcTokensOutGivenExactLpTokenIn(balances, specifiedAmount, totalSupply);
+    //       uint256[] memory maxTokenAmountsIn = calcTokensOutGivenExactLpTokenIn(balances, specifiedAmount, totalSupply);
           
-          //these constraints are necessary to cause an early return because of the subsequent superfluous token swap we will make in the 
-          //second leg 
-          if (maxTokenAmountsIn[0] > limit0) {
-            revert("The amount of expectedToken0Out surpasses the limits for the amount that can be swapped into the pool");
-          }
+    //       //these constraints are necessary to cause an early return because of the subsequent superfluous token swap we will make in the 
+    //       //second leg 
+    //       if (maxTokenAmountsIn[0] > limit0) {
+    //         revert("The amount of expectedToken0Out surpasses the limits for the amount that can be swapped into the pool");
+    //       }
 
-          if (maxTokenAmountsIn[1] > limit1) {
-            revert("The amount of expectedToken1Out surpasses the limits for the amount that can be swapped into the pool");
-          }
+    //       if (maxTokenAmountsIn[1] > limit1) {
+    //         revert("The amount of expectedToken1Out surpasses the limits for the amount that can be swapped into the pool");
+    //       }
           
-          pool.exitPool(specifiedAmount, maxTokenAmountsIn); 
+    //       pool.exitPool(specifiedAmount, maxTokenAmountsIn); 
           
-          // if the first token we get from the pool.getFinalTokens() is the token we are buying, then select the other token proportion
-          // because thats the proportion of the superfluous token we want to sell for our buyToken
-          uint256 amountToSell = tokens[0] == buyToken ? maxTokenAmountsIn[1] : maxTokenAmountsIn[0];
-          uint256 amountOfBuyTokenReceived = tokens[0] == buyToken ? maxTokenAmountsIn[0] : maxTokenAmountsIn[1];
-          trade.calculatedAmount = sell(secondaryToken, buyToken, amountToSell) + amountOfBuyTokenReceived;
-          trade.price = getPriceAt(amountToSell, secondaryToken, buyToken);
-      } 
+    //       // if the first token we get from the pool.getFinalTokens() is the token we are buying, then select the other token proportion
+    //       // because thats the proportion of the superfluous token we want to sell for our buyToken
+    //       uint256 amountToSell = tokens[0] == buyToken ? maxTokenAmountsIn[1] : maxTokenAmountsIn[0];
+    //       uint256 amountOfBuyTokenReceived = tokens[0] == buyToken ? maxTokenAmountsIn[0] : maxTokenAmountsIn[1];
+    //       trade.calculatedAmount = sell(secondaryToken, buyToken, amountToSell) + amountOfBuyTokenReceived;
+    //       trade.price = getPriceAt(amountToSell, secondaryToken, buyToken);
+    //   } 
       
-      else if (sellToken != address(pool) && buyToken == address(pool)) {
-          // Joining Pool (LP token is being bought)
-          require(side == OrderSide.Buy, "Joining pool must be OrderSide.Buy");
+    //   else if (sellToken != address(pool) && buyToken == address(pool)) {
+    //       // Joining Pool (LP token is being bought)
+    //       require(side == OrderSide.Buy, "Joining pool must be OrderSide.Buy");
 
-          uint256 totalSupply = pool.totalSupply();
+    //       uint256 totalSupply = pool.totalSupply();
 
-          address[] memory tokens = pool.getFinalTokens();
-          //get the other token in the pool
-          address secondaryToken = tokens[0] == sellToken ? tokens[1] : tokens[0];
+    //       address[] memory tokens = pool.getFinalTokens();
+    //       //get the other token in the pool
+    //       address secondaryToken = tokens[0] == sellToken ? tokens[1] : tokens[0];
 
-          uint256 token0Balance = IERC20(tokens[0]).balanceOf(address(pool));
-          uint256 token1Balance = IERC20(tokens[1]).balanceOf(address(pool));
+    //       uint256 token0Balance = IERC20(tokens[0]).balanceOf(address(pool));
+    //       uint256 token1Balance = IERC20(tokens[1]).balanceOf(address(pool));
 
-          uint256 limit0 = token0Balance.bmul(MAX_IN_FACTOR).bdiv(100);
-          uint256 limit1 = token1Balance.bmul(MAX_IN_FACTOR).bdiv(100);
+    //       uint256 limit0 = token0Balance.bmul(MAX_IN_FACTOR).bdiv(100);
+    //       uint256 limit1 = token1Balance.bmul(MAX_OUT_FACTOR).bdiv(100);
 
-          uint256[] memory balances = new uint256[](2);
+    //       uint256[] memory balances = new uint256[](2);
 
-          balances[0] = token0Balance;
-          balances[1] = token1Balance;
+    //       balances[0] = token0Balance;
+    //       balances[1] = token1Balance;
 
-          uint256[] memory maxTokenAmountsIn = calcTokensOutGivenExactLpTokenIn(balances, specifiedAmount, totalSupply);
+    //       uint256[] memory maxTokenAmountsIn = calcTokensOutGivenExactLpTokenIn(balances, specifiedAmount, totalSupply);
 
-          //the limits don't apply when joining or exiting a pool, but we have to put it because of when we are swapping the superfluous token amount out 
-          if (maxTokenAmountsIn[0] > limit0) {
-            revert("The amount of token0 in surpasses the limits for the amount that can be swapped into the pool");
-          }
+    //       //the limits don't apply when joining or exiting a pool, but we have to put it because of when we are swapping the superfluous token amount out 
+    //       if (maxTokenAmountsIn[0] > limit0) {
+    //         revert("The amount of token0 in surpasses the limits for the amount that can be swapped into the pool");
+    //       }
 
-          if (maxTokenAmountsIn[1] > limit1) {
-            revert("The amount of token1 surpasses the limits for the amount that can be swapped into the pool");
-          }
-          //if tokens[0] is sellToken then token0Balance will be the balance of the sellToken 
-          uint256 amountToBuy = tokens[0] == sellToken ? maxTokenAmountsIn[1] : maxTokenAmountsIn[0];
-          trade.calculatedAmount = buy(sellToken, secondaryToken, amountToBuy); // we want to buy the other token wstETH that we don't have, so we get the amount of COW we need , hence -> calc in given out
-          //approve spending the tokens to send (join) them to the pool
-          IERC20(tokens[0]).approve(address(pool), maxTokenAmountsIn[0]);
-          IERC20(tokens[1]).approve(address(pool), maxTokenAmountsIn[1]);
-          pool.joinPool(specifiedAmount, maxTokenAmountsIn);
-          //the final price of the trade will be the price we swapped the other token we needed into, the amountOfSellTokenRedeemed will not be included here
-          trade.price = getPriceAt(trade.calculatedAmount, secondaryToken, sellToken);
-      } 
+    //       if (maxTokenAmountsIn[1] > limit1) {
+    //         revert("The amount of token1 surpasses the limits for the amount that can be swapped into the pool");
+    //       }
+    //       //if tokens[0] is sellToken then token0Balance will be the balance of the sellToken 
+    //       uint256 amountToBuy = tokens[0] == sellToken ? maxTokenAmountsIn[1] : maxTokenAmountsIn[0];
+    //       trade.calculatedAmount = buy(sellToken, secondaryToken, amountToBuy); // we want to buy the other token wstETH that we don't have, so we get the amount of COW we need , hence -> calc in given out
+    //       //approve spending the tokens to send (join) them to the pool
+    //       IERC20(tokens[0]).approve(address(pool), maxTokenAmountsIn[0]);
+    //       IERC20(tokens[1]).approve(address(pool), maxTokenAmountsIn[1]);
+    //       pool.joinPool(specifiedAmount, maxTokenAmountsIn);
+    //       //the final price of the trade will be the price we swapped the other token we needed into, the amountOfSellTokenRedeemed will not be included here
+    //       trade.price = getPriceAt(trade.calculatedAmount, secondaryToken, sellToken);
+    //   } 
       
-      else if (sellToken == address(pool) && buyToken == address(pool)) {
-          // Invalid: Swapping LP token to LP token is not supported
-          revert("Cannot swap between LP tokens"); 
-      } 
+    //   else if (sellToken == address(pool) && buyToken == address(pool)) {
+    //       // Invalid: Swapping LP token to LP token is not supported
+    //       revert("Cannot swap between LP tokens"); 
+    //   } 
       
-      else {
-          // Should never reach here
-          revert("Invalid token and side combination");
-      }
+    //   else {
+    //       // Should never reach here
+    //       revert("Invalid token and side combination");
+    //   }
       trade.gasUsed = gasBefore - gasleft();
   }
        function getLimits(bytes32, address sellToken, address buyToken)
