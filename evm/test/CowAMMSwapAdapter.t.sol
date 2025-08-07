@@ -20,7 +20,7 @@ contract CowAMMSwapAdapterTest is AdapterTest {
     address constant COW = 0xDEf1CA1fb7FBcDC777520aa7f396b4E015F497aB; 
     address constant wstETH = 0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0; 
 
-    uint256 constant TEST_ITERATIONS = 1;
+    uint256 constant TEST_ITERATIONS = 500;
     function setUp() public {
         uint256 forkBlock = 20522303;
     
