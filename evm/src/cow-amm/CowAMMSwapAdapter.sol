@@ -168,7 +168,20 @@ contract CowAMMSwapAdapter is ISwapAdapter {
 
         return amountsOut;
     }
-    
+    function calcSpotPrice(
+        uint256 tokenBalanceIn,
+        uint256 tokenWeightIn,
+        uint256 tokenBalanceOut,
+        uint256 tokenWeightOut,
+        uint256 swapFee
+    ) internal pure returns (uint256 spotPrice) {
+        uint256 numer = tokenBalanceIn.bdiv(tokenWeightIn);
+        uint256 denom = tokenBalanceOut.bdiv(tokenWeightOut);
+        uint256 ratio = numer.bdiv(denom);
+        uint256 scale = BONE.bdiv(BONE.bsub(swapFee));
+        return ratio.bmul(scale);
+    }
+
       function swap(
           bytes32,
           address sellToken,
@@ -178,7 +191,8 @@ contract CowAMMSwapAdapter is ISwapAdapter {
       ) external returns (Trade memory trade) {
       require(sellToken != buyToken, "Tokens must be different");
       require(specifiedAmount != 0,"Specified amount cannot be zero");
-
+    //   uint256 spotPrice = calcSpotPrice(886800000000000000, 1000000000000000000, 50000000000000000, 1000000000000000000, 0);
+    //   console2.log("THIS IS THE SPOT PRICE, {}", spotPrice);
       uint256 gasBefore = gasleft();
       if (sellToken != address(pool) && buyToken != address(pool)) {
           // prevent swap above sell limits as pool will revert for
@@ -268,18 +282,16 @@ contract CowAMMSwapAdapter is ISwapAdapter {
           }
 
           if (maxTokenAmountsIn[1] > limit1) {
-            revert("The amount of token 1 surpasses the limits for the amount that can be swapped into the pool");
+            revert("The amount of token1 surpasses the limits for the amount that can be swapped into the pool");
           }
-         
+          //if tokens[0] is sellToken then token0Balance will be the balance of the sellToken 
+          uint256 amountToBuy = tokens[0] == sellToken ? maxTokenAmountsIn[1] : maxTokenAmountsIn[0];
+          trade.calculatedAmount = buy(sellToken, secondaryToken, amountToBuy); // we want to buy the other token wstETH that we don't have, so we get the amount of COW we need , hence -> calc in given out
           //approve spending the tokens to send (join) them to the pool
           IERC20(tokens[0]).approve(address(pool), maxTokenAmountsIn[0]);
           IERC20(tokens[1]).approve(address(pool), maxTokenAmountsIn[1]);
-
           pool.joinPool(specifiedAmount, maxTokenAmountsIn);
-          //if tokens[0] is sellToken then token0Balance will be the balance of the sellToken 
-          uint256 amountToBuy = tokens[0] == sellToken ? maxTokenAmountsIn[1] : maxTokenAmountsIn[0];
-          trade.calculatedAmount = buy(sellToken, secondaryToken, amountToBuy); // we want to buy the superfluous wstETH , so we get the amount of COW we need , hence -> calc in given out
-          //the final price of the trade will be the price we swapped the superfluous token into, the amountOfSellTokenRedeemed will not be included here
+          //the final price of the trade will be the price we swapped the other token we needed into, the amountOfSellTokenRedeemed will not be included here
           trade.price = getPriceAt(trade.calculatedAmount, secondaryToken, sellToken);
       } 
       
