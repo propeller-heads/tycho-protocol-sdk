@@ -24,6 +24,7 @@ modules:
     kind: map
     initialBlock: 21332121
     inputs:
+      - params: string
       - source: sf.ethereum.type.v2.Block
     output:
       type: proto:tycho.evm.v1.BlockTransactionProtocolComponents
@@ -76,3 +77,6 @@ modules:
       type: proto:tycho.evm.v1.BlockChanges
 
 network: mainnet
+
+params:
+  map_components: "waEthUSDT=7bc3485026ac48b6cf9baf0a377477fff5703af8&waEthUSDC=d4fa2d31b7968e448877f69a96de69f5de8cd23e"
