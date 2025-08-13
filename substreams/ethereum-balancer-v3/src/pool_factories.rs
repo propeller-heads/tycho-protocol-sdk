@@ -1,4 +1,4 @@
-use crate::{abi, modules::VAULT_ADDRESS};
+use crate::{abi, modules::VAULT_ADDRESS, utils::Params};
 use abi::{
     stable_pool_factory_contract::{
         events::PoolCreated as StablePoolCreated, functions::Create as StablePoolCreate,
@@ -28,8 +28,22 @@ pub fn collect_rate_providers(tokens: &TokenConfig) -> Vec<Vec<u8>> {
         .collect::<Vec<_>>()
 }
 
+/// Collect underlying tokens for wrapped tokens supported by the liquidityBuffer.
+///
+/// For each token in `tokens`, check if `params` contains it (i.e., supported by the buffer),
+/// then call `get_underlying_token()` via `eth_call` to get its underlying ERC20 token.
+/// Tokens without underlying tokens are skipped.
+pub fn collect_underlying_tokens(tokens: &TokenConfig, params: &Params) -> Vec<Vec<u8>> {
+    tokens
+        .iter()
+        .filter(|token| params.contains_wrapped_token(&token.0))
+        .filter_map(|token| get_underlying_token(&token.0))
+        .collect()
+}
+
 pub fn address_map(
     pool_factory_address: &[u8],
+    params: &Params,
     log: &Log,
     call: &Call,
 ) -> Option<ProtocolComponent> {
@@ -43,6 +57,7 @@ pub fn address_map(
             } = WeightedPoolCreate::match_and_decode(call)?;
             let WeightedPoolCreated { pool } = WeightedPoolCreated::match_and_decode(log)?;
             let rate_providers = collect_rate_providers(&token_config);
+            let underlying_tokens = collect_underlying_tokens(&token_config, params);
 
             // TODO: to add "buffers" support for boosted pools, we need to add the unwrapped
             // version of all ERC4626 tokens to the pool tokens list. Skipped for now - we need
@@ -57,6 +72,7 @@ pub fn address_map(
                 json_serialize_bigint_list(normalized_weights.as_slice());
             let fee_bytes = swap_fee_percentage.to_signed_bytes_be();
             let rate_providers_bytes = json_serialize_address_list(rate_providers.as_slice());
+            let underlying_tokens_bytes = json_serialize_address_list(underlying_tokens.as_slice());
 
             let mut attributes = vec![
                 ("pool_type", "WeightedPoolFactory".as_bytes()),
@@ -67,6 +83,10 @@ pub fn address_map(
 
             if !rate_providers.is_empty() {
                 attributes.push(("rate_providers", &rate_providers_bytes));
+            }
+
+            if !underlying_tokens.is_empty() {
+                attributes.push(("underlying_tokens", &underlying_tokens_bytes));
             }
 
             Some(
@@ -82,7 +102,7 @@ pub fn address_map(
                 StablePoolCreate::match_and_decode(call)?;
             let StablePoolCreated { pool } = StablePoolCreated::match_and_decode(log)?;
             let rate_providers = collect_rate_providers(&token_config);
-
+            let underlying_tokens = collect_underlying_tokens(&token_config, params);
             // TODO: to add "buffers" support for boosted pools, we need to add the unwrapped
             // version of all ERC4626 tokens to the pool tokens list. Skipped for now - we need
             // to test that the adapter supports it correctly and ERC4626 overwrites are handled
@@ -94,6 +114,7 @@ pub fn address_map(
 
             let fee_bytes = swap_fee_percentage.to_signed_bytes_be();
             let rate_providers_bytes = json_serialize_address_list(rate_providers.as_slice());
+            let underlying_tokens_bytes = json_serialize_address_list(underlying_tokens.as_slice());
 
             let mut attributes = vec![
                 ("pool_type", "StablePoolFactory".as_bytes()),
@@ -106,6 +127,10 @@ pub fn address_map(
                 attributes.push(("rate_providers", &rate_providers_bytes));
             }
 
+            if !underlying_tokens.is_empty() {
+                attributes.push(("underlying_tokens", &underlying_tokens_bytes));
+            }
+
             Some(
                 ProtocolComponent::new(&format!("0x{}", hex::encode(&pool)))
                     .with_contracts(&[pool.to_owned(), VAULT_ADDRESS.to_vec()])
@@ -116,4 +141,8 @@ pub fn address_map(
         }
         _ => None,
     }
+}
+
+pub fn get_underlying_token(wrapped_token: &[u8]) -> Option<Vec<u8>> {
+    abi::erc4626::functions::Asset {}.call(wrapped_token.to_owned())
 }
