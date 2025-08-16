@@ -4,10 +4,9 @@ use crate::{
             LiquidityAdded, LiquidityAddedToBuffer, LiquidityRemoved, LiquidityRemovedFromBuffer,
             PoolPausedStateChanged, Swap, Unwrap, Wrap,
         },
-        functions::{SendTo, Settle},
+        functions::{Erc4626BufferWrapOrUnwrap, SendTo, Settle},
     },
     pool_factories,
-    pool_factories::get_underlying_token,
     utils::Params,
 };
 use anyhow::Result;
@@ -91,18 +90,6 @@ pub fn store_token_set(map: BlockTransactionProtocolComponents, store: StoreSetI
                     pc.tokens
                         .into_iter()
                         .for_each(|token| store.set_if_not_exists(0, hex::encode(token), &1));
-
-                    // let underlying_tokens = pc
-                    //     .static_att
-                    //     .iter()
-                    //     .find(|att| att.name == "underlying_tokens")
-                    //     .map(|att| json_deserialize_address_list(&att.value));
-                    //
-                    // if let Some(underlying_tokens) = underlying_tokens {
-                    //     for underlying_token in underlying_tokens {
-                    //         store.set_if_not_exists(0, hex::encode(underlying_token), &1);
-                    //     }
-                    // }
                 })
         });
 }
@@ -232,6 +219,7 @@ pub fn store_balances(deltas: BlockBalanceDeltas, store: StoreAddBigInt) {
 /// `BlockChanges`  is ordered by transactions properly.
 #[substreams::handlers::map]
 pub fn map_protocol_changes(
+    params: String,
     block: eth::v2::Block,
     grouped_components: BlockTransactionProtocolComponents,
     deltas: BlockBalanceDeltas,
@@ -242,7 +230,7 @@ pub fn map_protocol_changes(
     // We merge contract changes by transaction (identified by transaction index) making it easy to
     //  sort them at the very end.
     let mut transaction_changes: HashMap<_, TransactionChangesBuilder> = HashMap::new();
-
+    let params = Params::parse_from_query(&params)?;
     // Handle pool pause state changes
     block
         .logs()
@@ -392,9 +380,9 @@ pub fn map_protocol_changes(
         .transaction_traces
         .iter()
         .for_each(|tx| {
-            let mut vault_balances = get_vault_reserves(tx, &tokens_store);
+            let mut vault_balances = get_vault_reserves(&params, tx, &tokens_store);
 
-            vault_balances.extend(get_vault_buffer_balances(tx, &tokens_store));
+            vault_balances.extend(get_vault_buffer_balances(&params, tx, &tokens_store));
 
             if !vault_balances.is_empty() {
                 let tycho_tx = Transaction::from(tx);
@@ -466,6 +454,7 @@ fn address_to_string_with_0x(address: &[u8]) -> String {
 // function needed to match reservesOf in vault storage, which by definition
 // they should always be equal to the `token.balanceOf(this)` except during unlock
 fn get_vault_reserves(
+    params: &Params,
     transaction: &eth::v2::TransactionTrace,
     token_store: &StoreGetInt64,
 ) -> HashMap<Vec<u8>, ReserveValue> {
@@ -497,27 +486,38 @@ fn get_vault_reserves(
                     );
                 }
             }
+            if let Some(Erc4626BufferWrapOrUnwrap { params: buffer_params }) =
+                Erc4626BufferWrapOrUnwrap::match_and_decode(call)
+            {
+                for change in &call.storage_changes {
+                    let wrapped_token = buffer_params.2.clone();
+                    if let Some(underlying_token) = params.get_underlying_token(&wrapped_token) {
+                        add_change_if_accounted(
+                            &mut reserves_of,
+                            change,
+                            wrapped_token.as_slice(),
+                            token_store,
+                        );
+                        add_change_if_accounted(
+                            &mut reserves_of,
+                            change,
+                            underlying_token.as_slice(),
+                            token_store,
+                        );
+                    }
+                }
+            }
         });
     reserves_of
 }
 
 // function needed to match bufferTokenBalances in vault storage
 fn get_vault_buffer_balances(
+    params: &Params,
     transaction: &eth::v2::TransactionTrace,
     token_store: &StoreGetInt64,
 ) -> HashMap<Vec<u8>, ReserveValue> {
     let mut buffer_balance = HashMap::new();
-    // cache for underlying tokens to avoid multiple calls to get_underlying_token
-    let mut underlying_token_cache: HashMap<Vec<u8>, Option<Vec<u8>>> = HashMap::new();
-
-    let mut get_cached_underlying = |wrapped_token: &Vec<u8>| -> Option<Vec<u8>> {
-        if let Some(cached) = underlying_token_cache.get(wrapped_token) {
-            return cached.clone();
-        }
-        let underlying = get_underlying_token(wrapped_token);
-        underlying_token_cache.insert(wrapped_token.clone(), underlying.clone());
-        underlying
-    };
 
     for (log, call_view) in transaction.logs_with_calls() {
         let wrapped_token_opt = if let Some(e) = LiquidityAddedToBuffer::match_and_decode(log) {
@@ -533,7 +533,7 @@ fn get_vault_buffer_balances(
         };
 
         if let Some(wrapped_token) = wrapped_token_opt {
-            if let Some(underlying_token) = get_cached_underlying(&wrapped_token) {
+            if let Some(underlying_token) = params.get_underlying_token(&wrapped_token) {
                 for change in &call_view.call.storage_changes {
                     add_buffer_balance_change(
                         &mut buffer_balance,
