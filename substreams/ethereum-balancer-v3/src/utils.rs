@@ -1,24 +1,112 @@
 use anyhow::Result;
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use url::form_urlencoded;
 
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum TokenType {
+    #[default]
+    None,
+    Wrapped,
+    Underlying,
+}
+
+/// `MappingToken` maps a pool token to its counterpart(s) in the liquidity buffer.
+///
+/// - If the pool token is wrapped:
+///   - `token_type = Underlying`
+///   - `addresses` holds its single underlying token address
+///
+/// - If the pool token is underlying:
+///   - `token_type = Wrapped`
+///   - `addresses` holds one or more wrapped token addresses
+#[derive(Default, Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct MappingToken {
+    pub addresses: Vec<Vec<u8>>, // underlying token maybe have multiple wrapped tokens
+    pub token_type: TokenType,
+}
+
+pub fn json_serialize_mapping_tokens(tokens: &[MappingToken]) -> Vec<u8> {
+    serde_json::to_vec(tokens).expect("Failed to serialize MappingToken array to JSON")
+}
+
+#[allow(dead_code)]
+pub fn json_deserialize_mapping_tokens(bytes: &[u8]) -> Vec<MappingToken> {
+    serde_json::from_slice(bytes).expect("Failed to deserialize MappingToken array from JSON")
+}
+
 pub struct Params {
-    pub buffer_tokens: Vec<String>,
+    pub buffer_tokens: HashMap<String, String>,
 }
 
 impl Params {
     pub fn parse_from_query(input: &str) -> Result<Self> {
-        let values: Vec<String> = form_urlencoded::parse(input.as_bytes())
-            .map(|(_k, v)| v.into_owned())
+        let map: HashMap<String, String> = form_urlencoded::parse(input.as_bytes())
+            .map(|(k, v)| (k.into_owned(), v.into_owned()))
             .collect();
-        Ok(Params { buffer_tokens: values })
+        Ok(Params { buffer_tokens: map })
     }
 
-    pub fn contains_wrapped_token(&self, wrapped_token: &Vec<u8>) -> bool {
-        self.buffer_tokens
+    pub fn get_mapping_token(&self, token: &Vec<u8>) -> Option<MappingToken> {
+        let mapping_underlying_addresses: Vec<Vec<u8>> = self
+            .buffer_tokens
             .iter()
-            .any(|token_str| match hex::decode(token_str) {
-                Ok(decoded) => decoded == *wrapped_token,
-                Err(_) => false,
+            .filter_map(|(k, v)| {
+                if hex::decode(k)
+                    .ok()
+                    .as_ref()
+                    .map(|b| b == token)
+                    .unwrap_or(false)
+                {
+                    Some(hex::decode(v).expect("Invalid hex in buffer_tokens value"))
+                } else {
+                    None
+                }
+            })
+            .collect();
+
+        if !mapping_underlying_addresses.is_empty() {
+            return Some(MappingToken {
+                addresses: mapping_underlying_addresses,
+                token_type: TokenType::Underlying,
+            });
+        }
+
+        let mapping_wrapped_addresses: Vec<Vec<u8>> = self
+            .buffer_tokens
+            .iter()
+            .filter_map(|(k, v)| {
+                if hex::decode(v)
+                    .ok()
+                    .as_ref()
+                    .map(|b| b == token)
+                    .unwrap_or(false)
+                {
+                    Some(hex::decode(k).expect("Invalid hex in buffer_tokens key"))
+                } else {
+                    None
+                }
+            })
+            .collect();
+
+        if !mapping_wrapped_addresses.is_empty() {
+            return Some(MappingToken {
+                addresses: mapping_wrapped_addresses,
+                token_type: TokenType::Wrapped,
+            });
+        }
+
+        None
+    }
+
+    pub fn get_underlying_token(&self, wrapped_token: &Vec<u8>) -> Option<Vec<u8>> {
+        self.get_mapping_token(wrapped_token)
+            .and_then(|mapping| {
+                if mapping.token_type == TokenType::Underlying {
+                    mapping.addresses.first().cloned()
+                } else {
+                    None
+                }
             })
     }
 }
@@ -28,32 +116,124 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_parse_and_contains() {
-        let qs =
-            "a=1111111111111111111111111111111111111111&b=2222222222222222222222222222222222222222";
-        let params = Params::parse_from_query(qs).unwrap();
+    fn test_parse_from_query() {
+        let input = "9D39A5DE30e57443BfF2A8307A4256c8797A3497=4c9EDD5852cd905f086C759E8383e09bff1E68B3&5F9D59db355b4A60501544637b00e94082cA575b=4c9EDD5852cd905f086C759E8383e09bff1E68B3";
 
-        assert_eq!(params.buffer_tokens.len(), 2);
+        let params = Params::parse_from_query(input).expect("Failed to parse query string");
 
-        let token_a = hex::decode("1111111111111111111111111111111111111111").unwrap();
-        assert!(params.contains_wrapped_token(&token_a));
+        let mut expected_map = HashMap::new();
+        expected_map.insert(
+            "9D39A5DE30e57443BfF2A8307A4256c8797A3497".to_string(),
+            "4c9EDD5852cd905f086C759E8383e09bff1E68B3".to_string(),
+        );
+        expected_map.insert(
+            "5F9D59db355b4A60501544637b00e94082cA575b".to_string(),
+            "4c9EDD5852cd905f086C759E8383e09bff1E68B3".to_string(),
+        );
 
-        let token_b = hex::decode("2222222222222222222222222222222222222222").unwrap();
-        assert!(params.contains_wrapped_token(&token_b));
-
-        let token_c = hex::decode("3333333333333333333333333333333333333333").unwrap();
-        assert!(!params.contains_wrapped_token(&token_c));
+        assert_eq!(params.buffer_tokens, expected_map);
     }
 
     #[test]
-    fn test_contains_invalid_hex() {
-        let qs = "a=zzzz&b=1111111111111111111111111111111111111111";
-        let params = Params::parse_from_query(qs).unwrap();
+    fn test_get_mapping_token() {
+        let mut buffer_tokens = HashMap::new();
 
-        let token_valid = hex::decode("1111111111111111111111111111111111111111").unwrap();
-        assert!(params.contains_wrapped_token(&token_valid));
+        buffer_tokens.insert(
+            "9D39A5DE30e57443BfF2A8307A4256c8797A3497".to_lowercase(),
+            "4c9EDD5852cd905f086C759E8383e09bff1E68B3".to_lowercase(),
+        );
+        buffer_tokens.insert(
+            "5F9D59db355b4A60501544637b00e94082cA575b".to_lowercase(),
+            "4c9EDD5852cd905f086C759E8383e09bff1E68B3".to_lowercase(),
+        );
 
-        let token_invalid = hex::decode("zzzz").ok();
-        assert!(token_invalid.is_none());
+        let params = Params { buffer_tokens };
+
+        let underlying_token = hex::decode("4c9EDD5852cd905f086C759E8383e09bff1E68B3").unwrap();
+        let result = params
+            .get_mapping_token(&underlying_token)
+            .unwrap();
+        assert_eq!(result.token_type, TokenType::Wrapped);
+        assert_eq!(result.addresses.len(), 2);
+        let expected = vec![
+            hex::decode("9D39A5DE30e57443BfF2A8307A4256c8797A3497").unwrap(),
+            hex::decode("5F9D59db355b4A60501544637b00e94082cA575b").unwrap(),
+        ];
+        for addr in &result.addresses {
+            assert!(expected.contains(addr));
+        }
+
+        let wrapped_token = hex::decode("9D39A5DE30e57443BfF2A8307A4256c8797A3497").unwrap();
+        let result = params
+            .get_mapping_token(&wrapped_token)
+            .unwrap();
+        assert_eq!(result.token_type, TokenType::Underlying);
+        assert_eq!(result.addresses.len(), 1);
+        assert_eq!(
+            result.addresses[0],
+            hex::decode("4c9EDD5852cd905f086C759E8383e09bff1E68B3").unwrap()
+        );
+
+        let unknown_token = hex::decode("deadbeef").unwrap();
+        assert!(params
+            .get_mapping_token(&unknown_token)
+            .is_none());
+    }
+
+    #[test]
+    fn test_get_mapping_token_multiple_matches() {
+        let mut buffer_tokens = HashMap::new();
+
+        buffer_tokens.insert("111111111111".to_string(), "aaaaaaaaaaaa".to_string());
+        buffer_tokens.insert("222222222222".to_string(), "aaaaaaaaaaaa".to_string());
+        buffer_tokens.insert("333333333333".to_string(), "bbbbbbbbbbbb".to_string());
+
+        let params = Params { buffer_tokens };
+
+        let underlying_token = hex::decode("aaaaaaaaaaaa").unwrap();
+        let result = params
+            .get_mapping_token(&underlying_token)
+            .unwrap();
+        assert_eq!(result.token_type, TokenType::Wrapped);
+        assert_eq!(result.addresses.len(), 2);
+        let expected =
+            vec![hex::decode("111111111111").unwrap(), hex::decode("222222222222").unwrap()];
+        for addr in &result.addresses {
+            assert!(expected.contains(addr));
+        }
+
+        let underlying_token = hex::decode("bbbbbbbbbbbb").unwrap();
+        let result = params
+            .get_mapping_token(&underlying_token)
+            .unwrap();
+        assert_eq!(result.token_type, TokenType::Wrapped);
+        assert_eq!(result.addresses.len(), 1);
+        assert_eq!(result.addresses[0], hex::decode("333333333333").unwrap());
+    }
+
+    #[test]
+    fn test_json_serialize_deserialize_mapping_tokens() {
+        let tokens = vec![
+            MappingToken {
+                addresses: vec![
+                    hex::decode("0a0b0c0d0e0f").unwrap(),
+                    hex::decode("010203040506").unwrap(),
+                ],
+                token_type: TokenType::Wrapped,
+            },
+            MappingToken {
+                addresses: vec![hex::decode("0f0e0d0c0b0a").unwrap()],
+                token_type: TokenType::Underlying,
+            },
+        ];
+
+        let serialized = json_serialize_mapping_tokens(&tokens);
+        let deserialized = json_deserialize_mapping_tokens(&serialized);
+        assert_eq!(tokens.len(), deserialized.len());
+
+        for (orig, de) in tokens.iter().zip(deserialized.iter()) {
+            assert_eq!(orig.token_type, de.token_type);
+            assert_eq!(orig.addresses, de.addresses);
+        }
     }
 }

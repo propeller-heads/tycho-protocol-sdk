@@ -282,6 +282,7 @@ dependencies = [
  "prost-types 0.12.6",
  "regex",
  "serde",
+ "serde_json",
  "serde_qs",
  "substreams",
  "substreams-ethereum",

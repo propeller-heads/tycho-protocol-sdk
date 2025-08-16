@@ -1,4 +1,8 @@
-use crate::{abi, modules::VAULT_ADDRESS, utils::Params};
+use crate::{
+    abi,
+    modules::VAULT_ADDRESS,
+    utils::{json_serialize_mapping_tokens, MappingToken, Params},
+};
 use abi::{
     stable_pool_factory_contract::{
         events::PoolCreated as StablePoolCreated, functions::Create as StablePoolCreate,
@@ -28,16 +32,25 @@ pub fn collect_rate_providers(tokens: &TokenConfig) -> Vec<Vec<u8>> {
         .collect::<Vec<_>>()
 }
 
-/// Collect underlying tokens for wrapped tokens supported by the liquidityBuffer.
+/// Collects the `MappingToken` instances corresponding to a list of tokens.
 ///
-/// For each token in `tokens`, check if `params` contains it (i.e., supported by the buffer),
-/// then call `get_underlying_token()` via `eth_call` to get its underlying ERC20 token.
-/// Tokens without underlying tokens are skipped.
-pub fn collect_underlying_tokens(tokens: &TokenConfig, params: &Params) -> Vec<Vec<u8>> {
+/// For each token in `tokens`, this function looks up its mapping in `params`.
+/// If a mapping is found, it is included; otherwise, a default `MappingToken` is used.
+///
+/// # Arguments
+/// * `tokens` - A reference to a list of tokens to map.
+/// * `params` - The `Params` instance used to look up token mappings.
+///
+/// # Returns
+/// A `Vec<MappingToken>` containing the mapped tokens for each input token.
+pub fn collect_mapping_tokens(tokens: &TokenConfig, params: &Params) -> Vec<MappingToken> {
     tokens
         .iter()
-        .filter(|token| params.contains_wrapped_token(&token.0))
-        .filter_map(|token| get_underlying_token(&token.0))
+        .map(|token| {
+            params
+                .get_mapping_token(&token.0)
+                .unwrap_or_default()
+        })
         .collect()
 }
 
@@ -57,7 +70,7 @@ pub fn address_map(
             } = WeightedPoolCreate::match_and_decode(call)?;
             let WeightedPoolCreated { pool } = WeightedPoolCreated::match_and_decode(log)?;
             let rate_providers = collect_rate_providers(&token_config);
-            let underlying_tokens = collect_underlying_tokens(&token_config, params);
+            let mapping_tokens = collect_mapping_tokens(&token_config, params);
 
             // TODO: to add "buffers" support for boosted pools, we need to add the unwrapped
             // version of all ERC4626 tokens to the pool tokens list. Skipped for now - we need
@@ -72,7 +85,7 @@ pub fn address_map(
                 json_serialize_bigint_list(normalized_weights.as_slice());
             let fee_bytes = swap_fee_percentage.to_signed_bytes_be();
             let rate_providers_bytes = json_serialize_address_list(rate_providers.as_slice());
-            let underlying_tokens_bytes = json_serialize_address_list(underlying_tokens.as_slice());
+            let mapping_tokens_bytes = json_serialize_mapping_tokens(mapping_tokens.as_slice());
 
             let mut attributes = vec![
                 ("pool_type", "WeightedPoolFactory".as_bytes()),
@@ -85,8 +98,8 @@ pub fn address_map(
                 attributes.push(("rate_providers", &rate_providers_bytes));
             }
 
-            if !underlying_tokens.is_empty() {
-                attributes.push(("underlying_tokens", &underlying_tokens_bytes));
+            if !mapping_tokens.is_empty() {
+                attributes.push(("mapping_tokens", &mapping_tokens_bytes));
             }
 
             Some(
@@ -102,7 +115,7 @@ pub fn address_map(
                 StablePoolCreate::match_and_decode(call)?;
             let StablePoolCreated { pool } = StablePoolCreated::match_and_decode(log)?;
             let rate_providers = collect_rate_providers(&token_config);
-            let underlying_tokens = collect_underlying_tokens(&token_config, params);
+            let mapping_tokens = collect_mapping_tokens(&token_config, params);
             // TODO: to add "buffers" support for boosted pools, we need to add the unwrapped
             // version of all ERC4626 tokens to the pool tokens list. Skipped for now - we need
             // to test that the adapter supports it correctly and ERC4626 overwrites are handled
@@ -114,8 +127,7 @@ pub fn address_map(
 
             let fee_bytes = swap_fee_percentage.to_signed_bytes_be();
             let rate_providers_bytes = json_serialize_address_list(rate_providers.as_slice());
-            let underlying_tokens_bytes = json_serialize_address_list(underlying_tokens.as_slice());
-
+            let mapping_tokens_bytes = json_serialize_mapping_tokens(mapping_tokens.as_slice());
             let mut attributes = vec![
                 ("pool_type", "StablePoolFactory".as_bytes()),
                 ("bpt", &pool),
@@ -127,8 +139,8 @@ pub fn address_map(
                 attributes.push(("rate_providers", &rate_providers_bytes));
             }
 
-            if !underlying_tokens.is_empty() {
-                attributes.push(("underlying_tokens", &underlying_tokens_bytes));
+            if !mapping_tokens_bytes.is_empty() {
+                attributes.push(("mapping_tokens", &mapping_tokens_bytes));
             }
 
             Some(
@@ -141,8 +153,4 @@ pub fn address_map(
         }
         _ => None,
     }
-}
-
-pub fn get_underlying_token(wrapped_token: &[u8]) -> Option<Vec<u8>> {
-    abi::erc4626::functions::Asset {}.call(wrapped_token.to_owned())
 }
