@@ -116,6 +116,24 @@ modules:
     inputs:
       - map: map_liquidity_changes
 
+  - name: store_euler_hooks
+    kind: store
+    initialBlock: 21688329
+    updatePolicy: set_if_not_exists
+    valueType: string
+    inputs:
+      - params: string
+      - source: sf.ethereum.type.v2.Block
+
+  - name: store_pools_per_hook
+    kind: store
+    initialBlock: 21688329
+    updatePolicy: append
+    valueType: string
+    inputs:
+      - params: string
+      - map: map_pools_created
+
   - name: map_protocol_changes
     kind: map
     initialBlock: 21688329
@@ -135,5 +153,22 @@ modules:
     output:
       type: proto:tycho.evm.v1.BlockChanges
 
+  - name: map_euler_enriched_protocol_changes
+    kind: map
+    initialBlock: 21688329
+    inputs:
+      - params: string
+      - source: sf.ethereum.type.v2.Block
+      - map: map_protocol_changes
+      - store: store_euler_hooks
+        mode: get
+      - store: store_pools_per_hook
+        mode: get
+    output:
+      type: proto:tycho.evm.v1.BlockChanges
+
 params:
   map_pools_created: "000000000004444c5dc75cB358380D2e3dE08A90"
+  store_euler_hooks: "0xb013be1D0D380C13B58e889f412895970A2Cf228"
+  store_pools_per_hook: "000000000004444c5dc75cB358380D2e3dE08A90"
+  map_euler_enriched_protocol_changes: "0xb013be1D0D380C13B58e889f412895970A2Cf228"
