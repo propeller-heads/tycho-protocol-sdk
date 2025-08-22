@@ -2,7 +2,7 @@ use std::str::FromStr;
 
 use ethabi::ethereum_types::Address;
 use ethereum_uniswap_v4_shared::abi::euler_swap_factory::events::PoolUninstalled;
-use substreams::store::{StoreGet, StoreGetString};
+use substreams::store::{StoreGet, StoreGetInt64, StoreGetString};
 use substreams_ethereum::pb::eth::v2::{self as eth};
 use substreams_helper::{event_handler::EventHandler, hex::Hexable};
 use tycho_substreams::prelude::*;
@@ -12,7 +12,7 @@ pub fn map_euler_enriched_protocol_changes(
     params: String,
     block: eth::Block,
     protocol_changes: BlockChanges,
-    euler_hooks_store: StoreGetString,
+    euler_hooks_store: StoreGetInt64,
     pools_per_hook_store: StoreGetString,
 ) -> Result<BlockChanges, substreams::errors::Error> {
     let euler_factory_address = params.as_str();
@@ -32,7 +32,7 @@ pub fn _enrich_protocol_changes(
     block: &eth::Block,
     euler_factory_address: &str,
     mut protocol_changes: BlockChanges,
-    euler_hooks_store: &StoreGetString,
+    euler_hooks_store: &StoreGetInt64,
     pools_per_hook_store: &StoreGetString,
 ) -> BlockChanges {
     // Process each transaction's changes
@@ -50,7 +50,7 @@ pub fn _enrich_protocol_changes(
                     substreams::log::debug!("Hook address: {}", hook_address);
 
                     // Check if this hook address is a known Euler hook
-                    if let Some(_euler_account) = euler_hooks_store.get_last(&hook_address) {
+                    if let Some(_) = euler_hooks_store.get_last(&hook_address) {
                         // Add the hook_identifier static attribute
                         component_change
                             .static_att

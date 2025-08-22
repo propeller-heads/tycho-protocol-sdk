@@ -125,14 +125,15 @@ modules:
       - params: string
       - source: sf.ethereum.type.v2.Block
 
-  - name: store_pools_per_hook
+  - name: store_pool_per_euler_hook
     kind: store
     initialBlock: 21688329
-    updatePolicy: append
+    updatePolicy: set_if_not_exists
     valueType: string
     inputs:
-      - params: string
       - map: map_pools_created
+      - store: store_euler_hooks
+        mode: get
 
   - name: map_protocol_changes
     kind: map
@@ -162,7 +163,7 @@ modules:
       - map: map_protocol_changes
       - store: store_euler_hooks
         mode: get
-      - store: store_pools_per_hook
+      - store: store_pool_per_euler_hook
         mode: get
     output:
       type: proto:tycho.evm.v1.BlockChanges
