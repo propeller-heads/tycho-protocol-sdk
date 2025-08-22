@@ -45,6 +45,39 @@ mod tests {
             self.data.contains_key(key.as_ref())
         }
 
+
+
+
+        fn has_first<K: AsRef<str>>(&self, key: K) -> bool {
+            self.data.contains_key(key.as_ref())
+        }
+    }
+
+    impl StoreGet<i64> for MockStore {
+        fn new(_size: u32) -> Self {
+            Self { data: HashMap::new() }
+        }
+        
+        fn get_at<K: AsRef<str>>(&self, _ord: u64, key: K) -> Option<i64> {
+            self.data.get(key.as_ref()).and_then(|v| v.parse().ok())
+        }
+        
+        fn get_first<K: AsRef<str>>(&self, key: K) -> Option<i64> {
+            self.data.get(key.as_ref()).and_then(|v| v.parse().ok())
+        }
+        
+        fn get_last<K: AsRef<str>>(&self, key: K) -> Option<i64> {
+            self.data.get(key.as_ref()).and_then(|v| v.parse().ok())
+        }
+        
+        fn has_at<K: AsRef<str>>(&self, _ord: u64, key: K) -> bool {
+            self.data.contains_key(key.as_ref())
+        }
+        
+        fn has_last<K: AsRef<str>>(&self, key: K) -> bool {
+            self.data.contains_key(key.as_ref())
+        }
+        
         fn has_first<K: AsRef<str>>(&self, key: K) -> bool {
             self.data.contains_key(key.as_ref())
         }
@@ -78,9 +111,14 @@ mod tests {
         // Given: BlockEntityChanges with a pool creation that has a hook
         let pools_created = create_mock_pools_created();
 
+        // Setup mock Euler store with the hook address
+        let mut mock_euler_store = MockStore::new_with_data();
+        mock_euler_store.insert("0xd585c8baa6c0099d2cc59a5a089b8366cb3ea8a8".to_string(), "1".to_string());
+
         // When: Processing the pool creations
-        let result = crate::variant_modules::store_pools_per_hook::_track_uniswap_pools_by_hook(
+        let result = crate::variant_modules::store_pool_per_euler_hook::_track_uniswap_pools_by_hook(
             pools_created,
+            &mock_euler_store,
         );
 
         // Expect: Should create one pool-to-hook mapping
@@ -203,9 +241,14 @@ mod tests {
         let _block = create_real_block_23120299();
         let pools_created = create_real_pools_created_23120299();
 
+        // Setup mock Euler store with the hook address
+        let mut mock_euler_store = MockStore::new_with_data();
+        mock_euler_store.insert("0xd585c8baa6c0099d2cc59a5a089b8366cb3ea8a8".to_string(), "1".to_string());
+
         // When: Processing the pool creations for hook tracking
-        let result = crate::variant_modules::store_pools_per_hook::_track_uniswap_pools_by_hook(
+        let result = crate::variant_modules::store_pool_per_euler_hook::_track_uniswap_pools_by_hook(
             pools_created,
+            &mock_euler_store,
         );
 
         // Expect: Should create one pool-to-hook mapping with real addresses
@@ -225,10 +268,10 @@ mod tests {
         // Create mock store with a single pool for a hook
         let mut store = MockStore::new_with_data();
 
-        // Add a single pool for the hook (with trailing semicolon as per append store format)
+        // Add a single pool for the hook (now using set_if_not_exists, so just the pool ID)
         store.insert(
             "hook:0xd585c8baa6c0099d2cc59a5a089b8366cb3ea8a8".to_string(),
-            "0x85405f10672f18aa00705afe87ec937d4eadcfc2652f223591b17040ea1d39d4;".to_string(),
+            "0x85405f10672f18aa00705afe87ec937d4eadcfc2652f223591b17040ea1d39d4".to_string(),
         );
 
         // Test with a single uninstalled hook
@@ -239,91 +282,28 @@ mod tests {
         );
 
         assert_eq!(results.len(), 1);
-        let (hook, pool_ids) = &results[0];
+        let (hook, pool_id) = &results[0];
         assert_eq!(hook, "0xd585c8baa6c0099d2cc59a5a089b8366cb3ea8a8");
-        assert_eq!(pool_ids.len(), 1);
-        assert_eq!(
-            pool_ids[0],
-            "0x85405f10672f18aa00705afe87ec937d4eadcfc2652f223591b17040ea1d39d4"
-        );
+        assert_eq!(pool_id, "0x85405f10672f18aa00705afe87ec937d4eadcfc2652f223591b17040ea1d39d4");
 
         println!("Single pool uninstall test passed");
     }
 
     #[test]
-    fn test_handle_pool_uninstalled_multiple_pools() {
-        // Create mock store with multiple pools for a hook
-        let mut store = MockStore::new_with_data();
+    fn test_handle_pool_uninstalled_no_pool() {
+        // Create mock store without any pool for the hook
+        let store = MockStore::new_with_data();
 
-        // Add multiple pools for the same hook (semicolon-separated with trailing semicolon)
-        store.insert("hook:0xaabbccdd".to_string(), "0xpool1;0xpool2;0xpool3;".to_string());
-
-        // Test with the uninstalled hook
-        let uninstalled_hooks = vec!["0xaabbccdd".to_string()];
+        // Test with an uninstalled hook that has no associated pool
+        let uninstalled_hooks = vec!["0xnonexistent".to_string()];
         let results = crate::variant_modules::map_euler_enriched_protocol_changes::_handle_pool_uninstalled_events(
             uninstalled_hooks,
             &store,
         );
 
-        assert_eq!(results.len(), 1);
-        let (hook, pool_ids) = &results[0];
-        assert_eq!(hook, "0xaabbccdd");
-        assert_eq!(pool_ids.len(), 3);
-        assert_eq!(pool_ids[0], "0xpool1");
-        assert_eq!(pool_ids[1], "0xpool2");
-        assert_eq!(pool_ids[2], "0xpool3");
-
-        println!("Multiple pools uninstall test passed - 3 pools marked as paused");
-    }
-
-    #[test]
-    fn test_handle_pool_uninstalled_empty_list() {
-        // Create mock store with empty pool list
-        let mut store = MockStore::new_with_data();
-
-        // Add an empty entry (just semicolons)
-        store.insert("hook:0xemptyhook".to_string(), ";;".to_string());
-
-        // Test with the uninstalled hook
-        let uninstalled_hooks = vec!["0xemptyhook".to_string()];
-        let results = crate::variant_modules::map_euler_enriched_protocol_changes::_handle_pool_uninstalled_events(
-            uninstalled_hooks,
-            &store,
-        );
-
-        // Should handle empty strings gracefully
+        // Should return empty results when no pool is found
         assert_eq!(results.len(), 0);
 
-        println!("Empty pool list test passed - no pools to pause");
-    }
-
-    #[test]
-    fn test_semicolon_separated_format() {
-        // Test the actual format that the append store creates
-        let pools_data = "0x85405f10672f18aa00705afe87ec937d4eadcfc2652f223591b17040ea1d39d4;";
-        let pool_ids: Vec<&str> = pools_data
-            .split(';')
-            .filter(|s| !s.is_empty())
-            .collect();
-
-        assert_eq!(pool_ids.len(), 1);
-        assert_eq!(
-            pool_ids[0],
-            "0x85405f10672f18aa00705afe87ec937d4eadcfc2652f223591b17040ea1d39d4"
-        );
-
-        // Test with multiple entries
-        let pools_data_multi = "0xpool1;0xpool2;0xpool3;";
-        let pool_ids_multi: Vec<&str> = pools_data_multi
-            .split(';')
-            .filter(|s| !s.is_empty())
-            .collect();
-
-        assert_eq!(pool_ids_multi.len(), 3);
-        assert_eq!(pool_ids_multi[0], "0xpool1");
-        assert_eq!(pool_ids_multi[1], "0xpool2");
-        assert_eq!(pool_ids_multi[2], "0xpool3");
-
-        println!("Semicolon format parsing test passed");
+        println!("No pool uninstall test passed - hook has no associated pool");
     }
 }

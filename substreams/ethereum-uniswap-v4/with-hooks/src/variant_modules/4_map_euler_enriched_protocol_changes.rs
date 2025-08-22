@@ -82,14 +82,14 @@ fn handle_pool_uninstalled_events(
     enriched_changes: &mut BlockChanges,
     euler_pools_per_hook_store: &StoreGetString,
 ) {
-    // Collect all uninstalled hooks first
-    let mut uninstalled_hooks: Vec<String> = Vec::new();
+    // Collect uninstalled hooks with their transaction hashes
+    let mut uninstalled_hooks: Vec<(String, Vec<u8>)> = Vec::new();
 
     {
         let mut on_pool_uninstalled =
-            |event: PoolUninstalled, _tx: &eth::TransactionTrace, _log: &eth::Log| {
+            |event: PoolUninstalled, tx: &eth::TransactionTrace, _log: &eth::Log| {
                 let uninstalled_hook = event.pool.to_hex();
-                uninstalled_hooks.push(uninstalled_hook);
+                uninstalled_hooks.push((uninstalled_hook, tx.hash.clone()));
             };
 
         let mut eh = EventHandler::new(block);
@@ -99,22 +99,69 @@ fn handle_pool_uninstalled_events(
     }
 
     // Now process the uninstalled hooks
-    for uninstalled_hook in uninstalled_hooks {
+    for (uninstalled_hook, tx_hash) in uninstalled_hooks {
         let hook_key = format!("hook:{}", uninstalled_hook);
         if let Some(pool_id) = euler_pools_per_hook_store.get_last(&hook_key) {
-            // Find the transaction that contains the PoolUninstalled event
+            // Find the specific transaction that contains the PoolUninstalled event
+            let mut found_tx = false;
             for tx_changes in &mut enriched_changes.changes {
-                tx_changes
-                    .entity_changes
-                    .push(EntityChanges {
-                        component_id: pool_id.clone(),
-                        attributes: vec![Attribute {
-                            name: "paused".to_string(),
-                            value: vec![1u8], // true as a single byte
-                            change: ChangeType::Update.into(),
-                        }],
-                    });
+                if let Some(ref tx) = tx_changes.tx {
+                    if tx.hash == tx_hash {
+                        // Found the transaction, add the paused entity change
+                        tx_changes.entity_changes.push(EntityChanges {
+                            component_id: pool_id.clone(),
+                            attributes: vec![Attribute {
+                                name: "paused".to_string(),
+                                value: vec![1u8], // true as a single byte
+                                change: ChangeType::Update.into(),
+                            }],
+                        });
+                        found_tx = true;
+                        break;
+                    }
+                }
+            }
+            
+            // If transaction not found in existing changes, create it
+            if !found_tx {
+                let new_tx = Transaction {
+                    hash: tx_hash,
+                    from: Vec::new(),
+                    to: Vec::new(),
+                    index: 0,
+                };
+                
+                let mut new_tx_changes = TransactionChanges::default();
+                new_tx_changes.tx = Some(new_tx);
+                new_tx_changes.entity_changes.push(EntityChanges {
+                    component_id: pool_id,
+                    attributes: vec![Attribute {
+                        name: "paused".to_string(),
+                        value: vec![1u8], // true as a single byte
+                        change: ChangeType::Update.into(),
+                    }],
+                });
+                enriched_changes.changes.push(new_tx_changes);
             }
         }
     }
+}
+
+// Extracted version for testing - takes a generic store getter
+// Returns the pool ID that would be affected by hook uninstallation
+pub fn _handle_pool_uninstalled_events<T: StoreGet<String>>(
+    uninstalled_hooks: Vec<String>,
+    pools_per_hook_store: &T,
+) -> Vec<(String, String)> {
+    let mut results = Vec::new();
+    
+    for uninstalled_hook in uninstalled_hooks {
+        let hook_key = format!("hook:{}", uninstalled_hook);
+        if let Some(pool_id) = pools_per_hook_store.get_last(&hook_key) {
+            // Now we store only one pool per hook with set_if_not_exists
+            results.push((uninstalled_hook, pool_id));
+        }
+    }
+    
+    results
 }
