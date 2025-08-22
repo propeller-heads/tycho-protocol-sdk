@@ -2,24 +2,21 @@ use std::str::FromStr;
 
 use ethabi::ethereum_types::Address;
 use ethereum_uniswap_v4_shared::abi::euler_swap_factory::events::PoolDeployed;
-use substreams::store::{StoreNew, StoreSetIfNotExists, StoreSetIfNotExistsString};
+use substreams::store::{StoreNew, StoreSetIfNotExists, StoreSetIfNotExistsInt64};
 use substreams_ethereum::pb::eth::v2::{self as eth};
 use substreams_helper::{event_handler::EventHandler, hex::Hexable};
 
 #[substreams::handlers::store]
-pub fn store_euler_hooks(params: String, block: eth::Block, output: StoreSetIfNotExistsString) {
+pub fn store_euler_hooks(params: String, block: eth::Block, output: StoreSetIfNotExistsInt64) {
     let euler_factory_address = params.as_str();
     let euler_hooks = _track_euler_hooks(&block, euler_factory_address);
 
-    for (hook_key, euler_account_value) in euler_hooks {
-        output.set_if_not_exists(0, &hook_key, &euler_account_value);
+    for hook_key in euler_hooks {
+        output.set_if_not_exists(0, &hook_key, &1);
     }
 }
 
-pub fn _track_euler_hooks(
-    block: &eth::Block,
-    euler_factory_address: &str,
-) -> Vec<(String, String)> {
+pub fn _track_euler_hooks(block: &eth::Block, euler_factory_address: &str) -> Vec<String> {
     let mut euler_hooks = Vec::new();
 
     {
@@ -29,9 +26,8 @@ pub fn _track_euler_hooks(
                 // pool info Key: hook_address, Value: euler_account (could be
                 // expanded to include more data)
                 let hook_key = event.pool.to_hex();
-                let euler_account_value = event.euler_account.to_hex();
 
-                euler_hooks.push((hook_key, euler_account_value));
+                euler_hooks.push(hook_key);
             };
 
         let mut eh = EventHandler::new(block);

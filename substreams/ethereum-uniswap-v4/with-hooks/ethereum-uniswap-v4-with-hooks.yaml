@@ -120,7 +120,7 @@ modules:
     kind: store
     initialBlock: 21688329
     updatePolicy: set_if_not_exists
-    valueType: string
+    valueType: int64
     inputs:
       - params: string
       - source: sf.ethereum.type.v2.Block
@@ -170,5 +170,4 @@ modules:
 params:
   map_pools_created: "000000000004444c5dc75cB358380D2e3dE08A90"
   store_euler_hooks: "0xb013be1D0D380C13B58e889f412895970A2Cf228"
-  store_pools_per_hook: "000000000004444c5dc75cB358380D2e3dE08A90"
   map_euler_enriched_protocol_changes: "0xb013be1D0D380C13B58e889f412895970A2Cf228"
