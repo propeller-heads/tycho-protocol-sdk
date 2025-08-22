@@ -128,29 +128,3 @@ fn handle_pool_uninstalled_events(
         }
     }
 }
-
-// Extracted version for testing - takes a generic store getter
-pub fn _handle_pool_uninstalled_events<T: StoreGet<String>>(
-    uninstalled_hooks: Vec<String>,
-    pools_per_hook_store: &T,
-) -> Vec<(String, Vec<String>)> {
-    let mut results = Vec::new();
-
-    for uninstalled_hook in uninstalled_hooks {
-        let hook_key = format!("hook:{}", uninstalled_hook);
-        if let Some(pools_data) = pools_per_hook_store.get_last(&hook_key) {
-            // Parse the semicolon-separated list of pool IDs
-            let pool_ids: Vec<String> = pools_data
-                .split(';')
-                .filter(|s| !s.is_empty())
-                .map(|s| s.to_string())
-                .collect();
-
-            if !pool_ids.is_empty() {
-                results.push((uninstalled_hook, pool_ids));
-            }
-        }
-    }
-
-    results
-}

@@ -3,11 +3,7 @@ use substreams_helper::hex::Hexable;
 use tycho_substreams::prelude::*;
 
 #[substreams::handlers::store]
-pub fn store_pools_per_hook(
-    _params: String,
-    pools_created: BlockEntityChanges,
-    output: StoreAppend<String>,
-) {
+pub fn store_pools_per_hook(pools_created: BlockEntityChanges, output: StoreAppend<String>) {
     let pool_hook_mappings = _track_uniswap_pools_by_hook(pools_created);
 
     for (key, pool_id) in pool_hook_mappings {
