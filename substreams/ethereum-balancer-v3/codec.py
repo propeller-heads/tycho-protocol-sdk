@@ -1,7 +1,12 @@
 #!/usr/bin/env python3
+# Tool to generate encoding strings for MappingToken structures used in Balancer V3
+# This utility helps encode/decode token mappings for wrapped, underlying, and none-type tokens
+# Examples of usage are provided at the bottom of this file
+
 import argparse
 import json
 import binascii
+import sys
 from enum import Enum
 from typing import List
 
@@ -43,6 +48,8 @@ def main():
     encode_parser = subparsers.add_parser("encode")
     encode_parser.add_argument("--wrapped", nargs="*", default=[], help="Wrapped token addresses (hex, 0x...)")
     encode_parser.add_argument("--underlying", nargs="*", default=[], help="Underlying token addresses (hex, 0x...)")
+    encode_parser.add_argument("--none", nargs="*", default=[], help="None type token addresses (hex, 0x...). Uses zero address (0x0000...0000) if no addresses provided")
+    encode_parser.add_argument("--none-count", type=int, default=0, help="Number of none type tokens with zero address to create")
 
     decode_parser = subparsers.add_parser("decode")
     decode_parser.add_argument("hex_str", help="Encoded hex string to decode")
@@ -51,12 +58,35 @@ def main():
 
     if args.cmd == "encode":
         tokens = []
+
+        # Handle wrapped tokens
         for addr in args.wrapped:
             addr_clean = addr.lower().removeprefix("0x")
             tokens.append(MappingToken([bytes.fromhex(addr_clean)], TokenType.Wrapped))
+
+        # Handle underlying tokens
         for addr in args.underlying:
             addr_clean = addr.lower().removeprefix("0x")
             tokens.append(MappingToken([bytes.fromhex(addr_clean)], TokenType.Underlying))
+
+        # Handle none type tokens
+        none_flag_explicitly_used = '--none' in sys.argv
+
+        if none_flag_explicitly_used:
+            if len(args.none) == 0:  # --none flag used without addresses
+                zero_address = bytes(20)  # 20 bytes of zeros (0x0000...0000)
+                tokens.append(MappingToken([zero_address], TokenType.NoneType))
+            else:  # Specific addresses provided
+                for addr in args.none:
+                    addr_clean = addr.lower().removeprefix("0x")
+                    tokens.append(MappingToken([bytes.fromhex(addr_clean)], TokenType.NoneType))
+
+        # Handle none-count for multiple zero address tokens
+        if args.none_count > 0:
+            zero_address = bytes(20)  # 20 bytes of zeros (0x0000...0000)
+            for _ in range(args.none_count):
+                tokens.append(MappingToken([zero_address], TokenType.NoneType))
+
         encoded = json_serialize_mapping_tokens(tokens)
         print(encoded)
 
@@ -69,4 +99,8 @@ def main():
 if __name__ == "__main__":
     main()
 
-# encode example: python codec.py encode --underlying c02aaa39b223fe8d0a0e5c4f27ead9083c756cc2 7f39c581f595b53c5cb19bd0b3f8da6c935e2ca0
+# encode examples:
+# python codec.py encode --underlying c02aaa39b223fe8d0a0e5c4f27ead9083c756cc2 7f39c581f595b53c5cb19bd0b3f8da6c935e2ca0
+# python codec.py encode --none  # Uses zero address
+# python codec.py encode --none 1234567890abcdef1234567890abcdef12345678  # Uses specific address
+# python codec.py encode --wrapped abc123 --underlying def456 --none  # Mixed types with zero address for none
