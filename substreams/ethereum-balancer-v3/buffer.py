@@ -1,5 +1,8 @@
+# Tool script to fetch all initialized liquidity buffer tokens from Balancer V3 Vault
+# This is not main application logic - it's a utility to discover buffer token mappings
+# and organize them as a mapping structure for configuration purposes.
+
 import os
-import json
 from web3 import Web3
 
 rpc_url = os.environ.get("ETH_RPC_URL")

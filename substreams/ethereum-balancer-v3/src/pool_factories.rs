@@ -72,10 +72,10 @@ pub fn address_map(
             let rate_providers = collect_rate_providers(&token_config);
             let mapping_tokens = collect_mapping_tokens(&token_config, params);
 
-            // TODO: to add "buffers" support for boosted pools, we need to add the unwrapped
-            // version of all ERC4626 tokens to the pool tokens list. Skipped for now - we need
-            // to test that the adapter supports it correctly and ERC4626 overwrites are handled
-            // correctly in simulation.
+            // We only include the tokens listed in token_config in the pool's token list.
+            // Mapping tokens (underlying/unwrapped tokens) are NOT added to the pool tokens
+            // as their balances are managed globally in the vault contract, not per-pool.
+            // All mapping tokens are stored separately in mapping_tokens_bytes.
             let tokens = token_config
                 .into_iter()
                 .map(|t| t.0)
@@ -116,10 +116,10 @@ pub fn address_map(
             let StablePoolCreated { pool } = StablePoolCreated::match_and_decode(log)?;
             let rate_providers = collect_rate_providers(&token_config);
             let mapping_tokens = collect_mapping_tokens(&token_config, params);
-            // TODO: to add "buffers" support for boosted pools, we need to add the unwrapped
-            // version of all ERC4626 tokens to the pool tokens list. Skipped for now - we need
-            // to test that the adapter supports it correctly and ERC4626 overwrites are handled
-            // correctly in simulation.
+            // We only include the tokens listed in token_config in the pool's token list.
+            // Mapping tokens (underlying/unwrapped tokens) are NOT added to the pool tokens
+            // as their balances are managed globally in the vault contract, not per-pool.
+            // All mapping tokens are stored separately in mapping_tokens_bytes.
             let tokens = token_config
                 .into_iter()
                 .map(|t| t.0)

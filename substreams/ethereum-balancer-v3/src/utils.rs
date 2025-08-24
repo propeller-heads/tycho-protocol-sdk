@@ -11,18 +11,42 @@ pub enum TokenType {
     Underlying,
 }
 
-/// `MappingToken` maps a pool token to its counterpart(s) in the liquidity buffer.
+/// Maps a pool token to its counterpart(s) in Balancer V3's liquidity buffer system.
 ///
-/// - If the pool token is wrapped:
-///   - `token_type = Underlying`
-///   - `addresses` holds its single underlying token address
+/// In Balancer V3, pools can contain both wrapped tokens (like waEthUSDT) and their underlying
+/// tokens (like USDT). The liquidity buffer manages these relationships.
 ///
-/// - If the pool token is underlying:
-///   - `token_type = Wrapped`
-///   - `addresses` holds one or more wrapped token addresses
+/// ## Mapping Logic:
+/// - **Querying a wrapped token** → Returns underlying token(s)
+///   - `token_type = TokenType::Underlying`
+///   - `addresses` contains underlying token address(es)
+///
+/// - **Querying an underlying token** → Returns wrapped token(s)
+///   - `token_type = TokenType::Wrapped`  
+///   - `addresses` contains wrapped token address(es)
+///
+/// ## Examples:
+/// ```rust
+/// // Example 1: waEthUSDT → USDT mapping
+/// let waEthUSDT_mapping = MappingToken {
+///     token_type: TokenType::Underlying,
+///     addresses: vec![hex::decode("dAC17F958D2ee523a2206206994597C13D831ec7 ").unwrap()], // USDT
+/// };
+///
+/// // Example 2: USDC → Multiple wrapped tokens
+/// let usdc_mapping = MappingToken {
+///     token_type: TokenType::Wrapped,
+///     addresses: vec![
+///         hex::decode("BEEF01735c132Ada46AA9aA4c54623cAA92A64CB").unwrap(), // steakUSDC
+///         hex::decode("D4fa2D31b7968E448877f69A96DE69f5de8cD23E").unwrap(), // waEthUSDC
+///     ],
+/// };
+/// ```
 #[derive(Default, Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct MappingToken {
-    pub addresses: Vec<Vec<u8>>, // underlying token maybe have multiple wrapped tokens
+    /// Token addresses that this mapping points to (20-byte Ethereum addresses as Vec<u8>)
+    pub addresses: Vec<Vec<u8>>,
+    /// Type of tokens stored in the addresses field
     pub token_type: TokenType,
 }
 
@@ -48,6 +72,8 @@ impl Params {
     }
 
     pub fn get_mapping_token(&self, token: &Vec<u8>) -> Option<MappingToken> {
+        // Phase 1: Check if token is a wrapped token (appears as key)
+        // If found, collect all underlying tokens (values) that this wrapped token maps to
         let mapping_underlying_addresses: Vec<Vec<u8>> = self
             .buffer_tokens
             .iter()
@@ -72,6 +98,8 @@ impl Params {
             });
         }
 
+        // Phase 2: Check if token is an underlying token (appears as value)  
+        // If found, collect all wrapped tokens (keys) that map to this underlying token
         let mapping_wrapped_addresses: Vec<Vec<u8>> = self
             .buffer_tokens
             .iter()
@@ -96,6 +124,7 @@ impl Params {
             });
         }
 
+        // No mapping found for this token
         None
     }
 
