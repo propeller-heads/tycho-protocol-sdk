@@ -1,17 +1,22 @@
 use crate::{
     abi::vault_contract::{
-        events::{LiquidityAdded, LiquidityRemoved, PoolPausedStateChanged, Swap},
+        events::{
+            LiquidityAdded, LiquidityAddedToBuffer, LiquidityRemoved, LiquidityRemovedFromBuffer,
+            PoolPausedStateChanged, Swap, Unwrap, Wrap,
+        },
         functions::{Erc4626BufferWrapOrUnwrap, SendTo, Settle},
     },
     pool_factories,
+    utils::Params,
 };
 use anyhow::Result;
 use itertools::Itertools;
 use keccak_hash::keccak;
-use std::collections::HashMap;
+use std::{collections::HashMap, ops::Shr};
 use substreams::{
     hex, log,
     pb::substreams::StoreDeltas,
+    scalar::BigInt,
     store::{
         StoreAddBigInt, StoreGet, StoreGetInt64, StoreGetProto, StoreNew, StoreSetIfNotExists,
         StoreSetIfNotExistsInt64, StoreSetIfNotExistsProto,
@@ -33,13 +38,17 @@ pub const BATCH_ROUTER_ADDRESS: &[u8; 20] = &hex!("136f1efcc3f8f88516b9e94110d56
 pub const PERMIT_2_ADDRESS: &[u8; 20] = &hex!("000000000022D473030F116dDEE9F6B43aC78BA3");
 
 #[substreams::handlers::map]
-pub fn map_components(block: eth::v2::Block) -> Result<BlockTransactionProtocolComponents> {
+pub fn map_components(
+    params: String,
+    block: eth::v2::Block,
+) -> Result<BlockTransactionProtocolComponents> {
     let mut tx_components = Vec::new();
+    let params = Params::parse_from_query(&params)?;
     for tx in block.transactions() {
         let mut components = Vec::new();
         for (log, call) in tx.logs_with_calls() {
             if let Some(component) =
-                pool_factories::address_map(log.address.as_slice(), log, call.call)
+                pool_factories::address_map(log.address.as_slice(), &params, log, call.call)
             {
                 components.push(component);
             }
@@ -80,7 +89,7 @@ pub fn store_token_set(map: BlockTransactionProtocolComponents, store: StoreSetI
                 .for_each(|pc| {
                     pc.tokens
                         .into_iter()
-                        .for_each(|token| store.set_if_not_exists(0, hex::encode(token), &1))
+                        .for_each(|token| store.set_if_not_exists(0, hex::encode(token), &1));
                 })
         });
 }
@@ -210,6 +219,7 @@ pub fn store_balances(deltas: BlockBalanceDeltas, store: StoreAddBigInt) {
 /// `BlockChanges`  is ordered by transactions properly.
 #[substreams::handlers::map]
 pub fn map_protocol_changes(
+    params: String,
     block: eth::v2::Block,
     grouped_components: BlockTransactionProtocolComponents,
     deltas: BlockBalanceDeltas,
@@ -220,7 +230,7 @@ pub fn map_protocol_changes(
     // We merge contract changes by transaction (identified by transaction index) making it easy to
     //  sort them at the very end.
     let mut transaction_changes: HashMap<_, TransactionChangesBuilder> = HashMap::new();
-
+    let params = Params::parse_from_query(&params)?;
     // Handle pool pause state changes
     block
         .logs()
@@ -370,24 +380,25 @@ pub fn map_protocol_changes(
         .transaction_traces
         .iter()
         .for_each(|tx| {
-            let vault_balance_change_per_tx =
-                get_vault_reserves(tx, &components_store, &tokens_store);
+            let mut vault_balances = get_vault_reserves(&params, tx, &tokens_store);
 
-            if !vault_balance_change_per_tx.is_empty() {
+            vault_balances.extend(get_vault_buffer_balances(&params, tx, &tokens_store));
+
+            if !vault_balances.is_empty() {
                 let tycho_tx = Transaction::from(tx);
                 let builder = transaction_changes
                     .entry(tx.index.into())
                     .or_insert_with(|| TransactionChangesBuilder::new(&tycho_tx));
 
-                let mut vault_contract_tlv_changes =
-                    InterimContractChange::new(VAULT_ADDRESS, false);
-                for (token_addr, reserve_value) in vault_balance_change_per_tx {
-                    vault_contract_tlv_changes.upsert_token_balance(
+                let mut contract_changes = InterimContractChange::new(VAULT_ADDRESS, false);
+                for (token_addr, reserve_value) in vault_balances {
+                    contract_changes.upsert_token_balance(
                         token_addr.as_slice(),
                         reserve_value.value.as_slice(),
                     );
                 }
-                builder.add_contract_changes(&vault_contract_tlv_changes);
+
+                builder.add_contract_changes(&contract_changes);
             }
         });
 
@@ -443,8 +454,8 @@ fn address_to_string_with_0x(address: &[u8]) -> String {
 // function needed to match reservesOf in vault storage, which by definition
 // they should always be equal to the `token.balanceOf(this)` except during unlock
 fn get_vault_reserves(
+    params: &Params,
     transaction: &eth::v2::TransactionTrace,
-    store: &StoreGetProto<ProtocolComponent>,
     token_store: &StoreGetInt64,
 ) -> HashMap<Vec<u8>, ReserveValue> {
     // reservesOf mapping for the current block Address -> Balance
@@ -475,14 +486,12 @@ fn get_vault_reserves(
                     );
                 }
             }
-            if let Some(Erc4626BufferWrapOrUnwrap { params }) =
+            if let Some(Erc4626BufferWrapOrUnwrap { params: buffer_params }) =
                 Erc4626BufferWrapOrUnwrap::match_and_decode(call)
             {
                 for change in &call.storage_changes {
-                    let wrapped_token = params.2.clone();
-                    let component_id = format!("0x{}", hex::encode(&wrapped_token));
-                    if let Some(component) = store.get_last(component_id) {
-                        let underlying_token = component.tokens[1].clone();
+                    let wrapped_token = buffer_params.2.clone();
+                    if let Some(underlying_token) = params.get_underlying_token(&wrapped_token) {
                         add_change_if_accounted(
                             &mut reserves_of,
                             change,
@@ -500,6 +509,44 @@ fn get_vault_reserves(
             }
         });
     reserves_of
+}
+
+// function needed to match bufferTokenBalances in vault storage
+fn get_vault_buffer_balances(
+    params: &Params,
+    transaction: &eth::v2::TransactionTrace,
+    token_store: &StoreGetInt64,
+) -> HashMap<Vec<u8>, ReserveValue> {
+    let mut buffer_balance = HashMap::new();
+
+    for (log, call_view) in transaction.logs_with_calls() {
+        let wrapped_token_opt = if let Some(e) = LiquidityAddedToBuffer::match_and_decode(log) {
+            Some(e.wrapped_token)
+        } else if let Some(e) = LiquidityRemovedFromBuffer::match_and_decode(log) {
+            Some(e.wrapped_token)
+        } else if let Some(e) = Wrap::match_and_decode(log) {
+            Some(e.wrapped_token)
+        } else if let Some(e) = Unwrap::match_and_decode(log) {
+            Some(e.wrapped_token)
+        } else {
+            None
+        };
+
+        if let Some(wrapped_token) = wrapped_token_opt {
+            if let Some(underlying_token) = params.get_underlying_token(&wrapped_token) {
+                for change in &call_view.call.storage_changes {
+                    add_buffer_balance_change(
+                        &mut buffer_balance,
+                        change,
+                        wrapped_token.as_slice(),
+                        &underlying_token,
+                        token_store,
+                    );
+                }
+            }
+        }
+    }
+    buffer_balance
 }
 
 struct ReserveValue {
@@ -528,6 +575,41 @@ fn add_change_if_accounted(
     }
 }
 
+fn add_buffer_balance_change(
+    buffer_balance: &mut HashMap<Vec<u8>, ReserveValue>,
+    change: &StorageChange,
+    wrapped_token: &[u8],
+    underlying_token: &[u8],
+    token_store: &StoreGetInt64,
+) {
+    let slot_key = get_storage_key_for_buffer_token(wrapped_token);
+    // record changes happening on vault contract at _bufferTokenBalances storage key
+    if change.key == slot_key && token_store.has_last(hex::encode(wrapped_token)) {
+        let raw_balance = get_balance_raw(change.new_value.clone());
+        let derived_balance = get_balance_derived(change.new_value.clone());
+
+        buffer_balance
+            .entry(wrapped_token.to_vec())
+            .and_modify(|v| {
+                if v.ordinal < change.ordinal {
+                    v.value = derived_balance.clone();
+                    v.ordinal = change.ordinal;
+                }
+            })
+            .or_insert(ReserveValue { value: derived_balance.clone(), ordinal: change.ordinal });
+
+        buffer_balance
+            .entry(underlying_token.to_vec())
+            .and_modify(|v| {
+                if v.ordinal < change.ordinal {
+                    v.value = raw_balance.clone();
+                    v.ordinal = change.ordinal;
+                }
+            })
+            .or_insert(ReserveValue { value: raw_balance.clone(), ordinal: change.ordinal });
+    }
+}
+
 // token_addr -> keccak256(abi.encode(token_address, 8)) as 8 is the order in which reserves of are
 // declared
 fn get_storage_key_for_token(token_address: &[u8]) -> Vec<u8> {
@@ -538,4 +620,33 @@ fn get_storage_key_for_token(token_address: &[u8]) -> Vec<u8> {
         .as_bytes()
         .to_vec();
     result
+}
+
+// token_addr -> keccak256(abi.encode(token_address, 11)) as 8 is the order in which
+// bufferTokenBalances are declared
+fn get_storage_key_for_buffer_token(token_address: &[u8]) -> Vec<u8> {
+    let mut input = [0u8; 64];
+    input[12..32].copy_from_slice(token_address);
+    input[63] = 11u8;
+    let result = keccak(input.as_slice())
+        .as_bytes()
+        .to_vec();
+    result
+}
+
+fn max_balance() -> BigInt {
+    // 2^128 - 1
+    (BigInt::one().shr(128u8)) - BigInt::one()
+}
+
+// get balance raw value from the packed token balance
+// https://github.com/balancer/balancer-v3-monorepo/blob/d32067a7ed47ec1680aa0b7ecf2e177e13a87fa4/pkg/solidity-utils/contracts/helpers/PackedTokenBalance.sol#L26-L28
+fn get_balance_raw(value: Vec<u8>) -> Vec<u8> {
+    (BigInt::from_unsigned_bytes_be(&value) & max_balance()).to_signed_bytes_be()
+}
+
+// get balance derived value from the packed token balance
+// https://github.com/balancer/balancer-v3-monorepo/blob/d32067a7ed47ec1680aa0b7ecf2e177e13a87fa4/pkg/solidity-utils/contracts/helpers/PackedTokenBalance.sol#L30-L32
+fn get_balance_derived(value: Vec<u8>) -> Vec<u8> {
+    ((BigInt::from_unsigned_bytes_be(&value).shr(128u8)) & max_balance()).to_signed_bytes_be()
 }
