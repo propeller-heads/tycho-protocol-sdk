@@ -22,7 +22,7 @@ pub enum TokenType {
 ///   - `addresses` contains underlying token address(es)
 ///
 /// - **Querying an underlying token** → Returns wrapped token(s)
-///   - `token_type = TokenType::Wrapped`  
+///   - `token_type = TokenType::Wrapped`
 ///   - `addresses` contains wrapped token address(es)
 ///
 /// ## Examples:
@@ -98,7 +98,7 @@ impl Params {
             });
         }
 
-        // Phase 2: Check if token is an underlying token (appears as value)  
+        // Phase 2: Check if token is an underlying token (appears as value)
         // If found, collect all wrapped tokens (keys) that map to this underlying token
         let mapping_wrapped_addresses: Vec<Vec<u8>> = self
             .buffer_tokens
