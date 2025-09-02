@@ -1,0 +1,43 @@
+
+syntax = "proto3";
+
+package cowamm;
+
+message CowPool {
+  bytes address = 1;
+  bytes token_a = 2;
+  bytes token_b = 3;
+  bytes liquidity_a = 4;
+  bytes liquidity_b = 5;
+  bytes lp_token = 6;
+  bytes lp_token_supply = 7;
+  bytes weight_a = 8;
+  bytes weight_b = 9;
+  uint64 fee = 10;
+  bytes created_tx_hash = 11;
+} 
+
+message CowPools {
+  repeated CowPool pools = 1;
+} 
+
+message CowPoolBind {
+  bytes address = 1;
+  bytes token = 2;
+  bytes liquidity = 3;
+  bytes weight = 4;
+}
+
+message CowPoolBinds {
+   repeated CowPoolBind binds = 1;
+}
+
+message CowPoolCreation {
+  bytes address = 1;
+  bytes lp_token = 2;
+  bytes created_tx_hash = 3;
+}
+
+message CowPoolCreations {
+  repeated CowPoolCreation pools = 1;
+}
