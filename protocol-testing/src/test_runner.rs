@@ -6,6 +6,8 @@ use figment::{
     Figment,
 };
 use miette::{miette, IntoDiagnostic, WrapErr};
+use num_bigint::BigUint;
+use num_traits::Zero;
 use postgres::{Client, Error, NoTls};
 use tokio::runtime::Runtime;
 use tracing::{debug, info};
@@ -374,8 +376,6 @@ fn validate_state(
     // This is where we get blocked. Currently, Tycho Simulation expects the runtime to be
     // prebuild and accessible from TychoSim - we should allow passing it when parsing the block
 
-    // TODO: Since we don't have balances on the VM State, we could try to use Limits, otherwise ask
-    //  the user to specify a set of values on the YAML file.
     for (id, state) in block_msg.states.iter() {
         if let Some(tokens) = pairs.get(id) {
             let formatted_token_str = format!("{:}/{:}", &tokens[0].symbol, &tokens[1].symbol);
@@ -385,18 +385,54 @@ fn validate_state(
                 .map(|price| info!("Spot price {:?}: {:?}", formatted_token_str, price))
                 .map_err(|e| info!("Error calculating spot price for Pool {:?}: {:?}", id, e))
                 .ok();
-            // let amount_in =
-            //     BigUint::from(1u32) * BigUint::from(10u32).pow(tokens[0].decimals as u32);
-            // state
-            //     .get_amount_out(amount_in, &tokens[0], &tokens[1])
-            //     .map(|result| {
-            //         println!(
-            //             "Amount out for trading 1 {:?} -> {:?}: {:?} (takes {:?} gas)",
-            //             &tokens[0].symbol, &tokens[1].symbol, result.amount, result.gas
-            //         )
-            //     })
-            //     .map_err(|e| eprintln!("Error calculating amount out for Pool {:?}: {:?}", id,
-            // e))     .ok();
+
+            // Test get_amount_out with different percentages of limits. The reserves or limits are
+            // relevant because we need to know how much to test with. We don’t know if a pool is
+            // going to revert with 10 or 10 million USDC, for example, so by using the limits we
+            // can use “safe values” where the sim shouldn’t break.
+            let percentages = [0.001, 0.01, 0.1];
+            for percentage in &percentages {
+                // Get limits for this token pair
+                let limits = state
+                    .get_limits(tokens[0].address.clone(), tokens[1].address.clone())
+                    .map_err(|e| info!("Error getting limits for Pool {:?}: {:?}", id, e))
+                    .ok();
+
+                if let Some((max_input, _max_output)) = limits {
+                    // Calculate test amount as percentage of max input
+                    let percentage_biguint = BigUint::from((percentage * 1000.0) as u32);
+                    let thousand = BigUint::from(1000u32);
+                    let amount_in = (&max_input * &percentage_biguint) / &thousand;
+
+                    // Skip if amount is zero
+                    if amount_in.is_zero() {
+                        continue;
+                    }
+
+                    state
+                        .get_amount_out(amount_in.clone(), &tokens[0], &tokens[1])
+                        .map(|result| {
+                            info!(
+                                "Amount out for trading {:.1}% of max ({} -> {}): {} {} (gas: {})",
+                                percentage * 100.0,
+                                &tokens[0].symbol,
+                                &tokens[1].symbol,
+                                result.amount,
+                                &tokens[1].symbol,
+                                result.gas
+                            )
+                        })
+                        .map_err(|e| {
+                            info!(
+                                "Error calculating amount out for Pool {:?} at {:.1}%: {:?}",
+                                id,
+                                percentage * 100.0,
+                                e
+                            )
+                        })
+                        .ok();
+                }
+            }
         }
     }
 
