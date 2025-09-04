@@ -76,10 +76,15 @@ pub fn address_map(
             // Mapping tokens (underlying/unwrapped tokens) are NOT added to the pool tokens
             // as their balances are managed globally in the vault contract, not per-pool.
             // All mapping tokens are stored separately in mapping_tokens_bytes.
-            let tokens = token_config
+            let tokens: Vec<_> = token_config
                 .into_iter()
                 .map(|t| t.0)
-                .collect::<Vec<_>>();
+                .chain(
+                    mapping_tokens
+                        .iter()
+                        .flat_map(|m| m.addresses.iter().cloned()),
+                )
+                .collect();
 
             let normalized_weights_bytes =
                 json_serialize_bigint_list(normalized_weights.as_slice());
