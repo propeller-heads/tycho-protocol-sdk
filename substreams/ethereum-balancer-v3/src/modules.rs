@@ -142,11 +142,6 @@ pub fn map_relative_balances(
             {
                 let component_id = format!("0x{}", hex::encode(pool));
                 if let Some(component) = store.get_last(format!("pool:{}", &component_id)) {
-                    if component.tokens.len() != amounts_added_raw.len() {
-                        panic!(
-                            "liquidity added to pool with different number of tokens than expected"
-                        );
-                    }
                     log::info!(
                         "liquidity added at component id: {:?} with key: {:?} with tokens: {:?}",
                         component_id,
@@ -177,11 +172,6 @@ pub fn map_relative_balances(
                     format!("pool:{}", &component_id)
                 );
                 if let Some(component) = store.get_last(format!("pool:{}", &component_id)) {
-                    if component.tokens.len() != amounts_removed_raw.len() {
-                        panic!(
-                            "liquidity removed from pool with different number of tokens than expected"
-                        );
-                    }
                     let deltas_from_removed_liquidity = amounts_removed_raw
                         .into_iter()
                         .zip(component.tokens.iter())
