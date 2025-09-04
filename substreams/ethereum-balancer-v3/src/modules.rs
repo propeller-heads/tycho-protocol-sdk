@@ -4,7 +4,7 @@ use crate::{
             LiquidityAdded, LiquidityAddedToBuffer, LiquidityRemoved, LiquidityRemovedFromBuffer,
             PoolPausedStateChanged, Swap, Unwrap, Wrap,
         },
-        functions::{Erc4626BufferWrapOrUnwrap, SendTo, Settle},
+        functions::{SendTo, Settle},
     },
     pool_factories,
     utils::Params,
@@ -380,7 +380,7 @@ pub fn map_protocol_changes(
         .transaction_traces
         .iter()
         .for_each(|tx| {
-            let mut vault_balances = get_vault_reserves(&params, tx, &tokens_store);
+            let mut vault_balances = get_vault_reserves(tx, &tokens_store);
 
             vault_balances.extend(get_vault_buffer_balances(&params, tx, &tokens_store));
 
@@ -454,7 +454,6 @@ fn address_to_string_with_0x(address: &[u8]) -> String {
 // function needed to match reservesOf in vault storage, which by definition
 // they should always be equal to the `token.balanceOf(this)` except during unlock
 fn get_vault_reserves(
-    params: &Params,
     transaction: &eth::v2::TransactionTrace,
     token_store: &StoreGetInt64,
 ) -> HashMap<Vec<u8>, ReserveValue> {
@@ -484,27 +483,6 @@ fn get_vault_reserves(
                         token.as_slice(),
                         token_store,
                     );
-                }
-            }
-            if let Some(Erc4626BufferWrapOrUnwrap { params: buffer_params }) =
-                Erc4626BufferWrapOrUnwrap::match_and_decode(call)
-            {
-                for change in &call.storage_changes {
-                    let wrapped_token = buffer_params.2.clone();
-                    if let Some(underlying_token) = params.get_underlying_token(&wrapped_token) {
-                        add_change_if_accounted(
-                            &mut reserves_of,
-                            change,
-                            wrapped_token.as_slice(),
-                            token_store,
-                        );
-                        add_change_if_accounted(
-                            &mut reserves_of,
-                            change,
-                            underlying_token.as_slice(),
-                            token_store,
-                        );
-                    }
                 }
             }
         });
