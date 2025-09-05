@@ -1,18 +1,23 @@
 use std::{collections::HashMap, env, path::PathBuf, str::FromStr};
 
-use alloy::primitives::U256;
+use alloy::primitives::{Address, U256};
 use figment::{
     providers::{Format, Yaml},
     Figment,
 };
+use num_bigint::BigUint;
+use num_traits::Zero;
+use itertools::Itertools;
 use miette::{miette, IntoDiagnostic, WrapErr};
 use postgres::{Client, Error, NoTls};
+use revm::state::Bytecode;
 use tokio::runtime::Runtime;
 use tracing::{debug, info};
 use tycho_client::feed::BlockHeader;
 use tycho_common::{
     dto::{Chain, ProtocolComponent, ResponseAccount, ResponseProtocolState},
     models::token::Token,
+    simulation::{errors::SimulationError, protocol_sim::ProtocolSim},
     Bytes,
 };
 use tycho_simulation::{
@@ -28,6 +33,7 @@ use tycho_simulation::{
 };
 
 use crate::{
+    adapter_builder::AdapterContractBuilder,
     config::{IntegrationTest, IntegrationTestsConfig, ProtocolComponentWithTestConfig},
     rpc::RPCProvider,
     tycho_rpc::TychoClient,
@@ -40,12 +46,17 @@ pub struct TestRunner {
     db_url: String,
     vm_traces: bool,
     substreams_path: PathBuf,
+    adapter_contract_builder: AdapterContractBuilder,
 }
 
 impl TestRunner {
     pub fn new(package: String, tycho_logs: bool, db_url: String, vm_traces: bool) -> Self {
         let substreams_path = PathBuf::from("../substreams").join(&package);
-        Self { tycho_logs, db_url, vm_traces, substreams_path }
+        let repo_root = env::current_dir().expect("Failed to get current directory");
+        let evm_path = repo_root.join("../evm");
+        let adapter_contract_builder =
+            AdapterContractBuilder::new(evm_path.to_string_lossy().to_string());
+        Self { tycho_logs, db_url, vm_traces, substreams_path, adapter_contract_builder }
     }
 
     pub fn run_tests(&self) -> miette::Result<()> {
@@ -145,7 +156,16 @@ impl TestRunner {
             .wrap_err("Failed to run Tycho")?;
 
         let _ = tycho_runner.run_with_rpc_server(
-            validate_state,
+            |expected_components, start_block, stop_block, skip_balance_check| {
+                validate_state(
+                    expected_components,
+                    start_block,
+                    stop_block,
+                    skip_balance_check,
+                    config,
+                    &self.adapter_contract_builder,
+                )
+            },
             &test.expected_components,
             test.start_block,
             test.stop_block,
@@ -176,6 +196,8 @@ fn validate_state(
     start_block: u64,
     stop_block: u64,
     skip_balance_check: bool,
+    config: &IntegrationTestsConfig,
+    adapter_contract_builder: &AdapterContractBuilder,
 ) -> miette::Result<()> {
     let rt = Runtime::new().unwrap();
 
@@ -263,6 +285,33 @@ fn validate_state(
     }
 
     // Step 3: Run Tycho Simulation
+    // Build/find the adapter contract
+    let adapter_contract_path =
+        match adapter_contract_builder.find_contract(&config.adapter_contract) {
+            Ok(path) => {
+                info!("Found adapter contract at: {}", path.display());
+                path
+            }
+            Err(_) => {
+                info!("Adapter contract not found, building it...");
+                adapter_contract_builder
+                    .build_target(
+                        &config.adapter_contract,
+                        config
+                            .adapter_build_signature
+                            .as_deref(),
+                        config.adapter_build_args.as_deref(),
+                    )
+                    .wrap_err("Failed to build adapter contract")?
+            }
+        };
+
+    info!("Using adapter contract: {}", adapter_contract_path.display());
+
+    let adapter_bytes = std::fs::read(&adapter_contract_path)
+        .into_diagnostic()
+        .wrap_err("Failed to read adapter contract file")?;
+
     let mut decoder = TychoStreamDecoder::new();
     decoder.register_decoder::<EVMPoolState<PreCachedDB>>("test_protocol");
 
@@ -332,25 +381,94 @@ fn validate_state(
     //  the user to specify a set of values on the YAML file.
     for (id, state) in block_msg.states.iter() {
         if let Some(tokens) = pairs.get(id) {
-            let formatted_token_str = format!("{:}/{:}", &tokens[0].symbol, &tokens[1].symbol);
-            info!("Amount out for {}: calculating for tokens {:?}", id, formatted_token_str);
-            state
-                .spot_price(&tokens[0], &tokens[1])
-                .map(|price| info!("Spot price {:?}: {:?}", formatted_token_str, price))
-                .map_err(|e| info!("Error calculating spot price for Pool {:?}: {:?}", id, e))
-                .ok();
-            // let amount_in =
-            //     BigUint::from(1u32) * BigUint::from(10u32).pow(tokens[0].decimals as u32);
-            // state
-            //     .get_amount_out(amount_in, &tokens[0], &tokens[1])
-            //     .map(|result| {
-            //         println!(
-            //             "Amount out for trading 1 {:?} -> {:?}: {:?} (takes {:?} gas)",
-            //             &tokens[0].symbol, &tokens[1].symbol, result.amount, result.gas
-            //         )
-            //     })
-            //     .map_err(|e| eprintln!("Error calculating amount out for Pool {:?}: {:?}", id,
-            // e))     .ok();
+            // Clone the state to get a mutable reference we can work with
+            let mut cloned_state = state.clone_box();
+
+            // Cast to EVMPoolState to access the now-public adapter_contract
+            if let Some(evm_state) = cloned_state
+                .as_any_mut()
+                .downcast_mut::<EVMPoolState<PreCachedDB>>()
+            {
+                // Update the adapter bytecode using the new update_bytecode method
+                let adapter_bytecode = Bytecode::new_raw(adapter_bytes.clone().into());
+                evm_state
+                    .adapter_contract
+                    .update_bytecode(adapter_bytecode)
+                    .map_err(|e| miette::miette!("Failed to update adapter bytecode: {:?}", e))?;
+                info!("Successfully updated adapter contract bytecode for Pool {:?}", id);
+
+                // Hack: Since we skipped setting the spot prices during decoding since we didn't
+                // get update the adapter bytecode. We must set the spot prices now.
+                let mut all_tokens = HashMap::new();
+                all_tokens.insert(tokens[0].address.clone(), tokens[0].clone());
+                all_tokens.insert(tokens[1].address.clone(), tokens[1].clone());
+
+                evm_state
+                    .set_default_capabilities()
+                    .map_err(|e| miette::miette!("Failed to set spot prices: {:?}", e))?;
+                evm_state
+                    .set_spot_prices(&all_tokens)
+                    .map_err(|e| miette::miette!("Failed to set spot prices: {:?}", e))?;
+                info!("Successfully set spot prices for Pool {:?}", id);
+
+                // Use the state with updated adapter for calculations
+                let formatted_token_str = format!("{:}/{:}", &tokens[0].symbol, &tokens[1].symbol);
+                info!("Amount out for {}: calculating for tokens {:?}", id, formatted_token_str);
+                evm_state
+                    .spot_price(&tokens[0], &tokens[1])
+                    .map(|price| info!("Spot price {:?}: {:?}", formatted_token_str, price))
+                    .map_err(|e| info!("Error calculating spot price for Pool {:?}: {:?}", id, e))
+                    .ok();
+
+                // Test get_amount_out with different percentages of limits. The reserves or limits
+                // are relevant because we need to know how much to test with. We
+                // don't know if a pool is going to revert with 10 or 10 million
+                // USDC, for example, so by using the limits we can use "safe
+                // values" where the sim shouldn't break.
+                let percentages = [0.001, 0.01, 0.1];
+                for percentage in &percentages {
+                    // Get limits for this token pair
+                    let limits = evm_state
+                        .get_limits(tokens[0].address.clone(), tokens[1].address.clone())
+                        .map_err(|e| info!("Error getting limits for Pool {:?}: {:?}", id, e))
+                        .ok();
+
+                    if let Some((max_input, _max_output)) = limits {
+                        // Calculate test amount as percentage of max input
+                        let percentage_biguint = BigUint::from((percentage * 1000.0) as u32);
+                        let thousand = BigUint::from(1000u32);
+                        let amount_in = (&max_input * &percentage_biguint) / &thousand;
+
+                        // Skip if amount is zero
+                        if amount_in.is_zero() {
+                            continue;
+                        }
+
+                        evm_state
+                            .get_amount_out(amount_in.clone(), &tokens[0], &tokens[1])
+                            .map(|result| {
+                                info!(
+                                "Amount out for trading {:.1}% of max ({} -> {}): {} {} (gas: {})",
+                                percentage * 100.0,
+                                &tokens[0].symbol,
+                                &tokens[1].symbol,
+                                result.amount,
+                                &tokens[1].symbol,
+                                result.gas
+                            )
+                            })
+                            .map_err(|e| {
+                                info!(
+                                    "Error calculating amount out for Pool {:?} at {:.1}%: {:?}",
+                                    id,
+                                    percentage * 100.0,
+                                    e
+                                )
+                            })
+                            .ok();
+                    }
+                }
+            }
         }
     }
 
@@ -408,6 +526,21 @@ fn validate_token_balances(
         }
     }
     Ok(())
+}
+
+/// Safely converts a `Bytes` object to an `Address` object.
+///
+/// Checks the length of the `Bytes` before attempting to convert, and returns a `SimulationError`
+/// if not 20 bytes long.
+pub(crate) fn bytes_to_address(address: &Bytes) -> Result<Address, SimulationError> {
+    if address.len() == 20 {
+        Ok(Address::from_slice(address))
+    } else {
+        Err(SimulationError::InvalidInput(
+            format!("Invalid ERC20 token address: {address:?}"),
+            None,
+        ))
+    }
 }
 
 #[cfg(test)]
