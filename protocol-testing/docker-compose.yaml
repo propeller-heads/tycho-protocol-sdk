@@ -14,5 +14,21 @@ services:
     shm_size: "1gb"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+
+  test-runner:
+    build:
+      context: .
+      dockerfile: run.Dockerfile
+    depends_on:
+      - db
+    environment:
+      DATABASE_URL: "${DATABASE_URL}"
+      RPC_URL: "${RPC_URL}"
+      SUBSTREAMS_API_TOKEN: "${SUBSTREAMS_API_TOKEN}"
+      AUTH_API_KEY: "${AUTH_API_KEY}"
+    volumes:
+      - .:/app
+    entrypoint: ["/entrypoint.sh"]
+
 volumes:
   postgres_data:
