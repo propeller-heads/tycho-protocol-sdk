@@ -28,6 +28,7 @@ use tycho_simulation::{
 };
 
 use crate::{
+    adapter_builder::AdapterContractBuilder,
     config::{IntegrationTest, IntegrationTestsConfig, ProtocolComponentWithTestConfig},
     rpc::RPCProvider,
     tycho_rpc::TychoClient,
@@ -40,12 +41,17 @@ pub struct TestRunner {
     db_url: String,
     vm_traces: bool,
     substreams_path: PathBuf,
+    adapter_contract_builder: AdapterContractBuilder,
 }
 
 impl TestRunner {
     pub fn new(package: String, tycho_logs: bool, db_url: String, vm_traces: bool) -> Self {
         let substreams_path = PathBuf::from("../substreams").join(&package);
-        Self { tycho_logs, db_url, vm_traces, substreams_path }
+        let repo_root = env::current_dir().expect("Failed to get current directory");
+        let evm_path = repo_root.join("../evm");
+        let adapter_contract_builder =
+            AdapterContractBuilder::new(evm_path.to_string_lossy().to_string());
+        Self { tycho_logs, db_url, vm_traces, substreams_path, adapter_contract_builder }
     }
 
     pub fn run_tests(&self) -> miette::Result<()> {
@@ -96,7 +102,7 @@ impl TestRunner {
 
     fn parse_config(config_yaml_path: &PathBuf) -> miette::Result<IntegrationTestsConfig> {
         info!("Config YAML: {}", config_yaml_path.display());
-        let yaml = Yaml::file(&config_yaml_path);
+        let yaml = Yaml::file(config_yaml_path);
         let figment = Figment::new().merge(yaml);
         let config = figment
             .extract::<IntegrationTestsConfig>()
@@ -145,7 +151,16 @@ impl TestRunner {
             .wrap_err("Failed to run Tycho")?;
 
         let _ = tycho_runner.run_with_rpc_server(
-            validate_state,
+            |expected_components, start_block, stop_block, skip_balance_check| {
+                validate_state(
+                    expected_components,
+                    start_block,
+                    stop_block,
+                    skip_balance_check,
+                    config,
+                    &self.adapter_contract_builder,
+                )
+            },
             &test.expected_components,
             test.start_block,
             test.stop_block,
@@ -176,6 +191,8 @@ fn validate_state(
     start_block: u64,
     stop_block: u64,
     skip_balance_check: bool,
+    config: &IntegrationTestsConfig,
+    adapter_contract_builder: &AdapterContractBuilder,
 ) -> miette::Result<()> {
     let rt = Runtime::new().unwrap();
 
@@ -263,8 +280,36 @@ fn validate_state(
     }
 
     // Step 3: Run Tycho Simulation
+
+    // Build/find the adapter contract
+    let adapter_contract_path =
+        match adapter_contract_builder.find_contract(&config.adapter_contract) {
+            Ok(path) => {
+                info!("Found adapter contract at: {}", path.display());
+                path
+            }
+            Err(_) => {
+                info!("Adapter contract not found, building it...");
+                adapter_contract_builder
+                    .build_target(
+                        &config.adapter_contract,
+                        config
+                            .adapter_build_signature
+                            .as_deref(),
+                        config.adapter_build_args.as_deref(),
+                    )
+                    .wrap_err("Failed to build adapter contract")?
+            }
+        };
+
+    info!("Using adapter contract: {}", adapter_contract_path.display());
+    let adapter_contract_path_str: &str = adapter_contract_path.to_str().unwrap();
+
     let mut decoder = TychoStreamDecoder::new();
-    decoder.register_decoder::<EVMPoolState<PreCachedDB>>("test_protocol");
+    decoder.register_decoder::<EVMPoolState<PreCachedDB>>(
+        "test_protocol",
+        Some(adapter_contract_path_str),
+    );
 
     // Mock a stream message, with only a Snapshot and no deltas
     let mut states: HashMap<String, ComponentWithState> = HashMap::new();
