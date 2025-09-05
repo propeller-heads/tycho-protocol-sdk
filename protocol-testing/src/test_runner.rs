@@ -369,9 +369,6 @@ fn validate_state(
             .or_insert_with(|| comp.tokens.clone());
     }
 
-    // This is where we get blocked. Currently, Tycho Simulation expects the runtime to be
-    // prebuild and accessible from TychoSim - we should allow passing it when parsing the block
-
     // TODO: Since we don't have balances on the VM State, we could try to use Limits, otherwise ask
     //  the user to specify a set of values on the YAML file.
     for (id, state) in block_msg.states.iter() {
