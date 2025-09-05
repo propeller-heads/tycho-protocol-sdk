@@ -9,8 +9,8 @@ miette = { version = "7.6.0", features = ["fancy"] }
 # Logging & Tracing
 tracing = "0.1.37"
 # Tycho dependencies
-tycho-common = "0.83.0"
-tycho-client = "0.83.0"
+tycho-common = "0.82.0"
+tycho-client = "0.82.0"
 # TODO make this less hacky. We should probably try to build this in a similar way that the indexer is built
 tycho-simulation = { path = "../../tycho-simulation", features = ["evm"] }
 # EVM dependencies
