@@ -11,6 +11,7 @@ use abi::{
         events::PoolCreated as WeightedPoolCreated, functions::Create as WeightedPoolCreate,
     },
 };
+use indexmap::IndexSet;
 use substreams::{hex, scalar::BigInt};
 use substreams_ethereum::{
     pb::eth::v2::{Call, Log},
@@ -84,6 +85,14 @@ pub fn address_map(
                         .iter()
                         .flat_map(|m| m.addresses.iter().cloned()),
                 )
+                .chain(
+                    mapping_tokens
+                        .iter()
+                        .flat_map(|m| m.addresses.iter())
+                        .filter_map(|wrapped_token| params.get_underlying_token(wrapped_token)),
+                )
+                .collect::<IndexSet<_>>()
+                .into_iter()
                 .collect();
 
             let normalized_weights_bytes =
@@ -125,10 +134,23 @@ pub fn address_map(
             // Mapping tokens (underlying/unwrapped tokens) are NOT added to the pool tokens
             // as their balances are managed globally in the vault contract, not per-pool.
             // All mapping tokens are stored separately in mapping_tokens_bytes.
-            let tokens = token_config
+            let tokens: Vec<_> = token_config
                 .into_iter()
                 .map(|t| t.0)
-                .collect::<Vec<_>>();
+                .chain(
+                    mapping_tokens
+                        .iter()
+                        .flat_map(|m| m.addresses.iter().cloned()),
+                )
+                .chain(
+                    mapping_tokens
+                        .iter()
+                        .flat_map(|m| m.addresses.iter())
+                        .filter_map(|wrapped_token| params.get_underlying_token(wrapped_token)),
+                )
+                .collect::<IndexSet<_>>()
+                .into_iter()
+                .collect();
 
             let fee_bytes = swap_fee_percentage.to_signed_bytes_be();
             let rate_providers_bytes = json_serialize_address_list(rate_providers.as_slice());
