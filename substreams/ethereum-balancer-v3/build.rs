@@ -12,6 +12,7 @@ fn main() -> Result<(), anyhow::Error> {
         "abi/weighted_pool_factory_contract.abi.json",
         "abi/stable_pool_contract.abi.json",
         "abi/weighted_pool_contract.abi.json",
+        "abi/erc4626.json",
     ];
     let file_output_names = [
         "src/abi/vault_contract.rs",
@@ -19,6 +20,7 @@ fn main() -> Result<(), anyhow::Error> {
         "src/abi/weighted_pool_factory_contract.rs",
         "src/abi/stable_pool_contract.rs",
         "src/abi/weighted_pool_contract.rs",
+        "src/abi/erc4626.rs",
     ];
 
     let mut i = 0;
