@@ -21,7 +21,7 @@ use tycho_simulation::{
         engine_db::tycho_db::PreCachedDB,
         protocol::{u256_num::bytes_to_u256, vm::state::EVMPoolState},
     },
-    protocol::models::VMAttributes,
+    protocol::models::DecoderContext,
     tycho_client::feed::{
         synchronizer::{ComponentWithState, Snapshot, StateSyncMessage},
         FeedMessage,
@@ -307,8 +307,16 @@ fn validate_state(
     let adapter_contract_path_str: &str = adapter_contract_path.to_str().unwrap();
 
     let mut decoder = TychoStreamDecoder::new();
-    let vm_attributes = VMAttributes::new(Some(adapter_contract_path_str.into()));
-    decoder.register_decoder::<EVMPoolState<PreCachedDB>>("test_protocol", vm_attributes);
+    let decoder_context = DecoderContext::new().vm_adapter_path(adapter_contract_path_str);
+    decoder.register_decoder_with_context::<EVMPoolState<PreCachedDB>>(
+        "test_protocol",
+        decoder_context,
+    );
+
+    // NOTE: Once tycho-simulation is updated, you can use the new API like this:
+    // use tycho_simulation::protocol::models::DecoderContext;
+    // let context = DecoderContext::new().vm_adapter_path(adapter_contract_path_str);
+    // decoder.register_decoder_with_context::<EVMPoolState<PreCachedDB>>("test_protocol", context);
 
     // Mock a stream message, with only a Snapshot and no deltas
     let mut states: HashMap<String, ComponentWithState> = HashMap::new();
