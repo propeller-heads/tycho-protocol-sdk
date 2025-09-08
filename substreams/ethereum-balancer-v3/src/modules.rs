@@ -32,6 +32,7 @@ use tycho_substreams::{
     entrypoint::create_entrypoint, models::entry_point_params::TraceData, prelude::*,
 };
 
+pub const VAULT_FACTORY_ADDRESS: &[u8] = &hex!("Ac27df81663d139072E615855eF9aB0Af3FBD281");
 pub const VAULT_ADDRESS: &[u8] = &hex!("bA1333333333a1BA1108E8412f11850A5C319bA9");
 pub const VAULT_EXTENSION_ADDRESS: &[u8; 20] = &hex!("0E8B07657D719B86e06bF0806D6729e3D528C9A9");
 pub const BATCH_ROUTER_ADDRESS: &[u8; 20] = &hex!("136f1efcc3f8f88516b9e94110d56fdbfb1778d1");
@@ -142,6 +143,11 @@ pub fn map_relative_balances(
             {
                 let component_id = format!("0x{}", hex::encode(pool));
                 if let Some(component) = store.get_last(format!("pool:{}", &component_id)) {
+                    if component.tokens.len() != amounts_added_raw.len() {
+                        panic!(
+                            "liquidity added to pool with different number of tokens than expected"
+                        );
+                    }
                     log::info!(
                         "liquidity added at component id: {:?} with key: {:?} with tokens: {:?}",
                         component_id,
@@ -172,6 +178,11 @@ pub fn map_relative_balances(
                     format!("pool:{}", &component_id)
                 );
                 if let Some(component) = store.get_last(format!("pool:{}", &component_id)) {
+                    if component.tokens.len() != amounts_removed_raw.len() {
+                        panic!(
+                            "liquidity removed from pool with different number of tokens than expected"
+                        );
+                    }
                     let deltas_from_removed_liquidity = amounts_removed_raw
                         .into_iter()
                         .zip(component.tokens.iter())
