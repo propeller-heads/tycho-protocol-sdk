@@ -250,7 +250,7 @@ dependencies = [
  "num-bigint",
  "substreams",
  "substreams-ethereum",
- "tycho-substreams 0.5.0 (git+https://github.com/propeller-heads/tycho-protocol-sdk.git?tag=0.5.0)",
+ "tycho-substreams 0.5.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -1777,7 +1777,8 @@ dependencies = [
 [[package]]
 name = "tycho-substreams"
 version = "0.5.0"
-source = "git+https://github.com/propeller-heads/tycho-protocol-sdk.git?tag=0.5.0#655fae77aba34b84353d923575096bd9c26ee418"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "828cbe6f7b984fefe39d8fdb4c40311e329f30ded0a70e477e8f2add4d60483d"
 dependencies = [
  "ethabi 18.0.0",
  "hex",
