@@ -19,7 +19,7 @@ jobs:
       run:
         working-directory: evm
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v5
         with:
           submodules: recursive
 
