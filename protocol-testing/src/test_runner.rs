@@ -29,11 +29,16 @@ use tycho_simulation::{
         synchronizer::{ComponentWithState, Snapshot, StateSyncMessage},
         FeedMessage,
     },
+    tycho_execution::encoding::{
+        evm::encoder_builders::TychoRouterEncoderBuilder,
+        models::{Solution, SwapBuilder, UserTransferType},
+    },
 };
 
 use crate::{
     adapter_builder::AdapterContractBuilder,
     config::{IntegrationTest, IntegrationTestsConfig, ProtocolComponentWithTestConfig},
+    encoding_utils::encode_tycho_router_call,
     rpc::RPCProvider,
     tycho_rpc::TychoClient,
     tycho_runner::TychoRunner,
@@ -151,6 +156,7 @@ impl TestRunner {
                 test.start_block,
                 test.stop_block,
                 &config.protocol_type_names,
+                &config.protocol_system,
             )
             .wrap_err("Failed to run Tycho")?;
 
@@ -204,7 +210,7 @@ fn validate_state(
         .wrap_err("Failed to create Tycho client")?;
 
     let chain = Chain::Ethereum;
-    let protocol_system = "test_protocol";
+    let protocol_system = &config.protocol_system;
 
     // Fetch data from Tycho RPC. We use block_on to avoid using async functions on the testing
     // module, in order to simplify debugging
@@ -314,7 +320,7 @@ fn validate_state(
     let mut decoder = TychoStreamDecoder::new();
     let decoder_context = DecoderContext::new().vm_adapter_path(adapter_contract_path_str);
     decoder.register_decoder_with_context::<EVMPoolState<PreCachedDB>>(
-        "test_protocol",
+        protocol_system,
         decoder_context,
     );
 
@@ -380,7 +386,7 @@ fn validate_state(
         .wrap_err("Failed to get block header")?;
 
     let state_msgs: HashMap<String, StateSyncMessage<BlockHeader>> = HashMap::from([(
-        String::from("test_protocol"),
+        String::from(protocol_system),
         StateSyncMessage {
             header: BlockHeader {
                 hash: Bytes::from(bytes),
@@ -442,6 +448,8 @@ fn validate_state(
                 .map(|perm| (perm[0], perm[1]))
                 .collect();
 
+            let alice_address =
+                Bytes::from_str("0xcd09f75E2BF2A4d11F3AB23f1389FcC1621c0cc2").into_diagnostic()?;
             for (token_in, token_out) in &swap_directions {
                 let (max_input, max_output) = state
                     .get_limits(token_in.address.clone(), token_out.address.clone())
@@ -468,25 +476,72 @@ fn validate_state(
                         continue;
                     }
 
-                    state
+                    let amount_out_result = state
                         .get_amount_out(amount_in.clone(), token_in, token_out)
-                        .map(|result| {
-                            info!(
-                                "Amount out for trading {:.1}% of max: ({} {} -> {} {}) (gas: {})",
-                                percentage * 100.0,
-                                amount_in,
-                                token_in.symbol,
-                                result.amount,
-                                token_out.symbol,
-                                result.gas
-                            )
-                        })
                         .into_diagnostic()
                         .wrap_err(format!(
                             "Error calculating amount out for Pool {id:?} at {:.1}% with input of {amount_in} {}.",
                             percentage * 100.0,
                             token_in.symbol,
                         ))?;
+
+                    info!(
+                        "Amount out for trading {:.1}% of max: ({} {} -> {} {}) (gas: {})",
+                        percentage * 100.0,
+                        amount_in,
+                        token_in.symbol,
+                        amount_out_result.amount,
+                        token_out.symbol,
+                        amount_out_result.gas
+                    );
+
+                    let chain: tycho_common::models::Chain = Chain::Ethereum.into();
+                    let encoder = TychoRouterEncoderBuilder::new()
+                        .chain(chain)
+                        .user_transfer_type(UserTransferType::TransferFrom)
+                        .build()
+                        .expect("Failed to build encoder");
+
+                    let swap = SwapBuilder::new(
+                        block_msg
+                            .new_pairs
+                            .get(id)
+                            .unwrap()
+                            .clone(),
+                        token_in.address.clone(),
+                        token_out.address.clone(),
+                    )
+                    .build();
+
+                    let slippage = 0.0025; // 0.25% slippage
+                    let bps = BigUint::from(10_000u32);
+                    let slippage_percent = BigUint::from((slippage * 10000.0) as u32);
+                    let multiplier = &bps - slippage_percent;
+                    let min_amount_out = (amount_out_result.amount * &multiplier) / &bps;
+
+                    let solution = Solution {
+                        sender: alice_address.clone(),
+                        receiver: alice_address.clone(),
+                        given_token: token_in.address.clone(),
+                        given_amount: amount_in,
+                        checked_token: token_out.address.clone(),
+                        exact_out: false,
+                        checked_amount: min_amount_out,
+                        swaps: vec![swap],
+                        ..Default::default()
+                    };
+
+                    let encoded_solution = encoder
+                        .encode_solutions(vec![solution.clone()])
+                        .expect("Failed to encode router calldata")[0]
+                        .clone();
+
+                    let calldata = encode_tycho_router_call(
+                        encoded_solution,
+                        &solution,
+                        &chain.wrapped_native_token().address,
+                    );
+                    info!("Encoded swap successfully");
                 }
             }
         }
