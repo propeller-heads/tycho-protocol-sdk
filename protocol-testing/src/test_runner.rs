@@ -446,7 +446,8 @@ fn validate_state(
             .entry(id.clone())
             .or_insert_with(|| comp.tokens.clone());
     }
-
+    let alice_address =
+        Bytes::from_str("0xcd09f75E2BF2A4d11F3AB23f1389FcC1621c0cc2").into_diagnostic()?;
     for (id, state) in block_msg.states.iter() {
         if let Some(tokens) = pairs.get(id) {
             let formatted_token_str = format!("{:}/{:}", &tokens[0].symbol, &tokens[1].symbol);
@@ -532,7 +533,7 @@ fn validate_state(
                         token_in.address.clone(),
                         token_out.address.clone(),
                     )
-                        .build();
+                    .build();
 
                     let slippage = 0.0025; // 0.25% slippage
                     let bps = BigUint::from(10_000u32);
