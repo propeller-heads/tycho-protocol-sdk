@@ -14,5 +14,22 @@ services:
     shm_size: "1gb"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+
+  test-runner:
+    build:
+      context: .
+      dockerfile: run.Dockerfile
+    depends_on:
+      - db
+    environment:
+      RUST_LOG: "info"
+      DATABASE_URL: postgres://postgres:mypassword@db:5432/tycho_indexer_0
+      RPC_URL: "${RPC_URL}"
+      SUBSTREAMS_API_TOKEN: "${SUBSTREAMS_API_TOKEN}"
+      AUTH_API_KEY: "${AUTH_API_KEY}"
+    # PROTOCOLS to test separated by space and with optional filter
+    # e.g. "ethereum-balancer-v2=weighted_legacy_creation ethereum-ekubo-v2"
+    entrypoint: ["/entrypoint.sh", "${PROTOCOLS}"]
+
 volumes:
   postgres_data:

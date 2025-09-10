@@ -11,7 +11,7 @@ use num_bigint::BigUint;
 use num_traits::Zero;
 use postgres::{Client, Error, NoTls};
 use tokio::runtime::Runtime;
-use tracing::{debug, info};
+use tracing::{debug, error, info};
 use tycho_client::feed::BlockHeader;
 use tycho_common::{
     dto::{Chain, ProtocolComponent, ResponseAccount, ResponseProtocolState},
@@ -51,60 +51,83 @@ pub struct TestRunner {
     vm_traces: bool,
     substreams_path: PathBuf,
     adapter_contract_builder: AdapterContractBuilder,
+    match_test: Option<String>,
 }
 
 impl TestRunner {
-    pub fn new(package: String, tycho_logs: bool, db_url: String, vm_traces: bool) -> Self {
-        let substreams_path = PathBuf::from("../substreams").join(&package);
+    pub fn new(
+        substreams_path: PathBuf,
+        match_test: Option<String>,
+        tycho_logs: bool,
+        db_url: String,
+        vm_traces: bool,
+    ) -> Self {
         let repo_root = env::current_dir().expect("Failed to get current directory");
         let evm_path = repo_root.join("../evm");
         let adapter_contract_builder =
             AdapterContractBuilder::new(evm_path.to_string_lossy().to_string());
-        Self { tycho_logs, db_url, vm_traces, substreams_path, adapter_contract_builder }
+        Self {
+            tycho_logs,
+            db_url,
+            vm_traces,
+            substreams_path,
+            adapter_contract_builder,
+            match_test,
+        }
     }
 
     pub fn run_tests(&self) -> miette::Result<()> {
+        let terminal_width = termsize::get()
+            .map(|size| size.cols as usize - 35) // Remove length of log prefix (35)
+            .unwrap_or(80);
+        info!("{}\n", "-".repeat(terminal_width));
+
         let config_yaml_path = self
             .substreams_path
             .join("integration_test.tycho.yaml");
 
         let config = Self::parse_config(&config_yaml_path)?;
 
-        info!("Running {} tests ...\n", config.tests.len());
-        info!("--------------------------------\n");
+        let tests = match &self.match_test {
+            Some(filter) => config
+                .tests
+                .iter()
+                .filter(|test| test.name.contains(filter))
+                .collect::<Vec<&IntegrationTest>>(),
+            None => config
+                .tests
+                .iter()
+                .collect::<Vec<&IntegrationTest>>(),
+        };
+        let tests_count = tests.len();
+
+        info!("Running {} tests ...\n", tests_count);
 
         let mut failed_tests: Vec<String> = Vec::new();
         let mut count = 1;
 
-        for test in &config.tests {
+        for test in &tests {
             info!("TEST {}: {}", count, test.name);
 
             match self.run_test(test, &config, config.skip_balance_check) {
                 Ok(_) => {
-                    info!("\n✅ {} passed.\n", test.name);
+                    info!("✅ {} passed\n", test.name);
                 }
                 Err(e) => {
                     failed_tests.push(test.name.clone());
-                    info!("\n❗️ {} failed: {:?}\n", test.name, e);
+                    error!("❗️{} failed: {:?}\n", test.name, e);
                 }
             }
 
-            info!("--------------------------------\n");
+            info!("{}\n", "-".repeat(terminal_width));
             count += 1;
         }
 
-        info!(
-            "\nTests finished! \nRESULTS: {}/{} passed.\n",
-            config.tests.len() - failed_tests.len(),
-            config.tests.len()
-        );
+        info!("Tests finished!");
+        info!("Passed {}/{}\n", tests_count - failed_tests.len(), tests_count);
         if !failed_tests.is_empty() {
-            info!("Failed tests:");
-            for failed_test in &failed_tests {
-                info!("- {}", failed_test);
-            }
+            error!("Failed: {}", failed_tests.join(", "));
         }
-        info!("\n");
 
         Ok(())
     }
@@ -448,8 +471,6 @@ fn validate_state(
                 .map(|perm| (perm[0], perm[1]))
                 .collect();
 
-            let alice_address =
-                Bytes::from_str("0xcd09f75E2BF2A4d11F3AB23f1389FcC1621c0cc2").into_diagnostic()?;
             for (token_in, token_out) in &swap_directions {
                 let (max_input, max_output) = state
                     .get_limits(token_in.address.clone(), token_out.address.clone())
@@ -511,7 +532,7 @@ fn validate_state(
                         token_in.address.clone(),
                         token_out.address.clone(),
                     )
-                    .build();
+                        .build();
 
                     let slippage = 0.0025; // 0.25% slippage
                     let bps = BigUint::from(10_000u32);
@@ -547,7 +568,7 @@ fn validate_state(
         }
     }
 
-    info!("\n✅ Simulation validation passed.\n");
+    info!("✅ Simulation validation passed");
     Ok(())
 }
 
