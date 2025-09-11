@@ -29,16 +29,12 @@ use tycho_simulation::{
         synchronizer::{ComponentWithState, Snapshot, StateSyncMessage},
         FeedMessage,
     },
-    tycho_execution::encoding::{
-        evm::encoder_builders::TychoRouterEncoderBuilder,
-        models::{Solution, SwapBuilder, UserTransferType},
-    },
 };
 
 use crate::{
     adapter_builder::AdapterContractBuilder,
     config::{IntegrationTest, IntegrationTestsConfig, ProtocolComponentWithTestConfig},
-    encoding_utils::encode_tycho_router_call,
+    encoding::encode_swap,
     rpc::RPCProvider,
     tycho_rpc::TychoClient,
     tycho_runner::TychoRunner,
@@ -446,8 +442,7 @@ fn validate_state(
             .entry(id.clone())
             .or_insert_with(|| comp.tokens.clone());
     }
-    let alice_address =
-        Bytes::from_str("0xcd09f75E2BF2A4d11F3AB23f1389FcC1621c0cc2").into_diagnostic()?;
+
     for (id, state) in block_msg.states.iter() {
         if let Some(tokens) = pairs.get(id) {
             let formatted_token_str = format!("{:}/{:}", &tokens[0].symbol, &tokens[1].symbol);
@@ -517,53 +512,17 @@ fn validate_state(
                         amount_out_result.gas
                     );
 
-                    let chain: tycho_common::models::Chain = Chain::Ethereum.into();
-                    let encoder = TychoRouterEncoderBuilder::new()
-                        .chain(chain)
-                        .user_transfer_type(UserTransferType::TransferFrom)
-                        .build()
-                        .expect("Failed to build encoder");
-
-                    let swap = SwapBuilder::new(
-                        block_msg
-                            .new_pairs
-                            .get(id)
-                            .unwrap()
-                            .clone(),
-                        token_in.address.clone(),
-                        token_out.address.clone(),
-                    )
-                    .build();
-
-                    let slippage = 0.0025; // 0.25% slippage
-                    let bps = BigUint::from(10_000u32);
-                    let slippage_percent = BigUint::from((slippage * 10000.0) as u32);
-                    let multiplier = &bps - slippage_percent;
-                    let min_amount_out = (amount_out_result.amount * &multiplier) / &bps;
-
-                    let solution = Solution {
-                        sender: alice_address.clone(),
-                        receiver: alice_address.clone(),
-                        given_token: token_in.address.clone(),
-                        given_amount: amount_in,
-                        checked_token: token_out.address.clone(),
-                        exact_out: false,
-                        checked_amount: min_amount_out,
-                        swaps: vec![swap],
-                        ..Default::default()
-                    };
-
-                    let encoded_solution = encoder
-                        .encode_solutions(vec![solution.clone()])
-                        .expect("Failed to encode router calldata")[0]
-                        .clone();
-
-                    let calldata = encode_tycho_router_call(
-                        encoded_solution,
-                        &solution,
-                        &chain.wrapped_native_token().address,
-                    );
-                    info!("Encoded swap successfully");
+                    let protocol_component = block_msg.new_pairs.get(id);
+                    if let Some(pc) = protocol_component {
+                        let calldata = encode_swap(
+                            pc.clone(),
+                            token_in.address.clone(),
+                            token_out.address.clone(),
+                            amount_in,
+                            amount_out_result.amount,
+                        );
+                        info!("Encoded swap successfully");
+                    }
                 }
             }
         }

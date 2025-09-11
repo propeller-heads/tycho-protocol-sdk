@@ -1,14 +1,79 @@
+use std::str::FromStr;
+
 use alloy::{primitives::Keccak256, sol_types::SolValue};
 use num_bigint::BigUint;
-use tycho_common::Bytes;
+use tycho_common::{dto::Chain, Bytes};
 use tycho_simulation::{
     evm::protocol::u256_num::biguint_to_u256,
+    protocol::models::ProtocolComponent,
     tycho_execution::encoding::{
         errors::EncodingError,
-        evm::utils::bytes_to_address,
-        models::{EncodedSolution, NativeAction, Solution, Transaction},
+        evm::{encoder_builders::TychoRouterEncoderBuilder, utils::bytes_to_address},
+        models::{
+            EncodedSolution, NativeAction, Solution, SwapBuilder, Transaction, UserTransferType,
+        },
     },
 };
+
+/// Encodes swap data for the Tycho router.
+///
+/// Assumes a single swap solution and encodes the data ready to be used by the Tycho router directly.
+///
+/// # Parameters
+/// - `component`: The protocol component to swap through
+/// - `token_in`: Input token address 
+/// - `token_out`: Output token address
+/// - `amount_in`: Amount of input token to swap
+/// - `amount_out`: Expected amount of output token
+///
+/// # Returns
+/// A `Result<Transaction, EncodingError>` containing the encoded transaction data for the Tycho router,
+/// or an error if encoding fails.
+pub fn encode_swap(
+    component: ProtocolComponent,
+    token_in: Bytes,
+    token_out: Bytes,
+    amount_in: BigUint,
+    amount_out: BigUint,
+) -> Result<Transaction, EncodingError> {
+    let chain: tycho_common::models::Chain = Chain::Ethereum.into();
+    let alice_address =
+        Bytes::from_str("0xcd09f75E2BF2A4d11F3AB23f1389FcC1621c0cc2").map_err(|_| {
+            EncodingError::FatalError("Alice's address can't be converted to Bytes".to_string())
+        })?;
+    let encoder = TychoRouterEncoderBuilder::new()
+        .chain(chain)
+        .user_transfer_type(UserTransferType::TransferFrom)
+        .build()
+        .expect("Failed to build encoder");
+
+    let swap = SwapBuilder::new(component, token_in.clone(), token_out.clone()).build();
+
+    let slippage = 0.0025; // 0.25% slippage
+    let bps = BigUint::from(10_000u32);
+    let slippage_percent = BigUint::from((slippage * 10000.0) as u32);
+    let multiplier = &bps - slippage_percent;
+    let min_amount_out = (amount_out * &multiplier) / &bps;
+
+    let solution = Solution {
+        sender: alice_address.clone(),
+        receiver: alice_address.clone(),
+        given_token: token_in,
+        given_amount: amount_in,
+        checked_token: token_out,
+        exact_out: false,
+        checked_amount: min_amount_out,
+        swaps: vec![swap],
+        ..Default::default()
+    };
+
+    let encoded_solution = encoder
+        .encode_solutions(vec![solution.clone()])
+        .expect("Failed to encode router calldata")[0]
+        .clone();
+
+    encode_tycho_router_call(encoded_solution, &solution, &chain.wrapped_native_token().address)
+}
 
 /// Encodes a transaction for the Tycho Router using `singleSwap` method and regular token
 /// transfers.
@@ -69,7 +134,8 @@ pub fn encode_tycho_router_call(
     Ok(Transaction { to: encoded_solution.interacting_with, value, data: contract_interaction })
 }
 
-/// Encodes the input data for a function call to the given function selector.
+/// Encodes the input data for a function call to the given function signature (e.g.
+/// transfer(address,uint256))
 pub fn encode_input(selector: &str, mut encoded_args: Vec<u8>) -> Vec<u8> {
     let mut hasher = Keccak256::new();
     hasher.update(selector.as_bytes());
