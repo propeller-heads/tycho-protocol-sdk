@@ -7,7 +7,6 @@ use crate::{
         functions::{SendTo, Settle},
     },
     pool_factories,
-    utils::Params,
 };
 use anyhow::Result;
 use itertools::Itertools;
@@ -16,10 +15,11 @@ use std::{collections::HashMap, ops::Shr};
 use substreams::{
     hex, log,
     pb::substreams::StoreDeltas,
+    prelude::{StoreGetString, StoreSet},
     scalar::BigInt,
     store::{
         StoreAddBigInt, StoreGet, StoreGetInt64, StoreGetProto, StoreNew, StoreSetIfNotExists,
-        StoreSetIfNotExistsInt64, StoreSetIfNotExistsProto,
+        StoreSetIfNotExistsInt64, StoreSetIfNotExistsProto, StoreSetString,
     },
 };
 use substreams_ethereum::{
@@ -32,24 +32,19 @@ use tycho_substreams::{
     entrypoint::create_entrypoint, models::entry_point_params::TraceData, prelude::*,
 };
 
-pub const VAULT_FACTORY_ADDRESS: &[u8] = &hex!("Ac27df81663d139072E615855eF9aB0Af3FBD281");
 pub const VAULT_ADDRESS: &[u8] = &hex!("bA1333333333a1BA1108E8412f11850A5C319bA9");
 pub const VAULT_EXTENSION_ADDRESS: &[u8; 20] = &hex!("0E8B07657D719B86e06bF0806D6729e3D528C9A9");
 pub const BATCH_ROUTER_ADDRESS: &[u8; 20] = &hex!("136f1efcc3f8f88516b9e94110d56fdbfb1778d1");
 pub const PERMIT_2_ADDRESS: &[u8; 20] = &hex!("000000000022D473030F116dDEE9F6B43aC78BA3");
 
 #[substreams::handlers::map]
-pub fn map_components(
-    params: String,
-    block: eth::v2::Block,
-) -> Result<BlockTransactionProtocolComponents> {
+pub fn map_components(block: eth::v2::Block) -> Result<BlockTransactionProtocolComponents> {
     let mut tx_components = Vec::new();
-    let params = Params::parse_from_query(&params)?;
     for tx in block.transactions() {
         let mut components = Vec::new();
         for (log, call) in tx.logs_with_calls() {
             if let Some(component) =
-                pool_factories::address_map(log.address.as_slice(), &params, log, call.call)
+                pool_factories::address_map(log.address.as_slice(), log, call.call)
             {
                 components.push(component);
             }
@@ -95,10 +90,32 @@ pub fn store_token_set(map: BlockTransactionProtocolComponents, store: StoreSetI
         });
 }
 
+#[substreams::handlers::store]
+pub fn store_token_mapping(map: BlockTransactionProtocolComponents, store: StoreSetString) {
+    map.tx_components
+        .into_iter()
+        .for_each(|tx_pc| {
+            tx_pc
+                .components
+                .into_iter()
+                .for_each(|pc| {
+                    if let Some(pool_type) = pc.get_attribute_value("pool_type") {
+                        if pool_type == "LiquidityBuffer".as_bytes() && pc.tokens.len() >= 2 {
+                            let wrapped_token = hex::encode(&pc.tokens[0]);
+                            let underlying_token = hex::encode(&pc.tokens[1]);
+                            let mapping_key = format!("buffer_mapping_{}", wrapped_token);
+                            store.set(0, mapping_key, &underlying_token);
+                        }
+                    }
+                })
+        });
+}
+
 #[substreams::handlers::map]
 pub fn map_relative_balances(
     block: eth::v2::Block,
     store: StoreGetProto<ProtocolComponent>,
+    token_mapping_store: StoreGetString,
 ) -> Result<BlockBalanceDeltas, anyhow::Error> {
     let balance_deltas = block
         .logs()
@@ -197,7 +214,110 @@ pub fn map_relative_balances(
                     deltas.extend_from_slice(&deltas_from_removed_liquidity);
                 }
             }
-
+            if let Some(added_to_buffer) = LiquidityAddedToBuffer::match_and_decode(vault_log.log) {
+                let mapping_key = format!("buffer_mapping_{}", hex::encode(added_to_buffer.wrapped_token.as_slice()));
+                if let Some(underlying_token_hex) = token_mapping_store.get_last(mapping_key) {
+                    if let Ok(underlying_token) = hex::decode(&underlying_token_hex) {
+                        let tokens_data = [&added_to_buffer.wrapped_token[..], &underlying_token[..]].concat();
+                        let component_id = keccak(&tokens_data).as_bytes().to_vec();
+                        if let Some(component) = store.get_last(format!("pool:{}", &format!("0x{}", hex::encode(&component_id)))) {
+                            let wrapped_delta = BalanceDelta {
+                                ord: vault_log.ordinal(),
+                                tx: Some(vault_log.receipt.transaction.into()),
+                                token: added_to_buffer.wrapped_token.to_vec(),
+                                delta: added_to_buffer.amount_wrapped.to_signed_bytes_be(),
+                                component_id: component.id.as_bytes().to_vec(),
+                            };
+                            let underlying_delta = BalanceDelta {
+                                ord: vault_log.ordinal(),
+                                tx: Some(vault_log.receipt.transaction.into()),
+                                token: underlying_token,
+                                delta: added_to_buffer.amount_underlying.to_signed_bytes_be(),
+                                component_id: component.id.as_bytes().to_vec(),
+                            };
+                            deltas.extend_from_slice(&[wrapped_delta, underlying_delta]);
+                        }
+                    }
+                }
+            }
+            if let Some(remove_from_buffer) = LiquidityRemovedFromBuffer::match_and_decode(vault_log.log) {
+                let mapping_key = format!("buffer_mapping_{}", hex::encode(remove_from_buffer.wrapped_token.as_slice()));
+                if let Some(underlying_token_hex) = token_mapping_store.get_last(mapping_key) {
+                    if let Ok(underlying_token) = hex::decode(&underlying_token_hex) {
+                        let tokens_data = [&remove_from_buffer.wrapped_token[..], &underlying_token[..]].concat();
+                        let component_id = keccak(&tokens_data).as_bytes().to_vec();
+                        if let Some(component) = store.get_last(format!("pool:{}", &format!("0x{}", hex::encode(&component_id)))) {
+                            let wrapped_delta = BalanceDelta {
+                                ord: vault_log.ordinal(),
+                                tx: Some(vault_log.receipt.transaction.into()),
+                                token: remove_from_buffer.wrapped_token.to_vec(),
+                                delta: remove_from_buffer.amount_wrapped.neg().to_signed_bytes_be(),
+                                component_id: component.id.as_bytes().to_vec(),
+                            };
+                            let underlying_delta = BalanceDelta {
+                                ord: vault_log.ordinal(),
+                                tx: Some(vault_log.receipt.transaction.into()),
+                                token: underlying_token,
+                                delta: remove_from_buffer.amount_underlying.neg().to_signed_bytes_be(),
+                                component_id: component.id.as_bytes().to_vec(),
+                            };
+                            deltas.extend_from_slice(&[wrapped_delta, underlying_delta]);
+                        }
+                    }
+                }
+            }
+            if let Some(wrap) = Wrap::match_and_decode(vault_log.log) {
+                let mapping_key = format!("buffer_mapping_{}", hex::encode(wrap.wrapped_token.as_slice()));
+                if let Some(underlying_token_hex) = token_mapping_store.get_last(mapping_key) {
+                    if let Ok(underlying_token) = hex::decode(&underlying_token_hex) {
+                        let tokens_data = [&wrap.wrapped_token[..], &underlying_token[..]].concat();
+                        let component_id = keccak(&tokens_data).as_bytes().to_vec();
+                        if let Some(component) = store.get_last(format!("pool:{}", &format!("0x{}", hex::encode(&component_id)))) {
+                            let wrapped_delta = BalanceDelta {
+                                ord: vault_log.ordinal(),
+                                tx: Some(vault_log.receipt.transaction.into()),
+                                token: wrap.wrapped_token.to_vec(),
+                                delta: wrap.minted_shares.neg().to_signed_bytes_be(),
+                                component_id: component.id.as_bytes().to_vec(),
+                            };
+                            let underlying_delta = BalanceDelta {
+                                ord: vault_log.ordinal(),
+                                tx: Some(vault_log.receipt.transaction.into()),
+                                token: underlying_token,
+                                delta: wrap.deposited_underlying.to_signed_bytes_be(),
+                                component_id: component.id.as_bytes().to_vec(),
+                            };
+                            deltas.extend_from_slice(&[wrapped_delta, underlying_delta]);
+                        }
+                    }
+                }
+            }
+            if let Some(unwrap) = Unwrap::match_and_decode(vault_log.log) {
+                let mapping_key = format!("buffer_mapping_{}", hex::encode(unwrap.wrapped_token.as_slice()));
+                if let Some(underlying_token_hex) = token_mapping_store.get_last(mapping_key) {
+                    if let Ok(underlying_token) = hex::decode(&underlying_token_hex) {
+                        let tokens_data = [&unwrap.wrapped_token[..], &underlying_token[..]].concat();
+                        let component_id = keccak(&tokens_data).as_bytes().to_vec();
+                        if let Some(component) = store.get_last(format!("pool:{}", &format!("0x{}", hex::encode(&component_id)))) {
+                            let wrapped_delta = BalanceDelta {
+                                ord: vault_log.ordinal(),
+                                tx: Some(vault_log.receipt.transaction.into()),
+                                token: unwrap.wrapped_token.to_vec(),
+                                delta: unwrap.burned_shares.to_signed_bytes_be(),
+                                component_id: component.id.as_bytes().to_vec(),
+                            };
+                            let underlying_delta = BalanceDelta {
+                                ord: vault_log.ordinal(),
+                                tx: Some(vault_log.receipt.transaction.into()),
+                                token: underlying_token,
+                                delta: unwrap.withdrawn_underlying.neg().to_signed_bytes_be(),
+                                component_id: component.id.as_bytes().to_vec(),
+                            };
+                            deltas.extend_from_slice(&[wrapped_delta, underlying_delta]);
+                        }
+                    }
+                }
+            }
             deltas
         })
         .collect::<Vec<_>>();
@@ -220,18 +340,17 @@ pub fn store_balances(deltas: BlockBalanceDeltas, store: StoreAddBigInt) {
 /// `BlockChanges`  is ordered by transactions properly.
 #[substreams::handlers::map]
 pub fn map_protocol_changes(
-    params: String,
     block: eth::v2::Block,
     grouped_components: BlockTransactionProtocolComponents,
     deltas: BlockBalanceDeltas,
     components_store: StoreGetProto<ProtocolComponent>,
     tokens_store: StoreGetInt64,
+    token_mapping_store: StoreGetString,
     balance_store: StoreDeltas, // Note, this map module is using the `deltas` mode for the store.
 ) -> Result<BlockChanges> {
     // We merge contract changes by transaction (identified by transaction index) making it easy to
     //  sort them at the very end.
     let mut transaction_changes: HashMap<_, TransactionChangesBuilder> = HashMap::new();
-    let params = Params::parse_from_query(&params)?;
     // Handle pool pause state changes
     block
         .logs()
@@ -383,7 +502,11 @@ pub fn map_protocol_changes(
         .for_each(|tx| {
             let mut vault_balances = get_vault_reserves(tx, &tokens_store);
 
-            vault_balances.extend(get_vault_buffer_balances(&params, tx, &tokens_store));
+            vault_balances.extend(get_vault_buffer_balances(
+                &token_mapping_store,
+                tx,
+                &tokens_store,
+            ));
 
             if !vault_balances.is_empty() {
                 let tycho_tx = Transaction::from(tx);
@@ -492,7 +615,7 @@ fn get_vault_reserves(
 
 // function needed to match bufferTokenBalances in vault storage
 fn get_vault_buffer_balances(
-    params: &Params,
+    token_mapping_store: &StoreGetString,
     transaction: &eth::v2::TransactionTrace,
     token_store: &StoreGetInt64,
 ) -> HashMap<Vec<u8>, ReserveValue> {
@@ -512,15 +635,18 @@ fn get_vault_buffer_balances(
         };
 
         if let Some(wrapped_token) = wrapped_token_opt {
-            if let Some(underlying_token) = params.get_underlying_token(&wrapped_token) {
-                for change in &call_view.call.storage_changes {
-                    add_buffer_balance_change(
-                        &mut buffer_balance,
-                        change,
-                        wrapped_token.as_slice(),
-                        &underlying_token,
-                        token_store,
-                    );
+            let mapping_key = format!("buffer_mapping_{}", hex::encode(wrapped_token.as_slice()));
+            if let Some(underlying_token_hex) = token_mapping_store.get_last(mapping_key) {
+                if let Ok(underlying_token) = hex::decode(&underlying_token_hex) {
+                    for change in &call_view.call.storage_changes {
+                        add_buffer_balance_change(
+                            &mut buffer_balance,
+                            change,
+                            wrapped_token.as_slice(),
+                            &underlying_token,
+                            token_store,
+                        );
+                    }
                 }
             }
         }
