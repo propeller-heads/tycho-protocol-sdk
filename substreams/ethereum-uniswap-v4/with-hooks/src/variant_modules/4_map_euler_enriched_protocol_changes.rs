@@ -124,13 +124,9 @@ fn handle_pool_uninstalled_events(
             
             // If transaction not found in existing changes, create it
             if !found_tx {
-                let new_tx = Transaction {
-                    hash: tx_hash,
-                    from: Vec::new(),
-                    to: Vec::new(),
-                    index: 0,
-                };
-                
+                let block_tx = block.transactions().find(|tx| {tx.hash == tx_hash}).expect("Transaction not found in block");
+                let new_tx: Transaction = block_tx.into();
+
                 let mut new_tx_changes = TransactionChanges::default();
                 new_tx_changes.tx = Some(new_tx);
                 new_tx_changes.entity_changes.push(EntityChanges {
