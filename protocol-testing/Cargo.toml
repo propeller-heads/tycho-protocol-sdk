@@ -9,15 +9,16 @@ miette = { version = "7.6.0", features = ["fancy"] }
 # Logging & Tracing
 tracing = "0.1.37"
 # Tycho dependencies
-tycho-common = "0.82.0"
-tycho-client = "0.82.0"
-tycho-simulation = { git = "https://github.com/propeller-heads/tycho-simulation.git", tag = "0.157.1", features = ["evm"] }
+tycho-common = "0.83.3"
+tycho-client = "0.83.3"
+tycho-simulation = { git = "https://github.com/propeller-heads/tycho-simulation.git", tag = "0.158.0", features = ["evm"] }
 ## TODO: for local development
 #tycho-simulation = { path = "../../tycho-simulation" }
 num-bigint = "0.4"
 num-traits = "0.2"
 # EVM dependencies
-alloy = { version = "1.0.27", features = ["arbitrary", "json", "dyn-abi", "sol-types", "contract", "provider-http"] }
+alloy = { version = "1.0.27", features = ["arbitrary", "json", "dyn-abi", "sol-types", "contract", "provider-http", "providers", "signer-local", "rpc-types-eth"] }
+reqwest = { version = "0.12", features = ["json"] }
 tokio = { version = "1", features = ["full"] }
 serde_json = "1.0.140"
 clap = "4.5.31"

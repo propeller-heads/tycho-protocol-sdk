@@ -1,6 +1,9 @@
-use std::{collections::HashMap, env, path::PathBuf, str::FromStr};
+use std::{collections::HashMap, env, path::PathBuf, str::FromStr, sync::LazyLock};
 
-use alloy::primitives::U256;
+use alloy::{
+    primitives::{Address, Keccak256, U256},
+    rpc::types::{Block, TransactionRequest},
+};
 use figment::{
     providers::{Format, Yaml},
     Figment,
@@ -10,6 +13,7 @@ use miette::{miette, IntoDiagnostic, WrapErr};
 use num_bigint::BigUint;
 use num_traits::Zero;
 use postgres::{Client, Error, NoTls};
+use serde_json::{self, Value};
 use tokio::runtime::Runtime;
 use tracing::{debug, error, info};
 use tycho_client::feed::BlockHeader;
@@ -29,17 +33,84 @@ use tycho_simulation::{
         synchronizer::{ComponentWithState, Snapshot, StateSyncMessage},
         FeedMessage,
     },
+    tycho_execution::encoding::models::Solution,
 };
 
 use crate::{
     adapter_builder::AdapterContractBuilder,
     config::{IntegrationTest, IntegrationTestsConfig, ProtocolComponentWithTestConfig},
     encoding::encode_swap,
-    rpc::RPCProvider,
+    rpc::{RPCProvider, StateOverride},
     tycho_rpc::TychoClient,
     tycho_runner::TychoRunner,
     utils::build_spkg,
 };
+
+/// Mapping from protocol component patterns to executor bytecode files
+static EXECUTOR_MAPPING: LazyLock<HashMap<&'static str, &'static str>> = LazyLock::new(|| {
+    let mut map = HashMap::new();
+    map.insert("uniswap_v2", "UniswapV2.runtime.json");
+    map.insert("sushiswap", "UniswapV2.runtime.json");
+    map.insert("pancakeswap_v2", "UniswapV2.runtime.json");
+    map.insert("uniswap_v3", "UniswapV3.runtime.json");
+    map.insert("pancakeswap_v3", "UniswapV3.runtime.json");
+    map.insert("uniswap_v4", "UniswapV4.runtime.json");
+    map.insert("balancer_v2", "BalancerV2.runtime.json");
+    map.insert("balancer_v3", "BalancerV3.runtime.json");
+    map.insert("curve", "Curve.runtime.json");
+    map.insert("maverick_v2", "MaverickV2.runtime.json");
+    map
+});
+
+/// Executor addresses loaded from test_executor_addresses.json at startup
+pub static EXECUTOR_ADDRESSES: LazyLock<HashMap<String, Address>> = LazyLock::new(|| {
+    let executor_addresses_path = PathBuf::from("test_executor_addresses.json");
+
+    let json_content = std::fs::read_to_string(&executor_addresses_path)
+        .expect("Failed to read test_executor_addresses.json");
+
+    let json_value: Value =
+        serde_json::from_str(&json_content).expect("Failed to parse test_executor_addresses.json");
+
+    let ethereum_addresses = json_value["ethereum"]
+        .as_object()
+        .expect("Missing 'ethereum' key in test_executor_addresses.json");
+
+    let mut addresses = HashMap::new();
+    for (protocol_name, address_value) in ethereum_addresses {
+        let address_str = address_value
+            .as_str()
+            .expect(&format!("Invalid address format for protocol '{}'", protocol_name));
+
+        let address = Address::from_str(address_str)
+            .expect(&format!("Invalid address '{}' for protocol '{}'", address_str, protocol_name));
+
+        addresses.insert(protocol_name.clone(), address);
+    }
+
+    info!("Loaded {} executor addresses from test_executor_addresses.json", addresses.len());
+    addresses
+});
+
+/// Determine the executor file based on component ID
+fn get_executor_file(component_id: &str) -> miette::Result<&'static str> {
+    for (pattern, executor_file) in EXECUTOR_MAPPING.iter() {
+        if component_id.contains(pattern) {
+            info!("Matched component '{}' to executor: {}", component_id, executor_file);
+            return Ok(executor_file);
+        }
+    }
+    Err(miette!("Unknown component type '{}' - no matching executor found", component_id))
+}
+
+/// Get executor address for a given component ID
+fn get_executor_address(component_id: &str) -> miette::Result<Address> {
+    if let Some(&address) = EXECUTOR_ADDRESSES.get(component_id) {
+        info!("Matched component '{}' to executor address: {:?}", component_id, address);
+        return Ok(address);
+    }
+    Err(miette!("No executor address found for component type '{}'", component_id))
+}
 
 pub struct TestRunner {
     tycho_logs: bool,
@@ -511,16 +582,42 @@ fn validate_state(
                         amount_out_result.gas
                     );
 
-                    let protocol_component = block_msg.new_pairs.get(id);
-                    if let Some(pc) = protocol_component {
-                        let calldata = encode_swap(
-                            pc.clone(),
-                            token_in.address.clone(),
-                            token_out.address.clone(),
-                            amount_in,
-                            amount_out_result.amount,
-                        );
-                        info!("Encoded swap successfully");
+                    let protocol_component = block_msg.new_pairs.get(id).unwrap();
+
+                    let (calldata, solution) = encode_swap(
+                        protocol_component.clone(),
+                        token_in.address.clone(),
+                        token_out.address.clone(),
+                        amount_in,
+                        amount_out_result.amount,
+                    )
+                    .into_diagnostic()
+                    .wrap_err("Failed to encode swap")?;
+                    info!("Encoded swap successfully");
+
+                    // Simulate the trade using eth_call with overwrites
+                    let simulation_result = rt.block_on(simulate_trade_with_eth_call(
+                        &rpc_provider,
+                        &calldata,
+                        &solution,
+                        stop_block,
+                        adapter_contract_path_str,
+                        &block_header,
+                    ));
+
+                    match simulation_result {
+                        Ok(_) => {
+                            info!(
+                                "Trade simulation successful for {} -> {}",
+                                token_in.symbol, token_out.symbol
+                            );
+                        }
+                        Err(e) => {
+                            info!(
+                                "Trade simulation failed for {} -> {}: {}",
+                                token_in.symbol, token_out.symbol, e
+                            );
+                        }
                     }
                 }
             }
@@ -580,6 +677,235 @@ fn validate_token_balances(
             );
         }
     }
+    Ok(())
+}
+
+/// Load executor bytecode from the appropriate file based on solution component
+fn load_executor_bytecode(solution: &Solution) -> miette::Result<Vec<u8>> {
+    let first_swap = solution.swaps.first().unwrap();
+    let component_id = &first_swap.component;
+
+    let executor_file = get_executor_file(&component_id.protocol_system)?;
+    let executor_path = PathBuf::from("../evm/test/executors").join(executor_file);
+    info!("Loading executor bytecode from: {}", executor_path.display());
+
+    // Read the JSON file and extract the bytecode
+    let executor_json = std::fs::read_to_string(&executor_path)
+        .into_diagnostic()
+        .wrap_err(format!("Failed to read executor file: {}", executor_path.display()))?;
+
+    let json_value: serde_json::Value = serde_json::from_str(&executor_json)
+        .into_diagnostic()
+        .wrap_err("Failed to parse executor JSON")?;
+
+    let bytecode_str = json_value["runtimeBytecode"]
+        .as_str()
+        .ok_or_else(|| miette!("No bytecode field found in executor JSON"))?;
+
+    // Remove 0x prefix if present
+    let bytecode_hex =
+        if bytecode_str.starts_with("0x") { &bytecode_str[2..] } else { bytecode_str };
+
+    hex::decode(bytecode_hex)
+        .into_diagnostic()
+        .wrap_err("Failed to decode executor bytecode from hex")
+}
+
+/// Calculate gas fees based on block base fee
+fn calculate_gas_fees(block_header: &Block) -> miette::Result<(U256, U256)> {
+    let base_fee = block_header
+        .header
+        .base_fee_per_gas
+        .ok_or_else(|| miette::miette!("Block does not have base fee (pre-EIP-1559)"))?;
+    // Set max_priority_fee_per_gas to a reasonable value (2 Gwei)
+    let max_priority_fee_per_gas = U256::from(2_000_000_000u64); // 2 Gwei
+                                                                 // Set max_fee_per_gas to base_fee * 2 + max_priority_fee_per_gas to handle fee fluctuations
+    let max_fee_per_gas = U256::from(base_fee) * U256::from(2u64) + max_priority_fee_per_gas;
+
+    info!(
+        "Gas pricing: base_fee={}, max_priority_fee_per_gas={}, max_fee_per_gas={}",
+        base_fee, max_priority_fee_per_gas, max_fee_per_gas
+    );
+
+    Ok((max_fee_per_gas, max_priority_fee_per_gas))
+}
+
+/// Create execution transaction (no separate approval needed with storage manipulation)
+fn create_execution_transaction(
+    transaction: &tycho_simulation::tycho_execution::encoding::models::Transaction,
+    _solution: &Solution,
+    block_header: &Block,
+    user_address: Address,
+) -> miette::Result<TransactionRequest> {
+    let (max_fee_per_gas, max_priority_fee_per_gas) = calculate_gas_fees(block_header)?;
+
+    // Convert main transaction to alloy TransactionRequest
+    let execution_tx = TransactionRequest::default()
+        .to(Address::from_slice(&transaction.to[..20]))
+        .input(transaction.data.clone().into())
+        .value(U256::from_str(&transaction.value.to_string()).unwrap_or_default())
+        .from(user_address)
+        .max_fee_per_gas(
+            max_fee_per_gas
+                .try_into()
+                .unwrap_or(u128::MAX),
+        )
+        .max_priority_fee_per_gas(
+            max_priority_fee_per_gas
+                .try_into()
+                .unwrap_or(u128::MAX),
+        );
+
+    Ok(execution_tx)
+}
+
+/// Set up all state overrides needed for simulation
+fn setup_state_overrides(
+    solution: &Solution,
+    transaction: &tycho_simulation::tycho_execution::encoding::models::Transaction,
+    user_address: Address,
+    executor_bytecode: &[u8],
+    include_executor_override: bool,
+) -> miette::Result<HashMap<Address, StateOverride>> {
+    let mut state_overwrites = HashMap::new();
+    let token_address = Address::from_slice(&solution.given_token[..20]);
+
+    // Extract executor address from the encoded solution's swaps data.
+    // The solution should only have one swap for the test, so this should be safe.
+    let executor_address = if let Some(first_swap) = solution.swaps.first() {
+        get_executor_address(&first_swap.component.protocol_system)?
+    } else {
+        return Err(miette!("No swaps in solution - cannot determine executor address"));
+    };
+
+    // Add bytecode overwrite for the executor (conditionally)
+    if include_executor_override {
+        state_overwrites
+            .insert(executor_address, StateOverride::new().with_code(executor_bytecode.to_vec()));
+        info!("Added bytecode override for executor: {:?}", executor_address);
+        info!("Executor bytecode size: {} bytes", executor_bytecode.len());
+    }
+
+    // Add balance override for the user to ensure they have enough tokens
+    let token_balance_slot = calculate_balance_slot(user_address);
+    let token_approval_slot =
+        calculate_approval_slot(user_address, Address::from_slice(&transaction.to[..20])); // TychoRouter address
+
+    state_overwrites.insert(
+        token_address,
+        StateOverride::new()
+            .with_state_diff(
+                token_balance_slot,
+                alloy::primitives::Bytes::from(U256::MAX.to_be_bytes::<32>().to_vec()),
+            )
+            .with_state_diff(
+                token_approval_slot,
+                alloy::primitives::Bytes::from(U256::MAX.to_be_bytes::<32>().to_vec()),
+            ),
+    );
+    info!("Added balance override for user {:?} on token {:?}", user_address, token_address);
+    info!(
+        "Added approval override for TychoRouter {:?} on token {:?}",
+        Address::from_slice(&transaction.to[..20]),
+        token_address
+    );
+
+    // Add ETH balance override for the user to ensure they have enough gas funds
+    state_overwrites.insert(
+        user_address,
+        StateOverride::new().with_balance(U256::from_str("100000000000000000000").unwrap()), // 100 ETH
+    );
+    info!("Added ETH balance override for user {:?}", user_address);
+
+    Ok(state_overwrites)
+}
+
+/// Calculate the storage slot for ERC20 balances
+/// Formula: keccak256(owner || balances_slot)
+/// For standard ERC20, balances are typically at slot 0
+///
+/// TODO double check this - what to do for special cases where allowances are not at slot 1?
+///  there is a special case for this in the simulation repo I think.
+fn calculate_balance_slot(owner: Address) -> alloy::primitives::Bytes {
+    let mut hasher = Keccak256::new();
+    hasher.update(owner.as_slice());
+    hasher.update([0u8; 31]);
+    hasher.update([0u8]); // balances mapping is typically at slot 0
+    alloy::primitives::Bytes::from(hasher.finalize().to_vec())
+}
+
+/// Calculate the storage slot for ERC20 allowances
+/// Formula: keccak256(keccak256(owner || allowances_slot) || spender)
+/// For standard ERC20, allowances are typically at slot 1
+///
+/// TODO double check this - what to do for special cases where allowances are not at slot 1?
+///  there is a special case for this in the simulation repo I think.
+fn calculate_approval_slot(owner: Address, spender: Address) -> alloy::primitives::Bytes {
+    // First hash: keccak256(owner || slot)
+    let mut first_hasher = Keccak256::new();
+    first_hasher.update(owner.as_slice());
+    first_hasher.update([0u8; 31]);
+    first_hasher.update([1u8]); // allowances mapping is typically at slot 1
+    let first_hash = first_hasher.finalize();
+
+    // Second hash: keccak256(first_hash || spender)
+    let mut second_hasher = Keccak256::new();
+    second_hasher.update(first_hash);
+    second_hasher.update(spender.as_slice());
+    alloy::primitives::Bytes::from(second_hasher.finalize().to_vec())
+}
+
+/// Simulate a trade using eth_call for historical blocks
+async fn simulate_trade_with_eth_call(
+    rpc_provider: &RPCProvider,
+    transaction: &tycho_simulation::tycho_execution::encoding::models::Transaction,
+    solution: &Solution,
+    block_number: u64,
+    _adapter_contract_path: &str,
+    block_header: &Block,
+) -> miette::Result<()> {
+    let executor_bytecode = load_executor_bytecode(solution)?;
+    let user_address = Address::from_slice(&solution.sender[..20]);
+    let execution_tx =
+        create_execution_transaction(transaction, solution, block_header, user_address)?;
+    let tycho_router_address = Address::from_slice(&transaction.to[..20]);
+    let token_address = Address::from_slice(&solution.given_token[..20]);
+
+    // Copy router storage and code from current block to historical block
+    // TODO get this at compile time.
+    let router_bytecode_path = "../evm/test/router/TychoRouter.runtime.json";
+    info!(
+        "Copying router contract storage and code from current block to block {}",
+        block_number
+    );
+
+    let router_override = rpc_provider
+        .copy_contract_storage_and_code(
+            tycho_router_address,
+            router_bytecode_path,
+        )
+        .await
+        .wrap_err("Failed to copy router contract storage and code")?;
+
+    // Set up state overrides including router override
+    let mut state_overwrites =
+        setup_state_overrides(solution, transaction, user_address, &executor_bytecode, true)?; // Include executor override for historical blocks
+
+    // Add the router override
+    state_overwrites.insert(tycho_router_address, router_override);
+    info!("Added router contract override for address {:?}", tycho_router_address);
+
+    info!("Simulating at historical block {}", block_number);
+    // TODO decode this result into some nice logs.
+    let _execution_result = rpc_provider
+        .eth_call_with_overwrites(execution_tx, block_number, state_overwrites)
+        .await
+        .map_err(|e| {
+            info!("Execution transaction failed with error: {}", e);
+            e
+        })
+        .wrap_err("Execution simulation failed")?;
+
     Ok(())
 }
 

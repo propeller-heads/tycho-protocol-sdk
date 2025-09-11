@@ -15,37 +15,28 @@ use tycho_simulation::{
     },
 };
 
-/// Encodes swap data for the Tycho router.
-///
-/// Assumes a single swap solution and encodes the data ready to be used by the Tycho router directly.
+/// Creates a Solution for the given swap parameters.
 ///
 /// # Parameters
 /// - `component`: The protocol component to swap through
-/// - `token_in`: Input token address 
+/// - `token_in`: Input token address
 /// - `token_out`: Output token address
 /// - `amount_in`: Amount of input token to swap
 /// - `amount_out`: Expected amount of output token
 ///
 /// # Returns
-/// A `Result<Transaction, EncodingError>` containing the encoded transaction data for the Tycho router,
-/// or an error if encoding fails.
-pub fn encode_swap(
+/// A `Result<Solution, EncodingError>` containing the solution, or an error if creation fails.
+pub fn get_solution(
     component: ProtocolComponent,
     token_in: Bytes,
     token_out: Bytes,
     amount_in: BigUint,
     amount_out: BigUint,
-) -> Result<Transaction, EncodingError> {
-    let chain: tycho_common::models::Chain = Chain::Ethereum.into();
+) -> Result<Solution, EncodingError> {
     let alice_address =
         Bytes::from_str("0xcd09f75E2BF2A4d11F3AB23f1389FcC1621c0cc2").map_err(|_| {
             EncodingError::FatalError("Alice's address can't be converted to Bytes".to_string())
         })?;
-    let encoder = TychoRouterEncoderBuilder::new()
-        .chain(chain)
-        .user_transfer_type(UserTransferType::TransferFrom)
-        .build()
-        .expect("Failed to build encoder");
 
     let swap = SwapBuilder::new(component, token_in.clone(), token_out.clone()).build();
 
@@ -55,7 +46,7 @@ pub fn encode_swap(
     let multiplier = &bps - slippage_percent;
     let min_amount_out = (amount_out * &multiplier) / &bps;
 
-    let solution = Solution {
+    Ok(Solution {
         sender: alice_address.clone(),
         receiver: alice_address.clone(),
         given_token: token_in,
@@ -65,14 +56,62 @@ pub fn encode_swap(
         checked_amount: min_amount_out,
         swaps: vec![swap],
         ..Default::default()
-    };
+    })
+}
+
+/// Encodes swap data for the Tycho router.
+///
+/// Assumes a single swap solution and encodes the data ready to be used by the Tycho router
+/// directly.
+///
+/// # Parameters
+/// - `component`: The protocol component to swap through
+/// - `token_in`: Input token address
+/// - `token_out`: Output token address
+/// - `amount_in`: Amount of input token to swap
+/// - `amount_out`: Expected amount of output token
+///
+/// # Returns
+/// A `Result<Transaction, EncodingError>` containing the encoded transaction data for the Tycho
+/// router, or an error if encoding fails.
+pub fn encode_swap(
+    component: ProtocolComponent,
+    token_in: Bytes,
+    token_out: Bytes,
+    amount_in: BigUint,
+    amount_out: BigUint,
+) -> Result<(Transaction, Solution), EncodingError> {
+    let chain: tycho_common::models::Chain = Chain::Ethereum.into();
+
+    // Use test executor addresses for testing
+    let executor_addresses_path = std::env::current_dir()
+        .map(|p| p.join("test_executor_addresses.json"))
+        .unwrap_or_else(|_| std::path::PathBuf::from("test_executor_addresses.json"));
+
+    let encoder = TychoRouterEncoderBuilder::new()
+        .chain(chain)
+        .user_transfer_type(UserTransferType::TransferFrom)
+        .executors_file_path(
+            executor_addresses_path
+                .to_string_lossy()
+                .to_string(),
+        )
+        .build()
+        .expect("Failed to build encoder");
+
+    let solution = get_solution(component, token_in, token_out, amount_in, amount_out)?;
 
     let encoded_solution = encoder
         .encode_solutions(vec![solution.clone()])
         .expect("Failed to encode router calldata")[0]
         .clone();
 
-    encode_tycho_router_call(encoded_solution, &solution, &chain.wrapped_native_token().address)
+    let transaction = encode_tycho_router_call(
+        encoded_solution,
+        &solution,
+        &chain.wrapped_native_token().address,
+    )?;
+    Ok((transaction, solution))
 }
 
 /// Encodes a transaction for the Tycho Router using `singleSwap` method and regular token
