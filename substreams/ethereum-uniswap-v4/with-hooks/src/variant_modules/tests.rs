@@ -45,9 +45,6 @@ mod tests {
             self.data.contains_key(key.as_ref())
         }
 
-
-
-
         fn has_first<K: AsRef<str>>(&self, key: K) -> bool {
             self.data.contains_key(key.as_ref())
         }
@@ -57,27 +54,33 @@ mod tests {
         fn new(_size: u32) -> Self {
             Self { data: HashMap::new() }
         }
-        
+
         fn get_at<K: AsRef<str>>(&self, _ord: u64, key: K) -> Option<i64> {
-            self.data.get(key.as_ref()).and_then(|v| v.parse().ok())
+            self.data
+                .get(key.as_ref())
+                .and_then(|v| v.parse().ok())
         }
-        
+
         fn get_first<K: AsRef<str>>(&self, key: K) -> Option<i64> {
-            self.data.get(key.as_ref()).and_then(|v| v.parse().ok())
+            self.data
+                .get(key.as_ref())
+                .and_then(|v| v.parse().ok())
         }
-        
+
         fn get_last<K: AsRef<str>>(&self, key: K) -> Option<i64> {
-            self.data.get(key.as_ref()).and_then(|v| v.parse().ok())
+            self.data
+                .get(key.as_ref())
+                .and_then(|v| v.parse().ok())
         }
-        
+
         fn has_at<K: AsRef<str>>(&self, _ord: u64, key: K) -> bool {
             self.data.contains_key(key.as_ref())
         }
-        
+
         fn has_last<K: AsRef<str>>(&self, key: K) -> bool {
             self.data.contains_key(key.as_ref())
         }
-        
+
         fn has_first<K: AsRef<str>>(&self, key: K) -> bool {
             self.data.contains_key(key.as_ref())
         }
@@ -113,13 +116,15 @@ mod tests {
 
         // Setup mock Euler store with the hook address
         let mut mock_euler_store = MockStore::new_with_data();
-        mock_euler_store.insert("0xd585c8baa6c0099d2cc59a5a089b8366cb3ea8a8".to_string(), "1".to_string());
+        mock_euler_store
+            .insert("0xd585c8baa6c0099d2cc59a5a089b8366cb3ea8a8".to_string(), "1".to_string());
 
         // When: Processing the pool creations
-        let result = crate::variant_modules::store_pool_per_euler_hook::_track_uniswap_pools_by_hook(
-            pools_created,
-            &mock_euler_store,
-        );
+        let result =
+            crate::variant_modules::store_pool_per_euler_hook::_track_uniswap_pools_by_hook(
+                pools_created,
+                &mock_euler_store,
+            );
 
         // Expect: Should create one pool-to-hook mapping
         assert_eq!(result.len(), 1);
@@ -243,13 +248,15 @@ mod tests {
 
         // Setup mock Euler store with the hook address
         let mut mock_euler_store = MockStore::new_with_data();
-        mock_euler_store.insert("0xd585c8baa6c0099d2cc59a5a089b8366cb3ea8a8".to_string(), "1".to_string());
+        mock_euler_store
+            .insert("0xd585c8baa6c0099d2cc59a5a089b8366cb3ea8a8".to_string(), "1".to_string());
 
         // When: Processing the pool creations for hook tracking
-        let result = crate::variant_modules::store_pool_per_euler_hook::_track_uniswap_pools_by_hook(
-            pools_created,
-            &mock_euler_store,
-        );
+        let result =
+            crate::variant_modules::store_pool_per_euler_hook::_track_uniswap_pools_by_hook(
+                pools_created,
+                &mock_euler_store,
+            );
 
         // Expect: Should create one pool-to-hook mapping with real addresses
         assert_eq!(result.len(), 1);
