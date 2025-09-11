@@ -108,36 +108,45 @@ fn handle_pool_uninstalled_events(
                 if let Some(ref tx) = tx_changes.tx {
                     if tx.hash == tx_hash {
                         // Found the transaction, add the paused entity change
-                        tx_changes.entity_changes.push(EntityChanges {
-                            component_id: pool_id.clone(),
-                            attributes: vec![Attribute {
-                                name: "paused".to_string(),
-                                value: vec![1u8], // true as a single byte
-                                change: ChangeType::Update.into(),
-                            }],
-                        });
+                        tx_changes
+                            .entity_changes
+                            .push(EntityChanges {
+                                component_id: pool_id.clone(),
+                                attributes: vec![Attribute {
+                                    name: "paused".to_string(),
+                                    value: vec![1u8], // true as a single byte
+                                    change: ChangeType::Update.into(),
+                                }],
+                            });
                         found_tx = true;
                         break;
                     }
                 }
             }
-            
+
             // If transaction not found in existing changes, create it
             if !found_tx {
-                let block_tx = block.transactions().find(|tx| {tx.hash == tx_hash}).expect("Transaction not found in block");
+                let block_tx = block
+                    .transactions()
+                    .find(|tx| tx.hash == tx_hash)
+                    .expect("Transaction not found in block");
                 let new_tx: Transaction = block_tx.into();
 
                 let mut new_tx_changes = TransactionChanges::default();
                 new_tx_changes.tx = Some(new_tx);
-                new_tx_changes.entity_changes.push(EntityChanges {
-                    component_id: pool_id,
-                    attributes: vec![Attribute {
-                        name: "paused".to_string(),
-                        value: vec![1u8], // true as a single byte
-                        change: ChangeType::Update.into(),
-                    }],
-                });
-                enriched_changes.changes.push(new_tx_changes);
+                new_tx_changes
+                    .entity_changes
+                    .push(EntityChanges {
+                        component_id: pool_id,
+                        attributes: vec![Attribute {
+                            name: "paused".to_string(),
+                            value: vec![1u8], // true as a single byte
+                            change: ChangeType::Update.into(),
+                        }],
+                    });
+                enriched_changes
+                    .changes
+                    .push(new_tx_changes);
             }
         }
     }
@@ -150,7 +159,7 @@ pub fn _handle_pool_uninstalled_events<T: StoreGet<String>>(
     pools_per_hook_store: &T,
 ) -> Vec<(String, String)> {
     let mut results = Vec::new();
-    
+
     for uninstalled_hook in uninstalled_hooks {
         let hook_key = format!("hook:{}", uninstalled_hook);
         if let Some(pool_id) = pools_per_hook_store.get_last(&hook_key) {
@@ -158,6 +167,6 @@ pub fn _handle_pool_uninstalled_events<T: StoreGet<String>>(
             results.push((uninstalled_hook, pool_id));
         }
     }
-    
+
     results
 }
