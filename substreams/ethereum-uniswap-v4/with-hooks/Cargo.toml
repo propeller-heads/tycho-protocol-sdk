@@ -1,6 +1,6 @@
 [package]
 name = "ethereum-uniswap-v4-with-hooks"
-version = "0.4.2"
+version = "0.5.0"
 edition = "2021"
 
 [lib]
@@ -14,8 +14,8 @@ prost = "0.11"
 ethabi = "18.0.0"
 anyhow = "1.0.75"
 hex-literal = "0.4.1"
-substreams-helper = { git = "https://github.com/propeller-heads/tycho-protocol-sdk.git", tag = "0.4.0" }
-tycho-substreams = { git = "https://github.com/propeller-heads/tycho-protocol-sdk.git", tag = "0.4.0" }
+substreams-helper = { git = "https://github.com/propeller-heads/tycho-protocol-sdk.git", tag = "0.5.0" }
+tycho-substreams = { git = "https://github.com/propeller-heads/tycho-protocol-sdk.git", tag = "0.5.0" }
 num-bigint = "0.4.4"
 hex = "0.4.3"
 tiny-keccak = "2.0"
