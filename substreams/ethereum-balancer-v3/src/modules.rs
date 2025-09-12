@@ -4,7 +4,7 @@ use crate::{
             LiquidityAdded, LiquidityAddedToBuffer, LiquidityRemoved, LiquidityRemovedFromBuffer,
             PoolPausedStateChanged, Swap, Unwrap, Wrap,
         },
-        functions::{SendTo, Settle},
+        functions::{Erc4626BufferWrapOrUnwrap, SendTo, Settle},
     },
     pool_factories,
 };
@@ -35,6 +35,7 @@ use tycho_substreams::{
 pub const VAULT_ADDRESS: &[u8] = &hex!("bA1333333333a1BA1108E8412f11850A5C319bA9");
 pub const VAULT_EXTENSION_ADDRESS: &[u8; 20] = &hex!("0E8B07657D719B86e06bF0806D6729e3D528C9A9");
 pub const VAULT_EXPLORER: &[u8; 20] = &hex!("Fc2986feAB34713E659da84F3B1FA32c1da95832");
+pub const VAULT_ADMIN: &[u8; 20] = &hex!("35fFB749B273bEb20F40f35EdeB805012C539864");
 pub const BATCH_ROUTER_ADDRESS: &[u8; 20] = &hex!("136f1efcc3f8f88516b9e94110d56fdbfb1778d1");
 pub const PERMIT_2_ADDRESS: &[u8; 20] = &hex!("000000000022D473030F116dDEE9F6B43aC78BA3");
 
@@ -409,6 +410,11 @@ pub fn map_protocol_changes(
             change: ChangeType::Creation.into(),
         },
         Attribute {
+            name: "stateless_contract_addr_4".into(),
+            value: address_to_bytes_with_0x(VAULT_ADMIN),
+            change: ChangeType::Creation.into(),
+        },
+        Attribute {
             name: "update_marker".to_string(),
             value: vec![1u8],
             change: ChangeType::Creation.into(),
@@ -452,6 +458,65 @@ pub fn map_protocol_changes(
                         }
                     }
 
+                    let pool_type = component
+                        .get_attribute_value("pool_type")
+                        .expect("pool type not exist");
+                    if pool_type == "LiquidityBuffer".as_bytes() {
+                        let asset_trace_data = TraceData::Rpc(RpcTraceData {
+                            caller: None,
+                            calldata: hex::decode("38d52e0f").unwrap(), // asset()
+                        });
+                        let (asset_entrypoint, asset_entrypoint_params) = create_entrypoint(
+                            component.tokens[0].clone(),
+                            "asset()".to_string(),
+                            component.id.clone(),
+                            asset_trace_data,
+                        );
+                        builder.add_entrypoint(&asset_entrypoint);
+                        builder.add_entrypoint_params(&asset_entrypoint_params);
+
+                        let total_asset_trace_data = TraceData::Rpc(RpcTraceData {
+                            caller: None,
+                            calldata: hex::decode("01e1d114").unwrap(), // totalAssets()
+                        });
+                        let (total_asset_entrypoint, total_asset_entrypoint_params) =
+                            create_entrypoint(
+                                component.tokens[0].clone(),
+                                "totalAssets()".to_string(),
+                                component.id.clone(),
+                                total_asset_trace_data,
+                            );
+                        builder.add_entrypoint(&total_asset_entrypoint);
+                        builder.add_entrypoint_params(&total_asset_entrypoint_params);
+
+                        let total_supply_trace_data = TraceData::Rpc(RpcTraceData {
+                            caller: None,
+                            calldata: hex::decode("18160ddd").unwrap(), // totalSupply()
+                        });
+                        let (total_supply_entrypoint, total_supply_entrypoint_params) =
+                            create_entrypoint(
+                                component.tokens[0].clone(),
+                                "totalSupply()".to_string(),
+                                component.id.clone(),
+                                total_supply_trace_data,
+                            );
+                        builder.add_entrypoint(&total_supply_entrypoint);
+                        builder.add_entrypoint_params(&total_supply_entrypoint_params);
+
+                        let decimals_trace_data = TraceData::Rpc(RpcTraceData {
+                            caller: None,
+                            calldata: hex::decode("313ce567").unwrap(), // decimals()
+                        });
+                        let (decimals_entrypoint, decimals_entrypoint_params) = create_entrypoint(
+                            component.tokens[0].clone(),
+                            "decimals()".to_string(),
+                            component.id.clone(),
+                            decimals_trace_data,
+                        );
+                        builder.add_entrypoint(&decimals_entrypoint);
+                        builder.add_entrypoint_params(&decimals_entrypoint_params);
+                    }
+
                     builder.add_protocol_component(component);
                     let entity_change = EntityChanges {
                         component_id: component.id.clone(),
@@ -487,8 +552,8 @@ pub fn map_protocol_changes(
         |addr| {
             components_store
                 .get_last(format!("pool:0x{0}", hex::encode(addr)))
-                .is_some() ||
-                addr.eq(VAULT_ADDRESS)
+                .is_some()
+                || addr.eq(VAULT_ADDRESS)
         },
         &mut transaction_changes,
     );
@@ -498,7 +563,7 @@ pub fn map_protocol_changes(
         .transaction_traces
         .iter()
         .for_each(|tx| {
-            let mut vault_balances = get_vault_reserves(tx, &tokens_store);
+            let mut vault_balances = get_vault_reserves(tx, &tokens_store, &token_mapping_store);
 
             vault_balances.extend(get_vault_buffer_balances(
                 &token_mapping_store,
@@ -578,6 +643,7 @@ fn address_to_string_with_0x(address: &[u8]) -> String {
 fn get_vault_reserves(
     transaction: &eth::v2::TransactionTrace,
     token_store: &StoreGetInt64,
+    token_mapping_store: &StoreGetString,
 ) -> HashMap<Vec<u8>, ReserveValue> {
     // reservesOf mapping for the current block Address -> Balance
     let mut reserves_of = HashMap::new();
@@ -605,6 +671,25 @@ fn get_vault_reserves(
                         token.as_slice(),
                         token_store,
                     );
+                }
+            }
+            if let Some(params) = Erc4626BufferWrapOrUnwrap::match_and_decode(call) {
+                let wrapped_token = params.params.2.as_slice();
+                let mapping_key = format!("buffer_mapping_{}", hex::encode(wrapped_token));
+                let underlying_token_hex = token_mapping_store
+                    .get_last(mapping_key)
+                    .unwrap();
+
+                let underlying_token = hex::decode(&underlying_token_hex).unwrap();
+
+                for change in &call.storage_changes {
+                    add_change_if_accounted(&mut reserves_of, change, wrapped_token, token_store);
+                    add_change_if_accounted(
+                        &mut reserves_of,
+                        change,
+                        underlying_token.as_slice(),
+                        token_store,
+                    )
                 }
             }
         });

@@ -19,7 +19,7 @@ binaries:
 modules:
   - name: map_components
     kind: map
-    initialBlock: 21374469
+    initialBlock: 21332121
     inputs:
       - source: sf.ethereum.type.v2.Block
     output:
@@ -27,7 +27,7 @@ modules:
 
   - name: store_components
     kind: store
-    initialBlock: 21374469
+    initialBlock: 21332121
     updatePolicy: set_if_not_exists
     valueType: proto:tycho.evm.v1.ProtocolComponents
     inputs:
@@ -35,7 +35,7 @@ modules:
 
   - name: store_token_set
     kind: store
-    initialBlock: 21374469
+    initialBlock: 21332121
     updatePolicy: set_if_not_exists
     valueType: int64
     inputs:
@@ -43,7 +43,7 @@ modules:
 
   - name: store_token_mapping
     kind: store
-    initialBlock: 21374469
+    initialBlock: 21332121
     updatePolicy: set
     valueType: string
     inputs:
@@ -51,7 +51,7 @@ modules:
 
   - name: map_relative_balances
     kind: map
-    initialBlock: 21374469
+    initialBlock: 21332121
     inputs:
       - source: sf.ethereum.type.v2.Block
       - store: store_components
@@ -61,7 +61,7 @@ modules:
 
   - name: store_balances
     kind: store
-    initialBlock: 21374469
+    initialBlock: 21332121
     updatePolicy: add
     valueType: bigint
     inputs:
@@ -69,7 +69,7 @@ modules:
 
   - name: map_protocol_changes
     kind: map
-    initialBlock: 21374469
+    initialBlock: 21332121
     inputs:
       - source: sf.ethereum.type.v2.Block
       - map: map_components
