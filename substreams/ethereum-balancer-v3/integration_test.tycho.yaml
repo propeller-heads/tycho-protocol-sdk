@@ -11,19 +11,19 @@ initialized_accounts:
   - "0xbA1333333333a1BA1108E8412f11850A5C319bA9"
 
 tests:
-  - name: test_waEthUSDT_USDT_liquidity_buffer
-    start_block: 21374469
-    stop_block: 21374489
+  - name: test_USR_USDT_liquidity_buffer
+    start_block: 22632549
+    stop_block: 22633010
     expected_components:
-      - id: "0x7bc3485026ac48b6cf9baf0a377477fff5703af8"
+      - id: "0x1202f5c7b4b9e47a1a484e8b270be34dbbc75055"
         tokens:
-          - "0x7bc3485026ac48b6cf9baf0a377477fff5703af8" # waEthUSDT
-          - "0xdac17f958d2ee523a2206206994597c13d831ec7" # USDT
+          - "0x1202f5c7b4b9e47a1a484e8b270be34dbbc75055" # wstUSR
+          - "0x66a1E37c9b0eAddca17d3662D6c05F4DECf3e110" # USR
         static_attributes:
           manual_updates: "0x01"
           pool_type: "0x4c6971756964697479427566666572"
         skip_simulation: false
-        creation_tx: "0xcdf0fac4962db16a7b6facd415530dc5a07b7aa88ba6e9f447f0fe7ce414182c"
+        creation_tx: "0x43d41cf2c886a55e83a74017e897a08e9bd6271fb907378d123497823645b853"
 
   - name: test_stable_pool
     start_block: 21374757
