@@ -7,6 +7,7 @@ import {
     BalancerV3SwapAdapter,
     IERC20,
     IVault,
+    IVaultExplorer,
     IBatchRouter,
     IERC4626,
     IPermit2
@@ -24,12 +25,21 @@ contract BalancerV3SwapAdapterTest is AdapterTest, ERC20, BalancerV3Errors {
 
     IVault constant balancerV3Vault =
         IVault(payable(0xbA1333333333a1BA1108E8412f11850A5C319bA9));
+    IVaultExplorer constant vaultExplorer =
+        IVaultExplorer(0xFc2986feAB34713E659da84F3B1FA32c1da95832); // TODO: Update
+        // with actual VaultExplorer address
     BalancerV3SwapAdapter adapter;
     IBatchRouter router =
         IBatchRouter(0x136f1EFcC3f8f88516B9E94110D56FDBfB1778d1); // Batch router
     address constant bufferRouter_address =
         0x9179C06629ef7f17Cb5759F501D89997FE0E7b45;
     address constant permit2 = 0x000000000022D473030F116dDEE9F6B43aC78BA3;
+
+    // waEthUSDT-USDT LiquidityBufferPool
+    address constant waEthUSDT_USDT_LiquidityBufferPool =
+        0x7Bc3485026Ac48b6cf9BaF0A377477Fff5703Af8;
+    address constant waEthUSDT = 0x7Bc3485026Ac48b6cf9BaF0A377477Fff5703Af8;
+    address constant USDT = 0xdAC17F958D2ee523a2206206994597C13D831ec7;
 
     // ETHx waWETH - Stable Pool
     address constant ERC4626_ERC20_ETHx_waWETH_STABLE_POOL =
@@ -64,11 +74,12 @@ contract BalancerV3SwapAdapterTest is AdapterTest, ERC20, BalancerV3Errors {
     constructor() ERC20("", "") {}
 
     function setUp() public {
-        uint256 forkBlock = 21421638;
+        uint256 forkBlock = 22198247; # vaultExplorer deployment block
         vm.createSelectFork(vm.rpcUrl("mainnet"), forkBlock);
 
         adapter = new BalancerV3SwapAdapter(
             payable(address(balancerV3Vault)),
+            address(vaultExplorer),
             address(router),
             permit2,
             ERC20_WETH
@@ -261,6 +272,91 @@ contract BalancerV3SwapAdapterTest is AdapterTest, ERC20, BalancerV3Errors {
         vm.label(ERC4626_waEthLidoWETH, "ERC4626_waEthLidoWETH");
         vm.label(ERC4626_waEthLidoWETH, "ERC4626_waEthLidoWETH");
         vm.label(permit2, "Permit2");
+    }
+
+    ///////////////////////////////////////// LiquidityBuffer
+    //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    function testPriceFuzzBalancerV3_LiquidityBuffer(uint256 amount0) public {
+        address token0 = waEthUSDT;
+        address token1 = USDT;
+
+        bytes32 pool = bytes32(bytes20(waEthUSDT_USDT_LiquidityBufferPool));
+        uint256[] memory limits = adapter.getLimits(pool, token0, token1);
+        uint256 minTradeAmount = getMinTradeAmount(token0);
+
+        uint256 upperBound = limits[0] > 1 ? limits[0] - 1 : limits[0];
+        uint256 lowerBound = minTradeAmount + 1;
+
+        // Skip test if range is invalid
+        if (lowerBound >= upperBound) return;
+
+        amount0 = bound(amount0, lowerBound, upperBound);
+
+        uint256[] memory amounts = new uint256[](1);
+        amounts[0] = amount0;
+
+        __prankStaticCall();
+        Fraction[] memory prices = adapter.price(pool, token0, token1, amounts);
+
+        for (uint256 i = 0; i < prices.length; i++) {
+            assertGt(prices[i].numerator, 0);
+            assertGt(prices[i].denominator, 0);
+        }
+    }
+
+    function testSwapFuzzBalancerV3_LiquidityBuffer(
+        uint256 specifiedAmount,
+        bool isBuy
+    ) public {
+        address token0 = waEthUSDT;
+        address token1 = USDT;
+
+        OrderSide side = isBuy ? OrderSide.Buy : OrderSide.Sell;
+        bytes32 pool = bytes32(bytes20(waEthUSDT_USDT_LiquidityBufferPool));
+        uint256[] memory limits = adapter.getLimits(pool, token0, token1);
+
+        if (side == OrderSide.Buy) {
+            vm.assume(
+                specifiedAmount < limits[1]
+                    && specifiedAmount > getMinTradeAmount(token0)
+            );
+        } else {
+            vm.assume(
+                specifiedAmount < limits[0]
+                    && specifiedAmount > getMinTradeAmount(token0)
+            );
+        }
+
+        deal(token0, address(this), type(uint256).max);
+        IERC4626(token0).approve(address(adapter), type(uint256).max);
+
+        uint256 bal0 = IERC4626(token0).balanceOf(address(this));
+        uint256 bal1 = IERC20(token1).balanceOf(address(this));
+
+        uint256[] memory amounts = new uint256[](1);
+        amounts[0] = specifiedAmount;
+        Trade memory trade =
+            adapter.swap(pool, token0, token1, side, specifiedAmount);
+
+        if (side == OrderSide.Buy) {
+            assertEq(
+                specifiedAmount, IERC20(token1).balanceOf(address(this)) - bal1
+            );
+            assertEq(
+                trade.calculatedAmount,
+                bal0 - IERC4626(token0).balanceOf(address(this))
+            );
+        } else {
+            assertEq(
+                specifiedAmount,
+                bal0 - IERC4626(token0).balanceOf(address(this))
+            );
+            assertEq(
+                trade.calculatedAmount,
+                IERC20(token1).balanceOf(address(this)) - bal1
+            );
+        }
     }
 
     ///////////////////////////////////////// ERC4626_ERC20_DIRECT

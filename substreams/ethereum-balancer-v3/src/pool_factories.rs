@@ -55,12 +55,9 @@ pub fn address_map(factory_address: &[u8], log: &Log, call: &Call) -> Option<Pro
 }
 
 fn create_buffer_component(wrapped_token: Vec<u8>, underlying_token: Vec<u8>) -> ProtocolComponent {
-    let tokens_data = [&wrapped_token[..], &underlying_token[..]].concat();
-    let component_id = keccak(&tokens_data).as_bytes().to_vec();
-
     let attributes = vec![("pool_type", "LiquidityBuffer".as_bytes()), ("manual_updates", &[1u8])];
 
-    ProtocolComponent::new(&format!("0x{}", hex::encode(&component_id)))
+    ProtocolComponent::new(&format!("0x{}", hex::encode(&wrapped_token)))
         .with_contracts(&[VAULT_ADDRESS.to_vec()])
         .with_tokens(&[wrapped_token, underlying_token])
         .with_attributes(&attributes)
