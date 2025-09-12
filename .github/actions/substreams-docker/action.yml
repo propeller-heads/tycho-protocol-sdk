@@ -1,0 +1,56 @@
+name: Build Docker Images
+description: Build Docker images
+inputs:
+  protocols:
+    required: true
+    description: Protocols to test
+runs:
+  using: "composite"
+  steps:
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Get latest main commit SHA
+      id: main_sha
+      run: echo "sha=$(git rev-parse origin/main)" >> $GITHUB_OUTPUT
+      shell: bash
+
+    - name: Cache Docker layers
+      uses: actions/cache@v4
+      with:
+        path: /tmp/.buildx-cache
+        key: ${{ runner.os }}-buildx-${{ steps.main_sha.outputs.sha }}
+        restore-keys: |
+          ${{ runner.os }}-buildx-
+
+    - name: Build db image
+      run: |
+        docker buildx build \
+          --cache-from type=local,src=/tmp/.buildx-cache \
+          --cache-to type=local,dest=/tmp/.buildx-cache \
+          -f postgres.Dockerfile \
+          -t protocol-testing-db:latest \
+          --load .
+      shell: bash
+      working-directory: protocol-testing
+
+    - name: Build test-runner image
+      run: |
+        docker buildx build \
+          --cache-from type=local,src=/tmp/.buildx-cache \
+          --cache-to type=local,dest=/tmp/.buildx-cache \
+          -f run.Dockerfile \
+          -t protocol-testing-test-runner:latest \
+          --load .
+      shell: bash
+      working-directory: protocol-testing
+
+    - name: Run protocol tests
+      env:
+        PROTOCOLS: ${{ inputs.protocols }}
+        RPC_URL: ${{ env.RPC_URL }}
+        SUBSTREAMS_API_TOKEN: ${{ env.SUBSTREAMS_API_TOKEN }}
+      run: |
+        docker compose up --abort-on-container-exit --exit-code-from test-runner
+      shell: bash
+      working-directory: protocol-testing
