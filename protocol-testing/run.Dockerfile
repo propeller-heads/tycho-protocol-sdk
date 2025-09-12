@@ -25,7 +25,7 @@ FROM rust:1.89-bookworm AS protocol-sdk-builder
 WORKDIR /build
 RUN apt-get update && apt-get install -y git
 
-RUN git clone --depth 1 https://github.com/propeller-heads/tycho-protocol-sdk.git
+COPY .. /build/tycho-protocol-sdk
 
 WORKDIR /build/tycho-protocol-sdk/protocol-testing
 RUN cargo build --release
