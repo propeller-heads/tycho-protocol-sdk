@@ -2,8 +2,8 @@ substreams_yaml_path: ./substreams.yaml
 protocol_type_names:
   - "balancer_v3_pool"
 adapter_contract: "BalancerV3SwapAdapter"
-adapter_build_signature: "constructor(address,address,address,address)"
-adapter_build_args: "0xbA1333333333a1BA1108E8412f11850A5C319bA9,0x136f1EFcC3f8f88516B9E94110D56FDBfB1778d1,0x000000000022D473030F116dDEE9F6B43aC78BA3,0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2"
+adapter_build_signature: "constructor(address,address,address,address,address)"
+adapter_build_args: "0xbA1333333333a1BA1108E8412f11850A5C319bA9,0xFc2986feAB34713E659da84F3B1FA32c1da95832,0x136f1EFcC3f8f88516B9E94110D56FDBfB1778d1,0x000000000022D473030F116dDEE9F6B43aC78BA3,0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2"
 skip_balance_check: true # Skipped because this Balancer V3 uses a Vault, the current version of the testing module doesn't support this.
 
 # vault address for v3 needed for the router contract
@@ -15,14 +15,14 @@ tests:
     start_block: 21374469
     stop_block: 21374489
     expected_components:
-      - id: "0xed9804024f321660a494e8a40d1c5731f497ef275b06fad92996d1623a06720e"
+      - id: "0x7bc3485026ac48b6cf9baf0a377477fff5703af8"
         tokens:
           - "0x7bc3485026ac48b6cf9baf0a377477fff5703af8" # waEthUSDT
           - "0xdac17f958d2ee523a2206206994597c13d831ec7" # USDT
         static_attributes:
           manual_updates: "0x01"
           pool_type: "0x4c6971756964697479427566666572"
-        skip_simulation: true
+        skip_simulation: false
         creation_tx: "0xcdf0fac4962db16a7b6facd415530dc5a07b7aa88ba6e9f447f0fe7ce414182c"
 
   - name: test_stable_pool
