@@ -13,6 +13,7 @@ abstract contract BalancerStorage {
 
     // Balancer V3 contracts
     IVault immutable vault;
+    IVaultExplorer immutable vaultExplorer;
     IBatchRouter immutable router;
 
     // ETH and Wrapped ETH addresses, using ETH as address(0)

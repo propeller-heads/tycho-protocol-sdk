@@ -103,6 +103,35 @@ interface IVault {
         external
         view
         returns (IERC20[] memory tokens);
+
+    function unlock(bytes calldata data)
+        external
+        returns (bytes memory result);
+
+    function settle(IERC20 token, uint256 amountHint)
+        external
+        returns (uint256 credit);
+
+    function sendTo(IERC20 token, address to, uint256 amount) external;
+}
+
+interface IVaultExplorer {
+    function isERC4626BufferInitialized(IERC4626 wrappedToken)
+        external
+        view
+        returns (bool isBufferInitialized);
+    function getBufferAsset(IERC4626 wrappedToken)
+        external
+        view
+        returns (address underlyingToken);
+    function getBufferTotalShares(IERC4626 wrappedToken)
+        external
+        view
+        returns (uint256 bufferShares);
+    function getBufferBalance(IERC4626 wrappedToken)
+        external
+        view
+        returns (uint256 underlyingBalanceRaw, uint256 wrappedBalanceRaw);
 }
 
 interface IRateProvider {
