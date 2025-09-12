@@ -11,9 +11,9 @@ initialized_accounts:
   - "0xbA1333333333a1BA1108E8412f11850A5C319bA9"
 
 tests:
-  - name: test_USR_USDT_liquidity_buffer
+  - name: test_wstUSR_USDT_liquidity_buffer
     start_block: 22632549
-    stop_block: 22633010
+    stop_block: 22753387
     expected_components:
       - id: "0x1202f5c7b4b9e47a1a484e8b270be34dbbc75055"
         tokens:

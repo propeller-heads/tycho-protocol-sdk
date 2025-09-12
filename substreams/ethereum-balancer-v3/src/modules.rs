@@ -675,21 +675,33 @@ fn get_vault_reserves(
             }
             if let Some(params) = Erc4626BufferWrapOrUnwrap::match_and_decode(call) {
                 let wrapped_token = params.params.2.as_slice();
-                let mapping_key = format!("buffer_mapping_{}", hex::encode(wrapped_token));
-                let underlying_token_hex = token_mapping_store
-                    .get_last(mapping_key)
-                    .unwrap();
-
-                let underlying_token = hex::decode(&underlying_token_hex).unwrap();
-
                 for change in &call.storage_changes {
                     add_change_if_accounted(&mut reserves_of, change, wrapped_token, token_store);
-                    add_change_if_accounted(
-                        &mut reserves_of,
-                        change,
-                        underlying_token.as_slice(),
-                        token_store,
-                    )
+                }
+                let mapping_key = format!("buffer_mapping_{}", hex::encode(wrapped_token));
+                match token_mapping_store.get_last(&mapping_key) {
+                    Some(underlying_token_hex) => match hex::decode(&underlying_token_hex) {
+                        Ok(underlying_token) => {
+                            for change in &call.storage_changes {
+                                add_change_if_accounted(
+                                    &mut reserves_of,
+                                    change,
+                                    underlying_token.as_slice(),
+                                    token_store,
+                                );
+                            }
+                        }
+                        Err(e) => {
+                            log::info!(
+                                "Failed to decode underlying token hex: {}, error: {:?}",
+                                underlying_token_hex,
+                                e
+                            );
+                        }
+                    },
+                    None => {
+                        log::info!("No mapping found for wrapped_token key: {}", mapping_key);
+                    }
                 }
             }
         });
