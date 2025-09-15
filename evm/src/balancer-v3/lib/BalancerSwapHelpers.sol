@@ -264,10 +264,15 @@ abstract contract BalancerSwapHelpers is
         if (isLiquidityBuffer(address(bytes20(poolId)))) {
             address wrappedToken = poolAddress;
             limits = new uint256[](2);
-            (uint256 underlyingBalanceRaw, uint256 wrappedBalanceRaw) =
-                vaultExplorer.getBufferBalance(IERC4626(wrappedToken));
-            limits[0] = wrappedBalanceRaw; // wrapped token balance
-            limits[1] = underlyingBalanceRaw; // underlying token balance
+            uint256 wrappedTokenLimit = IERC4626(wrappedToken).totalSupply();
+            uint256 underlyingTokenLimit = IERC4626(wrappedToken).totalAssets();
+            if (wrappedToken == sellToken) {
+                limits[0] = wrappedTokenLimit;
+                limits[1] = underlyingTokenLimit;
+            } else {
+                limits[0] = underlyingTokenLimit;
+                limits[1] = wrappedTokenLimit;
+            }
             return limits;
         }
 
@@ -321,7 +326,6 @@ abstract contract BalancerSwapHelpers is
         }
     }
 
-    // Callback functions for vault unlock pattern
     function getAmountOutBuffer(
         address wrappedToken,
         uint256 specifiedAmount,
@@ -340,6 +344,24 @@ abstract contract BalancerSwapHelpers is
         return amountCalculatedRaw;
     }
 
+    function getAmountInBuffer(
+        address wrappedToken,
+        uint256 specifiedAmount,
+        IVault.WrappingDirection direction
+    ) public view returns (uint256) {
+        uint256 amountCalculatedRaw;
+        if (direction == IVault.WrappingDirection.WRAP) {
+            // ERC20 -> ERC4626: use previewMint
+            amountCalculatedRaw =
+                IERC4626(wrappedToken).previewMint(specifiedAmount + 1) + 1;
+        } else {
+            // ERC4626 -> ERC20: use previewWithdraw
+            amountCalculatedRaw =
+                IERC4626(wrappedToken).previewWithdraw(specifiedAmount + 1) + 1;
+        }
+        return amountCalculatedRaw;
+    }
+
     function _swapBufferCallback(
         address wrappedToken,
         address underlyingToken,
@@ -350,6 +372,27 @@ abstract contract BalancerSwapHelpers is
     ) external returns (uint256 amountCalculatedRaw) {
         require(msg.sender == address(vault), "Only vault can call");
 
+        // Determine input/output tokens and amounts
+        bool isWrap = direction == IVault.WrappingDirection.WRAP;
+        bool isExactIn = swapKind == IVault.SwapKind.EXACT_IN;
+
+        address inputToken = isWrap ? underlyingToken : wrappedToken;
+        address outputToken = isWrap ? wrappedToken : underlyingToken;
+
+        // take token inadvance
+        if (isExactIn) {
+            IERC20(inputToken).transferFrom(
+                sender, address(vault), specifiedAmount
+            );
+            vault.settle(IERC20(inputToken), specifiedAmount);
+            IERC20(inputToken).balanceOf(address(vault));
+        } else {
+            uint256 amountIn =
+                getAmountInBuffer(wrappedToken, specifiedAmount, direction);
+            IERC20(inputToken).transferFrom(sender, address(vault), amountIn);
+            vault.settle(IERC20(inputToken), amountIn);
+            IERC20(inputToken).balanceOf(address(vault));
+        }
         // Perform the buffer operation
         (amountCalculatedRaw,,) = vault.erc4626BufferWrapOrUnwrap(
             IVault.BufferWrapOrUnwrapParams({
@@ -357,24 +400,11 @@ abstract contract BalancerSwapHelpers is
                 direction: direction,
                 wrappedToken: IERC4626(wrappedToken),
                 amountGivenRaw: specifiedAmount,
-                limitRaw: swapKind == IVault.SwapKind.EXACT_IN
-                    ? 0
-                    : type(uint256).max
+                limitRaw: isExactIn ? 0 : type(uint256).max
             })
         );
 
-        // Determine input/output tokens and amounts
-        bool isWrap = direction == IVault.WrappingDirection.WRAP;
-        bool isExactIn = swapKind == IVault.SwapKind.EXACT_IN;
-
-        address inputToken = isWrap ? underlyingToken : wrappedToken;
-        address outputToken = isWrap ? wrappedToken : underlyingToken;
-        uint256 inputAmount = isExactIn ? specifiedAmount : amountCalculatedRaw;
         uint256 outputAmount = isExactIn ? amountCalculatedRaw : specifiedAmount;
-
-        // Transfer input tokens and settle
-        IERC20(inputToken).transferFrom(sender, address(vault), inputAmount);
-        vault.settle(IERC20(inputToken), inputAmount);
         vault.sendTo(IERC20(outputToken), sender, outputAmount);
     }
 }
