@@ -1,23 +1,47 @@
-use crate::{abi, abi::vault_admin::events::LiquidityAddedToBuffer, modules::VAULT_ADDRESS};
-use abi::{
-    stable_pool_factory_contract::{
-        events::PoolCreated as StablePoolCreated, functions::Create as StablePoolCreate,
+use crate::{
+    abi::{
+        stable_pool_factory_contract::{
+            events::PoolCreated as StablePoolCreated, functions::Create as StablePoolCreate,
+        },
+        vault_admin::functions::InitializeBuffer,
+        vault_contract::events::LiquidityAddedToBuffer,
+        weighted_pool_factory_contract::{
+            events::PoolCreated as WeightedPoolCreated, functions::Create as WeightedPoolCreate,
+        },
     },
-    vault_admin::functions::InitializeBuffer,
-    weighted_pool_factory_contract::{
-        events::PoolCreated as WeightedPoolCreated, functions::Create as WeightedPoolCreate,
-    },
+    VAULT_ADDRESS,
 };
+use anyhow::{Ok, Result};
 use keccak_hash::keccak;
 use substreams::{hex, scalar::BigInt};
 use substreams_ethereum::{
-    pb::eth::v2::{Call, Log},
+    pb::eth::{
+        v2::{Call, Log},
+        {self},
+    },
     Event, Function,
 };
 use tycho_substreams::{
     attributes::{json_serialize_address_list, json_serialize_bigint_list},
     prelude::*,
 };
+
+#[substreams::handlers::map]
+pub fn map_components(block: eth::v2::Block) -> Result<BlockTransactionProtocolComponents> {
+    let mut tx_components = Vec::new();
+    for tx in block.transactions() {
+        let mut components = Vec::new();
+        for (log, call) in tx.logs_with_calls() {
+            if let Some(component) = address_map(log.address.as_slice(), log, call.call) {
+                components.push(component);
+            }
+        }
+        if !components.is_empty() {
+            tx_components.push(TransactionProtocolComponents { tx: Some(tx.into()), components });
+        }
+    }
+    Ok(BlockTransactionProtocolComponents { tx_components })
+}
 
 // Token config: (token_address, rate, rate_provider_address, is_exempt_from_yield_fees)
 type TokenConfig = Vec<(Vec<u8>, substreams::scalar::BigInt, Vec<u8>, bool)>;
