@@ -11,19 +11,19 @@ initialized_accounts:
   - "0xbA1333333333a1BA1108E8412f11850A5C319bA9"
 
 tests:
-#  - name: test_csUSDL_wUSDL_liquidity_buffer
-#    start_block: 21373237
-#    stop_block: 21380625
-#    expected_components:
-#      - id: "0xbEEFC01767ed5086f35deCb6C00e6C12bc7476C1"
-#        tokens:
-#          - "0xbEEFC01767ed5086f35deCb6C00e6C12bc7476C1" # csUSDL
-#          - "0x7751E2F4b8ae93EF6B79d86419d42FE3295A4559" # wUSDL
-#        static_attributes:
-#          manual_updates: "0x01"
-#          pool_type: "0x4c6971756964697479427566666572"
-#        skip_simulation: false
-#        creation_tx: "0x1b2f2061cf93d11daa96a3a6afbca2f2e080354558086e8e42bb65d214867140"
+  - name: test_fWETH_WETH_liquidity_buffer
+    start_block: 21923067
+    stop_block: 22116233
+    expected_components:
+      - id: "0x90551c1795392094FE6D29B758EcCD233cFAa260"
+        tokens:
+          - "0x90551c1795392094FE6D29B758EcCD233cFAa260" # fWETH
+          - "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2" # WETH
+        static_attributes:
+          manual_updates: "0x01"
+          pool_type: "0x4c6971756964697479427566666572"
+        skip_simulation: false
+        creation_tx: "0x82dd825de471353f314021d035a0af52b41d12d441b8cce29581c598fd6344f4"
 
   - name: test_wstUSR_USDT_liquidity_buffer
     start_block: 22632549

@@ -41,6 +41,11 @@ contract BalancerV3SwapAdapterTest is AdapterTest, ERC20, BalancerV3Errors {
     address constant waEthUSDT = 0x7Bc3485026Ac48b6cf9BaF0A377477Fff5703Af8;
     address constant USDT = 0xdAC17F958D2ee523a2206206994597C13D831ec7;
 
+    address constant wstUSR_USR_LiquidityBufferPool =
+        0x1202F5C7b4B9E47a1A484E8B270be34dbbC75055;
+    address constant wstUSR = 0x1202F5C7b4B9E47a1A484E8B270be34dbbC75055;
+    address constant USR = 0x66a1E37c9b0eAddca17d3662D6c05F4DECf3e110;
+
     // ETHx waWETH - Stable Pool
     address constant ERC4626_ERC20_ETHx_waWETH_STABLE_POOL =
         0x4AB7aB316D43345009B2140e0580B072eEc7DF16;
@@ -309,11 +314,11 @@ contract BalancerV3SwapAdapterTest is AdapterTest, ERC20, BalancerV3Errors {
         uint256 specifiedAmount,
         bool isBuy
     ) public {
-        address token0 = waEthUSDT;
-        address token1 = USDT;
+        address token0 = wstUSR;
+        address token1 = USR;
 
         OrderSide side = isBuy ? OrderSide.Buy : OrderSide.Sell;
-        bytes32 pool = bytes32(bytes20(waEthUSDT_USDT_LiquidityBufferPool));
+        bytes32 pool = bytes32(bytes20(wstUSR_USR_LiquidityBufferPool));
         uint256[] memory limits = adapter.getLimits(pool, token0, token1);
 
         if (side == OrderSide.Buy) {

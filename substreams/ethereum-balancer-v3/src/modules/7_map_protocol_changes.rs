@@ -13,6 +13,7 @@ use std::collections::HashMap;
 use substreams::{
     pb::substreams::StoreDeltas,
     prelude::StoreGetString,
+    scalar::BigInt,
     store::{StoreGet, StoreGetInt64, StoreGetProto},
 };
 use substreams_ethereum::{
@@ -20,7 +21,7 @@ use substreams_ethereum::{
     Event, Function,
 };
 use tycho_substreams::{
-    attributes::json_deserialize_address_list, balances::aggregate_balances_changes,
+    abi, attributes::json_deserialize_address_list, balances::aggregate_balances_changes,
     block_storage::get_block_storage_changes, contract::extract_contract_changes_builder,
     entrypoint::create_entrypoint, models::entry_point_params::TraceData, prelude::*,
 };
@@ -161,12 +162,27 @@ pub fn map_protocol_changes(
                         .get_attribute_value("pool_type")
                         .expect("pool type not exist");
                     if pool_type == "LiquidityBuffer".as_bytes() {
+                        let wrapped_token = component.tokens[0].clone();
+                        let token_decimals = get_token_decimals(&wrapped_token);
+                        let trace_wrapped_token_amount = match token_decimals {
+                            Some(decimals) => {
+                                let base = BigInt::from(10);
+                                base.pow(
+                                    decimals
+                                        .to_string()
+                                        .parse::<u32>()
+                                        .unwrap_or(18),
+                                )
+                            }
+                            None => BigInt::from(1),
+                        };
+
                         let asset_trace_data = TraceData::Rpc(RpcTraceData {
                             caller: None,
                             calldata: hex::decode("38d52e0f").unwrap(), // asset()
                         });
                         let (asset_entrypoint, asset_entrypoint_params) = create_entrypoint(
-                            component.tokens[0].clone(),
+                            wrapped_token.clone(),
                             "asset()".to_string(),
                             component.id.clone(),
                             asset_trace_data,
@@ -174,33 +190,73 @@ pub fn map_protocol_changes(
                         builder.add_entrypoint(&asset_entrypoint);
                         builder.add_entrypoint_params(&asset_entrypoint_params);
 
-                        let total_asset_trace_data = TraceData::Rpc(RpcTraceData {
+                        let preview_deposit_trace_data = TraceData::Rpc(RpcTraceData {
                             caller: None,
-                            calldata: hex::decode("01e1d114").unwrap(), // totalAssets()
+                            calldata: build_entrypoint_calldata(
+                                "ef8b30f7",
+                                &trace_wrapped_token_amount,
+                            ), // previewDeposit(uint256)(uint256)
                         });
-                        let (total_asset_entrypoint, total_asset_entrypoint_params) =
+                        let (preview_deposit_entrypoint, preview_deposit_entrypoint_params) =
                             create_entrypoint(
-                                component.tokens[0].clone(),
-                                "totalAssets()".to_string(),
+                                wrapped_token.clone(),
+                                "previewDeposit(uint256)(uint256)".to_string(),
                                 component.id.clone(),
-                                total_asset_trace_data,
+                                preview_deposit_trace_data,
                             );
-                        builder.add_entrypoint(&total_asset_entrypoint);
-                        builder.add_entrypoint_params(&total_asset_entrypoint_params);
+                        builder.add_entrypoint(&preview_deposit_entrypoint);
+                        builder.add_entrypoint_params(&preview_deposit_entrypoint_params);
 
-                        let total_supply_trace_data = TraceData::Rpc(RpcTraceData {
+                        let preview_mint_trace_data = TraceData::Rpc(RpcTraceData {
                             caller: None,
-                            calldata: hex::decode("18160ddd").unwrap(), // totalSupply()
+                            calldata: build_entrypoint_calldata(
+                                "b3d7f6b9",
+                                &trace_wrapped_token_amount,
+                            ), // previewMint(uint256)(uint256)
                         });
-                        let (total_supply_entrypoint, total_supply_entrypoint_params) =
+                        let (preview_mint_entrypoint, preview_mint_entrypoint_params) =
                             create_entrypoint(
-                                component.tokens[0].clone(),
-                                "totalSupply()".to_string(),
+                                wrapped_token.clone(),
+                                "previewMint(uint256)(uint256)".to_string(),
                                 component.id.clone(),
-                                total_supply_trace_data,
+                                preview_mint_trace_data,
                             );
-                        builder.add_entrypoint(&total_supply_entrypoint);
-                        builder.add_entrypoint_params(&total_supply_entrypoint_params);
+                        builder.add_entrypoint(&preview_mint_entrypoint);
+                        builder.add_entrypoint_params(&preview_mint_entrypoint_params);
+
+                        let preview_withdraw_trace_data = TraceData::Rpc(RpcTraceData {
+                            caller: None,
+                            calldata: build_entrypoint_calldata(
+                                "0a28a477",
+                                &trace_wrapped_token_amount,
+                            ), // previewWithdraw(uint256)(uint256)
+                        });
+                        let (preview_withdraw_entrypoint, preview_withdraw_entrypoint_params) =
+                            create_entrypoint(
+                                wrapped_token.clone(),
+                                "previewWithdraw(uint256)(uint256)".to_string(),
+                                component.id.clone(),
+                                preview_withdraw_trace_data,
+                            );
+                        builder.add_entrypoint(&preview_withdraw_entrypoint);
+                        builder.add_entrypoint_params(&preview_withdraw_entrypoint_params);
+
+                        let preview_redeem_trace_data = TraceData::Rpc(RpcTraceData {
+                            caller: None,
+                            calldata: build_entrypoint_calldata(
+                                "4cdad506",
+                                &trace_wrapped_token_amount,
+                            ), // previewRedeem(uint256)(uint256)
+                        });
+                        let (preview_redeem_entrypoint, preview_redeem_entrypoint_params) =
+                            create_entrypoint(
+                                wrapped_token.clone(),
+                                "previewRedeem(uint256)(uint256)".to_string(),
+                                component.id.clone(),
+                                preview_redeem_trace_data,
+                            );
+                        builder.add_entrypoint(&preview_redeem_entrypoint);
+                        builder.add_entrypoint_params(&preview_redeem_entrypoint_params);
                     }
 
                     builder.add_protocol_component(component);
@@ -411,4 +467,34 @@ fn get_storage_key_for_token(token_address: &[u8]) -> Vec<u8> {
         .as_bytes()
         .to_vec();
     result
+}
+
+fn get_token_decimals(wrapped_token: &[u8]) -> Option<BigInt> {
+    abi::erc20::functions::Decimals {}.call(wrapped_token.to_owned())
+}
+
+fn build_entrypoint_calldata(sig: &str, amount: &BigInt) -> Vec<u8> {
+    let mut preview_deposit_calldata = hex::decode(sig).unwrap();
+    let amount_bytes = amount.to_bytes_be().1;
+    let mut padded_amount = vec![0u8; 32];
+    let start_pos = 32 - amount_bytes.len();
+    padded_amount[start_pos..].copy_from_slice(&amount_bytes);
+    preview_deposit_calldata.extend_from_slice(&padded_amount);
+    preview_deposit_calldata
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn test_preview_deposit_with_amount_1() {
+        let function_selector = "ef8b30f7";
+        let amount = BigInt::from(1);
+        let result = build_entrypoint_calldata(function_selector, &amount);
+        let expected =
+            hex::decode("ef8b30f70000000000000000000000000000000000000000000000000000000000000001")
+                .unwrap();
+        assert_eq!(result, expected);
+        assert_eq!(result.len(), 36);
+    }
 }
