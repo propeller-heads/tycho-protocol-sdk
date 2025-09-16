@@ -597,13 +597,9 @@ fn validate_state(
 
                     let protocol_component = block_msg.new_pairs.get(id).unwrap();
 
-                    // Generate proxy token address for the input token to match simulation setup
-                    let proxy_token_in_address = generate_proxy_token_address(0);
-                    let token_in_address = Bytes::from(proxy_token_in_address.as_slice());
-
                     let (calldata, solution) = encode_swap(
                         protocol_component.clone(),
-                        token_in_address,
+                        token_in.address.clone(),
                         token_out.address.clone(),
                         amount_in,
                         amount_out_result.amount,
@@ -808,8 +804,8 @@ fn setup_state_overrides(
     // Use TokenProxyOverwriteFactory for standardized token balance and allowance overwrites
     // For testing purposes, we use index 0 since we typically deal with single token swaps per test
     // TODO I think we need to generate otherwise we would fully overwrite the code of the OG address?
-    let proxy_token_address = generate_proxy_token_address(0);
-    let mut token_proxy_factory = TokenProxyOverwriteFactory::new(proxy_token_address, Some(token_address));
+    // let proxy_token_address = generate_proxy_token_address(0);
+    let mut token_proxy_factory = TokenProxyOverwriteFactory::new(token_address, None);
 
     token_proxy_factory.set_balance(U256::MAX, user_address);
     token_proxy_factory.set_allowance(U256::MAX, tycho_router_address, user_address);
@@ -828,7 +824,7 @@ fn setup_state_overrides(
             );
         }
 
-        state_overwrites.insert(proxy_token_address, state_override);
+        state_overwrites.insert(token_address, state_override);
     }
 
     info!("Added TokenProxy override for token {:?} with balance and allowance for user {:?} and TychoRouter {:?}",
