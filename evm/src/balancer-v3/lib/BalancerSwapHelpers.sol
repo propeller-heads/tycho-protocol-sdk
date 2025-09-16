@@ -385,15 +385,12 @@ abstract contract BalancerSwapHelpers is
                 sender, address(vault), specifiedAmount
             );
             vault.settle(IERC20(inputToken), specifiedAmount);
-            IERC20(inputToken).balanceOf(address(vault));
         } else {
             uint256 amountIn =
                 getAmountInBuffer(wrappedToken, specifiedAmount, direction);
             IERC20(inputToken).transferFrom(sender, address(vault), amountIn);
             vault.settle(IERC20(inputToken), amountIn);
-            IERC20(inputToken).balanceOf(address(vault));
         }
-        IERC4626(wrappedToken).maxRedeem(address(vault));
         // Perform the buffer operation
         (amountCalculatedRaw,,) = vault.erc4626BufferWrapOrUnwrap(
             IVault.BufferWrapOrUnwrapParams({
