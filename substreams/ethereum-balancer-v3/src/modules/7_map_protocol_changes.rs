@@ -292,10 +292,12 @@ pub fn map_protocol_changes(
     extract_contract_changes_builder(
         &block,
         |addr| {
-            components_store
-                .get_last(format!("pool:0x{0}", hex::encode(addr)))
-                .is_some() ||
+            if let Some(pc) = components_store.get_last(format!("pool:0x{}", hex::encode(addr))) {
+                pc.get_attribute_value("pool_type")
+                    .is_some_and(|v| v != "LiquidityBuffer".as_bytes())
+            } else {
                 addr.eq(VAULT_ADDRESS)
+            }
         },
         &mut transaction_changes,
     );
