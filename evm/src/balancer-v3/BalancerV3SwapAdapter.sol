@@ -32,11 +32,13 @@ import "./lib/BalancerSwapHelpers.sol";
 contract BalancerV3SwapAdapter is BalancerSwapHelpers {
     constructor(
         address payable vault_,
+        address vaultExplorer_,
         address _router,
         address _permit2,
         address _WETH_ADDRESS
     ) {
         vault = IVault(vault_);
+        vaultExplorer = IVaultExplorer(vaultExplorer_);
         router = IBatchRouter(_router);
         permit2 = _permit2;
         WETH_ADDRESS = _WETH_ADDRESS;
@@ -119,6 +121,15 @@ contract BalancerV3SwapAdapter is BalancerSwapHelpers {
         returns (address[] memory tokens)
     {
         address poolAddress = address(bytes20(poolId));
+        if (isLiquidityBuffer(address(bytes20(poolId)))) {
+            address wrappedToken = poolAddress;
+            address underlyingToken =
+                vaultExplorer.getBufferAsset(IERC4626(wrappedToken));
+            tokens = new address[](2);
+            tokens[0] = wrappedToken;
+            tokens[1] = underlyingToken;
+            return tokens;
+        }
         // Is accessing to vault to get the tokens of a pool / Here could be
         // where it was reverting the test
         IERC20[] memory tokens_ = vault.getPoolTokens(poolAddress);

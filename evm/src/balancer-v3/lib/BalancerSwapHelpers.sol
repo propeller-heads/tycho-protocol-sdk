@@ -20,6 +20,25 @@ abstract contract BalancerSwapHelpers is
     ) internal returns (uint256 amountOut) {
         address poolAddress = address(bytes20(pool));
 
+        // liquidityBuffer
+        if (isLiquidityBuffer(poolAddress)) {
+            address wrappedToken = poolAddress;
+
+            if (sellToken == wrappedToken) {
+                // ERC4626 -> ERC20
+                return getAmountOutBuffer(
+                    wrappedToken,
+                    specifiedAmount,
+                    IVault.WrappingDirection.UNWRAP
+                );
+            } else if (buyToken == wrappedToken) {
+                // ERC20 -> ERC4626
+                return getAmountOutBuffer(
+                    wrappedToken, specifiedAmount, IVault.WrappingDirection.WRAP
+                );
+            }
+        }
+
         // getTokens() -> [token0, token1] -> if([sellToken,buyToken) in
         // [token0, token1]) -> direct
         IERC20[] memory tokens = vault.getPoolTokens(poolAddress);
@@ -98,6 +117,53 @@ abstract contract BalancerSwapHelpers is
         uint256 specifiedAmount
     ) internal returns (uint256) {
         address poolAddress = address(bytes20(pool));
+        // liquidityBuffer
+        if (isLiquidityBuffer(address(bytes20(pool)))) {
+            address wrappedToken = poolAddress;
+            if (sellToken == wrappedToken) {
+                // ERC4626 -> ERC20
+                IVault.SwapKind swapKind = side == OrderSide.Sell
+                    ? IVault.SwapKind.EXACT_IN
+                    : IVault.SwapKind.EXACT_OUT;
+                return abi.decode(
+                    vault.unlock(
+                        abi.encodeCall(
+                            this._swapBufferCallback,
+                            (
+                                wrappedToken,
+                                buyToken,
+                                msg.sender,
+                                specifiedAmount,
+                                swapKind,
+                                IVault.WrappingDirection.UNWRAP
+                            )
+                        )
+                    ),
+                    (uint256)
+                );
+            } else if (buyToken == wrappedToken) {
+                // ERC20 -> ERC4626
+                IVault.SwapKind swapKind = side == OrderSide.Sell
+                    ? IVault.SwapKind.EXACT_IN
+                    : IVault.SwapKind.EXACT_OUT;
+                return abi.decode(
+                    vault.unlock(
+                        abi.encodeCall(
+                            this._swapBufferCallback,
+                            (
+                                wrappedToken,
+                                sellToken,
+                                msg.sender,
+                                specifiedAmount,
+                                swapKind,
+                                IVault.WrappingDirection.WRAP
+                            )
+                        )
+                    ),
+                    (uint256)
+                );
+            }
+        }
 
         // getTokens() -> [token0, token1] -> if([sellToken,buyToken) in
         // [token0, token1]) -> direct
@@ -194,6 +260,21 @@ abstract contract BalancerSwapHelpers is
         address buyToken
     ) internal view returns (uint256[] memory limits) {
         address poolAddress = address(bytes20(poolId));
+        // liquidityBuffer
+        if (isLiquidityBuffer(address(bytes20(poolId)))) {
+            address wrappedToken = poolAddress;
+            limits = new uint256[](2);
+            uint256 wrappedTokenLimit = IERC4626(wrappedToken).totalSupply();
+            uint256 underlyingTokenLimit = IERC4626(wrappedToken).totalAssets();
+            if (wrappedToken == sellToken) {
+                limits[0] = wrappedTokenLimit;
+                limits[1] = underlyingTokenLimit;
+            } else {
+                limits[0] = underlyingTokenLimit;
+                limits[1] = wrappedTokenLimit;
+            }
+            return limits;
+        }
 
         // getTokens() -> [token0, token1] -> if([sellToken,buyToken) in
         // [token0, token1]) -> direct
@@ -243,5 +324,85 @@ abstract contract BalancerSwapHelpers is
                 poolId, sellToken, buyToken, kind, outputAddress
             );
         }
+    }
+
+    function getAmountOutBuffer(
+        address wrappedToken,
+        uint256 specifiedAmount,
+        IVault.WrappingDirection direction
+    ) public view returns (uint256) {
+        uint256 amountCalculatedRaw;
+        if (direction == IVault.WrappingDirection.WRAP) {
+            // ERC20 -> ERC4626: use previewDeposit
+            amountCalculatedRaw =
+                IERC4626(wrappedToken).previewDeposit(specifiedAmount);
+        } else {
+            // ERC4626 -> ERC20: use previewRedeem
+            amountCalculatedRaw =
+                IERC4626(wrappedToken).previewRedeem(specifiedAmount);
+        }
+        return amountCalculatedRaw;
+    }
+
+    function getAmountInBuffer(
+        address wrappedToken,
+        uint256 specifiedAmount,
+        IVault.WrappingDirection direction
+    ) public view returns (uint256) {
+        uint256 amountCalculatedRaw;
+        if (direction == IVault.WrappingDirection.WRAP) {
+            // ERC20 -> ERC4626: use previewMint
+            amountCalculatedRaw =
+                IERC4626(wrappedToken).previewMint(specifiedAmount + 1) + 1;
+        } else {
+            // ERC4626 -> ERC20: use previewWithdraw
+            amountCalculatedRaw =
+                IERC4626(wrappedToken).previewWithdraw(specifiedAmount + 1) + 1;
+        }
+        return amountCalculatedRaw;
+    }
+
+    function _swapBufferCallback(
+        address wrappedToken,
+        address underlyingToken,
+        address sender,
+        uint256 specifiedAmount,
+        IVault.SwapKind swapKind,
+        IVault.WrappingDirection direction
+    ) external returns (uint256 amountCalculatedRaw) {
+        require(msg.sender == address(vault), "Only vault can call");
+
+        // Determine input/output tokens and amounts
+        bool isWrap = direction == IVault.WrappingDirection.WRAP;
+        bool isExactIn = swapKind == IVault.SwapKind.EXACT_IN;
+
+        address inputToken = isWrap ? underlyingToken : wrappedToken;
+        address outputToken = isWrap ? wrappedToken : underlyingToken;
+
+        // take token inadvance
+        if (isExactIn) {
+            IERC20(inputToken).transferFrom(
+                sender, address(vault), specifiedAmount
+            );
+            vault.settle(IERC20(inputToken), specifiedAmount);
+        } else {
+            uint256 amountIn =
+                getAmountInBuffer(wrappedToken, specifiedAmount, direction);
+            IERC20(inputToken).transferFrom(sender, address(vault), amountIn);
+            vault.settle(IERC20(inputToken), amountIn);
+        }
+        // Perform the buffer operation
+        (amountCalculatedRaw,,) = vault.erc4626BufferWrapOrUnwrap(
+            IVault.BufferWrapOrUnwrapParams({
+                kind: swapKind,
+                direction: direction,
+                wrappedToken: IERC4626(wrappedToken),
+                amountGivenRaw: specifiedAmount,
+                limitRaw: isExactIn ? 0 : type(uint256).max
+            })
+        );
+
+        uint256 outputAmount = isExactIn ? amountCalculatedRaw : specifiedAmount;
+        vault.sendTo(IERC20(outputToken), sender, outputAmount);
     }
 }

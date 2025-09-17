@@ -2,8 +2,8 @@ substreams_yaml_path: ./substreams.yaml
 protocol_type_names:
   - "balancer_v3_pool"
 adapter_contract: "BalancerV3SwapAdapter"
-adapter_build_signature: "constructor(address,address,address,address)"
-adapter_build_args: "0xbA1333333333a1BA1108E8412f11850A5C319bA9,0x136f1EFcC3f8f88516B9E94110D56FDBfB1778d1,0x000000000022D473030F116dDEE9F6B43aC78BA3,0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2"
+adapter_build_signature: "constructor(address,address,address,address,address)"
+adapter_build_args: "0xbA1333333333a1BA1108E8412f11850A5C319bA9,0xFc2986feAB34713E659da84F3B1FA32c1da95832,0x136f1EFcC3f8f88516B9E94110D56FDBfB1778d1,0x000000000022D473030F116dDEE9F6B43aC78BA3,0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2"
 skip_balance_check: true # Skipped because this Balancer V3 uses a Vault, the current version of the testing module doesn't support this.
 
 # vault address for v3 needed for the router contract
@@ -11,14 +11,42 @@ initialized_accounts:
   - "0xbA1333333333a1BA1108E8412f11850A5C319bA9"
 
 tests:
+  - name: test_fWETH_WETH_liquidity_buffer
+    start_block: 21923067
+    stop_block: 22116233
+    expected_components:
+      - id: "0x90551c1795392094FE6D29B758EcCD233cFAa260"
+        tokens:
+          - "0x90551c1795392094FE6D29B758EcCD233cFAa260" # fWETH
+          - "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2" # WETH
+        static_attributes:
+          manual_updates: "0x01"
+          pool_type: "0x4c6971756964697479427566666572"
+        skip_simulation: false
+        creation_tx: "0x82dd825de471353f314021d035a0af52b41d12d441b8cce29581c598fd6344f4"
+
+  - name: test_wstUSR_USDT_liquidity_buffer
+    start_block: 22632549
+    stop_block: 22753387
+    expected_components:
+      - id: "0x1202f5c7b4b9e47a1a484e8b270be34dbbc75055"
+        tokens:
+          - "0x1202f5c7b4b9e47a1a484e8b270be34dbbc75055" # wstUSR
+          - "0x66a1E37c9b0eAddca17d3662D6c05F4DECf3e110" # USR
+        static_attributes:
+          manual_updates: "0x01"
+          pool_type: "0x4c6971756964697479427566666572"
+        skip_simulation: false
+        creation_tx: "0x43d41cf2c886a55e83a74017e897a08e9bd6271fb907378d123497823645b853"
+
   - name: test_stable_pool
     start_block: 21374757
     stop_block: 21374777
     expected_components:
       - id: "0xc4ce391d82d164c166df9c8336ddf84206b2f812"
         tokens:
-          - "0x0FE906e030a44eF24CA8c7dC7B7c53A6C4F00ce9"
-          - "0x775F661b0bD1739349b9A2A3EF60be277c5d2D29"
+          - "0x0FE906e030a44eF24CA8c7dC7B7c53A6C4F00ce9" # waEthLidoWETH
+          - "0x775F661b0bD1739349b9A2A3EF60be277c5d2D29" # waEthLidowstETH
         static_attributes:
           manual_updates: "0x01"
           pool_type: "0x537461626c65506f6f6c466163746f7279"
@@ -83,8 +111,8 @@ tests:
     expected_components:
       - id: "0x4403a2721A9A9956584dc19F553720CEf0Df35b0"
         tokens:
-          - "0xafd9268fdfebee905f7439b12c943bc18ad293c2"
-          - "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2"
+          - "0xafd9268fdfebee905f7439b12c943bc18ad293c2" # OBS
+          - "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2" # WETH
         static_attributes:
           pool_type: "0x5765696768746564506f6f6c466163746f7279"
           manual_updates: "0x01"

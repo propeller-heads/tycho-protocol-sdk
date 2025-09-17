@@ -23,6 +23,10 @@ abstract contract BalancerCustomWrapHelpers is BalancerERC20Helpers {
         return false;
     }
 
+    function isLiquidityBuffer(address pool) public view returns (bool) {
+        return vaultExplorer.isERC4626BufferInitialized(IERC4626(pool));
+    }
+
     function getCustomWrap(address sellToken, address buyToken, address pool)
         internal
         view
