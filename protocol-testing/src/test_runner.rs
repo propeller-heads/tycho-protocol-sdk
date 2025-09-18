@@ -1,14 +1,15 @@
 use std::{collections::HashMap, env, path::PathBuf, str::FromStr};
 
-use alloy::primitives::U256;
+use alloy::primitives::{Address, U256};
 use figment::{
     providers::{Format, Yaml},
     Figment,
 };
 use itertools::Itertools;
 use miette::{miette, IntoDiagnostic, WrapErr};
-use num_bigint::BigUint;
-use num_traits::Zero;
+use num_bigint::{BigInt, BigUint};
+use num_rational::BigRational;
+use num_traits::{Signed, ToPrimitive, Zero};
 use postgres::{Client, Error, NoTls};
 use tokio::runtime::Runtime;
 use tracing::{debug, error, info, warn};
@@ -35,6 +36,7 @@ use crate::{
     adapter_builder::AdapterContractBuilder,
     config::{IntegrationTest, IntegrationTestsConfig, ProtocolComponentWithTestConfig},
     encoding::encode_swap,
+    execution,
     rpc::RPCProvider,
     tycho_rpc::TychoClient,
     tycho_runner::TychoRunner,
@@ -315,10 +317,21 @@ fn validate_state(
     info!("All expected components were successfully found on Tycho and match the expected state");
 
     // Step 2: Validate Token Balances
+    let rpc_url = env::var("RPC_URL")
+        .into_diagnostic()
+        .wrap_err("Missing RPC_URL in environment")?;
+    let rpc_provider = RPCProvider::new(rpc_url, vm_traces);
+
     match skip_balance_check {
         true => info!("Skipping balance check"),
         false => {
-            validate_token_balances(&components_by_id, &protocol_states_by_id, start_block, &rt)?;
+            validate_token_balances(
+                &components_by_id,
+                &protocol_states_by_id,
+                start_block,
+                &rt,
+                &rpc_provider,
+            )?;
             info!("All token balances match the values found onchain")
         }
     }
@@ -415,10 +428,6 @@ fn validate_state(
     let bytes = [0u8; 32];
 
     // Get block header to extract the timestamp
-    let rpc_url = env::var("RPC_URL")
-        .into_diagnostic()
-        .wrap_err("Missing RPC_URL in environment")?;
-    let rpc_provider = RPCProvider::new(rpc_url);
     let block_header = rt
         .block_on(rpc_provider.get_block_header(stop_block))
         .wrap_err("Failed to get block header")?;
@@ -452,7 +461,7 @@ fn validate_state(
     let message: FeedMessage = FeedMessage { state_msgs, sync_states: Default::default() };
 
     let block_msg = rt
-        .block_on(decoder.decode(message))
+        .block_on(decoder.decode(&message))
         .into_diagnostic()
         .wrap_err("Failed to decode message")?;
 
@@ -465,7 +474,6 @@ fn validate_state(
     for (id, state) in block_msg.states.iter() {
         if let Some(tokens) = pairs.get(id) {
             let formatted_token_str = format!("{:}/{:}", &tokens[0].symbol, &tokens[1].symbol);
-            info!("Amount out for {}: calculating for tokens {:?}", id, formatted_token_str);
             state
                 .spot_price(&tokens[0], &tokens[1])
                 .map(|price| info!("Spot price {:?}: {:?}", formatted_token_str, price))
@@ -522,7 +530,7 @@ fn validate_state(
                         ))?;
 
                     info!(
-                        "Amount out for trading {:.1}% of max: ({} {} -> {} {}) (gas: {})",
+                        "Simulated amount out for trading {:.1}% of max: ({} {} -> {} {}) (gas: {})",
                         percentage * 100.0,
                         amount_in,
                         token_in.symbol,
@@ -531,16 +539,59 @@ fn validate_state(
                         amount_out_result.gas
                     );
 
-                    let protocol_component = block_msg.new_pairs.get(id);
-                    if let Some(pc) = protocol_component {
-                        encode_swap(
-                            pc.clone(),
-                            token_in.address.clone(),
-                            token_out.address.clone(),
-                            amount_in,
-                            amount_out_result.amount,
-                        )?;
-                        info!("Encoded swap successfully");
+                    let protocol_component = block_msg.new_pairs.get(id).unwrap();
+
+                    let (calldata, solution) = encode_swap(
+                        protocol_component.clone(),
+                        token_in.address.clone(),
+                        token_out.address.clone(),
+                        amount_in,
+                        amount_out_result.amount.clone(),
+                    )?;
+                    info!("Encoded swap successfully");
+
+                    info!("Simulating swap at historical block {}", block_header.header.number);
+                    // Simulate the trade using debug_traceCall with overwrites
+                    let execution_amount_out =
+                        rt.block_on(execution::simulate_trade_with_eth_call(
+                            &rpc_provider,
+                            &calldata,
+                            &solution,
+                            stop_block,
+                            adapter_contract_path_str,
+                            &block_header,
+                        ));
+
+                    match execution_amount_out {
+                        Ok(amount_out) => {
+                            info!(
+                                "Simulating execution passed with {} {} -> {} {}",
+                                solution.given_amount,
+                                token_in.symbol,
+                                amount_out,
+                                token_out.symbol
+                            );
+
+                            // Compare execution amount out with simulation amount out
+                            let diff = BigInt::from(amount_out_result.amount) -
+                                BigInt::from(amount_out.clone());
+
+                            let relative: BigRational =
+                                BigRational::new(diff.abs(), BigInt::from(amount_out));
+                            if relative.to_f64() > Some(0.05) {
+                                return Err(miette!(
+                                    "Execution amount and simulation amount differ more than 5%!"
+                                ));
+                            }
+                        }
+                        Err(e) => {
+                            return Err(miette!(
+                                "Simulating execution failed for {} -> {}: {}",
+                                token_in.symbol,
+                                token_out.symbol,
+                                e
+                            ));
+                        }
                     }
                 }
             }
@@ -558,12 +609,8 @@ fn validate_token_balances(
     protocol_states_by_id: &HashMap<String, ResponseProtocolState>,
     start_block: u64,
     rt: &Runtime,
+    rpc_provider: &RPCProvider,
 ) -> miette::Result<()> {
-    let rpc_url = env::var("RPC_URL")
-        .into_diagnostic()
-        .wrap_err("Missing RPC_URL in environment")?;
-    let rpc_provider = RPCProvider::new(rpc_url.to_string());
-
     for (id, component) in components_by_id.iter() {
         let component_state = protocol_states_by_id.get(id);
 
@@ -579,8 +626,8 @@ fn validate_token_balances(
             }
 
             info!("Validating token balance for component {} and token {}", component.id, token);
-            let token_address = alloy::primitives::Address::from_slice(&token[..20]);
-            let component_address = alloy::primitives::Address::from_str(component.id.as_str())
+            let token_address = Address::from_slice(&token[..20]);
+            let component_address = Address::from_str(component.id.as_str())
                 .expect("Failed to parse component address");
             let node_balance = rt.block_on(rpc_provider.get_token_balance(
                 token_address,
@@ -605,7 +652,7 @@ fn validate_token_balances(
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
+    use std::{collections::HashMap, str::FromStr};
 
     use dotenv::dotenv;
     use glob::glob;
@@ -664,6 +711,9 @@ mod tests {
 
     #[test]
     fn test_token_balance_validation() {
+        dotenv().ok();
+        let eth_rpc_url = env::var("RPC_URL").expect("Missing RPC_URL in environment");
+        let rpc_provider = RPCProvider::new(eth_rpc_url, false);
         // Setup mock data
         let block_number = 21998530;
         let token_bytes = Bytes::from_str("0x0000000000000000000000000000000000000000").unwrap();
@@ -695,13 +745,21 @@ mod tests {
 
         let rt = Runtime::new().unwrap();
         dotenv().ok();
-        let result =
-            validate_token_balances(&components_by_id, &protocol_states_by_id, block_number, &rt);
+        let result = validate_token_balances(
+            &components_by_id,
+            &protocol_states_by_id,
+            block_number,
+            &rt,
+            &rpc_provider,
+        );
         assert!(result.is_ok(), "Should pass when balance check is performed and balances match");
     }
 
     #[test]
     fn test_token_balance_validation_fails_on_mismatch() {
+        dotenv().ok();
+        let eth_rpc_url = env::var("RPC_URL").expect("Missing RPC_URL in environment");
+        let rpc_provider = RPCProvider::new(eth_rpc_url, false);
         // Setup mock data
         let block_number = 21998530;
         let token_bytes = Bytes::from_str("0x0000000000000000000000000000000000000000").unwrap();
@@ -730,8 +788,13 @@ mod tests {
 
         let rt = Runtime::new().unwrap();
         dotenv().ok();
-        let result =
-            validate_token_balances(&components_by_id, &protocol_states_by_id, block_number, &rt);
+        let result = validate_token_balances(
+            &components_by_id,
+            &protocol_states_by_id,
+            block_number,
+            &rt,
+            &rpc_provider,
+        );
         assert!(
             result.is_err(),
             "Should fail when balance check is performed and balances do not match"
