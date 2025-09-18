@@ -5,10 +5,13 @@ Rust-based integration testing framework for Tycho protocol implementations.
 ## How to Run
 
 ```bash
+# Build the images, from the project root dir
+docker buildx build -f protocol-testing/postgres.Dockerfile -t protocol-testing-db:latest --load .
+docker buildx build -f protocol-testing/run.Dockerfile -t protocol-testing-test-runner:latest --load .
+
 # Export necessary env vars
 export RPC_URL=..
 export SUBSTREAMS_API_TOKEN=..
-export AUTH_API_KEY=..
 export PROTOCOLS="ethereum-balancer-v2=weighted_legacy_creation ethereum-ekubo-v2"
 
 # Start and show the test logs only

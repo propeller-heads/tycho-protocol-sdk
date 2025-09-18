@@ -1,6 +1,7 @@
 use std::str::FromStr;
 
 use alloy::{primitives::Keccak256, sol_types::SolValue};
+use miette::{IntoDiagnostic, WrapErr};
 use num_bigint::BigUint;
 use tycho_common::{dto::Chain, Bytes};
 use tycho_simulation::{
@@ -32,11 +33,10 @@ pub fn get_solution(
     token_out: Bytes,
     amount_in: BigUint,
     amount_out: BigUint,
-) -> Result<Solution, EncodingError> {
+) -> miette::Result<Solution> {
     let alice_address =
-        Bytes::from_str("0xcd09f75E2BF2A4d11F3AB23f1389FcC1621c0cc2").map_err(|_| {
-            EncodingError::FatalError("Alice's address can't be converted to Bytes".to_string())
-        })?;
+        Bytes::from_str("0xcd09f75E2BF2A4d11F3AB23f1389FcC1621c0cc2").into_diagnostic()
+            .wrap_err("Failed to parse Alice's address for Tycho router encoding")?;
 
     let swap = SwapBuilder::new(component, token_in.clone(), token_out.clone()).build();
 
@@ -103,7 +103,8 @@ pub fn encode_swap(
 
     let encoded_solution = encoder
         .encode_solutions(vec![solution.clone()])
-        .expect("Failed to encode router calldata")[0]
+        .into_diagnostic()
+        .wrap_err("Failed to encode router calldata")?[0]
         .clone();
 
     let transaction = encode_tycho_router_call(

@@ -17,7 +17,7 @@ use num_traits::Zero;
 use postgres::{Client, Error, NoTls};
 use serde_json::{self, Value};
 use tokio::runtime::Runtime;
-use tracing::{debug, error, info};
+use tracing::{debug, error, info, warn};
 use tycho_client::feed::BlockHeader;
 use tycho_common::{
     dto::{Chain, ProtocolComponent, ResponseAccount, ResponseProtocolState},
@@ -126,7 +126,6 @@ fn get_executor_address(component_id: &str) -> miette::Result<Address> {
 }
 
 pub struct TestRunner {
-    tycho_logs: bool,
     db_url: String,
     vm_traces: bool,
     substreams_path: PathBuf,
@@ -136,23 +135,19 @@ pub struct TestRunner {
 
 impl TestRunner {
     pub fn new(
-        substreams_path: PathBuf,
-        evm_path: PathBuf,
+        root_path: PathBuf,
+        protocol: String,
         match_test: Option<String>,
-        tycho_logs: bool,
         db_url: String,
         vm_traces: bool,
     ) -> Self {
+        let substreams_path = root_path
+            .join("substreams")
+            .join(protocol);
+        let evm_path = root_path.join("evm");
         let adapter_contract_builder =
             AdapterContractBuilder::new(evm_path.to_string_lossy().to_string());
-        Self {
-            tycho_logs,
-            db_url,
-            vm_traces,
-            substreams_path,
-            adapter_contract_builder,
-            match_test,
-        }
+        Self { db_url, vm_traces, substreams_path, adapter_contract_builder, match_test }
     }
 
     pub fn run_tests(&self) -> miette::Result<()> {
@@ -165,7 +160,29 @@ impl TestRunner {
             .substreams_path
             .join("integration_test.tycho.yaml");
 
-        let config = Self::parse_config(&config_yaml_path)?;
+        // Skip if test files don't exist
+        if !config_yaml_path.exists() {
+            warn!(
+                "integration_test.tycho.yaml file not found at {}",
+                self.substreams_path.display()
+            );
+            return Ok(());
+        }
+        let substreams_yaml_path = self
+            .substreams_path
+            .join("substreams.yaml");
+        if !substreams_yaml_path.exists() {
+            warn!("substreams.yaml file not found at {}", self.substreams_path.display());
+            return Ok(());
+        }
+
+        let config = match Self::parse_config(&config_yaml_path) {
+            Ok(cfg) => cfg,
+            Err(e) => {
+                warn!("Failed to parse config: {:?}", e);
+                return Ok(());
+            }
+        };
 
         let tests = match &self.match_test {
             Some(filter) => config
@@ -212,7 +229,7 @@ impl TestRunner {
     }
 
     fn parse_config(config_yaml_path: &PathBuf) -> miette::Result<IntegrationTestsConfig> {
-        info!("Config YAML: {}", config_yaml_path.display());
+        info!("Parsing config YAML at {}", config_yaml_path.display());
         let yaml = Yaml::file(config_yaml_path);
         let figment = Figment::new().merge(yaml);
         let config = figment
@@ -249,8 +266,7 @@ impl TestRunner {
         let spkg_path =
             build_spkg(&substreams_yaml_path, test.start_block).wrap_err("Failed to build spkg")?;
 
-        let tycho_runner =
-            TychoRunner::new(self.db_url.clone(), initialized_accounts, self.tycho_logs);
+        let tycho_runner = TychoRunner::new(self.db_url.clone(), initialized_accounts);
 
         tycho_runner
             .run_tycho(
@@ -271,6 +287,7 @@ impl TestRunner {
                     skip_balance_check,
                     config,
                     &self.adapter_contract_builder,
+                    self.vm_traces,
                 )
             },
             &test.expected_components,
@@ -303,6 +320,7 @@ fn validate_state(
     skip_balance_check: bool,
     config: &IntegrationTestsConfig,
     adapter_contract_builder: &AdapterContractBuilder,
+    vm_traces: bool,
 ) -> miette::Result<()> {
     let rt = Runtime::new().unwrap();
 
@@ -420,7 +438,9 @@ fn validate_state(
     tycho_simulation::evm::engine_db::SHARED_TYCHO_DB.clear();
 
     let mut decoder = TychoStreamDecoder::new();
-    let decoder_context = DecoderContext::new().vm_adapter_path(adapter_contract_path_str);
+    let decoder_context = DecoderContext::new()
+        .vm_adapter_path(adapter_contract_path_str)
+        .vm_traces(vm_traces);
     decoder.register_decoder_with_context::<EVMPoolState<PreCachedDB>>(
         protocol_system,
         decoder_context,

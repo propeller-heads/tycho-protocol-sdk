@@ -7,10 +7,11 @@ mod tycho_rpc;
 mod tycho_runner;
 mod utils;
 
-use std::path::{Path, PathBuf};
+use std::{fmt::Display, path::PathBuf};
 
 use clap::Parser;
-use miette::miette;
+use miette::{miette, IntoDiagnostic, WrapErr};
+use tracing::info;
 use tracing_subscriber::EnvFilter;
 
 use crate::test_runner::TestRunner;
@@ -18,25 +19,18 @@ use crate::test_runner::TestRunner;
 #[derive(Parser, Debug)]
 #[command(version, about = "Run indexer within a specified range of blocks")]
 struct Args {
-    /// Name of the package to test
-    #[arg(long, required_unless_present = "package_path", conflicts_with = "package_path")]
-    package: Option<String>,
-
-    /// Path to the package to test
-    #[arg(long, required_unless_present = "package", conflicts_with = "package")]
-    package_path: Option<String>,
-
-    /// Path to the evm directory. If not provided, it will look for it in `../evm`
+    /// Path to the root directory containing all packages. If not provided, it will look for
+    /// packages in the current working directory.
     #[arg(long)]
-    evm_path: Option<PathBuf>,
+    root_path: Option<PathBuf>,
+
+    /// Name of the package to test
+    #[arg(long)]
+    package: String,
 
     /// If provided, only run the tests with a matching name
     #[arg(long)]
     match_test: Option<String>,
-
-    /// Enable tycho logs
-    #[arg(long, default_value_t = true)]
-    tycho_logs: bool,
 
     /// Postgres database URL for the Tycho indexer
     #[arg(long, default_value = "postgres://postgres:mypassword@localhost:5431/tycho_indexer_0")]
@@ -48,28 +42,30 @@ struct Args {
 }
 
 impl Args {
-    fn package_path(&self) -> miette::Result<PathBuf> {
-        match (self.package_path.as_ref(), self.package.as_ref()) {
-            (Some(path), _) => Ok(Path::new(path).to_path_buf()),
-            (_, Some(package)) => Ok(Path::new("../substreams").join(package)),
-            _ => Err(miette!("Either package or package_path must be provided")),
-        }
-    }
-
-    fn evm_path(&self) -> miette::Result<PathBuf> {
-        match self.evm_path.as_ref() {
+    fn root_path(&self) -> miette::Result<PathBuf> {
+        match self.root_path.as_ref() {
             Some(path) => Ok(path.clone()),
             None => {
                 let current_dir = std::env::current_dir()
-                    .map_err(|e| miette!("Failed to get current directory: {}", e))?;
-                let mut evm_dir = current_dir.join("../evm");
-                if !evm_dir.exists() {
-                    evm_dir = current_dir.join("evm");
-                    if !evm_dir.exists() {
-                        return Err(miette!("evm directory not found"));
-                    }
+                    .into_diagnostic()
+                    .wrap_err("Failed to get current directory")?;
+                let expected_child_dirs = ["evm", "proto", "substreams"];
+                if expected_child_dirs
+                    .iter()
+                    .all(|dir| current_dir.join(dir).exists())
+                {
+                    return Ok(current_dir);
                 }
-                Ok(evm_dir)
+                let parent_dir = current_dir
+                    .parent()
+                    .ok_or_else(|| miette!("Current directory has no parent directory"))?;
+                if expected_child_dirs
+                    .iter()
+                    .all(|dir| parent_dir.join(dir).exists())
+                {
+                    return Ok(parent_dir.to_path_buf());
+                }
+                Err(miette!("Couldn't find a valid path from {}", current_dir.display()))
             }
         }
     }
@@ -81,16 +77,46 @@ fn main() -> miette::Result<()> {
         .with_target(false)
         .init();
 
+    let version = Version::from_env()?;
+    if std::env::args().any(|arg| arg == "--version") {
+        println!("{version}");
+        return Ok(());
+    }
+    info!("{version}");
+
     let args = Args::parse();
 
     let test_runner = TestRunner::new(
-        args.package_path()?,
-        args.evm_path()?,
+        args.root_path()?,
+        args.package,
         args.match_test,
-        args.tycho_logs,
         args.db_url,
         args.vm_traces,
     );
 
     test_runner.run_tests()
+}
+
+struct Version {
+    version: String,
+    hash: String,
+}
+
+impl Version {
+    fn from_env() -> miette::Result<Self> {
+        let version = option_env!("CARGO_PKG_VERSION")
+            .unwrap_or("unknown")
+            .to_string();
+        let hash = option_env!("GIT_HASH")
+            .unwrap_or("unknown")
+            .to_string();
+        Ok(Self { version, hash })
+    }
+}
+
+impl Display for Version {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let bin_name = option_env!("CARGO_PKG_NAME").unwrap_or_default();
+        write!(f, "{bin_name} version: {}, hash: {}", self.version, self.hash)
+    }
 }
