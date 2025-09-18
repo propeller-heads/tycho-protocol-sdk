@@ -1,21 +1,31 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, str::FromStr};
 
 use alloy::{
     contract::{ContractInstance, Interface},
     dyn_abi::DynSolValue,
     eips::eip1898::BlockId,
-    primitives::{address, keccak256, map::AddressHashMap, Address, FixedBytes, TxKind, U256},
+    primitives::{address, keccak256, map::AddressHashMap, Address, FixedBytes, U256},
     providers::{Provider, ProviderBuilder},
     rpc::types::{
-        simulate::{SimBlock, SimulatePayload},
         state::AccountOverride,
-        Block, BlockOverrides, TransactionRequest,
+        trace::geth::{
+            GethDebugBuiltInTracerType, GethDebugTracerType, GethDebugTracingCallOptions,
+            GethDebugTracingOptions,
+        },
+        Block, TransactionRequest,
     },
+    sol_types::SolValue,
     transports::http::reqwest::Url,
 };
 use miette::{IntoDiagnostic, WrapErr};
-use serde_json::{json, Value};
+use serde_json::Value;
 use tracing::info;
+use tycho_common::Bytes;
+
+use crate::{
+    execution::{StateOverride, EXECUTOR_ADDRESSES},
+    traces::print_call_trace,
+};
 
 const NATIVE_ALIASES: &[Address] = &[
     address!("0x0000000000000000000000000000000000000000"),
@@ -24,46 +34,15 @@ const NATIVE_ALIASES: &[Address] = &[
 
 const ERC_20_ABI: &str = r#"[{"inputs":[{"name":"_owner","type":"address"}],"name":"balanceOf","outputs":[{"name":"balance","type":"uint256"}],"stateMutability":"view","type":"function"}]"#;
 
-#[derive(Debug, Clone)]
-pub struct StateOverride {
-    pub code: Option<Vec<u8>>,
-    pub balance: Option<U256>,
-    pub state_diff: HashMap<alloy::primitives::Bytes, alloy::primitives::Bytes>,
-}
-
-impl StateOverride {
-    pub fn new() -> Self {
-        Self { code: None, balance: None, state_diff: HashMap::new() }
-    }
-
-    pub fn with_code(mut self, code: Vec<u8>) -> Self {
-        self.code = Some(code);
-        self
-    }
-
-    pub fn with_balance(mut self, balance: U256) -> Self {
-        self.balance = Some(balance);
-        self
-    }
-
-    pub fn with_state_diff(
-        mut self,
-        slot: alloy::primitives::Bytes,
-        value: alloy::primitives::Bytes,
-    ) -> Self {
-        self.state_diff.insert(slot, value);
-        self
-    }
-}
-
 pub struct RPCProvider {
     url: Url,
+    trace: bool,
 }
 
 impl RPCProvider {
-    pub fn new(url: String) -> Self {
+    pub fn new(url: String, trace: bool) -> Self {
         let url = url.as_str().parse().unwrap();
-        RPCProvider { url }
+        RPCProvider { url, trace }
     }
 
     pub async fn get_token_balance(
@@ -122,122 +101,12 @@ impl RPCProvider {
             .and_then(|block_opt| block_opt.ok_or_else(|| miette::miette!("Block not found")))
     }
 
-    pub async fn eth_call_with_overwrites(
-        &self,
-        transaction: TransactionRequest,
-        block_number: u64,
-        state_overwrites: HashMap<Address, StateOverride>,
-    ) -> miette::Result<alloy::primitives::Bytes> {
-        let client = reqwest::Client::new();
-        let mut overwrites_json = serde_json::Map::new();
-        for (address, override_data) in state_overwrites {
-            let mut override_obj = serde_json::Map::new();
-            if let Some(code) = override_data.code {
-                override_obj.insert("code".to_string(), json!(format!("0x{}", hex::encode(code))));
-            }
-            if let Some(balance) = override_data.balance {
-                override_obj.insert("balance".to_string(), json!(format!("0x{:x}", balance)));
-            }
-            if !override_data.state_diff.is_empty() {
-                let mut state_diff_json = serde_json::Map::new();
-                for (slot, value) in override_data.state_diff {
-                    state_diff_json.insert(
-                        format!("0x{}", hex::encode(&**slot)),
-                        json!(format!("0x{}", hex::encode(&**value))),
-                    );
-                }
-                // "stateDiff" contains the fake key-value mapping to override individual slots in
-                // the account storage. Used to override attrs that are not code or balance.
-                override_obj.insert("stateDiff".to_string(), json!(state_diff_json));
-            }
-
-            overwrites_json.insert(format!("0x{}", hex::encode(address)), json!(override_obj));
-        }
-        info!("Transaction info: {transaction:?}");
-        let block_string = format!("0x{:x}", block_number);
-        // let block_string: String = "latest".into();
-
-        let request_body = json!({
-            "jsonrpc": "2.0",
-            "method": "eth_call",
-            "params": [
-                {
-                    "to": transaction.to.map(|addr| match addr {
-                        TxKind::Call(address) => format!("0x{}", hex::encode(address)),
-                        TxKind::Create => String::new(),
-                    }),
-                    "data": transaction.input.data.as_ref().map(|data| format!("0x{}", hex::encode(data.clone()))),
-                    "value": transaction.value.map(|val| format!("0x{val:x}")),
-                },
-                block_string,
-                overwrites_json
-            ],
-            "id": 1
-        });
-        // info!("About to post request body: {request_body:?}");
-
-        let response = client
-            .post(self.url.as_str())
-            .json(&request_body)
-            .send()
-            .await
-            .into_diagnostic()
-            .wrap_err("Failed to send eth_call request")?;
-
-        info!("Posted. Got response: {response:?}");
-
-        let response_json: Value = response
-            .json()
-            .await
-            .into_diagnostic()
-            .wrap_err("Failed to parse JSON response")?;
-
-        info!("Got the following in the response json: {response_json:?}");
-
-        if let Some(error) = response_json.get("error") {
-            let error_code = error
-                .get("code")
-                .and_then(|c| c.as_i64())
-                .unwrap_or(0);
-            let error_message = error
-                .get("message")
-                .and_then(|m| m.as_str())
-                .unwrap_or("Unknown error");
-
-            // Try to extract more details from the error
-            let detailed_error = if let Some(data) = error.get("data") {
-                format!(
-                    "RPC error (code: {}, message: {}, data: {})",
-                    error_code, error_message, data
-                )
-            } else {
-                format!("RPC error (code: {}, message: {})", error_code, error_message)
-            };
-
-            info!("❌ Detailed simulation error: {}", detailed_error);
-            return Err(miette::miette!("{}", detailed_error));
-        }
-
-        let result = response_json
-            .get("result")
-            .ok_or_else(|| miette::miette!("No result in response"))?
-            .as_str()
-            .ok_or_else(|| miette::miette!("Result is not a string"))?;
-
-        let bytes_result =
-            if result.starts_with("0x") { hex::decode(&result[2..]) } else { hex::decode(result) }
-                .into_diagnostic()
-                .wrap_err("Failed to decode hex result")?;
-
-        Ok(alloy::primitives::Bytes::from(bytes_result))
-    }
-
     /// Helper function to get the contract's storage at the given slot at the latest block.
     pub async fn get_storage_at(
         &self,
         contract_address: Address,
-        slot: alloy::primitives::FixedBytes<32>,
-    ) -> miette::Result<alloy::primitives::FixedBytes<32>> {
+        slot: FixedBytes<32>,
+    ) -> miette::Result<FixedBytes<32>> {
         let provider = ProviderBuilder::new().connect_http(self.url.clone());
         let storage_value = provider
             .get_storage_at(contract_address, slot.into())
@@ -266,42 +135,36 @@ impl RPCProvider {
             .ok_or_else(|| miette::miette!("No runtimeBytecode field found in router JSON"))?;
 
         // Remove 0x prefix if present
-        let bytecode_hex =
-            if bytecode_str.starts_with("0x") { &bytecode_str[2..] } else { bytecode_str };
+        let bytecode_hex = if let Some(stripped) = bytecode_str.strip_prefix("0x") {
+            stripped
+        } else {
+            bytecode_str
+        };
 
         let router_bytecode = hex::decode(bytecode_hex)
             .into_diagnostic()
             .wrap_err("Failed to decode router bytecode from hex")?;
 
-        info!("Loaded router bytecode: {} bytes", router_bytecode.len());
-
         // Start with the router bytecode override
         let mut state_override = StateOverride::new().with_code(router_bytecode);
 
-        // The executors mapping is: mapping(address => bool) public executors;
-        info!(
-            "Copying executor mapping data from {} known executors...",
-            crate::test_runner::EXECUTOR_ADDRESSES.len()
-        );
-
-        for (protocol_name, &executor_address) in crate::test_runner::EXECUTOR_ADDRESSES.iter() {
+        // TODO (Diana) I think this could be a little different.. instead of checking if it's set
+        // for the protocol we are interested in we should just overwrite the code of an executor
+        // that is already approved with our target executor code The executors mapping is:
+        // mapping(address => bool) public executors;
+        for (protocol_name, &executor_address) in EXECUTOR_ADDRESSES.iter() {
             let storage_slot = self.calculate_executor_storage_slot(executor_address);
 
             // Double check that this executor is actually approved.
             // TODO this can be simplified to just set the value to 1 every time.
-            //  This explicit check was just for debug purposes to verify our storage slot calculation.
+            //  This explicit check was just for debug purposes to verify our storage slot
+            // calculation.
             match self
                 .get_storage_at(contract_address, storage_slot)
                 .await
             {
                 Ok(value) => {
                     if !value.is_zero() {
-                        info!(
-                            "Found executor approval for {} ({:?}): 0x{}",
-                            protocol_name,
-                            executor_address,
-                            hex::encode(value)
-                        );
                         state_override = state_override.with_state_diff(
                             alloy::primitives::Bytes::from(storage_slot.to_vec()),
                             alloy::primitives::Bytes::from(value.to_vec()),
@@ -321,8 +184,6 @@ impl RPCProvider {
                 }
             }
         }
-
-        info!("Completed storage fetch for contract {:?}", contract_address);
         Ok(state_override)
     }
 
@@ -348,19 +209,16 @@ impl RPCProvider {
         let mut buf = [0u8; 64];
         buf[..32].copy_from_slice(&key_bytes);
         buf[32..].copy_from_slice(&slot_bytes);
-        keccak256(&buf)
+        keccak256(buf)
     }
 
-    // TODO remove this. This was useful for initial debugging, but is ultimately useless for
-    //  simulations on past blocks.
     pub async fn simulate_transactions_with_tracing(
         &self,
-        transactions: Vec<TransactionRequest>,
+        transaction: TransactionRequest,
         block_number: u64,
         state_overwrites: HashMap<Address, StateOverride>,
-    ) -> miette::Result<Vec<alloy::rpc::types::simulate::SimulatedBlock>> {
+    ) -> miette::Result<U256> {
         let provider = ProviderBuilder::new().connect_http(self.url.clone());
-
         // Convert our StateOverride to alloy's state override format
         let mut alloy_state_overrides = AddressHashMap::default();
         for (address, override_data) in state_overwrites {
@@ -405,29 +263,81 @@ impl RPCProvider {
             alloy_state_overrides.insert(address, account_override);
         }
 
-        let payload = SimulatePayload {
-            block_state_calls: vec![SimBlock {
-                block_overrides: Some(BlockOverrides {
-                    number: Some(U256::from(block_number)),
-                    ..Default::default()
-                }),
-                state_overrides: if alloy_state_overrides.is_empty() {
-                    None
-                } else {
-                    Some(alloy_state_overrides)
-                },
-                calls: transactions,
-            }],
-            trace_transfers: true,
-            validation: true,
-            return_full_transactions: true,
+        // Configure tracing options - use callTracer for better formatted results
+        let tracing_options = GethDebugTracingOptions {
+            tracer: Some(GethDebugTracerType::BuiltInTracer(
+                GethDebugBuiltInTracerType::CallTracer,
+            )),
+            config: Default::default(),
+            tracer_config: Default::default(),
+            timeout: None,
         };
-        let result = provider.simulate(&payload).await;
-        let result_diagnostic = result
-            .into_diagnostic()
-            .wrap_err("Failed to simulate transactions with full tracing")?;
 
-        Ok(result_diagnostic)
+        let trace_options = GethDebugTracingCallOptions {
+            tracing_options,
+            state_overrides: if alloy_state_overrides.is_empty() {
+                None
+            } else {
+                Some(alloy_state_overrides)
+            },
+            block_overrides: None,
+        };
+
+        let result: Value = provider
+            .client()
+            .request("debug_traceCall", (transaction, BlockId::from(block_number), trace_options))
+            .await
+            .into_diagnostic()
+            .wrap_err("Failed to debug trace call many")?;
+
+        if self.trace {
+            print_call_trace(&result, 0).await;
+        }
+        let has_error = result
+            .as_object()
+            .and_then(|obj| obj.get("error"))
+            .is_some();
+
+        let has_failed = result
+            .as_object()
+            .and_then(|obj| obj.get("failed"))
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false);
+
+        if has_error || has_failed {
+            info!("Transaction failed.");
+            if let Some(result_obj) = result.as_object() {
+                if let Some(error) = result_obj.get("error") {
+                    return Err(miette::miette!("Transaction execution failed: {}", error));
+                }
+                if let Some(revert_reason) = result_obj.get("revertReason") {
+                    return Err(miette::miette!("Transaction reverted: {}", revert_reason));
+                }
+            }
+            return Err(miette::miette!("Transaction failed"));
+        } else {
+            info!("Transaction successfully executed.");
+        }
+
+        let mut executed_amount_out = U256::ZERO;
+        if let Some(result_obj) = result.as_object() {
+            if let Some(gas_used) = result_obj
+                .get("gasUsed")
+                .and_then(|v| v.as_str())
+            {
+                let gas_used_decoded = U256::from_str_radix(gas_used.trim_start_matches("0x"), 16)
+                    .into_diagnostic()?;
+                info!("Gas used: {}", gas_used_decoded);
+            }
+            if let Some(output) = result_obj
+                .get("output")
+                .and_then(|v| v.as_str())
+            {
+                executed_amount_out = U256::abi_decode(&Bytes::from_str(output).into_diagnostic()?)
+                    .into_diagnostic()?;
+            }
+        }
+        Ok(executed_amount_out)
     }
 }
 
@@ -443,7 +353,7 @@ mod tests {
     async fn get_token_balance_native_token() {
         let eth_rpc_url = env::var("RPC_URL").expect("Missing RPC_URL in environment");
 
-        let rpc_provider = RPCProvider::new(eth_rpc_url);
+        let rpc_provider = RPCProvider::new(eth_rpc_url, false);
         let token_address = address!("0x0000000000000000000000000000000000000000");
         let wallet_address = address!("0x787B8840100d9BaAdD7463f4a73b5BA73B00C6cA");
         let block_number = 21998530;
@@ -463,7 +373,7 @@ mod tests {
     async fn get_token_balance_erc20_token() {
         let eth_rpc_url = env::var("RPC_URL").expect("Missing RPC_URL in environment");
 
-        let rpc_provider = RPCProvider::new(eth_rpc_url);
+        let rpc_provider = RPCProvider::new(eth_rpc_url, false);
         let token_address = address!("0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48");
         let wallet_address = address!("0x787B8840100d9BaAdD7463f4a73b5BA73B00C6cA");
         let block_number = 21998530;
@@ -480,7 +390,7 @@ mod tests {
     async fn get_block_header() {
         let eth_rpc_url = env::var("RPC_URL").expect("Missing RPC_URL in environment");
 
-        let rpc_provider = RPCProvider::new(eth_rpc_url);
+        let rpc_provider = RPCProvider::new(eth_rpc_url, false);
         let block_number = 21998530;
 
         let block_header = rpc_provider

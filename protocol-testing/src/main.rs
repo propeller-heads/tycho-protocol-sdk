@@ -1,8 +1,10 @@
 mod adapter_builder;
 mod config;
 mod encoding;
+mod execution;
 mod rpc;
 mod test_runner;
+mod traces;
 mod tycho_rpc;
 mod tycho_runner;
 mod utils;

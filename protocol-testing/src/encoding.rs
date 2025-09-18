@@ -1,3 +1,9 @@
+//! Transaction encoding utilities for swap solutions.
+//!
+//! This module provides functions to encode swap parameters into executable transactions
+//! using the Tycho framework. It handles the conversion of high-level swap
+//! specifications into low-level transaction data that can be executed on-chain.
+
 use std::str::FromStr;
 
 use alloy::{primitives::Keccak256, sol_types::SolValue};
@@ -34,9 +40,9 @@ pub fn get_solution(
     amount_in: BigUint,
     amount_out: BigUint,
 ) -> miette::Result<Solution> {
-    let alice_address =
-        Bytes::from_str("0xcd09f75E2BF2A4d11F3AB23f1389FcC1621c0cc2").into_diagnostic()
-            .wrap_err("Failed to parse Alice's address for Tycho router encoding")?;
+    let alice_address = Bytes::from_str("0xcd09f75E2BF2A4d11F3AB23f1389FcC1621c0cc2")
+        .into_diagnostic()
+        .wrap_err("Failed to parse Alice's address for Tycho router encoding")?;
 
     let swap = SwapBuilder::new(component, token_in.clone(), token_out.clone()).build();
 
@@ -80,7 +86,7 @@ pub fn encode_swap(
     token_out: Bytes,
     amount_in: BigUint,
     amount_out: BigUint,
-) -> Result<(Transaction, Solution), EncodingError> {
+) -> miette::Result<(Transaction, Solution)> {
     let chain: tycho_common::models::Chain = Chain::Ethereum.into();
 
     // Use test executor addresses for testing
@@ -104,14 +110,16 @@ pub fn encode_swap(
     let encoded_solution = encoder
         .encode_solutions(vec![solution.clone()])
         .into_diagnostic()
-        .wrap_err("Failed to encode router calldata")?[0]
+        .wrap_err("Failed to encode solution")?[0]
         .clone();
 
     let transaction = encode_tycho_router_call(
         encoded_solution,
         &solution,
         &chain.wrapped_native_token().address,
-    )?;
+    )
+    .into_diagnostic()
+    .wrap_err("Failed to encode router calldata")?;
     Ok((transaction, solution))
 }
 
