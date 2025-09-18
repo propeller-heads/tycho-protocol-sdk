@@ -35,7 +35,7 @@ const NATIVE_ALIASES: &[Address] = &[
 const ERC_20_ABI: &str = r#"[{"inputs":[{"name":"_owner","type":"address"}],"name":"balanceOf","outputs":[{"name":"balance","type":"uint256"}],"stateMutability":"view","type":"function"}]"#;
 
 pub struct RPCProvider {
-    url: Url,
+    pub url: Url,
     trace: bool,
 }
 

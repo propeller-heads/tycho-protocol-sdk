@@ -14,6 +14,11 @@ use miette::{miette, IntoDiagnostic, WrapErr};
 use num_bigint::BigUint;
 use serde_json::Value;
 use tracing::info;
+use tycho_common::traits::{AllowanceSlotDetector, BalanceSlotDetector};
+use tycho_ethereum::entrypoint_tracer::{
+    allowance_slot_detector::{AllowanceSlotDetectorConfig, EVMAllowanceSlotDetector},
+    balance_slot_detector::{BalanceSlotDetectorConfig, EVMBalanceSlotDetector},
+};
 use tycho_simulation::{
     evm::protocol::u256_num::u256_to_biguint, tycho_execution::encoding::models::Solution,
 };
@@ -165,12 +170,13 @@ fn calculate_gas_fees(block_header: &Block) -> miette::Result<(U256, U256)> {
 }
 
 /// Set up all state overrides needed for simulation
-fn setup_state_overrides(
+async fn setup_state_overrides(
     solution: &Solution,
     transaction: &tycho_simulation::tycho_execution::encoding::models::Transaction,
     user_address: Address,
     executor_bytecode: &[u8],
-    include_executor_override: bool,
+    rpc_url: String,
+    block: &Block,
 ) -> miette::Result<HashMap<Address, StateOverride>> {
     let mut state_overwrites = HashMap::new();
     let token_address = Address::from_slice(&solution.given_token[..20]);
@@ -183,13 +189,9 @@ fn setup_state_overrides(
         return Err(miette!("No swaps in solution - cannot determine executor address"));
     };
 
-    // Add bytecode overwrite for the executor (conditionally)
-    if include_executor_override {
-        state_overwrites
-            .insert(executor_address, StateOverride::new().with_code(executor_bytecode.to_vec()));
-    }
-
-    let tycho_router_address = Address::from_slice(&transaction.to[..20]);
+    // Add bytecode overwrite for the executor
+    state_overwrites
+        .insert(executor_address, StateOverride::new().with_code(executor_bytecode.to_vec()));
 
     // Add ETH balance override for the user to ensure they have enough gas funds
     state_overwrites.insert(
@@ -197,22 +199,60 @@ fn setup_state_overrides(
         StateOverride::new().with_balance(U256::from_str("100000000000000000000").unwrap()), // 100 ETH
     );
 
-    // TODO: temporary
+    let detector = EVMBalanceSlotDetector::new(BalanceSlotDetectorConfig {
+        rpc_url: rpc_url.clone(),
+        ..Default::default()
+    })
+    .into_diagnostic()?;
+
+    let results = detector
+        .detect_balance_slots(
+            &[solution.given_token.clone()],
+            (**user_address).into(),
+            (*block.header.hash).into(),
+        )
+        .await;
+
+    let balance_slot = if let Some(Ok((_storage_addr, slot))) =
+        results.get(&solution.given_token.clone())
+    {
+        slot
+    } else {
+        return Err(miette!("Couldn't find balance storage slot for token {token_address}"));
+    };
+
+    let detector = EVMAllowanceSlotDetector::new(AllowanceSlotDetectorConfig {
+        rpc_url,
+        ..Default::default()
+    })
+    .into_diagnostic()?;
+
+    let results = detector
+        .detect_allowance_slots(
+            &[solution.given_token.clone()],
+            (**user_address).into(),
+            transaction.to.clone(), // tycho router
+            (*block.header.hash).into(),
+        )
+        .await;
+
+    let allowance_slot = if let Some(Ok((_storage_addr, slot))) =
+        results.get(&solution.given_token.clone())
+    {
+        slot
+    } else {
+        return Err(miette!("Couldn't find allowance storage slot for token {token_address}"));
+    };
+
     state_overwrites.insert(
         token_address,
         StateOverride::new()
             .with_state_diff(
-                alloy::primitives::Bytes::from_str(
-                    "0x4e4b5f80f87725e40fd825bd7b26188e05acd6dbf57e82d1bd0f2bd067293504",
-                )
-                .unwrap(),
+                alloy::primitives::Bytes::from(allowance_slot.to_vec()),
                 alloy::primitives::Bytes::from(U256::MAX.to_be_bytes::<32>()),
             )
             .with_state_diff(
-                alloy::primitives::Bytes::from_str(
-                    "0x4d1be9a589dbf86739d4cb42cefbbfa52cf9e4446f5af2b08fabe809bc11104a",
-                )
-                .unwrap(),
+                alloy::primitives::Bytes::from(balance_slot.to_vec()),
                 alloy::primitives::Bytes::from(U256::MAX.to_be_bytes::<32>()),
             ),
     );
@@ -227,12 +267,11 @@ pub async fn simulate_trade_with_eth_call(
     solution: &Solution,
     block_number: u64,
     _adapter_contract_path: &str,
-    block_header: &Block,
+    block: &Block,
 ) -> miette::Result<BigUint> {
     let executor_bytecode = load_executor_bytecode(solution)?;
     let user_address = Address::from_slice(&solution.sender[..20]);
-    let (max_fee_per_gas, max_priority_fee_per_gas) = calculate_gas_fees(block_header)?;
-
+    let (max_fee_per_gas, max_priority_fee_per_gas) = calculate_gas_fees(block)?;
     // Convert main transaction to alloy TransactionRequest
     let execution_tx = TransactionRequest::default()
         .to(Address::from_slice(&transaction.to[..20]))
@@ -262,8 +301,15 @@ pub async fn simulate_trade_with_eth_call(
         .wrap_err("Failed to copy router contract storage and code")?;
 
     // Set up state overrides including router override
-    let mut state_overwrites =
-        setup_state_overrides(solution, transaction, user_address, &executor_bytecode, true)?; // Include executor override for historical blocks
+    let mut state_overwrites = setup_state_overrides(
+        solution,
+        transaction,
+        user_address,
+        &executor_bytecode,
+        rpc_provider.url.to_string(),
+        block,
+    )
+    .await?; // Include executor override for historical blocks
 
     // Add the router override
     state_overwrites.insert(tycho_router_address, router_override);
