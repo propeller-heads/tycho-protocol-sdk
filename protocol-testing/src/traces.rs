@@ -25,6 +25,11 @@ pub async fn decode_method_selector(input: &str) -> Option<String> {
 
 /// Fetch method signature from 4byte.directory
 async fn fetch_method_signature(selector: &str) -> Option<String> {
+    // First check for well-known signatures
+    if let Some(sig) = get_well_known_signature(selector) {
+        return Some(sig);
+    }
+
     let url = format!("https://www.4byte.directory/api/v1/signatures/?hex_signature={selector}");
 
     let response = timeout(Duration::from_millis(1500), async {
@@ -40,21 +45,95 @@ async fn fetch_method_signature(selector: &str) -> Option<String> {
             .get("results")
             .and_then(|r| r.as_array())
         {
-            // Look for the most legitimate signature
+            // First pass: look for exact matches to well-known patterns
+            let mut candidates = Vec::new();
             for result in results.iter() {
                 if let Some(signature) = result
                     .get("text_signature")
                     .and_then(|s| s.as_str())
                 {
                     if is_legitimate_signature(signature) {
-                        return Some(signature.to_string());
+                        candidates.push(signature);
                     }
                 }
+            }
+
+            // Prioritize common ERC20/DeFi function patterns
+            if let Some(best_sig) = find_best_signature(&candidates) {
+                return Some(best_sig.to_string());
             }
         }
     }
 
     None
+}
+
+/// Get well-known method signatures for common selectors
+fn get_well_known_signature(selector: &str) -> Option<String> {
+    match selector {
+        // ERC20 Standard
+        "0xa9059cbb" => Some("transfer(address,uint256)".to_string()),
+        "0x095ea7b3" => Some("approve(address,uint256)".to_string()),
+        "0x23b872dd" => Some("transferFrom(address,address,uint256)".to_string()),
+        "0x70a08231" => Some("balanceOf(address)".to_string()),
+        "0x18160ddd" => Some("totalSupply()".to_string()),
+        "0xdd62ed3e" => Some("allowance(address,address)".to_string()),
+        "0x06fdde03" => Some("name()".to_string()),
+        "0x95d89b41" => Some("symbol()".to_string()),
+        "0x313ce567" => Some("decimals()".to_string()),
+        
+        // Common DeFi functions
+        "0x40c10f19" => Some("mint(address,uint256)".to_string()),
+        "0x42966c68" => Some("burn(uint256)".to_string()),
+        "0x79cc6790" => Some("burnFrom(address,uint256)".to_string()),
+        "0x8da5cb5b" => Some("owner()".to_string()),
+        "0xf2fde38b" => Some("transferOwnership(address)".to_string()),
+        "0x715018a6" => Some("renounceOwnership()".to_string()),
+        
+        // Balancer V2 specific
+        "0x52bbbe29" => Some("swap((bytes32,uint8,address,address,uint256,bytes),((address,bool,address,bool),uint256,uint256),uint256,uint256)".to_string()),
+        "0x9d2c110c" => Some("onSwap((uint8,address,address,uint256,bytes32,uint256,address,address,bytes),uint256,uint256)".to_string()),
+        "0x48bd7dfd" => Some("execute(bytes32,address)".to_string()),
+        
+        // Multicall patterns
+        "0xac9650d8" => Some("multicall(bytes[])".to_string()),
+        "0x5ae401dc" => Some("multicall(uint256,bytes[])".to_string()),
+        
+        _ => None,
+    }
+}
+
+/// Find the best signature from a list of candidates
+fn find_best_signature<'a>(candidates: &'a [&'a str]) -> Option<&'a str> {
+    if candidates.is_empty() {
+        return None;
+    }
+
+    // Priority patterns (most to least preferred)
+    let priority_patterns = [
+        // Standard ERC20 functions
+        "transfer(", "approve(", "transferFrom(", "balanceOf(", "allowance(",
+        "totalSupply(", "name(", "symbol(", "decimals(",
+        // Common DeFi patterns
+        "swap(", "mint(", "burn(", "deposit(", "withdraw(",
+        "owner(", "initialize(", "execute(",
+        // Generic patterns (lower priority)
+        "get", "set", "add", "remove", "update",
+    ];
+
+    // Find highest priority match
+    for pattern in &priority_patterns {
+        for &candidate in candidates {
+            if candidate.starts_with(pattern) {
+                return Some(candidate);
+            }
+        }
+    }
+
+    // Prefer shorter, simpler signatures
+    candidates.iter()
+        .min_by_key(|sig| sig.len())
+        .copied()
 }
 
 /// Check if a signature looks legitimate (not a scam/honeypot)
@@ -63,23 +142,10 @@ fn is_legitimate_signature(signature: &str) -> bool {
 
     // Reject obvious scam patterns
     let scam_patterns = [
-        "watch_tg",
-        "_tg_",
-        "telegram",
-        "discord",
-        "twitter",
-        "social",
-        "invite",
-        "gift",
-        "bonus",
-        "airdrop",
-        "referral",
-        "ref_",
-        "_reward",
-        "claim_reward",
-        "_bonus",
-        "_gift",
-        "_invite",
+        "watch_tg", "_tg_", "telegram", "discord", "twitter", "social",
+        "invite", "gift", "bonus", "airdrop", "referral", "ref_",
+        "_reward", "claim_reward", "_bonus", "_gift", "_invite",
+        "honeypot", "rug", "scam", "phish",
     ];
 
     for pattern in &scam_patterns {
@@ -89,13 +155,18 @@ fn is_legitimate_signature(signature: &str) -> bool {
     }
 
     // Reject signatures that are suspiciously long (likely auto-generated scam functions)
-    if signature.len() > 80 {
+    if signature.len() > 100 {
         return false;
     }
 
     // Reject signatures with too many underscores (common in scam functions)
     let underscore_count = signature.matches('_').count();
-    if underscore_count > 3 {
+    if underscore_count > 4 {
+        return false;
+    }
+
+    // Reject signatures that look like random hex or encoded data
+    if signature.matches(char::is_numeric).count() > signature.len() / 2 {
         return false;
     }
 
