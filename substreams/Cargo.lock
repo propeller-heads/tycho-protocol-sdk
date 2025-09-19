@@ -246,7 +246,7 @@ dependencies = [
  "substreams",
  "substreams-ethereum",
  "tiny-keccak",
- "tycho-substreams 0.2.1 (git+https://github.com/propeller-heads/tycho-protocol-sdk.git?rev=52d5021)",
+ "tycho-substreams 0.2.1",
 ]
 
 [[package]]
@@ -287,7 +287,7 @@ dependencies = [
  "serde_qs",
  "substreams",
  "substreams-ethereum",
- "tycho-substreams 0.2.1 (git+https://github.com/propeller-heads/tycho-protocol-sdk.git?rev=51995f9)",
+ "tycho-substreams 0.5.0",
  "url",
 ]
 
