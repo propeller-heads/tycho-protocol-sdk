@@ -9,28 +9,73 @@ mod utils;
 
 use std::{fmt::Display, path::PathBuf};
 
-use clap::Parser;
+use clap::{Args, Parser, Subcommand};
 use miette::{miette, IntoDiagnostic, WrapErr};
-use tracing::info;
 use tracing_subscriber::EnvFilter;
 
 use crate::test_runner::TestRunner;
 
-#[derive(Parser, Debug)]
-#[command(version, about = "Run indexer within a specified range of blocks")]
-struct Args {
+#[derive(Parser)]
+#[command(version, long_version = Version::clap_long(), subcommand_required = false, arg_required_else_help = true)]
+struct TestsCli {
+    #[command(subcommand)]
+    subcommand: Option<TestSubcommand>,
+}
+
+#[derive(Subcommand)]
+enum TestSubcommand {
+    Full(FullTestCommand),
+    Range(RangeTestCommand),
+}
+
+#[derive(Args)]
+pub struct FullTestCommand {
+    #[command(flatten)]
+    common_args: CommonArgs,
+}
+
+impl FullTestCommand {
+    fn run(self) -> miette::Result<()> {
+        let args = self.common_args;
+        let test_runner =
+            TestRunner::new(args.root_path()?, args.package, None, args.db_url, args.vm_traces);
+        test_runner.run_full_test()
+    }
+}
+
+#[derive(Args)]
+pub struct RangeTestCommand {
+    #[command(flatten)]
+    common_args: CommonArgs,
+
+    /// If provided, only run the tests with a matching name
+    #[arg(long)]
+    match_test: Option<String>,
+}
+
+impl RangeTestCommand {
+    fn run(self) -> miette::Result<()> {
+        let args = self.common_args;
+        let test_runner = TestRunner::new(
+            args.root_path()?,
+            args.package,
+            self.match_test,
+            args.db_url,
+            args.vm_traces,
+        );
+        test_runner.run_range_tests()
+    }
+}
+
+#[derive(Args)]
+struct CommonArgs {
     /// Path to the root directory containing all packages. If not provided, it will look for
     /// packages in the current working directory.
-    #[arg(long)]
     root_path: Option<PathBuf>,
 
     /// Name of the package to test
     #[arg(long)]
     package: String,
-
-    /// If provided, only run the tests with a matching name
-    #[arg(long)]
-    match_test: Option<String>,
 
     /// Postgres database URL for the Tycho indexer
     #[arg(long, default_value = "postgres://postgres:mypassword@localhost:5431/tycho_indexer_0")]
@@ -41,7 +86,7 @@ struct Args {
     vm_traces: bool,
 }
 
-impl Args {
+impl CommonArgs {
     fn root_path(&self) -> miette::Result<PathBuf> {
         match self.root_path.as_ref() {
             Some(path) => Ok(path.clone()),
@@ -71,32 +116,6 @@ impl Args {
     }
 }
 
-fn main() -> miette::Result<()> {
-    tracing_subscriber::fmt()
-        .with_env_filter(EnvFilter::from_default_env())
-        .with_target(false)
-        .init();
-
-    let version = Version::from_env()?;
-    if std::env::args().any(|arg| arg == "--version") {
-        println!("{version}");
-        return Ok(());
-    }
-    info!("{version}");
-
-    let args = Args::parse();
-
-    let test_runner = TestRunner::new(
-        args.root_path()?,
-        args.package,
-        args.match_test,
-        args.db_url,
-        args.vm_traces,
-    );
-
-    test_runner.run_tests()
-}
-
 struct Version {
     version: String,
     hash: String,
@@ -112,11 +131,33 @@ impl Version {
             .to_string();
         Ok(Self { version, hash })
     }
+
+    fn clap_long() -> &'static str {
+        Box::leak(
+            Self::from_env()
+                .expect("Failed to get binary version")
+                .to_string()
+                .into_boxed_str(),
+        )
+    }
 }
 
 impl Display for Version {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let bin_name = option_env!("CARGO_PKG_NAME").unwrap_or_default();
-        write!(f, "{bin_name} version: {}, hash: {}", self.version, self.hash)
+        write!(f, "version: {}, hash: {}", self.version, self.hash)
+    }
+}
+
+fn main() -> miette::Result<()> {
+    tracing_subscriber::fmt()
+        .with_env_filter(EnvFilter::from_default_env())
+        .with_target(false)
+        .init();
+
+    let cli = TestsCli::parse();
+    match cli.subcommand {
+        Some(TestSubcommand::Full(cmd)) => cmd.run(),
+        Some(TestSubcommand::Range(cmd)) => cmd.run(),
+        None => Err(miette!("No subcommand provided. Use --help for more information.")),
     }
 }

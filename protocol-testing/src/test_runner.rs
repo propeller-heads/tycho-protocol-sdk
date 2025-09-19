@@ -10,6 +10,7 @@ use miette::{miette, IntoDiagnostic, WrapErr};
 use num_bigint::BigUint;
 use num_traits::Zero;
 use postgres::{Client, Error, NoTls};
+use regex::Regex;
 use tokio::runtime::Runtime;
 use tracing::{debug, error, info, warn};
 use tycho_client::feed::BlockHeader;
@@ -33,7 +34,10 @@ use tycho_simulation::{
 
 use crate::{
     adapter_builder::AdapterContractBuilder,
-    config::{IntegrationTest, IntegrationTestsConfig, ProtocolComponentWithTestConfig},
+    config::{
+        FullIntegrationTest, IntegrationTestsConfig, ProtocolComponentWithTestConfig,
+        RangeIntegrationTest,
+    },
     encoding::encode_swap,
     rpc::RPCProvider,
     tycho_rpc::TychoClient,
@@ -66,7 +70,7 @@ impl TestRunner {
         Self { db_url, vm_traces, substreams_path, adapter_contract_builder, match_test }
     }
 
-    pub fn run_tests(&self) -> miette::Result<()> {
+    pub fn run_full_test(&self) -> miette::Result<()> {
         let terminal_width = termsize::get()
             .map(|size| size.cols as usize - 35) // Remove length of log prefix (35)
             .unwrap_or(80);
@@ -84,11 +88,64 @@ impl TestRunner {
             );
             return Ok(());
         }
+
+        let config = match Self::parse_config(&config_yaml_path) {
+            Ok(cfg) => cfg,
+            Err(e) => {
+                warn!("Failed to parse config: {:?}", e);
+                return Ok(());
+            }
+        };
+
         let substreams_yaml_path = self
             .substreams_path
-            .join("substreams.yaml");
+            .join(&config.substreams_yaml_path);
         if !substreams_yaml_path.exists() {
-            warn!("substreams.yaml file not found at {}", self.substreams_path.display());
+            warn!("substreams yaml file not found at {}", substreams_yaml_path.display());
+            return Ok(());
+        }
+
+        let initial_block = {
+            let content = std::fs::read_to_string(substreams_yaml_path).into_diagnostic()?;
+            let re = Regex::new(r"initialBlock:\s*(\d+)").unwrap();
+            re.captures(&content)
+                .and_then(|cap| cap.get(1))
+                .and_then(|m| m.as_str().parse::<u64>().ok())
+        };
+
+        let test = match initial_block {
+            None => {
+                warn!("initialBlock is not set in the substreams file, skipping full test");
+                return Ok(());
+            }
+            Some(start_block) => FullIntegrationTest { name: "Full Test".to_string(), start_block },
+        };
+
+        match self.run_full_test_impl(&test, &config) {
+            Ok(_) => {
+                info!("✅ {} passed\n", test.name);
+                Ok(())
+            }
+            Err(e) => Err(miette!("❗️{} failed: {:?}\n", test.name, e)),
+        }
+    }
+
+    pub fn run_range_tests(&self) -> miette::Result<()> {
+        let terminal_width = termsize::get()
+            .map(|size| size.cols as usize - 35) // Remove length of log prefix (35)
+            .unwrap_or(80);
+        info!("{}\n", "-".repeat(terminal_width));
+
+        let config_yaml_path = self
+            .substreams_path
+            .join("integration_test.tycho.yaml");
+
+        // Skip if test files don't exist
+        if !config_yaml_path.exists() {
+            warn!(
+                "integration_test.tycho.yaml file not found at {}",
+                self.substreams_path.display()
+            );
             return Ok(());
         }
 
@@ -100,16 +157,24 @@ impl TestRunner {
             }
         };
 
+        let substreams_yaml_path = self
+            .substreams_path
+            .join(&config.substreams_yaml_path);
+        if !substreams_yaml_path.exists() {
+            warn!("substreams yaml file not found at {}", substreams_yaml_path.display());
+            return Ok(());
+        }
+
         let tests = match &self.match_test {
             Some(filter) => config
                 .tests
                 .iter()
                 .filter(|test| test.name.contains(filter))
-                .collect::<Vec<&IntegrationTest>>(),
+                .collect::<Vec<&RangeIntegrationTest>>(),
             None => config
                 .tests
                 .iter()
-                .collect::<Vec<&IntegrationTest>>(),
+                .collect::<Vec<&RangeIntegrationTest>>(),
         };
         let tests_count = tests.len();
 
@@ -121,7 +186,7 @@ impl TestRunner {
         for test in &tests {
             info!("TEST {}: {}", count, test.name);
 
-            match self.run_test(test, &config) {
+            match self.run_range_test(test, &config) {
                 Ok(_) => {
                     info!("✅ {} passed\n", test.name);
                 }
@@ -155,9 +220,45 @@ impl TestRunner {
         Ok(config)
     }
 
-    fn run_test(
+    fn run_full_test_impl(
         &self,
-        test: &IntegrationTest,
+        test: &FullIntegrationTest,
+        config: &IntegrationTestsConfig,
+    ) -> miette::Result<()> {
+        self.empty_database()
+            .into_diagnostic()
+            .wrap_err("Failed to empty the database")?;
+
+        let substreams_yaml_path = self
+            .substreams_path
+            .join(&config.substreams_yaml_path);
+
+        let initialized_accounts = config
+            .initialized_accounts
+            .clone()
+            .unwrap_or_default();
+
+        let spkg_path =
+            build_spkg(&substreams_yaml_path, test.start_block).wrap_err("Failed to build spkg")?;
+
+        let tycho_runner = TychoRunner::new(self.db_url.clone(), initialized_accounts);
+
+        tycho_runner
+            .run_tycho(
+                spkg_path.as_str(),
+                test.start_block,
+                None,
+                &config.protocol_type_names,
+                &config.protocol_system,
+            )
+            .wrap_err("Failed to run Tycho")?;
+
+        Ok(())
+    }
+
+    fn run_range_test(
+        &self,
+        test: &RangeIntegrationTest,
         config: &IntegrationTestsConfig,
     ) -> miette::Result<()> {
         self.empty_database()
@@ -187,7 +288,7 @@ impl TestRunner {
             .run_tycho(
                 spkg_path.as_str(),
                 test.start_block,
-                test.stop_block,
+                Some(test.stop_block),
                 &config.protocol_type_names,
                 &config.protocol_system,
             )
@@ -195,7 +296,7 @@ impl TestRunner {
 
         tycho_runner.run_with_rpc_server(
             |expected_components, start_block, stop_block| {
-                validate_state(
+                validate_state_within_range(
                     expected_components,
                     start_block,
                     stop_block,
@@ -207,7 +308,9 @@ impl TestRunner {
             &test.expected_components,
             test.start_block,
             test.stop_block,
-        )?
+        )??;
+
+        Ok(())
     }
 
     fn empty_database(&self) -> Result<(), Error> {
@@ -226,7 +329,7 @@ impl TestRunner {
     }
 }
 
-fn validate_state(
+fn validate_state_within_range(
     expected_components: &Vec<ProtocolComponentWithTestConfig>,
     start_block: u64,
     stop_block: u64,

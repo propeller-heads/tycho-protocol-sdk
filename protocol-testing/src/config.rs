@@ -122,9 +122,16 @@ fn default_false() -> bool {
     false
 }
 
+/// Configuration for the full test
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct FullIntegrationTest {
+    pub name: String,
+    pub start_block: u64,
+}
+
 /// Configuration for an individual test
 #[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct IntegrationTest {
+pub struct RangeIntegrationTest {
     pub name: String,
     pub start_block: u64,
     pub stop_block: u64,
@@ -143,5 +150,5 @@ pub struct IntegrationTestsConfig {
     pub skip_balance_check: bool,
     pub protocol_type_names: Vec<String>,
     pub protocol_system: String,
-    pub tests: Vec<IntegrationTest>,
+    pub tests: Vec<RangeIntegrationTest>,
 }
