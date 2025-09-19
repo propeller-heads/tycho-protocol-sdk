@@ -375,10 +375,17 @@ fn validate_state(
         decoder_context,
     );
 
-    // Filter out components that have skip_simulation = true (match Python behavior)
+    // Filter out components that have skip_simulation = true
     let simulation_component_ids: std::collections::HashSet<String> = expected_components
         .iter()
         .filter(|c| !c.skip_simulation)
+        .map(|c| c.base.id.clone())
+        .collect();
+
+    // Filter out components that have skip_execution = true
+    let execution_component_ids: std::collections::HashSet<String> = expected_components
+        .iter()
+        .filter(|c| !c.skip_execution)
         .map(|c| c.base.id.clone())
         .collect();
 
@@ -538,6 +545,12 @@ fn validate_state(
                         token_out.symbol,
                         amount_out_result.gas
                     );
+
+                    // Only execute for components that should have execution
+                    if !execution_component_ids.contains(id) {
+                        info!("Skipping execution for component {id}");
+                        continue;
+                    }
 
                     let protocol_component = block_msg.new_pairs.get(id).unwrap();
 

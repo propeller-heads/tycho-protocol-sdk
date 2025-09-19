@@ -120,13 +120,9 @@ impl RPCProvider {
     pub async fn copy_contract_storage_and_code(
         &self,
         contract_address: Address,
-        router_bytecode_path: &str,
+        router_bytecode_json: &str,
     ) -> miette::Result<StateOverride> {
-        let router_json = std::fs::read_to_string(router_bytecode_path)
-            .into_diagnostic()
-            .wrap_err("Failed to read router bytecode file")?;
-
-        let json_value: serde_json::Value = serde_json::from_str(&router_json)
+        let json_value: serde_json::Value = serde_json::from_str(router_bytecode_json)
             .into_diagnostic()
             .wrap_err("Failed to parse router JSON")?;
 

@@ -10397,7 +10397,7 @@ dependencies = [
 
 [[package]]
 name = "tycho-client"
-version = "0.83.4"
+version = "0.85.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -10422,7 +10422,7 @@ dependencies = [
 
 [[package]]
 name = "tycho-common"
-version = "0.83.4"
+version = "0.85.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -10445,7 +10445,7 @@ dependencies = [
 
 [[package]]
 name = "tycho-ethereum"
-version = "0.83.4"
+version = "0.85.0"
 dependencies = [
  "alloy",
  "alloy-rpc-types-trace",

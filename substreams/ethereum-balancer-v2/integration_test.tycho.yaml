@@ -25,6 +25,7 @@ tests:
           manual_updates: "0x01"
           pool_type: "0x5765696768746564506f6f6c466163746f72795634"
         creation_tx: "0xa63c671046ad2075ec8ea83ac21199cf3e3a5f433e72ec4c117cbabfb9b18de2"
+        skip_execution: false
 
   # WeightedPool2TokensFactory - 0xA5bf2ddF098bb0Ef6d120C98217dD6B141c74EE0
   - name: weighted_legacy_creation

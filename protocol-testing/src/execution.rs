@@ -24,6 +24,7 @@ use tycho_simulation::{
 };
 
 use crate::rpc::RPCProvider;
+const ROUTER_BYTECODE_JSON: &str = include_str!("../../evm/test/router/TychoRouter.runtime.json");
 
 /// Mapping from protocol component patterns to executor bytecode files
 static EXECUTOR_MAPPING: LazyLock<HashMap<&'static str, &'static str>> = LazyLock::new(|| {
@@ -213,13 +214,12 @@ async fn setup_state_overrides(
         )
         .await;
 
-    let balance_slot = if let Some(Ok((_storage_addr, slot))) =
-        results.get(&solution.given_token.clone())
-    {
-        slot
-    } else {
-        return Err(miette!("Couldn't find balance storage slot for token {token_address}"));
-    };
+    let balance_slot =
+        if let Some(Ok((_storage_addr, slot))) = results.get(&solution.given_token.clone()) {
+            slot
+        } else {
+            return Err(miette!("Couldn't find balance storage slot for token {token_address}"));
+        };
 
     let detector = EVMAllowanceSlotDetector::new(AllowanceSlotDetectorConfig {
         rpc_url,
@@ -236,13 +236,12 @@ async fn setup_state_overrides(
         )
         .await;
 
-    let allowance_slot = if let Some(Ok((_storage_addr, slot))) =
-        results.get(&solution.given_token.clone())
-    {
-        slot
-    } else {
-        return Err(miette!("Couldn't find allowance storage slot for token {token_address}"));
-    };
+    let allowance_slot =
+        if let Some(Ok((_storage_addr, slot))) = results.get(&solution.given_token.clone()) {
+            slot
+        } else {
+            return Err(miette!("Couldn't find allowance storage slot for token {token_address}"));
+        };
 
     state_overwrites.insert(
         token_address,
@@ -292,13 +291,11 @@ pub async fn simulate_trade_with_eth_call(
     let _token_address = Address::from_slice(&solution.given_token[..20]);
 
     // Copy router storage and code from current block to historical block
-    // TODO get this at compile time.
-    let router_bytecode_path = "../evm/test/router/TychoRouter.runtime.json";
 
     let router_override = rpc_provider
-        .copy_contract_storage_and_code(tycho_router_address, router_bytecode_path)
+        .copy_contract_storage_and_code(tycho_router_address, ROUTER_BYTECODE_JSON)
         .await
-        .wrap_err("Failed to copy router contract storage and code")?;
+        .wrap_err("Failed to create router override")?;
 
     // Set up state overrides including router override
     let mut state_overwrites = setup_state_overrides(
