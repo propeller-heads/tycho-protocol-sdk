@@ -144,33 +144,18 @@ impl RPCProvider {
         // Start with the router bytecode override
         let mut state_override = StateOverride::new().with_code(router_bytecode);
 
-        // TODO (Diana) I think this could be a little different.. instead of checking if it's set
-        // for the protocol we are interested in we should just overwrite the code of an executor
-        // that is already approved with our target executor code The executors mapping is:
-        // mapping(address => bool) public executors;
         for (protocol_name, &executor_address) in EXECUTOR_ADDRESSES.iter() {
             let storage_slot = self.calculate_executor_storage_slot(executor_address);
 
-            // Double check that this executor is actually approved.
-            // TODO this can be simplified to just set the value to 1 every time.
-            //  This explicit check was just for debug purposes to verify our storage slot
-            // calculation.
             match self
                 .get_storage_at(contract_address, storage_slot)
                 .await
             {
                 Ok(value) => {
-                    if !value.is_zero() {
-                        state_override = state_override.with_state_diff(
-                            alloy::primitives::Bytes::from(storage_slot.to_vec()),
-                            alloy::primitives::Bytes::from(value.to_vec()),
-                        );
-                    } else {
-                        info!(
-                            "Executor {} ({:?}) is not approved (value is zero)",
-                            protocol_name, executor_address
-                        );
-                    }
+                    state_override = state_override.with_state_diff(
+                        alloy::primitives::Bytes::from(storage_slot.to_vec()),
+                        alloy::primitives::Bytes::from(value.to_vec()),
+                    );
                 }
                 Err(e) => {
                     info!(
