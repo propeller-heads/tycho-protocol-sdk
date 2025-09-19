@@ -5965,6 +5965,7 @@ dependencies = [
  "num-bigint",
  "num-traits",
  "postgres",
+ "regex",
  "serde",
  "serde_json",
  "serde_yaml",
