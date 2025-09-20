@@ -24,6 +24,12 @@ skip_balance_check: false
 # test would fail because the account appears uninitialized to your code.
 initialized_accounts:
   - "0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84" # Needed for ....
+
+# Protocol system name
+protocol_system: "template_factory"
+# Module name for the substream
+module_name: "map_protocol_changes"
+
 # A list of protocol types names created by your Substreams module.
 protocol_type_names:
   - "type_name_1"

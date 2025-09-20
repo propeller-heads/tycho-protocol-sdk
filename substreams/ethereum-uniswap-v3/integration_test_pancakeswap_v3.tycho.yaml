@@ -1,0 +1,20 @@
+substreams_yaml_path: ./ethereum-pancakeswap-v3.yaml
+protocol_system: "pancakeswap_v3"
+protocol_type_names:
+  - "pancakeswap_v3_pool"
+module_name: "map_pool_events"
+skip_balance_check: true
+initialized_accounts:
+tests:
+  - name: test_weth_dexe_pool
+    start_block: 16954933
+    stop_block: 16954934
+    expected_components:
+      - id: "0x1ac1a8feaaea1900c4166deeed0c11cc10669d36"
+        tokens:
+          - "0xde4ee8057785a7e8e800db58f9784845a5c2cbd6"
+          - "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2"
+        static_attributes:
+          fee: "0x0bb8"
+        creation_tx: "0xac348744622ae1d945e5079678966c9402ef4a6be4c43d1399a151f6a7f8fb13"
+        skip_simulation: true

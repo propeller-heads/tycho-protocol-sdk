@@ -10,6 +10,11 @@ adapter_build_args: "0xA663B02CF0a4b149d2aD41910CB81e23e1c41c32,0x853d955aCEf822
 # If set to `true` please always add a reason why it's skipped.
 skip_balance_check: true
 
+# Protocol system name
+protocol_system: "sfrax"
+# Module name for the substream
+module_name: "map_protocol_changes"
+
 # A list of protocol types names created by your Substreams module.
 protocol_type_names:
   - "sfrax_vault"
