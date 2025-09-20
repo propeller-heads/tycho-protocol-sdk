@@ -49,6 +49,7 @@ static CLONE_TO_BASE_PROTOCOL: LazyLock<HashMap<&str, &str>> = LazyLock::new(|| 
     HashMap::from([
         ("ethereum-sushiswap-v2", "ethereum-uniswap-v2"),
         ("ethereum-pancakeswap-v2", "ethereum-uniswap-v2"),
+        ("ethereum-pancakeswap-v3", "ethereum-uniswap-v3"),
     ])
 });
 
