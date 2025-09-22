@@ -10479,7 +10479,7 @@ dependencies = [
 [[package]]
 name = "tycho-execution"
 version = "0.124.0"
-source = "git+https://github.com/propeller-heads/tycho-execution.git?rev=6c97d6786edd2a611bacfe0bb20382fe87efcd3d#6c97d6786edd2a611bacfe0bb20382fe87efcd3d"
+source = "git+https://github.com/propeller-heads/tycho-execution.git?rev=8ea71c3fc5c0ce0133cac3de3dc3902c4d4c0a58#8ea71c3fc5c0ce0133cac3de3dc3902c4d4c0a58"
 dependencies = [
  "alloy",
  "chrono",
@@ -10500,7 +10500,7 @@ dependencies = [
 [[package]]
 name = "tycho-simulation"
 version = "0.160.1"
-source = "git+https://github.com/propeller-heads/tycho-simulation.git?rev=f4384c34cececd4c335606b901f3c57eead3e58d#f4384c34cececd4c335606b901f3c57eead3e58d"
+source = "git+https://github.com/propeller-heads/tycho-simulation.git?rev=fbf0bc252033421a26692e62a811849582cdac4f#fbf0bc252033421a26692e62a811849582cdac4f"
 dependencies = [
  "alloy",
  "async-stream",
@@ -10526,6 +10526,7 @@ dependencies = [
  "revm-inspectors",
  "serde",
  "serde_json",
+ "solar-config",
  "solar-data-structures",
  "strum 0.25.0",
  "strum_macros 0.25.3",

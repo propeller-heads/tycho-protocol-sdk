@@ -102,6 +102,7 @@ pub fn encode_swap(
                 .to_string_lossy()
                 .to_string(),
         )
+        .historical_trade()
         .build()
         .expect("Failed to build encoder");
 
