@@ -36,3 +36,7 @@ colored = "3.0.0"
 similar = "2.7.0"
 termsize = "0.1.9"
 itertools = "0.14.0"
+# Foundry dependencies (same versions as tycho-simulation)
+foundry-config = { git = "https://github.com/foundry-rs/foundry", rev = "5a552bb0de7126fa35170fd84532bbd3d40cd348" }
+foundry-evm = { git = "https://github.com/foundry-rs/foundry", rev = "5a552bb0de7126fa35170fd84532bbd3d40cd348" }
+revm = { version = "27.0.3", features = ["alloydb", "serde"] }
