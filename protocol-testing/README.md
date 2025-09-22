@@ -61,13 +61,13 @@ export RUST_LOG=info,hyper=warn,reqwest=warn
 ## Running with Different Log Levels
 ```bash
 # Standard test run with progress output
-RUST_LOG=info cargo run -- --package uniswap-v2
+RUST_LOG=info cargo run -- range --package uniswap-v2
 
 # Detailed debug output
-RUST_LOG=debug cargo run -- --package uniswap-v2
+RUST_LOG=debug cargo run -- range --package uniswap-v2
 
 # Minimal output (errors only)
-RUST_LOG=error cargo run -- --package uniswap-v2
+RUST_LOG=error cargo run -- range --package uniswap-v2
 ```
 
 ## Test Configuration
