@@ -353,6 +353,13 @@ fn validate_state(
         return Ok(());
     }
 
+    // Find components that have skip_execution = true
+    let execution_component_ids: std::collections::HashSet<String> = expected_components
+        .iter()
+        .filter(|c| !c.skip_execution)
+        .map(|c| c.base.id.clone())
+        .collect();
+
     // Build/find the adapter contract
     let adapter_contract_path =
         match adapter_contract_builder.find_contract(&config.adapter_contract) {
@@ -389,30 +396,6 @@ fn validate_state(
         protocol_system,
         decoder_context,
     );
-
-    // Filter out components that have skip_simulation = true
-    let simulation_component_ids: std::collections::HashSet<String> = expected_components
-        .iter()
-        .filter(|c| !c.skip_simulation)
-        .map(|c| c.base.id.clone())
-        .collect();
-
-    // Filter out components that have skip_execution = true
-    let execution_component_ids: std::collections::HashSet<String> = expected_components
-        .iter()
-        .filter(|c| !c.skip_execution)
-        .map(|c| c.base.id.clone())
-        .collect();
-
-    info!("Components to simulate: {}", simulation_component_ids.len());
-    for id in &simulation_component_ids {
-        info!("  Simulating component: {}", id);
-    }
-
-    if simulation_component_ids.is_empty() {
-        info!("No components to simulate, skipping simulation validation");
-        return Ok(());
-    }
 
     // Mock a stream message, with only a Snapshot and no deltas
     let mut states: HashMap<String, ComponentWithState> = HashMap::new();

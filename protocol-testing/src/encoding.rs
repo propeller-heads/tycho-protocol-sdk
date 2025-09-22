@@ -104,7 +104,8 @@ pub fn encode_swap(
         )
         .historical_trade()
         .build()
-        .expect("Failed to build encoder");
+        .into_diagnostic()
+        .wrap_err("Failed to build encoder")?;
 
     let solution = get_solution(component, token_in, token_out, amount_in, amount_out)?;
 
