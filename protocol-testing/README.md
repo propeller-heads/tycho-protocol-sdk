@@ -2,7 +2,7 @@
 
 Rust-based integration testing framework for Tycho protocol implementations.
 
-## How to Run
+## How to Run with Docker
 
 ```bash
 # Build the images, from the project root dir
@@ -16,6 +16,31 @@ export PROTOCOLS="ethereum-balancer-v2=weighted_legacy_creation ethereum-ekubo-v
 
 # Start and show the test logs only
 docker compose up -d && docker compose logs test-runner --follow
+
+# Clean up
+docker compose down
+```
+
+## How to Run Locally
+
+```bash
+# Ensure PostgreSQL is running or start it via Docker
+docker buildx build -f protocol-testing/postgres.Dockerfile -t protocol-testing-db:latest --load .
+docker compose up db -d
+
+# Export necessary env vars
+export RPC_URL=..
+export SUBSTREAMS_API_TOKEN=..
+
+# If you use a local PostgreSQL instance, set the connection string
+export DATABASE_URL=postgresql://postgres:password@localhost:5432/postgres
+
+# Run the tests for a specific package, defined in their integration_test.tycho.yaml file
+# This type of tests are constrained to a specific block range defined
+cargo run -- range --package "ethereum-ekubo-v2"
+
+# To run the full test, that will index from the protocol creation block to the latest:
+cargo run -- full --package "ethereum-ekubo-v2"
 
 # Clean up
 docker compose down
