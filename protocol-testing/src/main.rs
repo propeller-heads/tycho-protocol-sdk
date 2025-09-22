@@ -13,7 +13,7 @@ use clap::{Args, Parser, Subcommand};
 use miette::{miette, IntoDiagnostic, WrapErr};
 use tracing_subscriber::EnvFilter;
 
-use crate::test_runner::TestRunner;
+use crate::test_runner::{TestRunner, TestType, TestTypeFull, TestTypeRange};
 
 #[derive(Parser)]
 #[command(version, long_version = Version::clap_long(), subcommand_required = false, arg_required_else_help = true)]
@@ -32,14 +32,19 @@ enum TestSubcommand {
 pub struct FullTestCommand {
     #[command(flatten)]
     common_args: CommonArgs,
+
+    /// Run the test starting from this block number.
+    /// If not provided, it will use the initial block defined in the protocol configuration.
+    #[arg(long)]
+    initial_block: Option<u64>,
 }
 
 impl FullTestCommand {
     fn run(self) -> miette::Result<()> {
         let args = self.common_args;
-        let test_runner =
-            TestRunner::new(args.root_path()?, args.package, None, args.db_url, args.vm_traces);
-        test_runner.run_full_test()
+        let test_type = TestType::Full(TestTypeFull { initial_block: self.initial_block });
+        TestRunner::new(args.root_path()?, args.package, args.db_url, args.vm_traces, test_type)
+            .run()
     }
 }
 
@@ -56,14 +61,9 @@ pub struct RangeTestCommand {
 impl RangeTestCommand {
     fn run(self) -> miette::Result<()> {
         let args = self.common_args;
-        let test_runner = TestRunner::new(
-            args.root_path()?,
-            args.package,
-            self.match_test,
-            args.db_url,
-            args.vm_traces,
-        );
-        test_runner.run_range_tests()
+        let test_type = TestType::Range(TestTypeRange { match_test: self.match_test.clone() });
+        TestRunner::new(args.root_path()?, args.package, args.db_url, args.vm_traces, test_type)
+            .run()
     }
 }
 

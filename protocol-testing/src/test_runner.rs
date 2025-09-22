@@ -50,16 +50,29 @@ pub struct TestRunner {
     vm_traces: bool,
     substreams_path: PathBuf,
     adapter_contract_builder: AdapterContractBuilder,
-    match_test: Option<String>,
+    test_type: TestType,
+}
+
+pub enum TestType {
+    Full(TestTypeFull),
+    Range(TestTypeRange),
+}
+
+pub struct TestTypeFull {
+    pub initial_block: Option<u64>,
+}
+
+pub struct TestTypeRange {
+    pub match_test: Option<String>,
 }
 
 impl TestRunner {
     pub fn new(
         root_path: PathBuf,
         protocol: String,
-        match_test: Option<String>,
         db_url: String,
         vm_traces: bool,
+        test_type: TestType,
     ) -> Self {
         let substreams_path = root_path
             .join("substreams")
@@ -67,10 +80,17 @@ impl TestRunner {
         let evm_path = root_path.join("evm");
         let adapter_contract_builder =
             AdapterContractBuilder::new(evm_path.to_string_lossy().to_string());
-        Self { db_url, vm_traces, substreams_path, adapter_contract_builder, match_test }
+        Self { db_url, vm_traces, substreams_path, adapter_contract_builder, test_type }
     }
 
-    pub fn run_full_test(&self) -> miette::Result<()> {
+    pub fn run(&self) -> miette::Result<()> {
+        match &self.test_type {
+            TestType::Full(c) => self.run_full_test(c),
+            TestType::Range(c) => self.run_range_tests(c),
+        }
+    }
+
+    fn run_full_test(&self, test_type: &TestTypeFull) -> miette::Result<()> {
         let terminal_width = termsize::get()
             .map(|size| size.cols as usize - 35) // Remove length of log prefix (35)
             .unwrap_or(80);
@@ -105,12 +125,15 @@ impl TestRunner {
             return Ok(());
         }
 
-        let initial_block = {
-            let content = std::fs::read_to_string(substreams_yaml_path).into_diagnostic()?;
-            let re = Regex::new(r"initialBlock:\s*(\d+)").unwrap();
-            re.captures(&content)
-                .and_then(|cap| cap.get(1))
-                .and_then(|m| m.as_str().parse::<u64>().ok())
+        let initial_block = match test_type.initial_block {
+            Some(b) => Some(b),
+            None => {
+                let content = std::fs::read_to_string(substreams_yaml_path).into_diagnostic()?;
+                let re = Regex::new(r"initialBlock:\s*(\d+)").unwrap();
+                re.captures(&content)
+                    .and_then(|cap| cap.get(1))
+                    .and_then(|m| m.as_str().parse::<u64>().ok())
+            }
         };
 
         let test = match initial_block {
@@ -130,7 +153,7 @@ impl TestRunner {
         }
     }
 
-    pub fn run_range_tests(&self) -> miette::Result<()> {
+    fn run_range_tests(&self, test_type: &TestTypeRange) -> miette::Result<()> {
         let terminal_width = termsize::get()
             .map(|size| size.cols as usize - 35) // Remove length of log prefix (35)
             .unwrap_or(80);
@@ -165,7 +188,7 @@ impl TestRunner {
             return Ok(());
         }
 
-        let tests = match &self.match_test {
+        let tests = match &test_type.match_test {
             Some(filter) => config
                 .tests
                 .iter()
