@@ -78,7 +78,11 @@ struct CommonArgs {
     package: String,
 
     /// Postgres database URL for the Tycho indexer
-    #[arg(long, default_value = "postgres://postgres:mypassword@localhost:5431/tycho_indexer_0")]
+    #[arg(
+        long,
+        env = "DATABASE_URL",
+        default_value = "postgres://postgres:mypassword@localhost:5431/tycho_indexer_0"
+    )]
     db_url: String,
 
     /// Enable tracing during vm simulations
