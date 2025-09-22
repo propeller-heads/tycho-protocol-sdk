@@ -9,12 +9,12 @@ miette = { version = "7.6.0", features = ["fancy"] }
 # Logging & Tracing
 tracing = "0.1.37"
 # Tycho dependencies
-tycho-common = { path = "../../tycho-indexer/tycho-common" }
-tycho-client = { path = "../../tycho-indexer/tycho-client" }
+tycho-common = { git = "https://github.com/propeller-heads/tycho-indexer.git", rev = "28d013a906c497d95e27f01f48fc887fb22dbbbc" }
+tycho-client = { git = "https://github.com/propeller-heads/tycho-indexer.git", rev = "28d013a906c497d95e27f01f48fc887fb22dbbbc" }
 #tycho-simulation = { git = "https://github.com/propeller-heads/tycho-simulation.git", tag = "0.160.0", features = ["evm"] }
 ### TODO: for local development
-tycho-simulation = { path = "../../tycho-simulation", features = ["evm"] }
-tycho-ethereum = { path = "../../tycho-indexer/tycho-ethereum", features = ["onchain_data"] }
+tycho-simulation = { git = "https://github.com/propeller-heads/tycho-simulation.git", rev = "f4384c34cececd4c335606b901f3c57eead3e58d" }
+tycho-ethereum = { git = "https://github.com/propeller-heads/tycho-indexer.git", rev = "28d013a906c497d95e27f01f48fc887fb22dbbbc", features = ["onchain_data"] }
 num-bigint = "0.4"
 num-traits = "0.2"
 num-rational = "0.4.2"
