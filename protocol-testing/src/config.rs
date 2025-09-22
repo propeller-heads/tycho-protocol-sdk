@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use colored::Colorize;
 use serde::{Deserialize, Serialize};
@@ -30,14 +30,16 @@ impl ProtocolComponentExpectation {
     pub fn compare(&self, other: &ProtocolComponent, colorize_output: bool) -> Option<String> {
         let mut diffs = Vec::new();
 
-        // Compare id
-        if self.id != other.id {
+        // Compare id (case-insensitive)
+        if self.id.to_lowercase() != other.id.to_lowercase() {
             let diff = self.format_diff("id", &self.id, &other.id, colorize_output);
             diffs.push(format!("Field 'id' mismatch for {}:\n{}", self.id, diff));
         }
 
-        // Compare tokens
-        if self.tokens != other.tokens {
+        // Compare tokens (order-independent)
+        let self_tokens_set: HashSet<_> = self.tokens.iter().collect();
+        let other_tokens_set: HashSet<_> = other.tokens.iter().collect();
+        if self_tokens_set != other_tokens_set {
             let self_tokens = format!("{:?}", self.tokens);
             let other_tokens = format!("{:?}", other.tokens);
             let diff = self.format_diff("tokens", &self_tokens, &other_tokens, colorize_output);

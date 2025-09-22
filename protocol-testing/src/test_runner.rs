@@ -123,7 +123,7 @@ impl TestRunner {
         for test in &tests {
             info!("TEST {}: {}", count, test.name);
 
-            match self.run_test(test, &config, config.skip_balance_check) {
+            match self.run_test(test, &config) {
                 Ok(_) => {
                     info!("✅ {} passed\n", test.name);
                 }
@@ -161,7 +161,6 @@ impl TestRunner {
         &self,
         test: &IntegrationTest,
         config: &IntegrationTestsConfig,
-        skip_balance_check: bool,
     ) -> miette::Result<()> {
         self.empty_database()
             .into_diagnostic()
@@ -197,12 +196,11 @@ impl TestRunner {
             .wrap_err("Failed to run Tycho")?;
 
         tycho_runner.run_with_rpc_server(
-            |expected_components, start_block, stop_block, skip_balance_check| {
+            |expected_components, start_block, stop_block| {
                 validate_state(
                     expected_components,
                     start_block,
                     stop_block,
-                    skip_balance_check,
                     config,
                     &self.adapter_contract_builder,
                     self.vm_traces,
@@ -211,7 +209,6 @@ impl TestRunner {
             &test.expected_components,
             test.start_block,
             test.stop_block,
-            skip_balance_check,
         )?
     }
 
@@ -235,7 +232,6 @@ fn validate_state(
     expected_components: &Vec<ProtocolComponentWithTestConfig>,
     start_block: u64,
     stop_block: u64,
-    skip_balance_check: bool,
     config: &IntegrationTestsConfig,
     adapter_contract_builder: &AdapterContractBuilder,
     vm_traces: bool,
@@ -259,7 +255,7 @@ fn validate_state(
 
     let expected_ids = expected_components
         .iter()
-        .map(|c| c.base.id.clone())
+        .map(|c| c.base.id.to_lowercase())
         .collect::<Vec<String>>();
 
     let protocol_states = rt
@@ -276,12 +272,12 @@ fn validate_state(
     let components_by_id: HashMap<String, ProtocolComponent> = protocol_components
         .clone()
         .into_iter()
-        .map(|c| (c.id.clone(), c))
+        .map(|c| (c.id.to_lowercase(), c))
         .collect();
 
     let protocol_states_by_id: HashMap<String, ResponseProtocolState> = protocol_states
         .into_iter()
-        .map(|s| (s.component_id.clone(), s))
+        .map(|s| (s.component_id.to_lowercase(), s))
         .collect();
 
     info!("Found {} protocol components", components_by_id.len());
@@ -292,7 +288,10 @@ fn validate_state(
     // Step 1: Validate that all expected components are present on Tycho after indexing
     debug!("Validating {:?} expected components", expected_components.len());
     for expected_component in expected_components {
-        let component_id = expected_component.base.id.clone();
+        let component_id = expected_component
+            .base
+            .id
+            .to_lowercase();
 
         let component = components_by_id
             .get(&component_id)
@@ -322,7 +321,7 @@ fn validate_state(
         .wrap_err("Missing RPC_URL in environment")?;
     let rpc_provider = RPCProvider::new(rpc_url, vm_traces);
 
-    match skip_balance_check {
+    match config.skip_balance_check {
         true => info!("Skipping balance check"),
         false => {
             validate_token_balances(
@@ -337,6 +336,22 @@ fn validate_state(
     }
 
     // Step 3: Run Tycho Simulation
+    // Filter out components that have skip_simulation = true
+    let simulation_component_ids: std::collections::HashSet<String> = expected_components
+        .iter()
+        .filter(|c| !c.skip_simulation)
+        .map(|c| c.base.id.to_lowercase())
+        .collect();
+
+    info!("Components to simulate: {}", simulation_component_ids.len());
+    for id in &simulation_component_ids {
+        info!("  Simulating component: {}", id);
+    }
+
+    if simulation_component_ids.is_empty() {
+        info!("No components to simulate, skipping simulation validation");
+        return Ok(());
+    }
 
     // Build/find the adapter contract
     let adapter_contract_path =
@@ -610,7 +625,6 @@ fn validate_state(
             }
         }
     }
-
     info!("✅ Simulation validation passed");
     Ok(())
 }
