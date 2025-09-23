@@ -25,6 +25,7 @@ use tycho_simulation::{
 
 use crate::rpc::RPCProvider;
 const ROUTER_BYTECODE_JSON: &str = include_str!("../../evm/test/router/TychoRouter.runtime.json");
+pub const EXECUTORS_JSON: &str = include_str!("../test_executor_addresses.json");
 
 /// Mapping from protocol component patterns to executor bytecode files
 static EXECUTOR_MAPPING: LazyLock<HashMap<&'static str, &'static str>> = LazyLock::new(|| {
@@ -44,9 +45,7 @@ static EXECUTOR_MAPPING: LazyLock<HashMap<&'static str, &'static str>> = LazyLoc
 
 /// Executor addresses loaded from test_executor_addresses.json at startup
 pub static EXECUTOR_ADDRESSES: LazyLock<HashMap<String, Address>> = LazyLock::new(|| {
-    let executor_addresses_path = PathBuf::from("test_executor_addresses.json");
-
-    let json_content = std::fs::read_to_string(&executor_addresses_path)
+    let json_content = std::fs::read_to_string(EXECUTORS_JSON)
         .expect("Failed to read test_executor_addresses.json");
 
     let json_value: Value =
@@ -288,10 +287,8 @@ pub async fn simulate_trade_with_eth_call(
                 .unwrap_or(u128::MAX),
         );
     let tycho_router_address = Address::from_slice(&transaction.to[..20]);
-    let _token_address = Address::from_slice(&solution.given_token[..20]);
 
     // Copy router storage and code from current block to historical block
-
     let router_override = rpc_provider
         .copy_contract_storage_and_code(tycho_router_address, ROUTER_BYTECODE_JSON)
         .await

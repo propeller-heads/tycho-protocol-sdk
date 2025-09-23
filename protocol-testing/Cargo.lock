@@ -10482,7 +10482,7 @@ dependencies = [
 [[package]]
 name = "tycho-execution"
 version = "0.124.0"
-source = "git+https://github.com/propeller-heads/tycho-execution.git?rev=8ea71c3fc5c0ce0133cac3de3dc3902c4d4c0a58#8ea71c3fc5c0ce0133cac3de3dc3902c4d4c0a58"
+source = "git+https://github.com/propeller-heads/tycho-execution.git?rev=14a1e497999999c5058dfaf9eee51bec0c025d12#14a1e497999999c5058dfaf9eee51bec0c025d12"
 dependencies = [
  "alloy",
  "chrono",
@@ -10503,7 +10503,7 @@ dependencies = [
 [[package]]
 name = "tycho-simulation"
 version = "0.160.1"
-source = "git+https://github.com/propeller-heads/tycho-simulation.git?rev=fbf0bc252033421a26692e62a811849582cdac4f#fbf0bc252033421a26692e62a811849582cdac4f"
+source = "git+https://github.com/propeller-heads/tycho-simulation.git?rev=6585823a859a29bd64600cc1d2fa7d502d48d3e6#6585823a859a29bd64600cc1d2fa7d502d48d3e6"
 dependencies = [
  "alloy",
  "async-stream",

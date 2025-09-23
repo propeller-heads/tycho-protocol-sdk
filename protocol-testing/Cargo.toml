@@ -11,7 +11,7 @@ tracing = "0.1.37"
 # Tycho dependencies
 tycho-common = { git = "https://github.com/propeller-heads/tycho-indexer.git", rev = "28d013a906c497d95e27f01f48fc887fb22dbbbc" }
 tycho-client = { git = "https://github.com/propeller-heads/tycho-indexer.git", rev = "28d013a906c497d95e27f01f48fc887fb22dbbbc" }
-tycho-simulation = { git = "https://github.com/propeller-heads/tycho-simulation.git", rev = "fbf0bc252033421a26692e62a811849582cdac4f" }
+tycho-simulation = { git = "https://github.com/propeller-heads/tycho-simulation.git", rev = "6585823a859a29bd64600cc1d2fa7d502d48d3e6" }
 ## TODO: for local development
 #tycho-simulation = { path = "../../tycho-simulation", features = ["evm"] }
 tycho-ethereum = { git = "https://github.com/propeller-heads/tycho-indexer.git", rev = "28d013a906c497d95e27f01f48fc887fb22dbbbc", features = ["onchain_data"] }

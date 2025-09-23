@@ -22,6 +22,8 @@ use tycho_simulation::{
     },
 };
 
+use crate::execution::EXECUTORS_JSON;
+
 /// Creates a Solution for the given swap parameters.
 ///
 /// # Parameters
@@ -89,19 +91,10 @@ pub fn encode_swap(
 ) -> miette::Result<(Transaction, Solution)> {
     let chain: tycho_common::models::Chain = Chain::Ethereum.into();
 
-    // Use test executor addresses for testing
-    let executor_addresses_path = std::env::current_dir()
-        .map(|p| p.join("test_executor_addresses.json"))
-        .unwrap_or_else(|_| std::path::PathBuf::from("test_executor_addresses.json"));
-
     let encoder = TychoRouterEncoderBuilder::new()
         .chain(chain)
         .user_transfer_type(UserTransferType::TransferFrom)
-        .executors_file_path(
-            executor_addresses_path
-                .to_string_lossy()
-                .to_string(),
-        )
+        .executors_addresses(EXECUTORS_JSON.to_string())
         .historical_trade()
         .build()
         .into_diagnostic()
