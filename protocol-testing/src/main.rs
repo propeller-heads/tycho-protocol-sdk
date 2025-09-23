@@ -99,7 +99,7 @@ fn main() -> miette::Result<()> {
         args.db_url,
         args.vm_simulation_traces,
         args.execution_traces,
-    );
+    )?;
 
     test_runner.run_tests()
 }

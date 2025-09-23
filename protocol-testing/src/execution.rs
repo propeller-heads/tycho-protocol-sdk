@@ -62,8 +62,8 @@ static EXECUTOR_MAPPING: LazyLock<HashMap<&'static str, &'static str>> = LazyLoc
 
 /// Executor addresses loaded from test_executor_addresses.json at startup
 pub static EXECUTOR_ADDRESSES: LazyLock<HashMap<String, Address>> = LazyLock::new(|| {
-    let json_value: Value = serde_json::from_str(&EXECUTORS_JSON)
-        .expect("Failed to parse test_executor_addresses.json");
+    let json_value: Value =
+        serde_json::from_str(EXECUTORS_JSON).expect("Failed to parse test_executor_addresses.json");
 
     let ethereum_addresses = json_value["ethereum"]
         .as_object()
@@ -215,7 +215,7 @@ async fn setup_state_overrides(
 
     let results = detector
         .detect_balance_slots(
-            &[solution.given_token.clone()],
+            std::slice::from_ref(&solution.given_token),
             (**user_address).into(),
             (*block.header.hash).into(),
         )
@@ -236,7 +236,7 @@ async fn setup_state_overrides(
 
     let results = detector
         .detect_allowance_slots(
-            &[solution.given_token.clone()],
+            std::slice::from_ref(&solution.given_token),
             (**user_address).into(),
             transaction.to.clone(), // tycho router
             (*block.header.hash).into(),
@@ -271,7 +271,6 @@ pub async fn simulate_trade_with_eth_call(
     rpc_provider: &RPCProvider,
     transaction: &tycho_simulation::tycho_execution::encoding::models::Transaction,
     solution: &Solution,
-    block_number: u64,
     block: &Block,
 ) -> miette::Result<BigUint> {
     let executor_bytecode = load_executor_bytecode(solution)?;
@@ -316,7 +315,7 @@ pub async fn simulate_trade_with_eth_call(
     state_overwrites.insert(tycho_router_address, router_override);
 
     let execution_amount_out = rpc_provider
-        .simulate_transactions_with_tracing(execution_tx, block_number, state_overwrites)
+        .simulate_transactions_with_tracing(execution_tx, block.number(), state_overwrites)
         .await
         .map_err(|e| {
             info!("Execution transaction failed with error: {}", e);
