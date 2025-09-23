@@ -4,7 +4,7 @@
 //! using state overwrites and historical blockchain data. It allows testing swap execution
 //! against specific block states without actually performing on-chain transactions.
 
-use std::{collections::HashMap, path::PathBuf, str::FromStr, sync::LazyLock};
+use std::{collections::HashMap, str::FromStr, sync::LazyLock};
 
 use alloy::{
     primitives::{Address, U256},
@@ -27,19 +27,36 @@ use crate::rpc::RPCProvider;
 const ROUTER_BYTECODE_JSON: &str = include_str!("../../evm/test/router/TychoRouter.runtime.json");
 pub const EXECUTORS_JSON: &str = include_str!("../test_executor_addresses.json");
 
-/// Mapping from protocol component patterns to executor bytecode files
+// Include all executor bytecode files at compile time
+const UNISWAP_V2_BYTECODE_JSON: &str =
+    include_str!("../../evm/test/executors/UniswapV2.runtime.json");
+const UNISWAP_V3_BYTECODE_JSON: &str =
+    include_str!("../../evm/test/executors/UniswapV3.runtime.json");
+const UNISWAP_V4_BYTECODE_JSON: &str =
+    include_str!("../../evm/test/executors/UniswapV4.runtime.json");
+const BALANCER_V2_BYTECODE_JSON: &str =
+    include_str!("../../evm/test/executors/BalancerV2.runtime.json");
+const BALANCER_V3_BYTECODE_JSON: &str =
+    include_str!("../../evm/test/executors/BalancerV3.runtime.json");
+const CURVE_BYTECODE_JSON: &str = include_str!("../../evm/test/executors/Curve.runtime.json");
+const MAVERICK_V2_BYTECODE_JSON: &str =
+    include_str!("../../evm/test/executors/MaverickV2.runtime.json");
+const EKUBO_BYTECODE_JSON: &str = include_str!("../../evm/test/executors/Ekubo.runtime.json");
+
+/// Mapping from protocol component patterns to executor bytecode JSON strings
 static EXECUTOR_MAPPING: LazyLock<HashMap<&'static str, &'static str>> = LazyLock::new(|| {
     let mut map = HashMap::new();
-    map.insert("uniswap_v2", "UniswapV2.runtime.json");
-    map.insert("sushiswap", "UniswapV2.runtime.json");
-    map.insert("pancakeswap_v2", "UniswapV2.runtime.json");
-    map.insert("uniswap_v3", "UniswapV3.runtime.json");
-    map.insert("pancakeswap_v3", "UniswapV3.runtime.json");
-    map.insert("uniswap_v4", "UniswapV4.runtime.json");
-    map.insert("balancer_v2", "BalancerV2.runtime.json");
-    map.insert("balancer_v3", "BalancerV3.runtime.json");
-    map.insert("curve", "Curve.runtime.json");
-    map.insert("maverick_v2", "MaverickV2.runtime.json");
+    map.insert("uniswap_v2", UNISWAP_V2_BYTECODE_JSON);
+    map.insert("sushiswap", UNISWAP_V2_BYTECODE_JSON);
+    map.insert("pancakeswap_v2", UNISWAP_V2_BYTECODE_JSON);
+    map.insert("uniswap_v3", UNISWAP_V3_BYTECODE_JSON);
+    map.insert("pancakeswap_v3", UNISWAP_V3_BYTECODE_JSON);
+    map.insert("uniswap_v4", UNISWAP_V4_BYTECODE_JSON);
+    map.insert("balancer_v2", BALANCER_V2_BYTECODE_JSON);
+    map.insert("balancer_v3", BALANCER_V3_BYTECODE_JSON);
+    map.insert("curve", CURVE_BYTECODE_JSON);
+    map.insert("maverick_v2", MAVERICK_V2_BYTECODE_JSON);
+    map.insert("ekubo", EKUBO_BYTECODE_JSON);
     map
 });
 
@@ -99,11 +116,11 @@ impl StateOverride {
     }
 }
 
-/// Determine the executor file based on component ID
-fn get_executor_file(component_id: &str) -> miette::Result<&'static str> {
-    for (pattern, executor_file) in EXECUTOR_MAPPING.iter() {
+/// Get executor bytecode JSON based on component ID
+fn get_executor_bytecode_json(component_id: &str) -> miette::Result<&'static str> {
+    for (pattern, executor_json) in EXECUTOR_MAPPING.iter() {
         if component_id.contains(pattern) {
-            return Ok(executor_file);
+            return Ok(executor_json);
         }
     }
     Err(miette!("Unknown component type '{}' - no matching executor found", component_id))
@@ -117,20 +134,14 @@ fn get_executor_address(component_id: &str) -> miette::Result<Address> {
     Err(miette!("No executor address found for component type '{}'", component_id))
 }
 
-/// Load executor bytecode from the appropriate file based on solution component
+/// Load executor bytecode from embedded constants based on solution component
 fn load_executor_bytecode(solution: &Solution) -> miette::Result<Vec<u8>> {
     let first_swap = solution.swaps.first().unwrap();
     let component_id = &first_swap.component;
 
-    let executor_file = get_executor_file(&component_id.protocol_system)?;
-    let executor_path = PathBuf::from("../evm/test/executors").join(executor_file);
+    let executor_json = get_executor_bytecode_json(&component_id.protocol_system)?;
 
-    // Read the JSON file and extract the bytecode
-    let executor_json = std::fs::read_to_string(&executor_path)
-        .into_diagnostic()
-        .wrap_err(format!("Failed to read executor file: {}", executor_path.display()))?;
-
-    let json_value: serde_json::Value = serde_json::from_str(&executor_json)
+    let json_value: serde_json::Value = serde_json::from_str(executor_json)
         .into_diagnostic()
         .wrap_err("Failed to parse executor JSON")?;
 
