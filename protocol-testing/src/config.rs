@@ -68,8 +68,8 @@ impl ProtocolComponentExpectation {
                 }
                 None => {
                     diffs.push(format!(
-                        "Field 'static_attributes' mismatch for {}: Key '{}' not found",
-                        self.id, key
+                        "Field 'static_attributes' mismatch for {}: Key '{}' not found. Available attributes: {:?}",
+                        self.id, key, other.static_attributes,
                     ));
                 }
             }
@@ -138,12 +138,13 @@ pub struct IntegrationTest {
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct IntegrationTestsConfig {
     pub substreams_yaml_path: String,
-    pub adapter_contract: String,
+    pub adapter_contract: Option<String>,
     pub adapter_build_signature: Option<String>,
     pub adapter_build_args: Option<String>,
     pub initialized_accounts: Option<Vec<String>>,
     pub skip_balance_check: bool,
     pub protocol_type_names: Vec<String>,
     pub protocol_system: String,
+    pub module_name: String,
     pub tests: Vec<IntegrationTest>,
 }
