@@ -117,10 +117,7 @@ impl TestRunner {
 
         // Skip if test files don't exist
         if !self.config_file_path.exists() {
-            warn!(
-                "Config file not found at {}.",
-                self.config_file_path.display()
-            );
+            warn!("Config file not found at {}.", self.config_file_path.display());
             return Ok(());
         }
 
@@ -392,20 +389,20 @@ fn validate_state(
         return Ok(());
     }
 
-    let adapter_contract_path;
-    let mut adapter_contract_path_str: Option<&str> = None;
-
-    // Adapter contract will only be configured for VM protocols, not natively implemented
-    // protocols.
-    if let Some(adapter_contract_name) = &config.adapter_contract {
-        // Filter out components that have skip_execution = true
+    // Filter out components that have skip_execution = true
     let execution_component_ids: std::collections::HashSet<String> = expected_components
         .iter()
         .filter(|c| !c.skip_execution)
         .map(|c| c.base.id.clone().to_lowercase())
         .collect();
 
-    // Build/find the adapter contract
+    let adapter_contract_path;
+    let mut adapter_contract_path_str: Option<&str> = None;
+
+    // Adapter contract will only be configured for VM protocols, not natively implemented
+    // protocols.
+    if let Some(adapter_contract_name) = &config.adapter_contract {
+        // Build/find the adapter contract
         adapter_contract_path = match adapter_contract_builder.find_contract(adapter_contract_name)
         {
             Ok(path) => {
@@ -484,7 +481,8 @@ fn validate_state(
             state,
             component: component.clone(),
             component_tvl: None,
-            // Neither UniswapV4 with hooks not certain balancer pools are currently supported for SDK testing
+            // Neither UniswapV4 with hooks not certain balancer pools are currently supported for
+            // SDK testing
             entrypoints: vec![],
         };
         states.insert(component_id.clone(), component_with_state);
