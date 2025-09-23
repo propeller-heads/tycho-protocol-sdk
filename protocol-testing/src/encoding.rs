@@ -36,17 +36,17 @@ use crate::execution::EXECUTORS_JSON;
 /// # Returns
 /// A `Result<Solution, EncodingError>` containing the solution, or an error if creation fails.
 pub fn get_solution(
-    component: ProtocolComponent,
-    token_in: Bytes,
-    token_out: Bytes,
-    amount_in: BigUint,
-    amount_out: BigUint,
+    component: &ProtocolComponent,
+    token_in: &Bytes,
+    token_out: &Bytes,
+    amount_in: &BigUint,
+    amount_out: &BigUint,
 ) -> miette::Result<Solution> {
-    let alice_address = Bytes::from_str("0xcd09f75E2BF2A4d11F3AB23f1389FcC1621c0cc2")
+    let user_address = Bytes::from_str("0xf847a638E44186F3287ee9F8cAF73FF4d4B80784")
         .into_diagnostic()
         .wrap_err("Failed to parse Alice's address for Tycho router encoding")?;
 
-    let swap = SwapBuilder::new(component, token_in.clone(), token_out.clone()).build();
+    let swap = SwapBuilder::new(component.clone(), token_in.clone(), token_out.clone()).build();
 
     let slippage = 0.0025; // 0.25% slippage
     let bps = BigUint::from(10_000u32);
@@ -55,11 +55,11 @@ pub fn get_solution(
     let min_amount_out = (amount_out * &multiplier) / &bps;
 
     Ok(Solution {
-        sender: alice_address.clone(),
-        receiver: alice_address.clone(),
-        given_token: token_in,
-        given_amount: amount_in,
-        checked_token: token_out,
+        sender: user_address.clone(),
+        receiver: user_address.clone(),
+        given_token: token_in.clone(),
+        given_amount: amount_in.clone(),
+        checked_token: token_out.clone(),
         exact_out: false,
         checked_amount: min_amount_out,
         swaps: vec![swap],
@@ -83,11 +83,11 @@ pub fn get_solution(
 /// A `Result<Transaction, EncodingError>` containing the encoded transaction data for the Tycho
 /// router, or an error if encoding fails.
 pub fn encode_swap(
-    component: ProtocolComponent,
-    token_in: Bytes,
-    token_out: Bytes,
-    amount_in: BigUint,
-    amount_out: BigUint,
+    component: &ProtocolComponent,
+    token_in: &Bytes,
+    token_out: &Bytes,
+    amount_in: &BigUint,
+    amount_out: &BigUint,
 ) -> miette::Result<(Transaction, Solution)> {
     let chain: tycho_common::models::Chain = Chain::Ethereum.into();
 
