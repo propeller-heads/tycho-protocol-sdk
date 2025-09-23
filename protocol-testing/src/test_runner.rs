@@ -45,7 +45,8 @@ use crate::{
 
 pub struct TestRunner {
     db_url: String,
-    vm_traces: bool,
+    vm_simulation_traces: bool,
+    execution_traces: bool,
     substreams_path: PathBuf,
     adapter_contract_builder: AdapterContractBuilder,
     match_test: Option<String>,
@@ -58,6 +59,7 @@ impl TestRunner {
         match_test: Option<String>,
         db_url: String,
         vm_traces: bool,
+        execution_traces: bool,
     ) -> Self {
         let substreams_path = root_path
             .join("substreams")
@@ -65,7 +67,14 @@ impl TestRunner {
         let evm_path = root_path.join("evm");
         let adapter_contract_builder =
             AdapterContractBuilder::new(evm_path.to_string_lossy().to_string());
-        Self { db_url, vm_traces, substreams_path, adapter_contract_builder, match_test }
+        Self {
+            db_url,
+            vm_simulation_traces: vm_traces,
+            execution_traces,
+            substreams_path,
+            adapter_contract_builder,
+            match_test,
+        }
     }
 
     pub fn run_tests(&self) -> miette::Result<()> {
@@ -203,7 +212,8 @@ impl TestRunner {
                     stop_block,
                     config,
                     &self.adapter_contract_builder,
-                    self.vm_traces,
+                    self.vm_simulation_traces,
+                    self.execution_traces,
                 )
             },
             &test.expected_components,
@@ -234,7 +244,8 @@ fn validate_state(
     stop_block: u64,
     config: &IntegrationTestsConfig,
     adapter_contract_builder: &AdapterContractBuilder,
-    vm_traces: bool,
+    vm_simulation_traces: bool,
+    execution_traces: bool,
 ) -> miette::Result<()> {
     let rt = Runtime::new().unwrap();
 
@@ -319,7 +330,7 @@ fn validate_state(
     let rpc_url = env::var("RPC_URL")
         .into_diagnostic()
         .wrap_err("Missing RPC_URL in environment")?;
-    let rpc_provider = RPCProvider::new(rpc_url, vm_traces);
+    let rpc_provider = RPCProvider::new(rpc_url, execution_traces);
 
     match config.skip_balance_check {
         true => info!("Skipping balance check"),
@@ -357,7 +368,7 @@ fn validate_state(
     let execution_component_ids: std::collections::HashSet<String> = expected_components
         .iter()
         .filter(|c| !c.skip_execution)
-        .map(|c| c.base.id.clone())
+        .map(|c| c.base.id.clone().to_lowercase())
         .collect();
 
     // Build/find the adapter contract
@@ -391,7 +402,7 @@ fn validate_state(
     let mut decoder = TychoStreamDecoder::new();
     let decoder_context = DecoderContext::new()
         .vm_adapter_path(adapter_contract_path_str)
-        .vm_traces(vm_traces);
+        .vm_traces(vm_simulation_traces);
     decoder.register_decoder_with_context::<EVMPoolState<PreCachedDB>>(
         protocol_system,
         decoder_context,

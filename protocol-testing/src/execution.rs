@@ -45,11 +45,8 @@ static EXECUTOR_MAPPING: LazyLock<HashMap<&'static str, &'static str>> = LazyLoc
 
 /// Executor addresses loaded from test_executor_addresses.json at startup
 pub static EXECUTOR_ADDRESSES: LazyLock<HashMap<String, Address>> = LazyLock::new(|| {
-    let json_content = std::fs::read_to_string(EXECUTORS_JSON)
-        .expect("Failed to read test_executor_addresses.json");
-
-    let json_value: Value =
-        serde_json::from_str(&json_content).expect("Failed to parse test_executor_addresses.json");
+    let json_value: Value = serde_json::from_str(&EXECUTORS_JSON)
+        .expect("Failed to parse test_executor_addresses.json");
 
     let ethereum_addresses = json_value["ethereum"]
         .as_object()
