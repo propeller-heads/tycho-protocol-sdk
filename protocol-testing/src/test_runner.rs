@@ -362,7 +362,7 @@ fn validate_state(
         return Ok(());
     }
 
-    // Find components that have skip_execution = true
+    // Filter out components that have skip_execution = true
     let execution_component_ids: std::collections::HashSet<String> = expected_components
         .iter()
         .filter(|c| !c.skip_execution)
@@ -553,7 +553,6 @@ fn validate_state(
                     );
 
                     // Only execute for components that should have execution
-                    println!("{execution_component_ids:?}");
                     if !execution_component_ids.contains(id) {
                         info!("Skipping execution for component {id}");
                         continue;
@@ -594,9 +593,9 @@ fn validate_state(
                             let diff = BigInt::from(amount_out_result.amount) -
                                 BigInt::from(amount_out.clone());
 
-                            let relative: BigRational =
+                            let slippage: BigRational =
                                 BigRational::new(diff.abs(), BigInt::from(amount_out));
-                            if relative.to_f64() > Some(0.05) {
+                            if slippage.to_f64() > Some(0.05) {
                                 return Err(miette!(
                                     "Execution amount and simulation amount differ more than 5%!"
                                 ));

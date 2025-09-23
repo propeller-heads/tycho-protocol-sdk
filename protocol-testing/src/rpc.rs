@@ -193,6 +193,14 @@ impl RPCProvider {
         keccak256(buf)
     }
 
+    fn bytes_to_fixed_32(bytes: &[u8]) -> [u8; 32] {
+        let mut arr = [0u8; 32];
+        let len = bytes.len().min(32);
+        // Right-pad by copying to the end of the array
+        arr[32 - len..].copy_from_slice(&bytes[bytes.len() - len..]);
+        arr
+    }
+
     pub async fn simulate_transactions_with_tracing(
         &self,
         transaction: TransactionRequest,
@@ -217,25 +225,8 @@ impl RPCProvider {
                 // Convert Bytes to FixedBytes<32> for storage slots
                 let mut state_diff = HashMap::default();
                 for (slot, value) in override_data.state_diff {
-                    // Convert dynamic bytes to 32-byte fixed bytes
-                    let slot_bytes: [u8; 32] = if slot.len() >= 32 {
-                        slot[..32]
-                            .try_into()
-                            .unwrap_or([0u8; 32])
-                    } else {
-                        let mut arr = [0u8; 32];
-                        arr[32 - slot.len()..].copy_from_slice(&slot);
-                        arr
-                    };
-                    let value_bytes: [u8; 32] = if value.len() >= 32 {
-                        value[..32]
-                            .try_into()
-                            .unwrap_or([0u8; 32])
-                    } else {
-                        let mut arr = [0u8; 32];
-                        arr[32 - value.len()..].copy_from_slice(&value);
-                        arr
-                    };
+                    let slot_bytes = Self::bytes_to_fixed_32(&slot);
+                    let value_bytes = Self::bytes_to_fixed_32(&value);
                     state_diff.insert(FixedBytes(slot_bytes), FixedBytes(value_bytes));
                 }
                 account_override.state_diff = Some(state_diff);
