@@ -286,7 +286,6 @@ impl RPCProvider {
             .unwrap_or(false);
 
         if has_error || has_failed {
-            info!("Transaction failed.");
             if let Some(result_obj) = result.as_object() {
                 if let Some(error) = result_obj.get("error") {
                     return Err(miette::miette!("Transaction execution failed: {}", error));
@@ -297,7 +296,7 @@ impl RPCProvider {
             }
             return Err(miette::miette!("Transaction failed"));
         } else {
-            info!("Transaction successfully executed.");
+            info!("Transaction successfully simulated.");
         }
 
         let mut executed_amount_out = U256::ZERO;

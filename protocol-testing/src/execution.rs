@@ -261,7 +261,6 @@ pub async fn simulate_trade_with_eth_call(
     transaction: &tycho_simulation::tycho_execution::encoding::models::Transaction,
     solution: &Solution,
     block_number: u64,
-    _adapter_contract_path: &str,
     block: &Block,
 ) -> miette::Result<BigUint> {
     let executor_bytecode = load_executor_bytecode(solution)?;

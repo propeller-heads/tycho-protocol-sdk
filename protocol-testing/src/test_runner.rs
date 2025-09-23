@@ -291,10 +291,8 @@ fn validate_state(
         .map(|s| (s.component_id.to_lowercase(), s))
         .collect();
 
-    info!("Found {} protocol components", components_by_id.len());
-    info!("Found {} protocol states", protocol_states_by_id.len());
-
-    info!("Validating state...");
+    debug!("Found {} protocol components", components_by_id.len());
+    debug!("Found {} protocol states", protocol_states_by_id.len());
 
     // Step 1: Validate that all expected components are present on Tycho after indexing
     debug!("Validating {:?} expected components", expected_components.len());
@@ -356,7 +354,7 @@ fn validate_state(
 
     info!("Components to simulate: {}", simulation_component_ids.len());
     for id in &simulation_component_ids {
-        info!("  Simulating component: {}", id);
+        info!("Simulating component: {}", id);
     }
 
     if simulation_component_ids.is_empty() {
@@ -375,7 +373,7 @@ fn validate_state(
     let adapter_contract_path =
         match adapter_contract_builder.find_contract(&config.adapter_contract) {
             Ok(path) => {
-                info!("Found adapter contract at: {}", path.display());
+                debug!("Found adapter contract at: {}", path.display());
                 path
             }
             Err(_) => {
@@ -392,7 +390,6 @@ fn validate_state(
             }
         };
 
-    info!("Using adapter contract: {}", adapter_contract_path.display());
     let adapter_contract_path_str: &str = adapter_contract_path.to_str().unwrap();
 
     // Clear the shared database state to ensure test isolation
@@ -468,7 +465,7 @@ fn validate_state(
         .block_on(tycho_client.get_tokens(Chain::Ethereum, None, None))
         .into_diagnostic()
         .wrap_err("Failed to get tokens")?;
-    info!("Loaded {} tokens", all_tokens.len());
+    debug!("Loaded {} tokens", all_tokens.len());
 
     rt.block_on(decoder.set_tokens(all_tokens));
 
@@ -556,6 +553,7 @@ fn validate_state(
                     );
 
                     // Only execute for components that should have execution
+                    println!("{execution_component_ids:?}");
                     if !execution_component_ids.contains(id) {
                         info!("Skipping execution for component {id}");
                         continue;
@@ -570,7 +568,6 @@ fn validate_state(
                         amount_in,
                         amount_out_result.amount.clone(),
                     )?;
-                    info!("Encoded swap successfully");
 
                     info!("Simulating swap at historical block {}", block_header.header.number);
                     // Simulate the trade using debug_traceCall with overwrites
@@ -580,7 +577,6 @@ fn validate_state(
                             &calldata,
                             &solution,
                             stop_block,
-                            adapter_contract_path_str,
                             &block_header,
                         ));
 
@@ -619,7 +615,6 @@ fn validate_state(
             }
         }
     }
-    info!("✅ Simulation validation passed");
     Ok(())
 }
 
