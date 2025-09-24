@@ -1,6 +1,5 @@
 use std::{
     collections::{HashMap, HashSet},
-    env,
     path::PathBuf,
     str::FromStr,
     sync::LazyLock,
@@ -82,6 +81,7 @@ impl TestRunner {
         db_url: String,
         vm_traces: bool,
         execution_traces: bool,
+        rpc_url: String,
     ) -> miette::Result<Self> {
         let base_protocol = CLONE_TO_BASE_PROTOCOL
             .get(protocol.as_str())
@@ -108,9 +108,6 @@ impl TestRunner {
         };
         let config_file_path = substreams_path.join(&config_file_name);
 
-        let rpc_url = env::var("RPC_URL")
-            .into_diagnostic()
-            .wrap_err("Missing RPC_URL in environment")?;
         let rpc_provider = RPCProvider::new(rpc_url, execution_traces);
         let runtime = Runtime::new().unwrap();
 
@@ -853,7 +850,7 @@ impl TestRunner {
 
 #[cfg(test)]
 mod tests {
-    use std::{collections::HashMap, str::FromStr};
+    use std::{collections::HashMap, env, str::FromStr};
 
     use dotenv::dotenv;
     use glob::glob;
@@ -909,6 +906,7 @@ mod tests {
 
     fn get_mocked_runner() -> TestRunner {
         dotenv().ok();
+        let rpc_url = env::var("RPC_URL").unwrap();
         let current_dir = std::env::current_dir().unwrap();
         TestRunner::new(
             current_dir,
@@ -917,6 +915,7 @@ mod tests {
             "".to_string(),
             false,
             false,
+            rpc_url,
         )
         .unwrap()
     }
