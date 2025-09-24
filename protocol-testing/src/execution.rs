@@ -15,8 +15,11 @@ use num_bigint::BigUint;
 use serde_json::Value;
 use tracing::info;
 use tycho_simulation::{
-    evm::protocol::u256_num::u256_to_biguint,
-    tycho_common::traits::{AllowanceSlotDetector, BalanceSlotDetector},
+    evm::protocol::u256_num::{biguint_to_u256, u256_to_biguint},
+    tycho_common::{
+        traits::{AllowanceSlotDetector, BalanceSlotDetector},
+        Bytes,
+    },
     tycho_ethereum::entrypoint_tracer::{
         allowance_slot_detector::{AllowanceSlotDetectorConfig, EVMAllowanceSlotDetector},
         balance_slot_detector::{BalanceSlotDetectorConfig, EVMBalanceSlotDetector},
@@ -203,66 +206,73 @@ async fn setup_state_overrides(
         .insert(executor_address, StateOverride::new().with_code(executor_bytecode.to_vec()));
 
     // Add ETH balance override for the user to ensure they have enough gas funds
-    state_overwrites.insert(
-        user_address,
-        StateOverride::new().with_balance(U256::from_str("100000000000000000000").unwrap()), // 100 ETH
-    );
+    let mut eth_balance = U256::from_str("100000000000000000000").unwrap(); // 100 ETH
 
-    let detector = EVMBalanceSlotDetector::new(BalanceSlotDetectorConfig {
-        rpc_url: rpc_url.clone(),
-        ..Default::default()
-    })
-    .into_diagnostic()?;
+    // If given token is ETH, add the given amount to the balance
+    if &solution.given_token == &Bytes::zero(20) {
+        eth_balance += biguint_to_u256(&solution.given_amount);
+    // if the given token is not ETH, do balance and allowance slots overwrites
+    } else {
+        let detector = EVMBalanceSlotDetector::new(BalanceSlotDetectorConfig {
+            rpc_url: rpc_url.clone(),
+            ..Default::default()
+        })
+        .into_diagnostic()?;
 
-    let results = detector
-        .detect_balance_slots(
-            std::slice::from_ref(&solution.given_token),
-            (**user_address).into(),
-            (*block.header.hash).into(),
-        )
-        .await;
+        let results = detector
+            .detect_balance_slots(
+                std::slice::from_ref(&solution.given_token),
+                (**user_address).into(),
+                (*block.header.hash).into(),
+            )
+            .await;
 
-    let balance_slot =
-        if let Some(Ok((_storage_addr, slot))) = results.get(&solution.given_token.clone()) {
-            slot
-        } else {
-            return Err(miette!("Couldn't find balance storage slot for token {token_address}"));
-        };
+        let balance_slot =
+            if let Some(Ok((_storage_addr, slot))) = results.get(&solution.given_token.clone()) {
+                slot
+            } else {
+                return Err(miette!("Couldn't find balance storage slot for token {token_address}"));
+            };
 
-    let detector = EVMAllowanceSlotDetector::new(AllowanceSlotDetectorConfig {
-        rpc_url,
-        ..Default::default()
-    })
-    .into_diagnostic()?;
+        let detector = EVMAllowanceSlotDetector::new(AllowanceSlotDetectorConfig {
+            rpc_url,
+            ..Default::default()
+        })
+        .into_diagnostic()?;
 
-    let results = detector
-        .detect_allowance_slots(
-            std::slice::from_ref(&solution.given_token),
-            (**user_address).into(),
-            transaction.to.clone(), // tycho router
-            (*block.header.hash).into(),
-        )
-        .await;
+        let results = detector
+            .detect_allowance_slots(
+                std::slice::from_ref(&solution.given_token),
+                (**user_address).into(),
+                transaction.to.clone(), // tycho router
+                (*block.header.hash).into(),
+            )
+            .await;
 
-    let allowance_slot =
-        if let Some(Ok((_storage_addr, slot))) = results.get(&solution.given_token.clone()) {
+        let allowance_slot = if let Some(Ok((_storage_addr, slot))) =
+            results.get(&solution.given_token.clone())
+        {
             slot
         } else {
             return Err(miette!("Couldn't find allowance storage slot for token {token_address}"));
         };
 
-    state_overwrites.insert(
-        token_address,
-        StateOverride::new()
-            .with_state_diff(
-                alloy::primitives::Bytes::from(allowance_slot.to_vec()),
-                alloy::primitives::Bytes::from(U256::MAX.to_be_bytes::<32>()),
-            )
-            .with_state_diff(
-                alloy::primitives::Bytes::from(balance_slot.to_vec()),
-                alloy::primitives::Bytes::from(U256::MAX.to_be_bytes::<32>()),
-            ),
-    );
+        state_overwrites.insert(
+            token_address,
+            StateOverride::new()
+                .with_state_diff(
+                    alloy::primitives::Bytes::from(allowance_slot.to_vec()),
+                    alloy::primitives::Bytes::from(U256::MAX.to_be_bytes::<32>()),
+                )
+                .with_state_diff(
+                    alloy::primitives::Bytes::from(balance_slot.to_vec()),
+                    alloy::primitives::Bytes::from(
+                        (biguint_to_u256(&solution.given_amount)).to_be_bytes::<32>(),
+                    ),
+                ),
+        );
+    }
+    state_overwrites.insert(user_address, StateOverride::new().with_balance(eth_balance));
 
     Ok(state_overwrites)
 }
