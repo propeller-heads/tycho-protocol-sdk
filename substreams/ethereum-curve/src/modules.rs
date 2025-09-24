@@ -12,16 +12,21 @@ use substreams::{
 };
 use substreams_ethereum::pb::eth;
 
-use crate::{abi, consts::{CONTRACTS_TO_INDEX, NEW_SUSD, OLD_SUSD}, pool_changes::emit_eth_deltas, pool_factories, pools::emit_specific_pools};
-use tycho_substreams::{
-    balances::{extract_balance_deltas_from_tx, store_balance_changes},
-    contract::extract_contract_changes,
-    prelude::*,
+use crate::{
+    abi,
+    consts::{CONTRACTS_TO_INDEX, NEW_SUSD, OLD_SUSD},
+    pool_changes::emit_eth_deltas,
+    pool_factories,
+    pools::emit_specific_pools,
 };
-use tycho_substreams::attributes::{json_deserialize_address_list};
-use tycho_substreams::block_storage::get_block_storage_changes;
-use tycho_substreams::entrypoint::create_entrypoint;
-use tycho_substreams::prelude::entry_point_params::TraceData;
+use tycho_substreams::{
+    attributes::json_deserialize_address_list,
+    balances::{extract_balance_deltas_from_tx, store_balance_changes},
+    block_storage::get_block_storage_changes,
+    contract::extract_contract_changes,
+    entrypoint::create_entrypoint,
+    prelude::{entry_point_params::TraceData, *},
+};
 
 pub const ZERO_ADDRESS: &[u8] = &[0u8; 20];
 
@@ -154,7 +159,7 @@ pub fn map_relative_balances(
                         .into_iter()
                         .chain(
                             extract_balance_deltas_from_tx(tx, |token, transactor| {
-                                let pool_key = format!("pool:{}", hex::encode(transactor));
+                                let pool_key = format!("pool:0x{}", hex::encode(transactor));
                                 if let Some(tokens) = tokens_store.get_last(pool_key) {
                                     let token_id = if token == OLD_SUSD {
                                         hex::encode(NEW_SUSD)
@@ -235,9 +240,10 @@ pub fn map_protocol_changes(
             let mut entrypoints = HashSet::new();
             let mut entrypoint_params = HashSet::new();
 
-            tx_changes.component_changes
+            tx_changes
+                .component_changes
                 .iter()
-                .for_each(| component| {
+                .for_each(|component| {
                     let asset_types: Option<Vec<BigInt>> = component
                         .static_att
                         .iter()
@@ -250,8 +256,9 @@ pub fn map_protocol_changes(
                                 .into_iter()
                                 .map(|s| {
                                     let s = s.trim_start_matches("0x");
-                                    let bytes = hex::decode(s)
-                                        .unwrap_or_else(|e| panic!("Invalid hex in asset_types: {e}"));
+                                    let bytes = hex::decode(s).unwrap_or_else(|e| {
+                                        panic!("Invalid hex in asset_types: {e}")
+                                    });
                                     BigInt::from_signed_bytes_be(&bytes)
                                 })
                                 .collect::<Vec<BigInt>>()
@@ -279,7 +286,9 @@ pub fn map_protocol_changes(
                             strs.into_iter()
                                 .map(|s| {
                                     let bytes = hex::decode(s.trim_start_matches("0x"))
-                                        .unwrap_or_else(|e| panic!("Invalid hex in method_ids: {e}"));
+                                        .unwrap_or_else(|e| {
+                                            panic!("Invalid hex in method_ids: {e}")
+                                        });
                                     if bytes.len() != 4 {
                                         panic!("method_id must be 4 bytes, got {}", bytes.len());
                                     }
@@ -288,10 +297,17 @@ pub fn map_protocol_changes(
                                 .collect::<Vec<[u8; 4]>>()
                         });
 
-
-                    if let (Some(asset_types), Some(coins), Some(oracles), Some(method_ids)) = (asset_types, coins, oracles, method_ids) {
-                        for (((oracle, method_id), asset_type), coin) in oracles.into_iter().zip(method_ids.into_iter()).zip(asset_types.into_iter()).zip(coins.into_iter()) {
-                            if asset_type == BigInt::from(1) { // oracle
+                    if let (Some(asset_types), Some(coins), Some(oracles), Some(method_ids)) =
+                        (asset_types, coins, oracles, method_ids)
+                    {
+                        for (((oracle, method_id), asset_type), coin) in oracles
+                            .into_iter()
+                            .zip(method_ids.into_iter())
+                            .zip(asset_types.into_iter())
+                            .zip(coins.into_iter())
+                        {
+                            if asset_type == BigInt::from(1) {
+                                // oracle
                                 if oracle == ZERO_ADDRESS {
                                     continue;
                                 }
@@ -311,10 +327,32 @@ pub fn map_protocol_changes(
                                 entrypoints.insert(entrypoint);
                                 entrypoint_params.insert(entrypoint_param);
                             }
-                            if asset_type == BigInt::from(2) { // TODO rebasing
-
-                            }
                             if asset_type == BigInt::from(2) {
+                                let pool_addr = hex::decode(component.id.trim_start_matches("0x"))
+                                    .unwrap_or_else(|e| panic!("Invalid hex in address: {e}"));
+                                let trace_data = TraceData::Rpc(RpcTraceData {
+                                    caller: None,
+                                    calldata: [
+                                        hex::decode("70a08231")
+                                            .unwrap()
+                                            .as_slice(),
+                                        &[0u8; 12],
+                                        &pool_addr,
+                                    ]
+                                    .concat(), // balanceOf 70a08231
+                                });
+
+                                let (entrypoint, entrypoint_param) = create_entrypoint(
+                                    coin.clone(),
+                                    "balanceOf".to_string(),
+                                    component.id.clone(),
+                                    trace_data,
+                                );
+
+                                entrypoints.insert(entrypoint);
+                                entrypoint_params.insert(entrypoint_param);
+                            }
+                            if asset_type == BigInt::from(3) {
                                 let token_decimals = get_token_decimals(&coin);
                                 let trace_token_amount = match token_decimals {
                                     Some(decimals) => {
@@ -351,7 +389,9 @@ pub fn map_protocol_changes(
                     }
                 });
 
-            transaction_entry.component_changes.extend(tx_changes.component_changes);
+            transaction_entry
+                .component_changes
+                .extend(tx_changes.component_changes);
             transaction_entry
                 .entity_changes
                 .extend(tx_changes.entity_changes);
@@ -419,7 +459,7 @@ pub fn map_protocol_changes(
         &block,
         |addr| {
             components_store
-                .get_last(format!("pool:{0}", hex::encode(addr)))
+                .get_last(format!("pool:0x{0}", hex::encode(addr)))
                 .is_some() ||
                 non_component_accounts_store
                     .get_last(hex::encode(addr))
