@@ -366,7 +366,7 @@ contract CurveAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
     {
         Capability[] memory res = adapter.getCapabilities(pair, t0, t1);
 
-        assertEq(res.length, 2);
+        assertEq(res.length, 1);
     }
 
     function testGetTokensCurveStableSwap() public {
