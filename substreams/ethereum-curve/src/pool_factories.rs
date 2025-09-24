@@ -100,7 +100,7 @@ pub fn address_map(
 
             Some((
                 ProtocolComponent {
-                    id: format!("0x{}", hex::encode(component_id)),
+                    id: address_to_string_with_0x(component_id),
                     tokens: tokens.clone(),
                     contracts: vec![
                         component_id.into(),
@@ -212,7 +212,7 @@ pub fn address_map(
                 let pool_implementation = extract_proxy_impl(call, tx, 0).unwrap_or([1u8; 20]);
                 Some((
                     ProtocolComponent {
-                        id: format!("0x{}", hex::encode(component_id)),
+                        id: address_to_string_with_0x(component_id),
                         tokens: tokens.clone(),
                         contracts: vec![component_id.into()],
                         static_att: vec![
@@ -453,7 +453,7 @@ pub fn address_map(
                 let component_id = &call.return_data[12..];
                 Some((
                     ProtocolComponent {
-                        id: format!("0x{}", hex::encode(component_id)),
+                        id: address_to_string_with_0x(component_id),
                         tokens: pool_added.coins.clone(),
                         contracts: vec![component_id.into(), CRYPTO_SWAP_NG_FACTORY.into()],
                         static_att: vec![
@@ -490,10 +490,11 @@ pub fn address_map(
                             Attribute {
                                 name: "method_ids".into(),
                                 value: json_serialize_value(
-                                        add_pool.method_ids
-                                            .iter()
-                                            .map(|id| format!("0x{}", hex::encode(id)))
-                                            .collect::<Vec<_>>(),
+                                    add_pool
+                                        .method_ids
+                                        .iter()
+                                        .map(|id| format!("0x{}", hex::encode(id)))
+                                        .collect::<Vec<_>>(),
                                 ),
                                 change: ChangeType::Creation.into(),
                             },
@@ -535,7 +536,7 @@ pub fn address_map(
 
                 Some((
                     ProtocolComponent {
-                        id: format!("0x{}", hex::encode(component_id)),
+                        id: address_to_string_with_0x(component_id),
                         tokens: vec![pool_added.coin.clone(), lp_token.clone()],
                         contracts: vec![
                             component_id.into(),
@@ -743,7 +744,7 @@ pub fn address_map(
 
                 Some((
                     ProtocolComponent {
-                        id: format!("0x{}", hex::encode(component_id)),
+                        id: address_to_string_with_0x(component_id),
                         tokens: tokens.clone(),
                         contracts: vec![component_id.into()],
                         static_att: vec![
@@ -882,7 +883,7 @@ pub fn address_map(
 
                 Some((
                     ProtocolComponent {
-                        id: format!("0x{}", hex::encode(id.clone())),
+                        id: format!("0x{id}"),
                         tokens: pool_added.coins.clone().into(),
                         contracts: vec![pool_added.pool, TWOCRYPTO_FACTORY.into()],
                         static_att: vec![
