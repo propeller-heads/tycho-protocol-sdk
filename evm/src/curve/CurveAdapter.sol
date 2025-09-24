@@ -198,7 +198,7 @@ contract CurveAdapter is ISwapAdapter {
         override
         returns (Capability[] memory capabilities)
     {
-        capabilities = new Capability[](2);
+        capabilities = new Capability[](1);
         capabilities[0] = Capability.SellOrder;
     }
 

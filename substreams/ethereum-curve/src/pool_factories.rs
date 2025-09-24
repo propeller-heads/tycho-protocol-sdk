@@ -11,6 +11,7 @@ use tycho_substreams::{
 
 use crate::consts::*;
 use substreams::scalar::BigInt;
+use tycho_substreams::attributes::json_serialize_value;
 
 /// This trait defines some helpers for serializing and deserializing `Vec<BigInt>` which is needed
 ///  to be able to encode some of the `Attribute`s. This should also be handled by any downstream
@@ -99,7 +100,7 @@ pub fn address_map(
 
             Some((
                 ProtocolComponent {
-                    id: hex::encode(component_id),
+                    id: format!("0x{}", hex::encode(component_id)),
                     tokens: tokens.clone(),
                     contracts: vec![
                         component_id.into(),
@@ -211,7 +212,7 @@ pub fn address_map(
                 let pool_implementation = extract_proxy_impl(call, tx, 0).unwrap_or([1u8; 20]);
                 Some((
                     ProtocolComponent {
-                        id: hex::encode(component_id),
+                        id: format!("0x{}", hex::encode(component_id)),
                         tokens: tokens.clone(),
                         contracts: vec![component_id.into()],
                         static_att: vec![
@@ -452,7 +453,7 @@ pub fn address_map(
                 let component_id = &call.return_data[12..];
                 Some((
                     ProtocolComponent {
-                        id: hex::encode(component_id),
+                        id: format!("0x{}", hex::encode(component_id)),
                         tokens: pool_added.coins.clone(),
                         contracts: vec![component_id.into(), CRYPTO_SWAP_NG_FACTORY.into()],
                         static_att: vec![
@@ -479,6 +480,21 @@ pub fn address_map(
                             Attribute {
                                 name: "asset_types".into(),
                                 value: json_serialize_bigint_list(&add_pool.asset_types),
+                                change: ChangeType::Creation.into(),
+                            },
+                            Attribute {
+                                name: "oracles".into(),
+                                value: json_serialize_address_list(&add_pool.oracles),
+                                change: ChangeType::Creation.into(),
+                            },
+                            Attribute {
+                                name: "method_ids".into(),
+                                value: json_serialize_value(
+                                        add_pool.method_ids
+                                            .iter()
+                                            .map(|id| format!("0x{}", hex::encode(id)))
+                                            .collect::<Vec<_>>(),
+                                ),
                                 change: ChangeType::Creation.into(),
                             },
                             Attribute {
@@ -519,7 +535,7 @@ pub fn address_map(
 
                 Some((
                     ProtocolComponent {
-                        id: hex::encode(component_id),
+                        id: format!("0x{}", hex::encode(component_id)),
                         tokens: vec![pool_added.coin.clone(), lp_token.clone()],
                         contracts: vec![
                             component_id.into(),
@@ -612,7 +628,7 @@ pub fn address_map(
 
                 Some((
                     ProtocolComponent {
-                        id: id.clone(),
+                        id: format!("0x{}", id),
                         tokens: tokens.clone(),
                         contracts: vec![pool_added.pool, TRICRYPTO_FACTORY.into()],
                         static_att: vec![
@@ -727,7 +743,7 @@ pub fn address_map(
 
                 Some((
                     ProtocolComponent {
-                        id: hex::encode(component_id),
+                        id: format!("0x{}", hex::encode(component_id)),
                         tokens: tokens.clone(),
                         contracts: vec![component_id.into()],
                         static_att: vec![
@@ -866,7 +882,7 @@ pub fn address_map(
 
                 Some((
                     ProtocolComponent {
-                        id: id.clone(),
+                        id: format!("0x{}", hex::encode(id.clone())),
                         tokens: pool_added.coins.clone().into(),
                         contracts: vec![pool_added.pool, TWOCRYPTO_FACTORY.into()],
                         static_att: vec![

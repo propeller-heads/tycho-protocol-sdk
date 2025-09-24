@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use anyhow::Result;
 use itertools::Itertools;
@@ -12,17 +12,18 @@ use substreams::{
 };
 use substreams_ethereum::pb::eth;
 
-use crate::{
-    consts::{CONTRACTS_TO_INDEX, NEW_SUSD, OLD_SUSD},
-    pool_changes::emit_eth_deltas,
-    pool_factories,
-    pools::emit_specific_pools,
-};
+use crate::{abi, consts::{CONTRACTS_TO_INDEX, NEW_SUSD, OLD_SUSD}, pool_changes::emit_eth_deltas, pool_factories, pools::emit_specific_pools};
 use tycho_substreams::{
     balances::{extract_balance_deltas_from_tx, store_balance_changes},
     contract::extract_contract_changes,
     prelude::*,
 };
+use tycho_substreams::attributes::{json_deserialize_address_list};
+use tycho_substreams::block_storage::get_block_storage_changes;
+use tycho_substreams::entrypoint::create_entrypoint;
+use tycho_substreams::prelude::entry_point_params::TraceData;
+
+pub const ZERO_ADDRESS: &[u8] = &[0u8; 20];
 
 /// This struct purely exists to spoof the `PartialEq` trait for `Transaction` so we can use it in
 ///  a later groupby operation.
@@ -84,12 +85,14 @@ pub fn map_components(params: String, block: eth::v2::Block) -> Result<BlockChan
                     entity_changes,
                     component_changes: components,
                     balance_changes: vec![],
+                    entrypoints: vec![],
+                    entrypoint_params: vec![],
                 })
             }
         })
         .collect::<Vec<_>>();
 
-    Ok(BlockChanges { block: None, changes })
+    Ok(BlockChanges { block: None, changes, storage_changes: vec![] })
 }
 
 /// Get result `map_components` and stores the created `ProtocolComponent`s with the pool id as the
@@ -224,24 +227,141 @@ pub fn map_protocol_changes(
                     contract_changes: vec![],
                     component_changes: vec![],
                     balance_changes: vec![],
+                    entrypoints: vec![],
                     entity_changes: vec![],
+                    entrypoint_params: vec![],
                 });
 
-            let formatted_components: Vec<_> = tx_changes //TODO: format directly at creation
-                .component_changes
-                .into_iter()
-                .map(|mut component| {
-                    component.id = format!("0x{}", component.id);
-                    component
-                })
-                .collect();
+            let mut entrypoints = HashSet::new();
+            let mut entrypoint_params = HashSet::new();
 
-            transaction_entry
-                .component_changes
-                .extend(formatted_components);
+            tx_changes.component_changes
+                .iter()
+                .for_each(| component| {
+                    let asset_types: Option<Vec<BigInt>> = component
+                        .static_att
+                        .iter()
+                        .find(|att| att.name == "asset_types")
+                        .map(|att| {
+                            let value: Vec<String> = serde_json::from_slice(&att.value)
+                                .unwrap_or_else(|e| panic!("Failed to decode asset_types: {e}"));
+
+                            value
+                                .into_iter()
+                                .map(|s| {
+                                    let s = s.trim_start_matches("0x");
+                                    let bytes = hex::decode(s)
+                                        .unwrap_or_else(|e| panic!("Invalid hex in asset_types: {e}"));
+                                    BigInt::from_signed_bytes_be(&bytes)
+                                })
+                                .collect::<Vec<BigInt>>()
+                        });
+                    let coins = component
+                        .static_att
+                        .iter()
+                        .find(|att| att.name == "coins")
+                        .map(|att| json_deserialize_address_list(&att.value));
+
+                    let oracles = component
+                        .static_att
+                        .iter()
+                        .find(|att| att.name == "oracles")
+                        .map(|att| json_deserialize_address_list(&att.value));
+
+                    let method_ids = component
+                        .static_att
+                        .iter()
+                        .find(|att| att.name == "method_ids")
+                        .map(|att| {
+                            let strs: Vec<String> = serde_json::from_slice(&att.value)
+                                .unwrap_or_else(|e| panic!("Failed to decode method_ids: {e}"));
+
+                            strs.into_iter()
+                                .map(|s| {
+                                    let bytes = hex::decode(s.trim_start_matches("0x"))
+                                        .unwrap_or_else(|e| panic!("Invalid hex in method_ids: {e}"));
+                                    if bytes.len() != 4 {
+                                        panic!("method_id must be 4 bytes, got {}", bytes.len());
+                                    }
+                                    [bytes[0], bytes[1], bytes[2], bytes[3]]
+                                })
+                                .collect::<Vec<[u8; 4]>>()
+                        });
+
+
+                    if let (Some(asset_types), Some(coins), Some(oracles), Some(method_ids)) = (asset_types, coins, oracles, method_ids) {
+                        for (((oracle, method_id), asset_type), coin) in oracles.into_iter().zip(method_ids.into_iter()).zip(asset_types.into_iter()).zip(coins.into_iter()) {
+                            if asset_type == BigInt::from(1) { // oracle
+                                if oracle == ZERO_ADDRESS {
+                                    continue;
+                                }
+
+                                let trace_data = TraceData::Rpc(RpcTraceData {
+                                    caller: None,
+                                    calldata: method_id.to_vec(),
+                                });
+
+                                let (entrypoint, entrypoint_param) = create_entrypoint(
+                                    oracle,
+                                    hex::encode(method_id),
+                                    component.id.clone(),
+                                    trace_data,
+                                );
+
+                                entrypoints.insert(entrypoint);
+                                entrypoint_params.insert(entrypoint_param);
+                            }
+                            if asset_type == BigInt::from(2) { // TODO rebasing
+
+                            }
+                            if asset_type == BigInt::from(2) {
+                                let token_decimals = get_token_decimals(&coin);
+                                let trace_token_amount = match token_decimals {
+                                    Some(decimals) => {
+                                        let base = BigInt::from(10);
+                                        base.pow(
+                                            decimals
+                                                .to_string()
+                                                .parse::<u32>()
+                                                .unwrap_or(18),
+                                        )
+                                    }
+                                    None => BigInt::from(1),
+                                };
+                                // ERC4626
+                                let trace_data = TraceData::Rpc(RpcTraceData {
+                                    caller: None,
+                                    calldata: build_entrypoint_calldata(
+                                        "07a2d13a",
+                                        &trace_token_amount,
+                                    ), // convertToAssets
+                                });
+
+                                let (entrypoint, entrypoint_param) = create_entrypoint(
+                                    coin,
+                                    "convertToAssets".to_string(),
+                                    component.id.clone(),
+                                    trace_data,
+                                );
+
+                                entrypoints.insert(entrypoint);
+                                entrypoint_params.insert(entrypoint_param);
+                            }
+                        }
+                    }
+                });
+
+            transaction_entry.component_changes.extend(tx_changes.component_changes);
             transaction_entry
                 .entity_changes
                 .extend(tx_changes.entity_changes);
+
+            transaction_entry.entrypoints = entrypoints
+                .into_iter()
+                .collect::<Vec<_>>();
+            transaction_entry.entrypoint_params = entrypoint_params
+                .into_iter()
+                .collect::<Vec<_>>();
         });
 
     // Balance changes are gathered by the `StoreDelta` based on `TokenExchange`, etc. creating
@@ -284,7 +404,9 @@ pub fn map_protocol_changes(
                     contract_changes: vec![],
                     component_changes: vec![],
                     balance_changes: vec![],
+                    entrypoints: vec![],
                     entity_changes: vec![],
+                    entrypoint_params: vec![],
                 })
                 .balance_changes
                 .extend(group.map(|(_, change)| change));
@@ -322,6 +444,8 @@ pub fn map_protocol_changes(
         }
     }
 
+    let block_storage_changes = get_block_storage_changes(&block);
+
     // Process all `transaction_changes` for final output in the `BlockContractChanges`,
     //  sorted by transaction index (the key).
     Ok(BlockChanges {
@@ -350,6 +474,7 @@ pub fn map_protocol_changes(
                 }
             })
             .collect::<Vec<_>>(),
+        storage_changes: block_storage_changes,
     })
 }
 
@@ -358,4 +483,18 @@ fn replace_eth_address(token: &mut Vec<u8>) {
     if *token == eth_address {
         *token = [0u8; 20].to_vec();
     }
+}
+
+fn build_entrypoint_calldata(sig: &str, amount: &BigInt) -> Vec<u8> {
+    let mut entrypoint_calldata = hex::decode(sig).unwrap();
+    let amount_bytes = amount.to_bytes_be().1;
+    let mut padded_amount = vec![0u8; 32];
+    let start_pos = 32 - amount_bytes.len();
+    padded_amount[start_pos..].copy_from_slice(&amount_bytes);
+    entrypoint_calldata.extend_from_slice(&padded_amount);
+    entrypoint_calldata
+}
+
+fn get_token_decimals(wrapped_token: &[u8]) -> Option<BigInt> {
+    abi::erc20::functions::Decimals {}.call(wrapped_token.to_owned())
 }
