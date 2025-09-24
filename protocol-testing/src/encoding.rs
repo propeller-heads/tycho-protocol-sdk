@@ -9,10 +9,10 @@ use std::str::FromStr;
 use alloy::{primitives::Keccak256, sol_types::SolValue};
 use miette::{IntoDiagnostic, WrapErr};
 use num_bigint::BigUint;
-use tycho_common::{dto::Chain, Bytes};
 use tycho_simulation::{
     evm::protocol::u256_num::biguint_to_u256,
     protocol::models::ProtocolComponent,
+    tycho_common::{dto::Chain, Bytes},
     tycho_execution::encoding::{
         errors::EncodingError,
         evm::{encoder_builders::TychoRouterEncoderBuilder, utils::bytes_to_address},
@@ -89,7 +89,7 @@ pub fn encode_swap(
     amount_in: &BigUint,
     amount_out: &BigUint,
 ) -> miette::Result<(Transaction, Solution)> {
-    let chain: tycho_common::models::Chain = Chain::Ethereum.into();
+    let chain: tycho_simulation::tycho_common::models::Chain = Chain::Ethereum.into();
 
     let encoder = TychoRouterEncoderBuilder::new()
         .chain(chain)

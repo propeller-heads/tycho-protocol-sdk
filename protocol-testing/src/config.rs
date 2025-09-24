@@ -3,8 +3,7 @@ use std::collections::{HashMap, HashSet};
 use colored::Colorize;
 use serde::{Deserialize, Serialize};
 use similar::{ChangeTag, TextDiff};
-use tycho_common::Bytes;
-use tycho_simulation::protocol::models::ProtocolComponent;
+use tycho_simulation::{protocol::models::ProtocolComponent, tycho_common::Bytes};
 
 /// Represents a ProtocolComponent with its main attributes
 #[derive(Debug, Clone, Deserialize, Serialize)]

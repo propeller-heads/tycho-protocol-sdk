@@ -5,8 +5,8 @@
 
 use alloy::dyn_abi::{DynSolType, DynSolValue};
 use colored::Colorize;
-use foundry_evm::traces::identifier::SignaturesIdentifier;
 use serde_json::Value;
+use tycho_simulation::foundry_evm::traces::identifier::SignaturesIdentifier;
 
 /// Decode method selectors and return function info
 pub async fn decode_method_selector_with_info(input: &str) -> Option<(String, Vec<DynSolType>)> {
@@ -253,11 +253,6 @@ pub async fn print_call_trace(call: &Value, depth: usize) {
             .any(|field| call_obj.get(*field).is_some());
         let call_failed = has_error || has_revert || has_other_error;
 
-        // Debug: if there's any failure, print all fields to help identify the error structure
-        if call_failed && depth <= 2 {
-            eprintln!("DEBUG: Failed call at depth {}: {:#?}", depth, call_obj);
-        }
-
         // Create tree structure prefix
         let tree_prefix = if depth == 0 { "".to_string() } else { "  ".repeat(depth) + "├─ " };
 
@@ -320,7 +315,8 @@ pub async fn print_call_trace(call: &Value, depth: usize) {
                 if let Some(stripped) = output.strip_prefix("0x08c379a0") {
                     // Error(string) selector
                     if let Ok(decoded) = hex::decode(stripped) {
-                        if let Ok(alloy::dyn_abi::DynSolValue::String(reason_str)) = alloy::dyn_abi::DynSolType::String.abi_decode(&decoded)
+                        if let Ok(alloy::dyn_abi::DynSolValue::String(reason_str)) =
+                            alloy::dyn_abi::DynSolType::String.abi_decode(&decoded)
                         {
                             println!(
                                 "{}{}",

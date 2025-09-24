@@ -20,7 +20,7 @@ use alloy::{
 use miette::{IntoDiagnostic, WrapErr};
 use serde_json::Value;
 use tracing::info;
-use tycho_common::Bytes;
+use tycho_simulation::tycho_common::Bytes;
 
 use crate::{
     execution::{StateOverride, EXECUTOR_ADDRESSES},

@@ -14,13 +14,14 @@ use miette::{miette, IntoDiagnostic, WrapErr};
 use num_bigint::BigUint;
 use serde_json::Value;
 use tracing::info;
-use tycho_common::traits::{AllowanceSlotDetector, BalanceSlotDetector};
-use tycho_ethereum::entrypoint_tracer::{
-    allowance_slot_detector::{AllowanceSlotDetectorConfig, EVMAllowanceSlotDetector},
-    balance_slot_detector::{BalanceSlotDetectorConfig, EVMBalanceSlotDetector},
-};
 use tycho_simulation::{
-    evm::protocol::u256_num::u256_to_biguint, tycho_execution::encoding::models::Solution,
+    evm::protocol::u256_num::u256_to_biguint,
+    tycho_common::traits::{AllowanceSlotDetector, BalanceSlotDetector},
+    tycho_ethereum::entrypoint_tracer::{
+        allowance_slot_detector::{AllowanceSlotDetectorConfig, EVMAllowanceSlotDetector},
+        balance_slot_detector::{BalanceSlotDetectorConfig, EVMBalanceSlotDetector},
+    },
+    tycho_execution::encoding::models::Solution,
 };
 
 use crate::rpc::RPCProvider;

@@ -22,12 +22,6 @@ use num_traits::{Signed, ToPrimitive, Zero};
 use postgres::{Client, Error, NoTls};
 use tokio::runtime::Runtime;
 use tracing::{debug, error, info, warn};
-use tycho_client::feed::BlockHeader;
-use tycho_common::{
-    dto::{Chain, ProtocolComponent, ResponseAccount, ResponseProtocolState},
-    models::token::Token,
-    Bytes,
-};
 use tycho_simulation::{
     evm::{
         decoder::TychoStreamDecoder,
@@ -41,7 +35,12 @@ use tycho_simulation::{
     protocol::models::{DecoderContext, Update},
     tycho_client::feed::{
         synchronizer::{ComponentWithState, Snapshot, StateSyncMessage},
-        FeedMessage,
+        BlockHeader, FeedMessage,
+    },
+    tycho_common::{
+        dto::{Chain, ProtocolComponent, ResponseAccount, ResponseProtocolState},
+        models::token::Token,
+        Bytes,
     },
     tycho_execution::encoding::evm::utils::bytes_to_address,
 };
@@ -858,7 +857,7 @@ mod tests {
 
     use dotenv::dotenv;
     use glob::glob;
-    use tycho_common::{dto::ResponseProtocolState, Bytes};
+    use tycho_simulation::tycho_common::{dto::ResponseProtocolState, Bytes};
 
     use super::*;
 
