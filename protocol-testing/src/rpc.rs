@@ -4,7 +4,7 @@ use alloy::{
     contract::{ContractInstance, Interface},
     dyn_abi::DynSolValue,
     eips::eip1898::BlockId,
-    primitives::{address, map::AddressHashMap, Address, FixedBytes, U256},
+    primitives::{address, map::AddressHashMap, Address, U256},
     providers::{Provider, ProviderBuilder},
     rpc::types::{
         state::AccountOverride,
@@ -22,13 +22,7 @@ use serde_json::Value;
 use tracing::info;
 use tycho_simulation::tycho_common::Bytes;
 
-use crate::{
-    execution::{
-        calculate_executor_storage_slot, load_executor_bytecode, EXECUTOR_ADDRESS,
-        ROUTER_BYTECODE_JSON,
-    },
-    traces::print_call_trace,
-};
+use crate::traces::print_call_trace;
 
 const NATIVE_ALIASES: &[Address] = &[
     address!("0x0000000000000000000000000000000000000000"),
@@ -102,94 +96,6 @@ impl RPCProvider {
             .into_diagnostic()
             .wrap_err("Failed to fetch block header")
             .and_then(|block_opt| block_opt.ok_or_else(|| miette::miette!("Block not found")))
-    }
-
-    /// Helper function to get the contract's storage at the given slot at the latest block.
-    pub async fn get_storage_at(
-        &self,
-        contract_address: Address,
-        slot: FixedBytes<32>,
-    ) -> miette::Result<FixedBytes<32>> {
-        let provider = ProviderBuilder::new().connect_http(self.url.clone());
-        let storage_value = provider
-            .get_storage_at(contract_address, slot.into())
-            .await
-            .into_diagnostic()
-            .wrap_err("Failed to fetch storage slot")?;
-
-        Ok(storage_value.into())
-    }
-
-    /// Sets up state overwrites for the Tycho router and its associated executor.
-    ///
-    /// This method prepares the router for simulation by:
-    /// 1. Overriding the router's bytecode with the embedded runtime bytecode
-    /// 2. Copying executor approval storage from the current block to maintain permissions
-    /// 3. Overriding the executor's bytecode based on the protocol system
-    ///
-    /// # Arguments
-    /// * `router_address` - The address of the Tycho router contract
-    /// * `protocol_system` - The protocol system identifier (e.g., "uniswap_v2", "vm:balancer_v2")
-    ///
-    /// # Returns
-    /// A HashMap containing account overwrites for both the router and executor addresses.
-    /// The router override includes bytecode and executor approval storage.
-    /// The executor override includes the appropriate bytecode for the protocol.
-    ///
-    /// # Errors
-    /// Returns an error if:
-    /// - Router bytecode JSON parsing fails
-    /// - Executor address parsing fails
-    /// - Storage slot fetching fails
-    /// - Executor bytecode loading fails
-    pub async fn setup_router_overwrites(
-        &self,
-        router_address: Address,
-        protocol_system: &str,
-    ) -> miette::Result<AddressHashMap<AccountOverride>> {
-        let json_value: serde_json::Value = serde_json::from_str(ROUTER_BYTECODE_JSON)
-            .into_diagnostic()
-            .wrap_err("Failed to parse router JSON")?;
-
-        let bytecode_str = json_value["runtimeBytecode"]
-            .as_str()
-            .ok_or_else(|| miette::miette!("No runtimeBytecode field found in router JSON"))?;
-
-        // Remove 0x prefix if present
-        let bytecode_hex = if let Some(stripped) = bytecode_str.strip_prefix("0x") {
-            stripped
-        } else {
-            bytecode_str
-        };
-
-        let router_bytecode = hex::decode(bytecode_hex)
-            .into_diagnostic()
-            .wrap_err("Failed to decode router bytecode from hex")?;
-
-        // Start with the router bytecode override
-        let mut state_overwrites = AddressHashMap::default();
-        let mut tycho_router_override = AccountOverride::default().with_code(router_bytecode);
-
-        // Find executor address approval storage slot
-        let executor_address = Address::from_str(EXECUTOR_ADDRESS).into_diagnostic()?;
-        let storage_slot = calculate_executor_storage_slot(executor_address);
-
-        let storage_value = self
-            .get_storage_at(router_address, storage_slot)
-            .await?;
-
-        tycho_router_override =
-            tycho_router_override.with_state_diff(vec![(storage_slot, storage_value)]);
-
-        state_overwrites.insert(router_address, tycho_router_override);
-
-        // Add bytecode overwrite for the executor
-        let executor_bytecode = load_executor_bytecode(protocol_system)?;
-        state_overwrites.insert(
-            executor_address,
-            AccountOverride::default().with_code(executor_bytecode.to_vec()),
-        );
-        Ok(state_overwrites)
     }
 
     pub async fn simulate_transactions_with_tracing(

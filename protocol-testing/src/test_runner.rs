@@ -109,7 +109,7 @@ impl TestRunner {
         let config_file_path = substreams_path.join(&config_file_name);
 
         let rpc_provider = RPCProvider::new(rpc_url, execution_traces);
-        let runtime = Runtime::new().unwrap();
+        let runtime = Runtime::new().into_diagnostic()?;
 
         Ok(Self {
             db_url,

@@ -139,6 +139,71 @@ pub fn calculate_executor_storage_slot(key: Address) -> FixedBytes<32> {
     keccak256(buf)
 }
 
+/// Sets up state overwrites for the Tycho router and its associated executor.
+///
+/// This method prepares the router for simulation by:
+/// 1. Overriding the router's bytecode with the embedded runtime bytecode
+/// 2. Copying executor approval storage from the current block to maintain permissions
+/// 3. Overriding the executor's bytecode based on the protocol system
+///
+/// # Arguments
+/// * `router_address` - The address of the Tycho router contract
+/// * `protocol_system` - The protocol system identifier (e.g., "uniswap_v2", "vm:balancer_v2")
+///
+/// # Returns
+/// A HashMap containing account overwrites for both the router and executor addresses.
+/// The router override includes bytecode and executor approval storage.
+/// The executor override includes the appropriate bytecode for the protocol.
+///
+/// # Errors
+/// Returns an error if:
+/// - Router bytecode JSON parsing fails
+/// - Executor address parsing fails
+/// - Storage slot fetching fails
+/// - Executor bytecode loading fails
+pub async fn setup_router_overwrites(
+    router_address: Address,
+    protocol_system: &str,
+) -> miette::Result<AddressHashMap<AccountOverride>> {
+    let json_value: serde_json::Value = serde_json::from_str(ROUTER_BYTECODE_JSON)
+        .into_diagnostic()
+        .wrap_err("Failed to parse router JSON")?;
+
+    let bytecode_str = json_value["runtimeBytecode"]
+        .as_str()
+        .ok_or_else(|| miette::miette!("No runtimeBytecode field found in router JSON"))?;
+
+    // Remove 0x prefix if present
+    let bytecode_hex =
+        if let Some(stripped) = bytecode_str.strip_prefix("0x") { stripped } else { bytecode_str };
+
+    let router_bytecode = hex::decode(bytecode_hex)
+        .into_diagnostic()
+        .wrap_err("Failed to decode router bytecode from hex")?;
+
+    // Start with the router bytecode override
+    let mut state_overwrites = AddressHashMap::default();
+    let mut tycho_router_override = AccountOverride::default().with_code(router_bytecode);
+
+    // Find executor address approval storage slot
+    let executor_address = Address::from_str(EXECUTOR_ADDRESS).into_diagnostic()?;
+    let storage_slot = calculate_executor_storage_slot(executor_address);
+
+    // The executors mapping starts at storage value 1
+    let storage_value = FixedBytes::<32>::from(U256::ONE);
+
+    tycho_router_override =
+        tycho_router_override.with_state_diff(vec![(storage_slot, storage_value)]);
+
+    state_overwrites.insert(router_address, tycho_router_override);
+
+    // Add bytecode overwrite for the executor
+    let executor_bytecode = load_executor_bytecode(protocol_system)?;
+    state_overwrites
+        .insert(executor_address, AccountOverride::default().with_code(executor_bytecode.to_vec()));
+    Ok(state_overwrites)
+}
+
 /// Sets up state overwrites for user accounts and tokens required for swap simulation.
 ///
 /// This method prepares the user environment for historical block simulation by:
@@ -281,8 +346,7 @@ pub async fn simulate_trade_with_eth_call(
         );
     let tycho_router_address = Address::from_slice(&transaction.to[..20]);
 
-    let router_overwrites = rpc_provider
-        .setup_router_overwrites(tycho_router_address, protocol_system)
+    let router_overwrites = setup_router_overwrites(tycho_router_address, protocol_system)
         .await
         .wrap_err("Failed to create router override")?;
 
