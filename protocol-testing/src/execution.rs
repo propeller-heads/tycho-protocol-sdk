@@ -178,7 +178,7 @@ async fn setup_user_overwrites(
 ) -> miette::Result<AddressHashMap<AccountOverride>> {
     let mut overwrites = AddressHashMap::default();
     // Add ETH balance override for the user to ensure they have enough gas funds
-    let mut eth_balance = U256::from_str("100000000000000000000").unwrap(); // 100 ETH
+    let mut eth_balance = U256::from_str("300000000000000000000000000000000000000000").unwrap(); // 300 million ETH
 
     let token_address = Address::from_slice(&solution.given_token[..20]);
     // If given token is ETH, add the given amount to the balance

@@ -224,8 +224,12 @@ impl RPCProvider {
             .client()
             .request("debug_traceCall", (transaction, BlockId::from(block_number), trace_options))
             .await
+            .map_err(|e| {
+                tracing::error!("debug_traceCall RPC error: {:#}", e);
+                e
+            })
             .into_diagnostic()
-            .wrap_err("Failed to debug trace call many")?;
+            .wrap_err("Failed to debug trace call.")?;
 
         if self.trace {
             print_call_trace(&result, 0).await;
