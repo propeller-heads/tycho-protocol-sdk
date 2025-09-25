@@ -212,7 +212,9 @@ fn merge_block(
                     .clone()
                     .into_values()
                     .collect(),
+                entrypoints: vec![],
                 component_changes: vec![],
+                entrypoint_params: vec![],
             },
         );
     }
