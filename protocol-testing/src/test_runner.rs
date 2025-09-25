@@ -364,7 +364,7 @@ impl TestRunner {
             .runtime
             .block_on(tycho_client.get_protocol_state(
                 protocol_system,
-                expected_component_ids,
+                expected_component_ids.clone(),
                 chain,
             ))
             .into_diagnostic()
@@ -377,11 +377,17 @@ impl TestRunner {
             .wrap_err("Failed to get contract state")?;
 
         // Create a map of component IDs to components for easy lookup
-        let components_by_id: HashMap<String, ProtocolComponent> = protocol_components
+        let mut components_by_id: HashMap<String, ProtocolComponent> = protocol_components
             .clone()
             .into_iter()
             .map(|c| (c.id.to_lowercase(), c))
             .collect();
+        if !expected_component_ids.is_empty() {
+            components_by_id = components_by_id
+                .into_iter()
+                .filter(|(id, _)| expected_component_ids.contains(id))
+                .collect()
+        };
 
         let protocol_states_by_id: HashMap<String, ResponseProtocolState> = protocol_states
             .into_iter()

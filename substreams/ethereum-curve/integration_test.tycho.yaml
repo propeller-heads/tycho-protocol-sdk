@@ -125,7 +125,7 @@ tests:
           coins: "0x5b22307834633965646435383532636439303566303836633735396538333833653039626666316536386233222c22307861306238363939316336323138623336633164313964346132653965623063653336303665623438225d" # ["0x4c9edd5852cd905f086c759e8383e09bff1e68b3","0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48"]
         creation_tx: "0x6f4438aa1785589e2170599053a0cdc740d8987746a4b5ad9614b6ab7bb4e550"
         skip_simulation: false
-        # TODO
+        skip_execution: true # the block is before the Cancun upgrade and our router needs functionality introduced there (transient storage)
 
   # CryptoSwapNG factory 0x6A8cbed756804B16E05E741eDaBd5cB544AE21bf - MetaPool
   - name: test_crypto_swap_ng_factory_metapool
@@ -191,6 +191,8 @@ tests:
           coins: "0x5b22307865393633336335326634633862376264656230386334613766653861356331623834616663663637222c22307837376530366339656363663265373937666434363261393262366437363432656638356230613434225d" # ["0xe9633c52f4c8b7bdeb08c4a7fe8a5c1b84afcf67","0x77e06c9eccf2e797fd462a92b6d7642ef85b0a44"]
         creation_tx: "0xeb34c90d352f18ffcfe78b7e393e155f0314acf06c54d1ac9996e4ee5a9b4742"
         skip_simulation: false
+        skip_execution: true # the block is before the Cancun upgrade and our router needs functionality introduced there (transient storage)
+
       - id: "0x3f67dc2AdBA4B1beB6A48c30AB3AFb1c1440d35B"
         tokens:
           - "0xe9633C52f4c8B7BDeb08c4A7fE8a5c1B84AFCf67"
@@ -225,6 +227,7 @@ tests:
           coins: "0x5b22307830346331353462363663623334306633616532343131316363373637653031383465643030636336222c22307834353931646266663632363536653738353961666535653435663666343764333636396662623238225d" # ["0x04c154b66cb340f3ae24111cc767e0184ed00cc6","0x4591dbff62656e7859afe5e45f6f47d3669fbb28"]
         creation_tx: "0xa89c09a7e0dfd84f3a294b8df4f33cc4a623e6d52deee357457afe2591ea596f"
         skip_simulation: false
+        skip_execution: true # the block is before the Cancun upgrade and our router needs functionality introduced there (transient storage)
       - id: "0x6c9Fe53cC13b125d6476E5Ce2b76983bd5b7A112"
         tokens:
           - "0x35fA164735182de50811E8e2E824cFb9B6118ac2"
@@ -238,6 +241,7 @@ tests:
           coins: "0x5b22307833356661313634373335313832646535303831316538653265383234636662396236313138616332222c22307866393531653333356166623238393335336463323439653832393236313738656163376465643738225d" # ["0x35fa164735182de50811e8e2e824cfb9b6118ac2","0xf951e335afb289353dc249e82926178eac7ded78"]
         creation_tx: "0xa5b13d50c56242f7994b8e1339032bb4c6f9ac3af3054d4eae3ce9e32e3c1a50"
         skip_simulation: true # Reason: this pool has no liquidity at stop_block
+        skip_execution: true # the block is before the Cancun upgrade and our router needs functionality introduced there (transient storage)
 
   # CryptoPool factory 0xF18056Bbd320E96A48e3Fbf8bC061322531aac99 - with ETH
   - name: test_cryptopool_factory_with_eth
@@ -323,6 +327,7 @@ tests:
           coins: "0x5b22307864616331376639353864326565353233613232303632303639393435393763313364383331656337222c22307866393339653061303366623037663539613733333134653733373934626530653537616331623465225d" # ["0xdac17f958d2ee523a2206206994597c13d831ec7","0xf939e0a03fb07f59a73314e73794be0e57ac1b4e"]
         creation_tx: "0x40b25773bf8ea673434277d279af40a85b09072072e7004e9048a2ec0f0dd5a0"
         skip_simulation: false
+        skip_execution: true # the block is before the Cancun upgrade and our router needs functionality introduced there (transient storage)
 
   # StableSwap factory 0x4F8846Ae9380B90d2E71D5e3D042dff3E7ebb40d - Metapool
   #  - name: test_stableswap_factory_meta_pool
