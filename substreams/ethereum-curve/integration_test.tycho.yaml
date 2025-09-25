@@ -15,7 +15,7 @@ tests:
     expected_components:
       - id: "0x90455bd11ce8a67c57d467e634dc142b8e4105aa"
         tokens:
-          - "0xa0b86991c6218b36c1d19d6a2e9eb0ce3606eb48" # USDC
+          - "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48" # USDC
           - "0xaD55aebc9b8c03FC43cd9f62260391c13c23e7c0" # cUSDO
         static_attributes:
           factory_name: "0x63727970746f5f737761705f6e675f666163746f7279"
