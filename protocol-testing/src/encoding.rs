@@ -9,6 +9,7 @@ use std::str::FromStr;
 use alloy::{primitives::Keccak256, sol_types::SolValue};
 use miette::{IntoDiagnostic, WrapErr};
 use num_bigint::BigUint;
+use serde_json::json;
 use tycho_simulation::{
     evm::protocol::u256_num::biguint_to_u256,
     protocol::models::ProtocolComponent,
@@ -22,7 +23,7 @@ use tycho_simulation::{
     },
 };
 
-use crate::execution::EXECUTORS_JSON;
+use crate::execution::EXECUTOR_ADDRESS;
 
 /// Creates a Solution for the given swap parameters.
 ///
@@ -89,12 +90,20 @@ pub fn encode_swap(
     amount_in: &BigUint,
     amount_out: &BigUint,
 ) -> miette::Result<(Transaction, Solution)> {
+    let protocol_system = component.protocol_system.clone();
+    let executors_json = json!({
+        "ethereum": {
+            (protocol_system):EXECUTOR_ADDRESS
+        }
+    })
+    .to_string();
+
     let chain: tycho_simulation::tycho_common::models::Chain = Chain::Ethereum.into();
 
     let encoder = TychoRouterEncoderBuilder::new()
         .chain(chain)
         .user_transfer_type(UserTransferType::TransferFrom)
-        .executors_addresses(EXECUTORS_JSON.to_string())
+        .executors_addresses(executors_json)
         .historical_trade()
         .build()
         .into_diagnostic()

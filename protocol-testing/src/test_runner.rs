@@ -26,9 +26,9 @@ use tycho_simulation::{
         decoder::TychoStreamDecoder,
         engine_db::tycho_db::PreCachedDB,
         protocol::{
-            pancakeswap_v2::state::PancakeswapV2State, u256_num::bytes_to_u256,
-            uniswap_v2::state::UniswapV2State, uniswap_v3::state::UniswapV3State,
-            vm::state::EVMPoolState,
+            ekubo::state::EkuboState, pancakeswap_v2::state::PancakeswapV2State,
+            u256_num::bytes_to_u256, uniswap_v2::state::UniswapV2State,
+            uniswap_v3::state::UniswapV3State, vm::state::EVMPoolState,
         },
     },
     protocol::models::{DecoderContext, Update},
@@ -383,10 +383,7 @@ impl TestRunner {
             .map(|c| (c.id.to_lowercase(), c))
             .collect();
         if !expected_component_ids.is_empty() {
-            components_by_id = components_by_id
-                .into_iter()
-                .filter(|(id, _)| expected_component_ids.contains(id))
-                .collect()
+            components_by_id.retain(|id, _| expected_component_ids.contains(id))
         };
 
         let protocol_states_by_id: HashMap<String, ResponseProtocolState> = protocol_states
@@ -457,6 +454,10 @@ impl TestRunner {
                     protocol_system,
                     decoder_context,
                 );
+            }
+            "ekubo_v2" => {
+                decoder
+                    .register_decoder_with_context::<EkuboState>(protocol_system, decoder_context);
             }
             _ => {
                 decoder.register_decoder_with_context::<EVMPoolState<PreCachedDB>>(

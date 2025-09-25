@@ -12,6 +12,7 @@ mod utils;
 use std::{env, fmt::Display, path::PathBuf};
 
 use clap::Parser;
+use dotenv::dotenv;
 use miette::{miette, IntoDiagnostic, WrapErr};
 use tracing::info;
 use tracing_subscriber::EnvFilter;
@@ -78,6 +79,9 @@ impl Args {
 }
 
 fn main() -> miette::Result<()> {
+    // Load .env file before setting up logging
+    dotenv().ok();
+    
     tracing_subscriber::fmt()
         .with_env_filter(EnvFilter::from_default_env())
         .with_target(false)

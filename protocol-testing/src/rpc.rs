@@ -1,10 +1,10 @@
-use std::{collections::HashMap, str::FromStr};
+use std::str::FromStr;
 
 use alloy::{
     contract::{ContractInstance, Interface},
     dyn_abi::DynSolValue,
     eips::eip1898::BlockId,
-    primitives::{address, keccak256, map::AddressHashMap, Address, FixedBytes, U256},
+    primitives::{address, map::AddressHashMap, Address, FixedBytes, U256},
     providers::{Provider, ProviderBuilder},
     rpc::types::{
         state::AccountOverride,
@@ -23,7 +23,10 @@ use tracing::info;
 use tycho_simulation::tycho_common::Bytes;
 
 use crate::{
-    execution::{StateOverride, EXECUTOR_ADDRESSES},
+    execution::{
+        calculate_executor_storage_slot, load_executor_bytecode, EXECUTOR_ADDRESS,
+        ROUTER_BYTECODE_JSON,
+    },
     traces::print_call_trace,
 };
 
@@ -117,12 +120,34 @@ impl RPCProvider {
         Ok(storage_value.into())
     }
 
-    pub async fn copy_contract_storage_and_code(
+    /// Sets up state overwrites for the Tycho router and its associated executor.
+    ///
+    /// This method prepares the router for simulation by:
+    /// 1. Overriding the router's bytecode with the embedded runtime bytecode
+    /// 2. Copying executor approval storage from the current block to maintain permissions
+    /// 3. Overriding the executor's bytecode based on the protocol system
+    ///
+    /// # Arguments
+    /// * `router_address` - The address of the Tycho router contract
+    /// * `protocol_system` - The protocol system identifier (e.g., "uniswap_v2", "vm:balancer_v2")
+    ///
+    /// # Returns
+    /// A HashMap containing account overwrites for both the router and executor addresses.
+    /// The router override includes bytecode and executor approval storage.
+    /// The executor override includes the appropriate bytecode for the protocol.
+    ///
+    /// # Errors
+    /// Returns an error if:
+    /// - Router bytecode JSON parsing fails
+    /// - Executor address parsing fails
+    /// - Storage slot fetching fails
+    /// - Executor bytecode loading fails
+    pub async fn setup_router_overwrites(
         &self,
-        contract_address: Address,
-        router_bytecode_json: &str,
-    ) -> miette::Result<StateOverride> {
-        let json_value: serde_json::Value = serde_json::from_str(router_bytecode_json)
+        router_address: Address,
+        protocol_system: &str,
+    ) -> miette::Result<AddressHashMap<AccountOverride>> {
+        let json_value: serde_json::Value = serde_json::from_str(ROUTER_BYTECODE_JSON)
             .into_diagnostic()
             .wrap_err("Failed to parse router JSON")?;
 
@@ -142,98 +167,38 @@ impl RPCProvider {
             .wrap_err("Failed to decode router bytecode from hex")?;
 
         // Start with the router bytecode override
-        let mut state_override = StateOverride::new().with_code(router_bytecode);
+        let mut state_overwrites = AddressHashMap::default();
+        let mut tycho_router_override = AccountOverride::default().with_code(router_bytecode);
 
-        for (protocol_name, &executor_address) in EXECUTOR_ADDRESSES.iter() {
-            let storage_slot = self.calculate_executor_storage_slot(executor_address);
+        // Find executor address approval storage slot
+        let executor_address = Address::from_str(EXECUTOR_ADDRESS).into_diagnostic()?;
+        let storage_slot = calculate_executor_storage_slot(executor_address);
 
-            match self
-                .get_storage_at(contract_address, storage_slot)
-                .await
-            {
-                Ok(value) => {
-                    state_override = state_override.with_state_diff(
-                        alloy::primitives::Bytes::from(storage_slot.to_vec()),
-                        alloy::primitives::Bytes::from(value.to_vec()),
-                    );
-                }
-                Err(e) => {
-                    info!(
-                        "Failed to fetch executor approval for {} ({:?}): {}",
-                        protocol_name, executor_address, e
-                    );
-                }
-            }
-        }
-        Ok(state_override)
-    }
+        let storage_value = self
+            .get_storage_at(router_address, storage_slot)
+            .await?;
 
-    /// Calculate storage slot for Solidity mapping.
-    ///
-    /// The solidity code:
-    /// keccak256(abi.encodePacked(bytes32(key), bytes32(slot)))
-    pub fn calculate_executor_storage_slot(&self, key: Address) -> FixedBytes<32> {
-        // Convert key (20 bytes) to 32-byte left-padded array (uint256)
-        let mut key_bytes = [0u8; 32];
-        key_bytes[12..].copy_from_slice(key.as_slice());
+        tycho_router_override =
+            tycho_router_override.with_state_diff(vec![(storage_slot, storage_value)]);
 
-        // The base of the executor storage slot is 1, since there is only one
-        // variable that is initialized before it (which is _roles in AccessControl.sol).
-        // In this case, _roles gets slot 0.
-        // The slots are given in order to the parent contracts' variables first and foremost.
-        let slot = U256::from(1);
+        state_overwrites.insert(router_address, tycho_router_override);
 
-        // Convert U256 slot to 32-byte big-endian array
-        let slot_bytes = slot.to_be_bytes::<32>();
-
-        // Concatenate key_bytes + slot_bytes, then keccak hash
-        let mut buf = [0u8; 64];
-        buf[..32].copy_from_slice(&key_bytes);
-        buf[32..].copy_from_slice(&slot_bytes);
-        keccak256(buf)
-    }
-
-    fn bytes_to_fixed_32(bytes: &[u8]) -> [u8; 32] {
-        let mut arr = [0u8; 32];
-        let len = bytes.len().min(32);
-        // Right-pad by copying to the end of the array
-        arr[32 - len..].copy_from_slice(&bytes[bytes.len() - len..]);
-        arr
+        // Add bytecode overwrite for the executor
+        let executor_bytecode = load_executor_bytecode(protocol_system)?;
+        state_overwrites.insert(
+            executor_address,
+            AccountOverride::default().with_code(executor_bytecode.to_vec()),
+        );
+        Ok(state_overwrites)
     }
 
     pub async fn simulate_transactions_with_tracing(
         &self,
         transaction: TransactionRequest,
         block_number: u64,
-        state_overwrites: HashMap<Address, StateOverride>,
+        state_overwrites: AddressHashMap<AccountOverride>,
     ) -> miette::Result<U256> {
         let provider = ProviderBuilder::new().connect_http(self.url.clone());
-        // Convert our StateOverride to alloy's state override format
-        let mut alloy_state_overrides = AddressHashMap::default();
-        for (address, override_data) in state_overwrites {
-            let mut account_override = AccountOverride::default();
-
-            if let Some(code) = override_data.code {
-                account_override.code = Some(alloy::primitives::Bytes::from(code));
-            }
-
-            if let Some(balance) = override_data.balance {
-                account_override.balance = Some(balance);
-            }
-
-            if !override_data.state_diff.is_empty() {
-                // Convert Bytes to FixedBytes<32> for storage slots
-                let mut state_diff = HashMap::default();
-                for (slot, value) in override_data.state_diff {
-                    let slot_bytes = Self::bytes_to_fixed_32(&slot);
-                    let value_bytes = Self::bytes_to_fixed_32(&value);
-                    state_diff.insert(FixedBytes(slot_bytes), FixedBytes(value_bytes));
-                }
-                account_override.state_diff = Some(state_diff);
-            }
-
-            alloy_state_overrides.insert(address, account_override);
-        }
 
         // Configure tracing options - use callTracer for better formatted results
         let tracing_options = GethDebugTracingOptions {
@@ -247,10 +212,10 @@ impl RPCProvider {
 
         let trace_options = GethDebugTracingCallOptions {
             tracing_options,
-            state_overrides: if alloy_state_overrides.is_empty() {
+            state_overrides: if state_overwrites.is_empty() {
                 None
             } else {
-                Some(alloy_state_overrides)
+                Some(state_overwrites)
             },
             block_overrides: None,
         };
