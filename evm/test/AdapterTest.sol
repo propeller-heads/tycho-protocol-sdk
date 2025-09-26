@@ -12,6 +12,7 @@ contract AdapterTest is Test, ISwapAdapterTypes {
     using FractionMath for Fraction;
     using EfficientERC20 for IERC20;
 
+    bytes32 mockData;
     uint256 constant pricePrecision = 10e24;
     string[] public stringPctgs = ["0%", "0.1%", "50%", "100%"];
 
@@ -107,7 +108,7 @@ contract AdapterTest is Test, ISwapAdapterTypes {
 
             console2.log("TEST: Swapping %d of %s", amounts[j], tokenIn);
             trade = adapter.swap(
-                poolId, tokenIn, tokenOut, OrderSide.Sell, amounts[j]
+                poolId, tokenIn, tokenOut, OrderSide.Sell, amounts[j], mockData
             );
             uint256 executedPrice =
                 trade.calculatedAmount * pricePrecision / amounts[j];
@@ -196,7 +197,12 @@ contract AdapterTest is Test, ISwapAdapterTypes {
             );
         }
         try adapter.swap(
-            poolId, tokenIn, tokenOut, OrderSide.Sell, aboveLimitArray[0]
+            poolId,
+            tokenIn,
+            tokenOut,
+            OrderSide.Sell,
+            aboveLimitArray[0],
+            mockData
         ) {
             revert("Pool shouldn't be able to swap above the sell limit");
         } catch Error(string memory s) {
@@ -222,7 +228,12 @@ contract AdapterTest is Test, ISwapAdapterTypes {
 
         adapter.price(poolId, tokenIn, tokenOut, aboveLimitArray);
         adapter.swap(
-            poolId, tokenIn, tokenOut, OrderSide.Sell, aboveLimitArray[0]
+            poolId,
+            tokenIn,
+            tokenOut,
+            OrderSide.Sell,
+            aboveLimitArray[0],
+            mockData
         );
     }
 
