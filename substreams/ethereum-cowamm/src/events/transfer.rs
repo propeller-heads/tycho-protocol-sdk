@@ -15,10 +15,10 @@ impl BalanceEventTrait for Transfer {
         //what causes the lp token supply to change is either -> minting or burning
         //topics[1]: from address (padded to 32 bytes)
         //topics[2]: to address (padded to 32 bytes)
-
-        // when a user redeems tokens, they send the tokens to the null address, effectively burning them and thats a negative delta
-        // https://etherscan.io/tx/0xc139e807a155b0ca1fdd5e870350fd623801671289982ab6300007cc7556c5a8#eventlog#250
-        if event.address == pool.address && event.topics.get(1).unwrap()[12..] == NULL_ADDRESS {
+        let from =  &event.topics.get(1).unwrap()[12..];
+        let to = &event.topics.get(2).unwrap()[12..];
+        // when a user redeems tokens, they send the tokens to the null address, burning them and thats a negative delta
+        if event.address == pool.address && from == NULL_ADDRESS {
             changed_balances.push(BalanceDelta {
                 ord: event.ordinal,
                 tx: Some(tx.clone()),
@@ -36,10 +36,9 @@ impl BalanceEventTrait for Transfer {
                     .to_vec(),
             })
         }
-        //joining a pool, lp_tokens are minted to the pool, from the null address, and then transferred to the user so thats a positive delta
-        //https://etherscan.io/tx/0x8cf1aa1902994eeaa59b886c848af57d89fec7170c66ef68a541fbc5759e5077#eventlog#387
+        //joining a pool, lp_tokens are minted to the pool, from the null address, and so total lp supply increases
         else if event.address == pool.address
-            && event.topics.get(2).unwrap()[12..] == NULL_ADDRESS
+            && to == NULL_ADDRESS
         {
             changed_balances.push(BalanceDelta {
                 ord: event.ordinal,

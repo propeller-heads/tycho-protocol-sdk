@@ -10,7 +10,6 @@ pub fn store_cowpool_binds(binds: CowPoolBinds, store: StoreAppend<String>) {
         let bind_string = serde_json::json!({
             "address": hex::encode(&bind.address),
             "token": hex::encode(&bind.token),
-            "liquidity": hex::encode(&bind.liquidity),
             "weight": hex::encode(&bind.weight),
         })
         .to_string();
