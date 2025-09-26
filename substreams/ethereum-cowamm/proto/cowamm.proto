@@ -7,14 +7,11 @@ message CowPool {
   bytes address = 1;
   bytes token_a = 2;
   bytes token_b = 3;
-  bytes liquidity_a = 4;
-  bytes liquidity_b = 5;
-  bytes lp_token = 6;
-  bytes lp_token_supply = 7;
-  bytes weight_a = 8;
-  bytes weight_b = 9;
-  uint64 fee = 10;
-  bytes created_tx_hash = 11;
+  bytes lp_token = 4;
+  bytes weight_a = 5;
+  bytes weight_b = 6;
+  uint64 fee = 7;
+  bytes created_tx_hash = 8;
 } 
 
 message CowPools {
@@ -24,8 +21,7 @@ message CowPools {
 message CowPoolBind {
   bytes address = 1;
   bytes token = 2;
-  bytes liquidity = 3;
-  bytes weight = 4;
+  bytes weight = 3;
 }
 
 message CowPoolBinds {

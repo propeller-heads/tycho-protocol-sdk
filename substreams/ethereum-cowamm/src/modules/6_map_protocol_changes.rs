@@ -3,12 +3,13 @@ use crate::pb::cowamm::CowPool;
 use anyhow::Result;
 use itertools::Itertools;
 use std::collections::HashMap;
-use substreams::{pb::substreams::StoreDeltas, prelude::StoreGetProto, store::StoreGet};
-use substreams_ethereum::pb::eth::v2::Block;
+use substreams::{key, pb::substreams::StoreDeltas, prelude::{BigInt, StoreGetProto}, store::StoreGet};
+use substreams_ethereum::pb::eth::v2::{Block};
 use substreams_helper::hex::Hexable;
 use tycho_substreams::{
     balances::aggregate_balances_changes, contract::extract_contract_changes_builder, prelude::*,
 };
+use std::{str::FromStr};
 
 #[substreams::handlers::map]
 fn map_protocol_changes(
@@ -25,7 +26,6 @@ fn map_protocol_changes(
         .expect("unable to extract factory address");
 
     let mut transaction_changes: HashMap<_, TransactionChangesBuilder> = HashMap::new();
-
     // Aggregate newly created components per tx
     protocol_components
         .tx_components
@@ -43,10 +43,69 @@ fn map_protocol_changes(
                 .iter()
                 .for_each(|component| {
                     builder.add_protocol_component(component);
+                    // Register the Pool liquidities for token_a , token_b and lp_token_supply as Entity Changes
+                    balance_store
+                        .clone()
+                        .deltas
+                        .into_iter()
+                        .zip(balance_deltas.balance_deltas.clone())
+                        .for_each(|(store_delta, balance_delta)| { 
+                            let tx = balance_delta.tx.unwrap();
+
+                            let new_value_bigint = BigInt::from_str(key::segment_at(
+                                &String::from_utf8(store_delta.new_value).unwrap(),
+                                1,
+                            ))
+                            .unwrap();
+                            //Perform check to know value of the delta to assign to which attribute to
+                            //check and verify thec correctness of the token ordering
+                            let mut attr_vec : Vec<Attribute> = Vec::new(); 
+                            match balance_delta.token {
+                                token_address => {
+                                    if token_address == component.tokens[0] {
+                                        attr_vec.push(
+                                        Attribute {
+                                                name: "liquidity_a".to_string(),
+                                                value: new_value_bigint.to_signed_bytes_be(),
+                                                change: ChangeType::Update.into(),
+                                        },
+                                        );
+                                    };
+                                    if token_address == component.tokens[1] {
+                                        attr_vec.push(
+                                        Attribute {
+                                                name: "liquidity_b".to_string(),
+                                                value: new_value_bigint.to_signed_bytes_be(),
+                                                change: ChangeType::Update.into(),
+                                        },
+                                        );
+                                    };
+                                    if token_address == component.tokens[2] {
+                                        attr_vec.push(
+                                        Attribute {
+                                                name: "lp_token_supply".to_string(),
+                                                value: new_value_bigint.to_signed_bytes_be(),
+                                                change: ChangeType::Update.into(),
+                                        },
+                                        );
+                                    }
+                                },
+                                _ => panic!("unknown token balance delta")
+                            }
+                            builder.add_entity_change(&EntityChanges {
+                                component_id: balance_delta.component_id.to_hex(), //verify correctness of this
+                                attributes: attr_vec,
+                            });
+                        });
                 });
         });
 
     // // Aggregate absolute balances per transaction.
+    // we do not want to create a balance change for the lp_token_supply, because it does not reflect 
+    // a change to the TVL of the component
+    //the balance_store is additive, so we should have the final result of the delta
+    // create a new filtered vec to filter all the balance_deltas and balace_store that have the lp_token address so 
+    //we don't create balance deltas for lp_token_supply changes
     aggregate_balances_changes(balance_store, balance_deltas)
         .into_iter()
         .for_each(|(_, (tx, balances))| {
@@ -58,10 +117,12 @@ fn map_protocol_changes(
                 .for_each(|token_bc_map| {
                     token_bc_map
                         .values()
-                        .for_each(|bc| builder.add_balance_change(bc))
+                        .for_each(|bc| { 
+                            builder.add_balance_change(bc)
+                        })
                 });
         });
-
+    
     extract_contract_changes_builder(
         &block,
         |address| {
@@ -103,7 +164,7 @@ fn map_protocol_changes(
             addresses
                 .into_iter()
                 .for_each(|address| {
-                    // check if the address is not a pool
+                    // check if the address is not the factory address
                     if address != factory_address.as_slice() {
                         let pool = pool_store
                             .get_last(format!("Pool:0x{}", hex::encode(address)))
