@@ -17,9 +17,8 @@ pub fn map_cowpool_binds(block: Block) -> Result<CowPoolBinds> {
                 return None;
             }
             let token = data.get(80..100)?.to_vec();
-            let liquidity = data.get(100..132)?.to_vec(); //or balance
             let weight = data.get(132..164)?.to_vec();
-            Some(CowPoolBind { address, liquidity, token, weight })
+            Some(CowPoolBind { address, token, weight })
         })
         .collect::<Vec<CowPoolBind>>();
 

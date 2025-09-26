@@ -26,15 +26,3 @@ impl Params {
     }
 }
 
-pub fn get_lp_token_supply(token_address: String) -> Vec<u8> {
-    // Try to decode the hex string into bytes
-    let Ok(token_address_vec) = Hex::decode(token_address) else {
-        substreams::log::info!("Failed to decode token address");
-        return vec![];
-    };
-
-    // Try to call totalSupply and convert to bytes if successful
-    functions::TotalSupply {}
-        .call(token_address_vec)
-        .map_or_else(|| vec![], |total_supply| total_supply.to_signed_bytes_be())
-}
