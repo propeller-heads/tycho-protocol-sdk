@@ -11,6 +11,36 @@ initialized_accounts:
   - "0xbA1333333333a1BA1108E8412f11850A5C319bA9"
 
 tests:
+  - name: test_waEthWETH_WETH_liquidity_buffer
+    start_block: 21374469
+    stop_block: 21871039
+    initialized_accounts:
+      - "0xea51d7853eefb32b6ee06b1c12e6dcca88be0ffe"
+      - "0x7effd7b47bfd17e52fb7559d3f924201b9dbff3d"
+      - "0x2b22e425c1322fba0dbf17bb1da25d71811ee7ba"
+      - "0x9aeb8aaa1ca38634aa8c0c8933e7fb4d61091327"
+      - "0x487c2c53c0866f0a73ae317bd1a28f63adcd9ad1"
+      - "0xac725cb59d16c81061bdea61041a8a5e73da9ec6"
+      - "0x87870bca3f3fd6335c3f4ce8392d69350b4fa4e2"
+      - "0x185477906b46d9b8de0deb73a1bbfb87b5b51bc3"
+      - "0x8164cc65827dcfe994ab23944cbc90e0aa80bfcb"
+      - "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2"
+      - "0x4d5f47fa6a74757f35c14fd3a6ef8e3c9bc514e8"
+      - "0x2f39d218133afab8f2b819b1066c7e434ad94e9e"
+      - "0xe7b67f44ea304dd7f6d215b13686637ff64cd2b2"
+      - "0x9ec6f08190dea04a54f8afc53db96134e5e3fdfb"
+      - "0x0bfc9d54fc184518a81162f8fb99c2eaca081202"
+    expected_components:
+      - id: "0x0bfc9d54Fc184518A81162F8fB99c2eACa081202"
+        tokens:
+          - "0x0bfc9d54Fc184518A81162F8fB99c2eACa081202" # waEthWETH
+          - "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2" # WETH
+        static_attributes:
+          manual_updates: "0x01"
+          pool_type: "0x4c6971756964697479427566666572"
+        skip_simulation: false
+        creation_tx: "0xcdf0fac4962db16a7b6facd415530dc5a07b7aa88ba6e9f447f0fe7ce414182c"
+
   - name: test_fWETH_WETH_liquidity_buffer
     start_block: 21923067
     stop_block: 22116233
