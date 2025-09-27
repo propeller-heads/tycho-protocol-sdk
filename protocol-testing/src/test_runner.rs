@@ -267,7 +267,7 @@ impl TestRunner {
                 self.validate_token_balances(
                     &component_tokens,
                     &response_protocol_states_by_id,
-                    test.start_block,
+                    test.stop_block,
                 )?;
                 info!("All token balances match the values found onchain")
             }
