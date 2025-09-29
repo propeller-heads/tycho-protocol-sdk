@@ -216,14 +216,7 @@ contract CowAMMSwapAdapterTest is AdapterTest {
         uint256 specifiedAmount
     ) public {
         OrderSide side = OrderSide.Sell; // selling LP for tokenA = wstETH
-        // uint256 poolTotalSupply = IBPool(COWwstETHPool).totalSupply();
-        // lets set lowest amount of LPTokens we can burn or join is set to 0.00000001% of the total pool supply
-        // uint256 percentage = 1e16; // 0.0001%
-        // uint256 lowestAmount = (poolTotalSupply * percentage) / 1e18; 
-
-        //we'll have to compute the shares of both tokens for the corresponding lp token amount and make sure they 
-        //are less than limits[0] and limits[1] to generate the fuzz range for values so no reverts happen
-        // will use 1e18 for now, because i can't just figure out a constraint
+        // vm.assume(specifiedAmount > 1e18 && specifiedAmount < 1e21);
         
         specifiedAmount = 1e18;
 
@@ -263,15 +256,7 @@ contract CowAMMSwapAdapterTest is AdapterTest {
         uint256 specifiedAmount
     ) public {
         OrderSide side = OrderSide.Sell; // selling LP for tokenA = COW
-        // uint256 poolTotalSupply = IBPool(COWwstETHPool).totalSupply();
-         /**
-            Limits for LP tokens in a pool 
-            The specified amount must be greater than 0.00000001% of the pool & < totalSupply() and the 
-        **/
-        // uint256 percentage = 1e16; // 0.0001%
-        // uint256 lowestAmount = (poolTotalSupply * percentage) / 1e18;
 
-        // vm.assume(specifiedAmount > lowestAmount && specifiedAmount < poolTotalSupply);
         specifiedAmount = 1e18;
 
         deal(COWwstETHPool, address(adapter), specifiedAmount);
@@ -303,12 +288,7 @@ contract CowAMMSwapAdapterTest is AdapterTest {
 
     function testLPjoinWith_WstETH_fuzz(uint256 specifiedAmount) public {
         OrderSide side = OrderSide.Buy;
-        // uint256[] memory limits = adapter.getLimits(bytes32(0), tokenA, tokenB);
-        uint256 poolTotalSupply = IBPool(COWwstETHPool).totalSupply();
-        uint256 percentage = 1e16; // 0.0001%
-        uint256 lowestAmount = (poolTotalSupply * percentage) / 1e18;
-
-        // vm.assume(specifiedAmount > lowestAmount && specifiedAmount < poolTotalSupply);
+        // vm.assume(specifiedAmount > 1e18 && specifiedAmount < 1e21);
         specifiedAmount = 1e18;
  
         //we approve the tokens in the contract, first give the adapter tokens to join to the pool
@@ -337,11 +317,8 @@ contract CowAMMSwapAdapterTest is AdapterTest {
 
     function testLPjoinWith_COW_fuzz(uint256 specifiedAmount) public {
         OrderSide side = OrderSide.Buy;
-        // uint256 poolTotalSupply = IBPool(COWwstETHPool).totalSupply();
-        // uint256 percentage = 1e16;
-        // uint256 lowestAmount = (poolTotalSupply * percentage) / 1e18;
 
-        // vm.assume(specifiedAmount > lowest Amount && specifiedAmount < poolTotalSupply);
+        // vm.assume(specifiedAmount > 1e18 && specifiedAmount < 1e21);
         specifiedAmount = 1e18;
         deal(COWwstETHPool, address(this), 10e23);
         
