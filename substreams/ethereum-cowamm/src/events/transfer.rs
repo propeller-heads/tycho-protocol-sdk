@@ -17,26 +17,26 @@ impl BalanceEventTrait for Transfer {
         //topics[2]: to address (padded to 32 bytes)
         let from =  &event.topics.get(1).unwrap()[12..];
         let to = &event.topics.get(2).unwrap()[12..];
-        // when a user redeems tokens, they send the tokens to the null address, burning them and thats a negative delta
-        if event.address == pool.address && from == NULL_ADDRESS {
-            changed_balances.push(BalanceDelta {
-                ord: event.ordinal,
+                //joining a pool, lp_tokens are minted to the pool, from the null address, and so total lp supply increases
+                if event.address == pool.address && from == NULL_ADDRESS {
+                    changed_balances.push(BalanceDelta {
+                        ord: event.ordinal,
                 tx: Some(tx.clone()),
                 token: pool.address.clone(),
                 delta: self
                     .value
-                    .neg()
                     .clone()
                     .to_signed_bytes_be(),
-                component_id: pool
+                    component_id: pool
                     .address
                     .clone()
                     .to_hex()
                     .as_bytes()
                     .to_vec(),
-            })
-        }
-        //joining a pool, lp_tokens are minted to the pool, from the null address, and so total lp supply increases
+                })
+            }
+            
+            // when a user redeems their lp tokens, they send the tokens to the null address, burning them and thats a negative delta
         else if event.address == pool.address
             && to == NULL_ADDRESS
         {
@@ -44,7 +44,7 @@ impl BalanceEventTrait for Transfer {
                 ord: event.ordinal,
                 tx: Some(tx.clone()),
                 token: pool.address.clone(),
-                delta: self.value.to_signed_bytes_be(),
+                delta: self.value.neg().to_signed_bytes_be(),
                 component_id: pool
                     .address
                     .clone()
