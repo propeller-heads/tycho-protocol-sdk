@@ -28,12 +28,15 @@ impl TychoRunner {
         &self,
         spkg_path: &str,
         start_block: u64,
-        end_block: u64,
+        end_block: Option<u64>,
         protocol_type_names: &[String],
         protocol_system: &str,
         module_name: &str,
     ) -> miette::Result<()> {
-        info!("Running Tycho indexer from block {start_block} to {end_block}...");
+        info!(
+            "Running Tycho indexer from block {start_block} to {}...",
+            end_block.map_or("current".to_string(), |b| b.to_string())
+        );
 
         let mut cmd = Command::new("tycho-indexer");
         cmd.env("RUST_LOG", std::env::var("RUST_LOG").unwrap_or("tycho_indexer=info".to_string()))
@@ -55,11 +58,16 @@ impl TychoRunner {
             protocol_system,
             "--start-block",
             &start_block.to_string(),
-            "--stop-block",
-            &(end_block + 2).to_string(), // +2 is to make up for the cache in the index side
             "--dci-plugin",
             "rpc",
         ]);
+
+        if let Some(end_block) = end_block {
+            cmd.args([
+                "--stop-block",
+                &(end_block + 2).to_string(), // +2 is to make up for the cache in the index side
+            ]);
+        }
 
         if !all_accounts.is_empty() {
             cmd.args([
@@ -99,7 +107,7 @@ impl TychoRunner {
         let db_url = self.db_url.clone();
 
         // Start the RPC server in a separate thread
-        let rpc_thread = thread::spawn(move || {
+        let thread_handle = thread::spawn(move || {
             let mut cmd = Command::new("tycho-indexer")
                 .args(["--database-url", db_url.as_str(), "rpc"])
                 .stdout(Stdio::piped())
@@ -132,7 +140,7 @@ impl TychoRunner {
         // Give the RPC server time to start
         thread::sleep(Duration::from_secs(3));
 
-        Ok(TychoRpcServer { sender: tx, thread_handle: rpc_thread })
+        Ok(TychoRpcServer { sender: tx, thread_handle })
     }
 
     pub fn stop_rpc_server(&self, server: TychoRpcServer) -> miette::Result<()> {
