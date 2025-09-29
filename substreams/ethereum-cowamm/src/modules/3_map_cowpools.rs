@@ -126,7 +126,6 @@ mod tests {
         // change to to an actual proper string lol
         let bind_str = r#"{\"address\":\"9bd702e05b9c97e4a4a3e47df1e0fe7a0c26d2f1\",\"token\":\"def1ca1fb7fbcdc777520aa7f396b4e015f497ab\",\"weight\":\"0000000000000000000000000000000000000000000000000de0b6b3a7640000\",};{\"address\":\"9bd702e05b9c97e4a4a3e47df1e0fe7a0c26d2f1\",\"token\":\"7f39c581f595b53c5cb19bd0b3f8da6c935e2ca0\",\"weight\":\"0000000000000000000000000000000000000000000000000de0b6b3a7640000\;"  bind_last : "{\"address\":\"9bd702e05b9c97e4a4a3e47df1e0fe7a0c26d2f1\",\"token\":\"def1ca1fb7fbcdc777520aa7f396b4e015f497ab\",\"weight\":\"0000000000000000000000000000000000000000000000000de0b6b3a7640000\"};{\"address\":\"9bd702e05b9c97e4a4a3e47df1e0fe7a0c26d2f1\",\"token\":\"7f39c581f595b53c5cb19bd0b3f8da6c935e2ca0\",\"weight\":\"0000000000000000000000000000000000000000000000000de0b6b3a7640000\"};"#;
         let result = parse_binds(bind_str);
-
         assert!(result.is_some());
         let binds = result.unwrap();
         assert_eq!(binds.len(), 2);
