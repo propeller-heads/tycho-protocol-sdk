@@ -19,6 +19,7 @@ use num_bigint::{BigInt, BigUint};
 use num_rational::BigRational;
 use num_traits::{Signed, ToPrimitive, Zero};
 use postgres::{Client, Error, NoTls};
+use regex::Regex;
 use tokio::runtime::Runtime;
 use tracing::{debug, error, info, warn};
 use tycho_execution::encoding::evm::utils::bytes_to_address;
@@ -58,26 +59,40 @@ static CLONE_TO_BASE_PROTOCOL: LazyLock<HashMap<&str, &str>> = LazyLock::new(|| 
     ])
 });
 
+pub enum TestType {
+    Full(TestTypeFull),
+    Range(TestTypeRange),
+}
+
+pub struct TestTypeFull {
+    pub initial_block: Option<u64>,
+}
+
+pub struct TestTypeRange {
+    pub match_test: Option<String>,
+}
+
 pub struct TestRunner {
+    test_type: TestType,
     db_url: String,
-    vm_simulation_traces: bool,
     substreams_path: PathBuf,
-    adapter_contract_builder: AdapterContractBuilder,
-    match_test: Option<String>,
     config_file_path: PathBuf,
+    vm_simulation_traces: bool,
+    adapter_contract_builder: AdapterContractBuilder,
     runtime: Runtime,
     rpc_provider: RPCProvider,
 }
 
 impl TestRunner {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
+        test_type: TestType,
         root_path: PathBuf,
         protocol: String,
-        match_test: Option<String>,
         db_url: String,
-        vm_traces: bool,
-        execution_traces: bool,
         rpc_url: String,
+        vm_simulation_traces: bool,
+        execution_traces: bool,
     ) -> miette::Result<Self> {
         let base_protocol = CLONE_TO_BASE_PROTOCOL
             .get(protocol.as_str())
@@ -108,18 +123,18 @@ impl TestRunner {
         let runtime = Runtime::new().into_diagnostic()?;
 
         Ok(Self {
+            test_type,
             db_url,
-            vm_simulation_traces: vm_traces,
+            substreams_path,
+            config_file_path,
+            vm_simulation_traces,
+            adapter_contract_builder,
             runtime,
             rpc_provider,
-            substreams_path,
-            adapter_contract_builder,
-            match_test,
-            config_file_path,
         })
     }
 
-    pub fn run_tests(&self) -> miette::Result<()> {
+    pub fn run(&self) -> miette::Result<()> {
         let terminal_width = termsize::get()
             .map(|size| size.cols as usize - 35) // Remove length of log prefix (35)
             .unwrap_or(80);
@@ -147,7 +162,80 @@ impl TestRunner {
             return Ok(());
         }
 
-        let tests = match &self.match_test {
+        match &self.test_type {
+            TestType::Full(test_type) => {
+                self.run_full_test(config, &substreams_yaml_path, test_type)?;
+            }
+            TestType::Range(test_type) => {
+                self.run_tests_in_range(config, &substreams_yaml_path, test_type, terminal_width)?;
+            }
+        }
+
+        Ok(())
+    }
+
+    fn parse_config(config_yaml_path: &PathBuf) -> miette::Result<IntegrationTestsConfig> {
+        info!("Parsing config YAML at {}", config_yaml_path.display());
+        let yaml = Yaml::file(config_yaml_path);
+        let figment = Figment::new().merge(yaml);
+        let config = figment
+            .extract::<IntegrationTestsConfig>()
+            .into_diagnostic()
+            .wrap_err("Failed to load test configuration:")?;
+        Ok(config)
+    }
+
+    fn run_full_test(
+        &self,
+        config: IntegrationTestsConfig,
+        substreams_yaml_path: &PathBuf,
+        test_type: &TestTypeFull,
+    ) -> miette::Result<()> {
+        let initial_block = match &test_type.initial_block {
+            Some(b) => *b,
+            None => {
+                let content = std::fs::read_to_string(substreams_yaml_path).into_diagnostic()?;
+                let re = Regex::new(r"initialBlock:\s*(\d+)").unwrap();
+                re.captures(&content)
+                    .and_then(|cap| cap.get(1))
+                    .and_then(|m| m.as_str().parse::<u64>().ok())
+                    .ok_or_else(|| {
+                        miette!("Failed to extract initialBlock from substreams.yaml. Please specify it explicitly.")
+                    })?
+            }
+        };
+
+        info!("Running full test from block {}...", initial_block);
+        let spkg_path =
+            build_spkg(substreams_yaml_path, initial_block).wrap_err("Failed to build spkg")?;
+
+        let tycho_runner = TychoRunner::new(self.db_url.clone(), vec![]);
+
+        tycho_runner
+            .run_tycho(
+                spkg_path.as_str(),
+                initial_block,
+                None,
+                &config.protocol_type_names,
+                &config.protocol_system,
+                &config.module_name,
+            )
+            .wrap_err("Failed to run Tycho")?;
+
+        // TODO: add validations
+
+        info!("Full run completed successfully.");
+        Ok(())
+    }
+
+    fn run_tests_in_range(
+        &self,
+        config: IntegrationTestsConfig,
+        substreams_yaml_path: &PathBuf,
+        test_type: &TestTypeRange,
+        terminal_width: usize,
+    ) -> miette::Result<()> {
+        let tests = match &test_type.match_test {
             Some(filter) => config
                 .tests
                 .iter()
@@ -168,7 +256,7 @@ impl TestRunner {
         for test in &tests {
             info!("TEST {}: {}", count, test.name);
 
-            match self.run_test(test, &config) {
+            match self.run_test_in_range(test, &config, substreams_yaml_path) {
                 Ok(_) => {
                     info!("✅ {} passed\n", test.name);
                 }
@@ -191,29 +279,23 @@ impl TestRunner {
         }
     }
 
-    fn parse_config(config_yaml_path: &PathBuf) -> miette::Result<IntegrationTestsConfig> {
-        info!("Parsing config YAML at {}", config_yaml_path.display());
-        let yaml = Yaml::file(config_yaml_path);
-        let figment = Figment::new().merge(yaml);
-        let config = figment
-            .extract::<IntegrationTestsConfig>()
-            .into_diagnostic()
-            .wrap_err("Failed to load test configuration:")?;
-        Ok(config)
-    }
-
-    fn run_test(
+    fn run_test_in_range(
         &self,
         test: &IntegrationTest,
         config: &IntegrationTestsConfig,
+        substreams_yaml_path: &PathBuf,
     ) -> miette::Result<()> {
+        let stop_block = match test.stop_block {
+            Some(block) => block,
+            None => {
+                info!("No stop_block specified for test {}", test.name);
+                return Ok(());
+            }
+        };
+
         self.empty_database()
             .into_diagnostic()
             .wrap_err("Failed to empty the database")?;
-
-        let substreams_yaml_path = self
-            .substreams_path
-            .join(&config.substreams_yaml_path);
 
         let mut initialized_accounts = config
             .initialized_accounts
@@ -226,7 +308,7 @@ impl TestRunner {
         );
 
         let spkg_path =
-            build_spkg(&substreams_yaml_path, test.start_block).wrap_err("Failed to build spkg")?;
+            build_spkg(substreams_yaml_path, test.start_block).wrap_err("Failed to build spkg")?;
 
         let tycho_runner = TychoRunner::new(self.db_url.clone(), initialized_accounts);
 
@@ -234,7 +316,7 @@ impl TestRunner {
             .run_tycho(
                 spkg_path.as_str(),
                 test.start_block,
-                test.stop_block,
+                Some(stop_block),
                 &config.protocol_type_names,
                 &config.protocol_system,
                 config.module_name.clone(),
@@ -257,7 +339,7 @@ impl TestRunner {
                 &config.adapter_build_signature,
                 &config.adapter_build_args,
                 self.vm_simulation_traces,
-                test.stop_block,
+                stop_block,
             )?;
 
         // Step 1: Validate that all expected components are present on Tycho after indexing
@@ -270,7 +352,7 @@ impl TestRunner {
                 self.validate_token_balances(
                     &component_tokens,
                     &response_protocol_states_by_id,
-                    test.stop_block,
+                    stop_block,
                 )?;
                 info!("All token balances match the values found onchain")
             }
@@ -902,13 +984,13 @@ mod tests {
         let rpc_url = env::var("RPC_URL").unwrap();
         let current_dir = std::env::current_dir().unwrap();
         TestRunner::new(
+            TestType::Range(TestTypeRange { match_test: None }),
             current_dir,
             "test-protocol".to_string(),
-            None,
             "".to_string(),
-            false,
-            false,
             rpc_url,
+            false,
+            false,
         )
         .unwrap()
     }

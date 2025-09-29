@@ -6139,6 +6139,7 @@ dependencies = [
  "num-rational",
  "num-traits",
  "postgres",
+ "regex",
  "reqwest 0.12.23",
  "serde",
  "serde_json",
