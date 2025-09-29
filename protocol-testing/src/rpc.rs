@@ -3,7 +3,7 @@ use std::str::FromStr;
 use alloy::{
     contract::{ContractInstance, Interface},
     dyn_abi::DynSolValue,
-    eips::eip1898::BlockId,
+    eips::{eip1898::BlockId, BlockNumberOrTag},
     primitives::{address, map::AddressHashMap, Address, U256},
     providers::{Provider, ProviderBuilder},
     rpc::types::{
@@ -95,6 +95,17 @@ impl RPCProvider {
             .await
             .into_diagnostic()
             .wrap_err("Failed to fetch block header")
+            .and_then(|block_opt| block_opt.ok_or_else(|| miette::miette!("Block not found")))
+    }
+
+    pub async fn get_current_block(&self) -> miette::Result<Block> {
+        info!("Fetching current block...");
+        let provider = ProviderBuilder::new().connect_http(self.url.clone());
+        provider
+            .get_block_by_number(BlockNumberOrTag::Latest)
+            .await
+            .into_diagnostic()
+            .wrap_err("Failed to fetch current block")
             .and_then(|block_opt| block_opt.ok_or_else(|| miette::miette!("Block not found")))
     }
 

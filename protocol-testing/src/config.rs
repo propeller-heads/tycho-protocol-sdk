@@ -133,7 +133,7 @@ fn default_false() -> bool {
 pub struct IntegrationTest {
     pub name: String,
     pub start_block: u64,
-    pub stop_block: Option<u64>,
+    pub stop_block: u64,
     pub initialized_accounts: Option<Vec<String>>,
     pub expected_components: Vec<ProtocolComponentWithTestConfig>,
 }
