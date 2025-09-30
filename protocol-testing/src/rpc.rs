@@ -17,8 +17,11 @@ use alloy::{
     sol_types::SolValue,
     transports::http::reqwest::Url,
 };
-use miette::{IntoDiagnostic, WrapErr};
-use serde_json::Value;
+use miette::{miette, IntoDiagnostic, WrapErr};
+use tokio_retry2::{
+    strategy::{jitter, ExponentialFactorBackoff},
+    Retry, RetryError,
+};
 use tracing::info;
 use tycho_simulation::tycho_common::Bytes;
 
@@ -115,38 +118,44 @@ impl RPCProvider {
         block_number: u64,
         state_overwrites: AddressHashMap<AccountOverride>,
     ) -> miette::Result<U256> {
-        let provider = ProviderBuilder::new().connect_http(self.url.clone());
-
-        // Configure tracing options - use callTracer for better formatted results
-        let tracing_options = GethDebugTracingOptions {
-            tracer: Some(GethDebugTracerType::BuiltInTracer(
-                GethDebugBuiltInTracerType::CallTracer,
-            )),
-            config: Default::default(),
-            tracer_config: Default::default(),
-            timeout: None,
+        let rpc_call = {
+            let tracing_options = GethDebugTracingOptions {
+                tracer: Some(GethDebugTracerType::BuiltInTracer(
+                    GethDebugBuiltInTracerType::CallTracer,
+                )),
+                config: Default::default(),
+                tracer_config: Default::default(),
+                timeout: None,
+            };
+            let trace_options = GethDebugTracingCallOptions {
+                tracing_options,
+                state_overrides: if state_overwrites.is_empty() {
+                    None
+                } else {
+                    Some(state_overwrites)
+                },
+                block_overrides: None,
+            };
+            let provider = ProviderBuilder::new().connect_http(self.url.clone());
+            provider.client().request(
+                "debug_traceCall",
+                (transaction, BlockId::from(block_number), trace_options),
+            )
         };
-
-        let trace_options = GethDebugTracingCallOptions {
-            tracing_options,
-            state_overrides: if state_overwrites.is_empty() {
-                None
-            } else {
-                Some(state_overwrites)
-            },
-            block_overrides: None,
-        };
-
-        let result: Value = provider
-            .client()
-            .request("debug_traceCall", (transaction, BlockId::from(block_number), trace_options))
-            .await
-            .map_err(|e| {
+        let retry_strategy = ExponentialFactorBackoff::from_millis(1000, 2.)
+            .max_delay_millis(10000)
+            .map(jitter)
+            .take(10);
+        let result = Retry::spawn(retry_strategy, async || match rpc_call.clone().await {
+            Ok(res) => Ok(res),
+            Err(e) => {
                 tracing::error!("debug_traceCall RPC error: {:#}", e);
-                e
-            })
-            .into_diagnostic()
-            .wrap_err("Failed to debug trace call many")?;
+                Err(RetryError::transient(e))
+            }
+        })
+        .await
+        .into_diagnostic()
+        .wrap_err(miette!("Failed to retrieve result from debug_traceCall"))?;
 
         if self.trace {
             print_call_trace(&result, 0).await;
