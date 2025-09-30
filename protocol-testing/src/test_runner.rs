@@ -66,6 +66,7 @@ pub enum TestType {
 
 pub struct TestTypeFull {
     pub initial_block: Option<u64>,
+    pub stop_block: Option<u64>,
 }
 
 pub struct TestTypeRange {
@@ -211,17 +212,20 @@ impl TestRunner {
             .clone()
             .unwrap_or_default();
         let tycho_runner = self.tycho_runner(initialized_accounts.clone())?;
-        let stop_block = {
-            let rpc_server = tycho_runner.start_rpc_server()?;
-            let block = self
-                .runtime
-                .block_on(self.rpc_provider.get_current_block())
-                .wrap_err("Failed to get current block number");
-            tycho_runner.stop_rpc_server(rpc_server)?;
-            match block {
-                Ok(b) => b.header.number,
-                Err(e) => {
-                    return Err(e);
+        let stop_block = match &test_type.stop_block {
+            Some(b) => *b,
+            None => {
+                let rpc_server = tycho_runner.start_rpc_server()?;
+                let block = self
+                    .runtime
+                    .block_on(self.rpc_provider.get_current_block())
+                    .wrap_err("Failed to get current block number");
+                tycho_runner.stop_rpc_server(rpc_server)?;
+                match block {
+                    Ok(b) => b.header.number,
+                    Err(e) => {
+                        return Err(e);
+                    }
                 }
             }
         };
@@ -336,12 +340,12 @@ impl TestRunner {
         config: &IntegrationTestsConfig,
         stop_block: u64,
     ) -> miette::Result<()> {
+        // Fetch protocol data from Tycho RPC
         let expected_ids = test
             .expected_components
             .iter()
             .map(|c| c.base.id.to_lowercase())
             .collect::<Vec<String>>();
-
         let (update, component_tokens, response_protocol_states_by_id, block) = self
             .fetch_from_tycho_rpc(
                 &config.protocol_system,
@@ -357,7 +361,7 @@ impl TestRunner {
         }
 
         // Step 1: Validate that all expected components are present on Tycho after indexing
-        self.validate_state(&test.expected_components, update.clone())?;
+        self.validate_state(&test.expected_components, &update)?;
 
         // Step 2: Validate Token Balances
         match config.skip_balance_check {
@@ -371,13 +375,9 @@ impl TestRunner {
                 info!("All token balances match the values found onchain")
             }
         }
+
         // Step 3: Run Tycho Simulation and Execution
-        self.simulate_and_execute(
-            update,
-            &component_tokens,
-            block,
-            Some(test.expected_components.clone()),
-        )?;
+        self.simulate_and_execute(&update, &component_tokens, &block, &test.expected_components)?;
 
         Ok(())
     }
@@ -678,8 +678,13 @@ impl TestRunner {
     fn validate_state(
         &self,
         expected_components: &Vec<ProtocolComponentWithTestConfig>,
-        block_msg: Update,
+        block_msg: &Update,
     ) -> miette::Result<()> {
+        if expected_components.is_empty() {
+            debug!("No expected components defined for this test. Skipping state validation.");
+            return Ok(());
+        }
+
         debug!("Validating {:?} expected components", expected_components.len());
         for expected_component in expected_components {
             let component_id = expected_component
@@ -747,25 +752,21 @@ impl TestRunner {
     /// in the test configuration.
     fn simulate_and_execute(
         &self,
-        update: Update,
+        update: &Update,
         component_tokens: &HashMap<String, Vec<Token>>,
-        block: Block,
-        expected_components: Option<Vec<ProtocolComponentWithTestConfig>>,
+        block: &Block,
+        expected_components: &[ProtocolComponentWithTestConfig],
     ) -> miette::Result<()> {
-        let mut skip_simulation = HashSet::new();
-        let mut skip_execution = HashSet::new();
-        if let Some(components) = expected_components {
-            skip_simulation = components
-                .iter()
-                .filter(|c| c.skip_simulation)
-                .map(|c| c.base.id.to_lowercase())
-                .collect();
-            skip_execution = components
-                .iter()
-                .filter(|c| c.skip_execution)
-                .map(|c| c.base.id.to_lowercase())
-                .collect();
-        }
+        let skip_simulation: HashSet<_> = expected_components
+            .iter()
+            .filter(|c| c.skip_simulation)
+            .map(|c| c.base.id.to_lowercase())
+            .collect();
+        let skip_execution: HashSet<_> = expected_components
+            .iter()
+            .filter(|c| c.skip_execution)
+            .map(|c| c.base.id.to_lowercase())
+            .collect();
 
         for (id, state) in update.states.iter() {
             if skip_simulation.contains(id) {
@@ -864,7 +865,7 @@ impl TestRunner {
                                     &self.rpc_provider,
                                     &calldata,
                                     &solution,
-                                    &block,
+                                    block,
                                 ));
 
                         match execution_amount_out {
