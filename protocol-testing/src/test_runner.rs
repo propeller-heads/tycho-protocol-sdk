@@ -208,21 +208,20 @@ impl TestRunner {
             .clone()
             .unwrap_or_default();
         let tycho_runner = self.tycho_runner(initialized_accounts.clone())?;
-        let rpc_server = tycho_runner.start_rpc_server()?;
         let stop_block = {
+            let rpc_server = tycho_runner.start_rpc_server()?;
             let block = self
                 .runtime
                 .block_on(self.rpc_provider.get_current_block())
                 .wrap_err("Failed to get current block number");
+            tycho_runner.stop_rpc_server(rpc_server)?;
             match block {
                 Ok(b) => b.header.number,
                 Err(e) => {
-                    tycho_runner.stop_rpc_server(rpc_server)?;
                     return Err(e);
                 }
             }
         };
-        tycho_runner.stop_rpc_server(rpc_server)?;
         tycho_runner
             .run_tycho(
                 &spkg_path,
@@ -311,7 +310,7 @@ impl TestRunner {
                 }
                 Err(e) => {
                     failed_tests.push(test.name.clone());
-                    error!("❗️{} failed: {:?}\n", test.name, e);
+                    error!("❗️{} failed: {e}\n", test.name);
                 }
             }
             tycho_runner.stop_rpc_server(rpc_server)?;
@@ -350,6 +349,9 @@ impl TestRunner {
                 self.vm_simulation_traces,
                 stop_block,
             )?;
+        if update.states.is_empty() {
+            return Err(miette!("No protocol states were found on Tycho"));
+        }
 
         // Step 1: Validate that all expected components are present on Tycho after indexing
         self.validate_state(&test.expected_components, update.clone())?;
@@ -453,6 +455,16 @@ impl TestRunner {
             .block_on(tycho_client.get_protocol_components(protocol_system, chain))
             .into_diagnostic()
             .wrap_err("Failed to get protocol components")?;
+
+        // If no expected component IDs are provided, use all components from the protocol
+        let expected_component_ids = if expected_component_ids.is_empty() {
+            protocol_components
+                .iter()
+                .map(|c| c.id.to_lowercase())
+                .collect::<Vec<String>>()
+        } else {
+            expected_component_ids
+        };
 
         let protocol_states = self
             .runtime
@@ -605,6 +617,8 @@ impl TestRunner {
             .block_on(decoder.decode(&message))
             .into_diagnostic()
             .wrap_err("Failed to decode message")?;
+        debug!("Decoded message for block {}", block_msg.block_number_or_timestamp);
+        debug!("Update contains {} component states", block_msg.states.len());
 
         let mut component_tokens: HashMap<String, Vec<Token>> = HashMap::new();
 
@@ -613,6 +627,7 @@ impl TestRunner {
                 .entry(id.clone())
                 .or_insert_with(|| comp.tokens.clone());
         }
+        debug!("Mapped tokens for {} components", component_tokens.len());
 
         Ok((block_msg, component_tokens, protocol_states_by_id, block_header))
     }
