@@ -38,18 +38,26 @@ pub struct FullTestCommand {
     #[command(flatten)]
     common_args: CommonArgs,
 
-    /// Run the test starting from this block number.
+    /// Start the test from this block number.
     /// If not provided, it will use the first initial block defined in the protocol's substream
     /// configuration.
     #[arg(long)]
     initial_block: Option<u64>,
+
+    /// Stop the test at this block number.
+    /// If not provided, it will use the latest block fetched from the protocol.
+    #[arg(long)]
+    stop_block: Option<u64>,
 }
 
 impl FullTestCommand {
     fn run(self) -> miette::Result<()> {
         let args = self.common_args;
         TestRunner::new(
-            TestType::Full(TestTypeFull { initial_block: self.initial_block }),
+            TestType::Full(TestTypeFull {
+                initial_block: self.initial_block,
+                stop_block: self.stop_block,
+            }),
             args.root_path()?,
             args.package,
             args.db_url,
