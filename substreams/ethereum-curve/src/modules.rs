@@ -10,10 +10,11 @@ use substreams::{
         StoreSetString,
     },
 };
-use substreams_ethereum::pb::eth;
+use substreams_ethereum::{pb::eth, Function};
 
 use crate::{
     abi,
+    abi::set_oracle_implementation::functions::SetOracle,
     consts::{CONTRACTS_TO_INDEX, NEW_SUSD, OLD_SUSD},
     pool_changes::emit_eth_deltas,
     pool_factories,
@@ -143,6 +144,24 @@ pub fn store_non_component_accounts(map: BlockChanges, store: StoreSetInt64) {
         });
 }
 
+#[substreams::handlers::store]
+pub fn store_set_oracle_components(map: BlockChanges, store: StoreSetInt64) {
+    map.changes
+        .iter()
+        .for_each(|tx_changes| {
+            tx_changes
+                .component_changes
+                .iter()
+                .for_each(|pc| {
+                    if let Some(use_set_oracle) = pc.get_attribute_value("set_oracle") {
+                        if use_set_oracle[0] == 1 {
+                            store.set(0, &pc.id, &1);
+                        }
+                    }
+                })
+        })
+}
+
 /// Since the `PoolBalanceChanged` events administer only deltas, we need to leverage a map and a
 ///  store to be able to tally up final balances for tokens in a pool.
 #[substreams::handlers::map]
@@ -212,12 +231,31 @@ pub fn map_protocol_changes(
     deltas: BlockBalanceDeltas,
     components_store: StoreGetString,
     non_component_accounts_store: StoreGetInt64,
+    set_oracle_components_store: StoreGetInt64,
     balance_store: StoreDeltas, // Note, this map module is using the `deltas` mode for the store.
 ) -> Result<BlockChanges> {
     // We merge contract changes by transaction (identified by transaction index) making it easy to
     //  sort them at the very end.
     let mut transaction_changes: HashMap<_, TransactionChanges> = HashMap::new();
 
+    let mut set_oracle_components: HashMap<String, SetOracle> = HashMap::new();
+    for trx in block.transactions() {
+        for call in trx
+            .calls
+            .iter()
+            .filter(|call| !call.state_reverted)
+        {
+            if let Some(set_oracle) = SetOracle::match_and_decode(call) {
+                if set_oracle_components_store
+                    .get_last(format!("0x{0}", hex::encode(&call.address)))
+                    .is_some()
+                {
+                    set_oracle_components
+                        .insert(format!("0x{0}", hex::encode(&call.address)), set_oracle);
+                }
+            }
+        }
+    }
     // `ProtocolComponents` are gathered with some entity changes from `map_pools_created` which
     // just need a bit of work to  convert into `TransactionChanges`
     grouped_components
@@ -239,6 +277,23 @@ pub fn map_protocol_changes(
 
             let mut entrypoints = HashSet::new();
             let mut entrypoint_params = HashSet::new();
+
+            for (component_id, set_oracle) in &set_oracle_components {
+                let trace_data = TraceData::Rpc(RpcTraceData {
+                    caller: None,
+                    calldata: set_oracle.method_id.to_vec(),
+                });
+
+                let (entrypoint, entrypoint_param) = create_entrypoint(
+                    set_oracle.oracle.to_vec(),
+                    hex::encode(set_oracle.method_id),
+                    component_id.into(),
+                    trace_data,
+                );
+
+                entrypoints.insert(entrypoint);
+                entrypoint_params.insert(entrypoint_param);
+            }
 
             tx_changes
                 .component_changes
