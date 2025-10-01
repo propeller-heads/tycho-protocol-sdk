@@ -48,4 +48,3 @@ tests:
           exchange_price_token_1_slot: "0xa8e1248eddf82e10c0adc6c737b6d8da17674abf51801ea5a4549f41c2dfdf21"
           manual_updates: "0x01"
         creation_tx: "0xe595a12c86bf056248db383e1689bd41754fffb7636a8d5ea5d96b48a323cd74"
-
