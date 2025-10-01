@@ -1,0 +1,11 @@
+syntax = "proto3";
+
+package dodo.v2;
+
+message Pool {
+  bytes address = 1;
+  bytes base_token = 2;
+  bytes quote_token = 3;
+  bytes pool_type = 4;
+  bytes created_tx_hash = 5;
+}
