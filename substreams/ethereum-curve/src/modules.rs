@@ -238,8 +238,24 @@ pub fn map_protocol_changes(
     //  sort them at the very end.
     let mut transaction_changes: HashMap<_, TransactionChanges> = HashMap::new();
 
-    let mut set_oracle_components: HashMap<String, SetOracle> = HashMap::new();
     for trx in block.transactions() {
+        let tx = Transaction {
+            to: trx.to.clone(),
+            from: trx.from.clone(),
+            hash: trx.hash.clone(),
+            index: trx.index.into(),
+        };
+        let transaction_entry = transaction_changes
+            .entry(tx.index)
+            .or_insert_with(|| TransactionChanges {
+                tx: Some(tx.clone()),
+                contract_changes: vec![],
+                component_changes: vec![],
+                balance_changes: vec![],
+                entrypoints: vec![],
+                entity_changes: vec![],
+                entrypoint_params: vec![],
+            });
         for call in trx
             .calls
             .iter()
@@ -250,8 +266,22 @@ pub fn map_protocol_changes(
                     .get_last(format!("0x{0}", hex::encode(&call.address)))
                     .is_some()
                 {
-                    set_oracle_components
-                        .insert(format!("0x{0}", hex::encode(&call.address)), set_oracle);
+                    let trace_data = TraceData::Rpc(RpcTraceData {
+                        caller: None,
+                        calldata: set_oracle.method_id.to_vec(),
+                    });
+                    let (entrypoint, entrypoint_param) = create_entrypoint(
+                        set_oracle.oracle.to_vec(),
+                        hex::encode(set_oracle.method_id),
+                        format!("0x{0}", hex::encode(&call.address)),
+                        trace_data,
+                    );
+                    transaction_entry
+                        .entrypoints
+                        .push(entrypoint);
+                    transaction_entry
+                        .entrypoint_params
+                        .push(entrypoint_param);
                 }
             }
         }
@@ -277,23 +307,6 @@ pub fn map_protocol_changes(
 
             let mut entrypoints = HashSet::new();
             let mut entrypoint_params = HashSet::new();
-
-            for (component_id, set_oracle) in &set_oracle_components {
-                let trace_data = TraceData::Rpc(RpcTraceData {
-                    caller: None,
-                    calldata: set_oracle.method_id.to_vec(),
-                });
-
-                let (entrypoint, entrypoint_param) = create_entrypoint(
-                    set_oracle.oracle.to_vec(),
-                    hex::encode(set_oracle.method_id),
-                    component_id.into(),
-                    trace_data,
-                );
-
-                entrypoints.insert(entrypoint);
-                entrypoint_params.insert(entrypoint_param);
-            }
 
             tx_changes
                 .component_changes
@@ -451,12 +464,12 @@ pub fn map_protocol_changes(
                 .entity_changes
                 .extend(tx_changes.entity_changes);
 
-            transaction_entry.entrypoints = entrypoints
-                .into_iter()
-                .collect::<Vec<_>>();
-            transaction_entry.entrypoint_params = entrypoint_params
-                .into_iter()
-                .collect::<Vec<_>>();
+            transaction_entry
+                .entrypoints
+                .extend(entrypoints);
+            transaction_entry
+                .entrypoint_params
+                .extend(entrypoint_params);
         });
 
     // Balance changes are gathered by the `StoreDelta` based on `TokenExchange`, etc. creating
