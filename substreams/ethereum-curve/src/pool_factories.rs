@@ -1,3 +1,4 @@
+use std::str::FromStr;
 use substreams_ethereum::{
     pb::eth::v2::{Call, Log, TransactionTrace},
     Event, Function,
@@ -208,7 +209,10 @@ pub fn address_map(
                     .into_iter()
                     .filter(|token| *token != [0; 20])
                     .collect();
-
+                let use_set_oracle = tokens.len() == 2 &&
+                    add_pool
+                        .implementation_idx
+                        .eq(&BigInt::from(5));
                 let pool_implementation = extract_proxy_impl(call, tx, 0).unwrap_or([1u8; 20]);
                 Some((
                     ProtocolComponent {
@@ -239,6 +243,11 @@ pub fn address_map(
                             Attribute {
                                 name: "coins".into(),
                                 value: json_serialize_address_list(&tokens),
+                                change: ChangeType::Creation.into(),
+                            },
+                            Attribute {
+                                name: "set_oracle".into(),
+                                value: vec![use_set_oracle as u8],
                                 change: ChangeType::Creation.into(),
                             },
                         ],
@@ -879,6 +888,44 @@ pub fn address_map(
             if let Some(pool_added) =
                 abi::twocrypto_factory::events::TwocryptoPoolDeployed::match_and_decode(log)
             {
+                let mut attributes = vec![
+                    Attribute {
+                        name: "stateless_contract_addr_0".into(),
+                        // Call views_implementation() on TWOCRYPTO_FACTORY
+                        value: format!(
+                            "call:0x{}:views_implementation()",
+                            hex::encode(TWOCRYPTO_FACTORY)
+                        )
+                        .into(),
+                        change: ChangeType::Creation.into(),
+                    },
+                    Attribute {
+                        name: "stateless_contract_addr_1".into(),
+                        value: address_to_bytes_with_0x(
+                            &pool_added
+                                .math
+                                .try_into()
+                                .unwrap_or([1u8; 20]), // Unexpected issue marker
+                        ),
+                        change: ChangeType::Creation.into(),
+                    },
+                ];
+                if let Some(deploy_pool) =
+                    abi::twocrypto_factory::functions::DeployPool::match_and_decode(call)
+                {
+                    if deploy_pool.implementation_id == BigInt::from_str("110827960954786879070795645317684308345156454977361180728234664032152099907574").unwrap(){
+                        attributes.push(Attribute {
+                            name: "stateless_contract_addr_2".into(),
+                            value: address_to_bytes_with_0x(&TWOCRYPTO_CUSTOM_VIEW),
+                            change: ChangeType::Creation.into(),
+                        });
+                        attributes.push(Attribute {
+                            name: "stateless_contract_addr_3".into(),
+                            value: address_to_bytes_with_0x(&TWOCRYPTO_CUSTOM_MATH),
+                            change: ChangeType::Creation.into(),
+                        });
+                    }
+                };
                 let id = hex::encode(&pool_added.pool);
 
                 Some((
@@ -921,31 +968,7 @@ pub fn address_map(
                             implementation_type: ImplementationType::Vm.into(),
                         }),
                     },
-                    vec![EntityChanges {
-                        component_id: format!("0x{id}"),
-                        attributes: vec![
-                            Attribute {
-                                name: "stateless_contract_addr_0".into(),
-                                // Call views_implementation() on TWOCRYPTO_FACTORY
-                                value: format!(
-                                    "call:0x{}:views_implementation()",
-                                    hex::encode(TWOCRYPTO_FACTORY)
-                                )
-                                .into(),
-                                change: ChangeType::Creation.into(),
-                            },
-                            Attribute {
-                                name: "stateless_contract_addr_1".into(),
-                                value: address_to_bytes_with_0x(
-                                    &pool_added
-                                        .math
-                                        .try_into()
-                                        .unwrap_or([1u8; 20]), // Unexpected issue marker
-                                ),
-                                change: ChangeType::Creation.into(),
-                            },
-                        ],
-                    }],
+                    vec![EntityChanges { component_id: format!("0x{id}"), attributes }],
                 ))
             } else {
                 None
