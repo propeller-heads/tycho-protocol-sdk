@@ -1,3 +1,5 @@
+// Read a base64 encoded asset and return a decoded protobuf struct
+// Panics if the file does not exist or the base64 decoding fails
 pub fn read_block<B: prost::Message + Default>(filename: &str) -> B {
     use base64::Engine;
 
