@@ -1,0 +1,73 @@
+specVersion: v0.1.0
+package:
+  name: "ethereum_dodo_v2"
+  version: v0.1.0
+
+protobuf:
+  files:
+    - tycho/evm/v1/vm.proto
+    - tycho/evm/v1/common.proto
+    - tycho/evm/v1/utils.proto
+    - dodo.proto
+  importPaths:
+    - ./proto/v1
+    - ../../proto
+
+binaries:
+  default:
+    type: wasm/rust-v1
+    file: ../target/wasm32-unknown-unknown/release/ethereum_dodo_v2.wasm
+
+
+network: mainnet
+
+modules:
+  - name: map_components
+    kind: map
+    initialBlock: 20639986
+    inputs:
+      - params: string
+      - source: sf.ethereum.type.v2.Block
+    output:
+      type: proto:tycho.evm.v1.BlockTransactionProtocolComponents
+
+  - name: store_components
+    kind: store
+    initialBlock: 20639986
+    updatePolicy: set_if_not_exists
+    valueType: string
+    inputs:
+      - map: map_components
+
+  - name: map_relative_balances
+    kind: map
+    initialBlock: 20639986
+    inputs:
+      - source: sf.ethereum.type.v2.Block
+      - store: store_components
+    output:
+      type: proto:tycho.evm.v1.BlockBalanceDeltas
+
+  - name: store_balances
+    kind: store
+    initialBlock: 20639986
+    updatePolicy: add
+    valueType: bigint
+    inputs:
+      - map: map_relative_balances
+
+  - name: map_protocol_changes
+    kind: map
+    initialBlock: 20639986
+    inputs:
+      - source: sf.ethereum.type.v2.Block
+      - map: map_components
+      - map: map_relative_balances
+      - store: store_components
+      - store: store_balances
+        mode: deltas
+    output:
+      type: proto:tycho.evm.v1.BlockChanges
+
+params:
+  map_components: "dpp_factory=5336edE8F971339F6c0e304c66ba16F1296A2Fbe&dsp_factory=6fdDB76c93299D985f4d3FC7ac468F9A168577A4&dvm_factory=72d220cE168C4f361dD4deE5D826a01AD8598f6C&gsp_factory=710409D2121B7C8EA4aCAdd6803FDE2D85DF6473"
