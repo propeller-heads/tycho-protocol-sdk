@@ -15,7 +15,7 @@ use substreams_ethereum::{pb::eth, Function};
 use crate::{
     abi,
     abi::set_oracle_implementation::functions::SetOracle,
-    consts::{CONTRACTS_TO_INDEX, NEW_SUSD, OLD_SUSD},
+    consts::{CONTRACTS_TO_INDEX, ETH_ADDRESS, NEW_SUSD, OLD_SUSD},
     pool_changes::emit_eth_deltas,
     pool_factories,
     pools::emit_specific_pools,
@@ -365,8 +365,37 @@ pub fn map_protocol_changes(
                                 .collect::<Vec<[u8; 4]>>()
                         });
 
-                    if let (Some(asset_types), Some(coins), Some(oracles), Some(method_ids)) =
-                        (asset_types, coins, oracles, method_ids)
+                    if let Some(coins) = &coins {
+                        for coin in coins.iter() {
+                            if coin.to_vec() == ETH_ADDRESS {
+                                continue;
+                            }
+                            let pool_addr = hex::decode(component.id.trim_start_matches("0x"))
+                                .unwrap_or_else(|e| panic!("Invalid hex in address: {e}"));
+                            let trace_data = TraceData::Rpc(RpcTraceData {
+                                caller: Some(pool_addr.clone()),
+                                calldata: [
+                                    hex::decode("70a08231")
+                                        .unwrap()
+                                        .as_slice(),
+                                    &[0u8; 12],
+                                    &pool_addr,
+                                ]
+                                .concat(), // balanceOf 70a08231
+                            });
+                            let (entrypoint, entrypoint_param) = create_entrypoint(
+                                coin.clone(),
+                                "balanceOf".to_string(),
+                                component.id.clone(),
+                                trace_data,
+                            );
+
+                            entrypoints.insert(entrypoint);
+                            entrypoint_params.insert(entrypoint_param);
+                        }
+                    }
+                    if let (Some(asset_types), Some(oracles), Some(method_ids), Some(coins)) =
+                        (asset_types, oracles, method_ids, coins)
                     {
                         for (((oracle, method_id), asset_type), coin) in oracles
                             .into_iter()
@@ -388,31 +417,6 @@ pub fn map_protocol_changes(
                                 let (entrypoint, entrypoint_param) = create_entrypoint(
                                     oracle,
                                     hex::encode(method_id),
-                                    component.id.clone(),
-                                    trace_data,
-                                );
-
-                                entrypoints.insert(entrypoint);
-                                entrypoint_params.insert(entrypoint_param);
-                            }
-                            if asset_type == BigInt::from(2) {
-                                let pool_addr = hex::decode(component.id.trim_start_matches("0x"))
-                                    .unwrap_or_else(|e| panic!("Invalid hex in address: {e}"));
-                                let trace_data = TraceData::Rpc(RpcTraceData {
-                                    caller: None,
-                                    calldata: [
-                                        hex::decode("70a08231")
-                                            .unwrap()
-                                            .as_slice(),
-                                        &[0u8; 12],
-                                        &pool_addr,
-                                    ]
-                                    .concat(), // balanceOf 70a08231
-                                });
-
-                                let (entrypoint, entrypoint_param) = create_entrypoint(
-                                    coin.clone(),
-                                    "balanceOf".to_string(),
                                     component.id.clone(),
                                     trace_data,
                                 );
