@@ -6,9 +6,7 @@ use serde::Deserialize;
 use substreams::prelude::BigInt;
 use substreams_ethereum::pb::eth::v2::{self as eth};
 use substreams_helper::{event_handler::EventHandler, hex::Hexable};
-use tycho_substreams::entrypoint::create_entrypoint;
-
-use tycho_substreams::prelude::{entry_point_params::TraceData, *};
+use tycho_substreams::prelude::*;
 
 #[derive(Debug, Deserialize)]
 struct Params {
@@ -34,28 +32,8 @@ pub fn map_pools_created(
 
 fn get_pools(block: &eth::Block, new_pools: &mut Vec<TransactionChanges>, params: &Params) {
     // Extract new pools from PairCreated events
-    let mut on_pair_created = |event: PoolCreated, tx: &eth::TransactionTrace, log: &eth::Log| {
+    let mut on_pair_created = |event: PoolCreated, tx: &eth::TransactionTrace, _log: &eth::Log| {
         let tycho_tx: Transaction = tx.into();
-        let fee_trace_data = TraceData::Rpc(RpcTraceData {
-            caller: None,
-            calldata: [
-                &hex::decode("cc56b2c5").unwrap()[..], // selector
-                &[0u8; 12],                            // padding for address
-                &event.pool[..],                       // 20-byte address
-                &{
-                    let mut b = [0u8; 32];
-                    b[31] = if event.stable { 1 } else { 0 }; // bool param
-                    b
-                }[..],
-            ]
-            .concat(),
-        });
-        let (entrypoint, entrypoint_param) = create_entrypoint(
-            hex::decode(params.factory_address).unwrap(),
-            "getFee(address,bool)".to_string(),
-            event.pool.to_hex(),
-            fee_trace_data,
-        );
         new_pools.push(TransactionChanges {
             tx: Some(tycho_tx.clone()),
             contract_changes: vec![],
@@ -110,8 +88,8 @@ fn get_pools(block: &eth::Block, new_pools: &mut Vec<TransactionChanges>, params
                     component_id: event.pool.to_hex().as_bytes().to_vec(),
                 },
             ],
-            entrypoints: vec![entrypoint],
-            entrypoint_params: vec![entrypoint_param],
+            entrypoints: vec![],
+            entrypoint_params: vec![],
         })
     };
 

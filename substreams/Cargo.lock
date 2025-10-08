@@ -46,7 +46,7 @@ dependencies = [
  "substreams",
  "substreams-ethereum",
  "substreams-helper 0.0.2 (git+https://github.com/propeller-heads/tycho-protocol-sdk.git?rev=655fae7)",
- "tycho-substreams 0.5.0 (git+https://github.com/propeller-heads/tycho-protocol-sdk.git?rev=655fae7)",
+ "tycho-substreams 0.5.0",
 ]
 
 [[package]]
@@ -1584,7 +1584,7 @@ version = "0.0.2"
 source = "git+https://github.com/propeller-heads/tycho-protocol-sdk.git?rev=655fae7#655fae77aba34b84353d923575096bd9c26ee418"
 dependencies = [
  "anyhow",
- "base64",
+ "base64 0.13.1",
  "bigdecimal",
  "downcast-rs",
  "ethabi 18.0.0",
@@ -1809,6 +1809,22 @@ dependencies = [
 
 [[package]]
 name = "tycho-substreams"
+version = "0.5.0"
+source = "git+https://github.com/propeller-heads/tycho-protocol-sdk.git?rev=655fae7#655fae77aba34b84353d923575096bd9c26ee418"
+dependencies = [
+ "ethabi 18.0.0",
+ "hex",
+ "itertools 0.12.1",
+ "num-bigint",
+ "prost 0.11.9",
+ "serde",
+ "serde_json",
+ "substreams",
+ "substreams-ethereum",
+]
+
+[[package]]
+name = "tycho-substreams"
 version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a164ecbc3f2d7515e9447d7c1933a01fba6e54a082bbe1c73eb7b827d2a45b47"
@@ -1835,22 +1851,6 @@ dependencies = [
  "num-bigint",
  "prost 0.11.9",
  "rstest",
- "serde",
- "serde_json",
- "substreams",
- "substreams-ethereum",
-]
-
-[[package]]
-name = "tycho-substreams"
-version = "0.5.0"
-source = "git+https://github.com/propeller-heads/tycho-protocol-sdk.git?rev=655fae7#655fae77aba34b84353d923575096bd9c26ee418"
-dependencies = [
- "ethabi 18.0.0",
- "hex",
- "itertools 0.12.1",
- "num-bigint",
- "prost 0.11.9",
  "serde",
  "serde_json",
  "substreams",
