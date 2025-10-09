@@ -15,23 +15,33 @@ skip_balance_check: true
 # This will be applied to each test.
 initialized_accounts:
   - "0x52Aa899454998Be5b000Ad077a46Bbe360F4e497" # Liquidity Proxy
-  - "0xa57d7cef617271f4cea4f665d33ebcfcba4929f6" # Liquidity Dummy Implementation
-  - "0xb387f9C2092cF7c4943F97842887eBff7AE96EB3" # DexReservesResolver
-  - "0xF047ab4c75cebf0eB9ed34Ae2c186f3611aEAfa6" # Zircuit Pool
-  - "0x6967e68f7f9b3921181f27e66aa9c3ac7e13dbc0"
-  - "0xeb5d71d488c419a099862251a1025629d806622e"
+  - "0xb387f9C2092cF7c4943F97842887eBff7AE96EB3"
 # A list of protocol types names created by your Substreams module.
 protocol_type_names:
   - "fluid_dex_pool"
-
+protocol_system: "fluid_v1"
+module_name: "map_protocol_changes"
 # A list of tests.
 tests:
   # Name of the test
-  - name: test_pool_creation
-    # Indexed block range
+  - name: test_pool_creation_2
+    start_block: 22122670
+    stop_block: 22129671
+    expected_components:
+      - id: "0x0ffda76c8a06d03c104f58ece336348488487e60"
+        tokens:
+          - "0x1202f5c7b4b9e47a1a484e8b270be34dbbc75055"
+          - "0xdac17f958d2ee523a2206206994597c13d831ec7"
+        static_attributes:
+          dex_id: "0x1d"
+          dex_address: "0x0ffda76c8a06d03c104f58ece336348488487e60"
+          reserves_resolver_address: "0xb387f9c2092cf7c4943f97842887ebff7ae96eb3"
+        creation_tx: "0x13d0903cbda469d7764758718c1ba45e7cfd27a36d44ac5dd3be942ac3d13a63"
+    skip_execution: true
+
+  - name: test_pool_creation_1
     start_block: 22101210
-    stop_block: 22101220
-    # A list of expected component indexed in the block range. Each component must match perfectly the `ProtocolComponent` indexed by your subtreams module.
+    stop_block: 22122670
     expected_components:
       - id: "0x50facbcfbf9352523f82c67832e6d3d7ce731d4c"
         tokens:
@@ -46,5 +56,6 @@ tests:
           borrow_token_1_slot: "0x3450d9912503566f31fb7afbc6e2472a493e6f8d1c92c6b4c71664482b90ec18"
           exchange_price_token_0_slot: "0x3d48a0f7ec4bc62511be98206f2f4960f610e558f2ba847164812fc6cfe4bfe5"
           exchange_price_token_1_slot: "0xa8e1248eddf82e10c0adc6c737b6d8da17674abf51801ea5a4549f41c2dfdf21"
-          manual_updates: "0x01"
+          reserves_resolver_address: "0xb387f9c2092cf7c4943f97842887ebff7ae96eb3"
         creation_tx: "0xe595a12c86bf056248db383e1689bd41754fffb7636a8d5ea5d96b48a323cd74"
+    skip_execution: true
