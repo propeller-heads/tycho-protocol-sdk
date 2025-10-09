@@ -15,7 +15,7 @@ use substreams_ethereum::{pb::eth, Function};
 use crate::{
     abi,
     abi::set_oracle_implementation::functions::SetOracle,
-    consts::{CONTRACTS_TO_INDEX, ETH_ADDRESS, NEW_SUSD, OLD_SUSD},
+    consts::{CONTRACTS_TO_INDEX, ETH_ADDRESS, NEW_SUSD, OLD_SUSD, STETH_ADDRESS},
     pool_changes::emit_eth_deltas,
     pool_factories,
     pools::emit_specific_pools,
@@ -369,6 +369,21 @@ pub fn map_protocol_changes(
                         for coin in coins.iter() {
                             if coin.to_vec() == ETH_ADDRESS {
                                 continue;
+                            }
+                            if coin.to_vec() == STETH_ADDRESS {
+                                let trace_data = TraceData::Rpc(RpcTraceData {
+                                    caller: None,
+                                    calldata: hex::decode("3f683b6a").unwrap(),
+                                });
+                                let (entrypoint, entrypoint_param) = create_entrypoint(
+                                    coin.clone(),
+                                    "isStopped".to_string(),
+                                    component.id.clone(),
+                                    trace_data,
+                                );
+
+                                entrypoints.insert(entrypoint);
+                                entrypoint_params.insert(entrypoint_param);
                             }
                             let pool_addr = hex::decode(component.id.trim_start_matches("0x"))
                                 .unwrap_or_else(|e| panic!("Invalid hex in address: {e}"));

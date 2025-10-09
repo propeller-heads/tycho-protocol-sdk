@@ -15,6 +15,7 @@ pub const STABLESWAP_FACTORY: [u8; 20] = hex!("4F8846Ae9380B90d2E71D5e3D042dff3E
 // Important addresses
 pub const WETH_ADDRESS: [u8; 20] = hex!("C02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2");
 pub const ETH_ADDRESS: [u8; 20] = hex!("EeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE");
+pub const STETH_ADDRESS: [u8; 20] = hex!("ae7ab96520DE3A18E5e111B5EaAb095312D7fE84");
 pub const OLD_SUSD: [u8; 20] = hex!("57Ab1E02fEE23774580C119740129eAC7081e9D3");
 pub const NEW_SUSD: [u8; 20] = hex!("57ab1ec28d129707052df4df418d58a2d46d5f51");
 pub const TRICRYPTO_2_LP: [u8; 20] = hex!("c4ad29ba4b3c580e6d59105fff484999997675ff");
