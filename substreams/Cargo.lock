@@ -323,6 +323,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "ethereum-fluid"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "ethabi 18.0.0",
+ "hex",
+ "itertools 0.10.5",
+ "num-bigint",
+ "prost 0.11.9",
+ "serde",
+ "serde-sibor",
+ "substreams",
+ "substreams-ethereum",
+ "substreams-helper 0.0.2 (git+https://github.com/propeller-heads/tycho-protocol-sdk.git?rev=b8aeaa3)",
+ "tycho-substreams 0.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
 name = "ethereum-maverick-v2"
 version = "0.1.1"
 dependencies = [
@@ -359,24 +377,6 @@ dependencies = [
  "substreams-helper 0.0.2 (git+https://github.com/propeller-heads/tycho-protocol-sdk.git?rev=b8aeaa3)",
  "tiny-keccak",
  "tycho-substreams 0.2.0",
-]
-
-[[package]]
-name = "ethereum-fluid"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "ethabi 18.0.0",
- "hex",
- "itertools 0.10.5",
- "num-bigint",
- "prost 0.11.9",
- "serde",
- "serde-sibor",
- "substreams",
- "substreams-ethereum",
- "substreams-helper 0.0.2 (git+https://github.com/propeller-heads/tycho-protocol-sdk.git?rev=b8aeaa3)",
- "tycho-substreams 0.2.0 (git+https://github.com/propeller-heads/tycho-protocol-sdk.git?rev=b8aeaa3)",
 ]
 
 [[package]]
