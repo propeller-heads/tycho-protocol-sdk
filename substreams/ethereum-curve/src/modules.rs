@@ -312,6 +312,41 @@ pub fn map_protocol_changes(
                 .component_changes
                 .iter()
                 .for_each(|component| {
+                    let pool_addr = hex::decode(component.id.trim_start_matches("0x"))
+                        .unwrap_or_else(|e| panic!("Invalid hex in address: {e}"));
+                    let rebasing_tokens = component
+                        .static_att
+                        .iter()
+                        .find(|att| att.name == "rebasing_tokens")
+                        .map(|att| json_deserialize_address_list(&att.value));
+                    if let Some(rebasing_tokens) = rebasing_tokens {
+                        rebasing_tokens
+                            .into_iter()
+                            .for_each(|r| {
+                                let trace_data = TraceData::Rpc(RpcTraceData {
+                                    caller: Some(pool_addr.clone()),
+                                    calldata: [
+                                        hex::decode("70a08231")
+                                            .unwrap()
+                                            .as_slice(), // balanceOf(address)
+                                        &[0u8; 12],
+                                        &pool_addr,
+                                    ]
+                                    .concat(),
+                                });
+
+                                let (entrypoint, entrypoint_param) = create_entrypoint(
+                                    r.clone(),
+                                    "balanceOf".to_string(),
+                                    component.id.clone(),
+                                    trace_data,
+                                );
+
+                                entrypoints.insert(entrypoint);
+                                entrypoint_params.insert(entrypoint_param);
+                            });
+                    }
+
                     let asset_types: Option<Vec<BigInt>> = component
                         .static_att
                         .iter()
@@ -385,28 +420,6 @@ pub fn map_protocol_changes(
                                 entrypoints.insert(entrypoint);
                                 entrypoint_params.insert(entrypoint_param);
                             }
-                            let pool_addr = hex::decode(component.id.trim_start_matches("0x"))
-                                .unwrap_or_else(|e| panic!("Invalid hex in address: {e}"));
-                            let trace_data = TraceData::Rpc(RpcTraceData {
-                                caller: Some(pool_addr.clone()),
-                                calldata: [
-                                    hex::decode("70a08231")
-                                        .unwrap()
-                                        .as_slice(),
-                                    &[0u8; 12],
-                                    &pool_addr,
-                                ]
-                                .concat(), // balanceOf 70a08231
-                            });
-                            let (entrypoint, entrypoint_param) = create_entrypoint(
-                                coin.clone(),
-                                "balanceOf".to_string(),
-                                component.id.clone(),
-                                trace_data,
-                            );
-
-                            entrypoints.insert(entrypoint);
-                            entrypoint_params.insert(entrypoint_param);
                         }
                     }
                     if let (Some(asset_types), Some(oracles), Some(method_ids), Some(coins)) =
