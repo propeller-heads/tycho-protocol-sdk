@@ -236,7 +236,7 @@ impl TestRunner {
                 stop_block,
                 &config.protocol_type_names,
                 &config.protocol_system,
-                &config.module_name,
+                config.module_name.clone(),
             )
             .wrap_err("Failed to run Tycho")?;
         let test = IntegrationTest {
@@ -307,7 +307,7 @@ impl TestRunner {
                     test.stop_block,
                     &config.protocol_type_names,
                     &config.protocol_system,
-                    &config.module_name,
+                    config.module_name.clone(),
                 )
                 .wrap_err("Failed to run Tycho")?;
             let rpc_server = tycho_runner.start_rpc_server()?;
