@@ -264,7 +264,8 @@ pub fn map_protocol_changes(
             if let Some(set_oracle) = SetOracle::match_and_decode(call) {
                 if set_oracle_components_store
                     .get_last(format!("0x{0}", hex::encode(&call.address)))
-                    .is_some()
+                    .is_some() &&
+                    set_oracle.oracle != ZERO_ADDRESS
                 {
                     let trace_data = TraceData::Rpc(RpcTraceData {
                         caller: None,

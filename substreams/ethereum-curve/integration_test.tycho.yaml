@@ -7,34 +7,6 @@ adapter_contract: "CurveAdapter"
 skip_balance_check: true
 
 tests:
-  - name: test_rmETH_mETH_pool
-    start_block: 19112425
-    stop_block: 19192425
-    initialized_accounts:
-      - "0xbebc44782c7db0a1a60cb6fe97d0b483032ff1c7" # Linked pool of this metapool
-      - "0xf18056bbd320e96a48e3fbf8bc061322531aac99"
-      - "0x0c0e5f2ff0ff18a3be9b835635039256dc4b4963"
-      - "0xc4ad29ba4b3c580e6d59105fff484999997675ff"
-      - "0x6a8cbed756804b16e05e741edabd5cb544ae21bf" # Factory, needed for implementations contrats queries
-    expected_components:
-      - id: "0xdd4316c777a2295d899ba7ad92e0efa699865f43"
-        tokens:
-          - "0xcC9F8c2A6366556e1899e40782B7076Db87dcE27" # rmETH
-          - "0xd5F7838F5C461fefF7FE49ea5ebaF7728bB0ADfa" # mETH
-        static_attributes:
-          pool_type: "0x706c61696e5f706f6f6c"
-          factory_name: "0x63727970746f5f737761705f6e675f666163746f7279"
-          name: "0x52657374616b65466920726d4554482f6d455448"
-          factory: "0x307836613863626564373536383034623136653035653734316564616264356362353434616532316266"
-          asset_types: "0x5b2230783032222c2230783030225d"
-          oracles: "0x5b22307830303030303030303030303030303030303030303030303030303030303030303030303030303030222c22307830303030303030303030303030303030303030303030303030303030303030303030303030303030225d"
-          method_ids: "0x5b2230783030303030303030222c2230783030303030303030225d"
-          coins: "0x5b22307863633966386332613633363635353665313839396534303738326237303736646238376463653237222c22307864356637383338663563343631666566663766653439656135656261663737323862623061646661225d"
-          rebasing_tokens: "0x5b22307863633966386332613633363635353665313839396534303738326237303736646238376463653237225d"
-        creation_tx: "0x41708461df3ab4b3af0a651fdfba25bace8512fea510d1dbd2141a3e438d1d2c"
-        skip_simulation: true # MissingAccount(0x85a3354ea4aaa69d21422fd67fdc5056656f363d)
-        skip_execution: true # the contract is before the Dencun upgrade(19426587)
-
   - name: test_ETH_stETH_ng_pool
     start_block: 17272519
     stop_block: 17292519
@@ -57,6 +29,27 @@ tests:
         skip_simulation: false
         skip_execution: true # the contract is before the Dencun upgrade(19426587)
 
+  - name: test_FRAX_stETH_pool
+    start_block: 16683219
+    stop_block: 17172466 # stETH upgrade
+    initialized_accounts:
+      - "0xf18056bbd320e96a48e3fbf8bc061322531aac99" # Cryptopool Factory
+      - "0xc4ad29ba4b3c580e6d59105fff484999997675ff" # Needed by another component that is created within this block range
+    expected_components:
+      - id: "0x4d9f9D15101EEC665F77210cB999639f760F831E"
+        tokens:
+          - "0x5E8422345238F34275888049021821E8E08CAa1f" # FRAX
+          - "0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84" # stETH
+        static_attributes:
+          factory_name: "0x4e41"
+          name: "0x7374657468"
+          factory: "0x307830303030303030303030303030303030303030303030303030303030303030303030303030303030"
+          coins: "0x5b22307865656565656565656565656565656565656565656565656565656565656565656565656565656565222c22307861653761623936353230646533613138653565313131623565616162303935333132643766653834225d"
+          rebasing_tokens: "0x5b22307861653761623936353230646533613138653565313131623565616162303935333132643766653834225d"
+        creation_tx: "0x2237849c181a04a4211b26dc7fe18b32c799e49c9f7d418c72037a668cc4d7c4"
+        skip_simulation: false
+        skip_execution: true # the contract is before the Dencun upgrade(19426587)
+
   - name: test_ETH_stETH_pool
     start_block: 11592551
     stop_block: 11623551
@@ -72,7 +65,7 @@ tests:
           coins: "0x5b22307865656565656565656565656565656565656565656565656565656565656565656565656565656565222c22307861653761623936353230646533613138653565313131623565616162303935333132643766653834225d"
           rebasing_tokens: "0x5b22307861653761623936353230646533613138653565313131623565616162303935333132643766653834225d"
         creation_tx: "0xfac67ecbd423a5b915deff06045ec9343568edaec34ae95c43d35f2c018afdaa"
-        skip_simulation: true # InvalidFEOpcode for old implementation contract 0x20dC62D5904633cC6a5E34bEc87A048E80C92e97
+        skip_simulation: true # InvalidFEOpcode for old implementation contract 0x20dC62D5904633cC6a5E34bEc87A048E80C92e97, new impl: 0x17144556fd3424edc8fc8a4c940b2d04936d17eb
         skip_execution: true # the contract is before the Dencun upgrade(19426587)
 
   - name: test_crvUSD_stUSDT_pool
