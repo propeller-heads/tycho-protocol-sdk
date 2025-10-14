@@ -213,44 +213,73 @@ pub fn address_map(
                     add_pool
                         .implementation_idx
                         .eq(&BigInt::from(5));
+                let mut static_attrs = vec![
+                    Attribute {
+                        name: "pool_type".into(),
+                        value: "plain_pool".into(),
+                        change: ChangeType::Creation.into(),
+                    },
+                    Attribute {
+                        name: "name".into(),
+                        value: add_pool.name.into(),
+                        change: ChangeType::Creation.into(),
+                    },
+                    Attribute {
+                        name: "factory_name".into(),
+                        value: "meta_pool_factory".into(),
+                        change: ChangeType::Creation.into(),
+                    },
+                    Attribute {
+                        name: "factory".into(),
+                        value: address_to_bytes_with_0x(&META_POOL_FACTORY),
+                        change: ChangeType::Creation.into(),
+                    },
+                    Attribute {
+                        name: "coins".into(),
+                        value: json_serialize_address_list(&tokens),
+                        change: ChangeType::Creation.into(),
+                    },
+                    Attribute {
+                        name: "set_oracle".into(),
+                        value: vec![use_set_oracle as u8],
+                        change: ChangeType::Creation.into(),
+                    },
+                ];
+                // Pool implementation contracts that support rebasing tokens:
+                // n_coins=2: implementation_idx=[1, 5]
+                // n_coins=3: implementation_idx=[1]
+                // n_coins=4: implementation_idx=[1]
+                let is_rebasing = match tokens.len() {
+                    2 => {
+                        add_pool.implementation_idx == BigInt::from(1) ||
+                            add_pool.implementation_idx == BigInt::from(5)
+                    }
+                    3 | 4 => add_pool.implementation_idx == BigInt::from(1),
+                    _ => false,
+                };
+
+                if is_rebasing {
+                    let rebasing_tokens: Vec<Vec<u8>> = tokens
+                        .iter()
+                        .filter(|coin| coin.as_slice() != ETH_ADDRESS)
+                        .cloned()
+                        .collect();
+
+                    if !rebasing_tokens.is_empty() {
+                        static_attrs.push(Attribute {
+                            name: "rebasing_tokens".to_string(),
+                            value: json_serialize_address_list(&rebasing_tokens),
+                            change: ChangeType::Creation.into(),
+                        });
+                    }
+                }
                 let pool_implementation = extract_proxy_impl(call, tx, 0).unwrap_or([1u8; 20]);
                 Some((
                     ProtocolComponent {
                         id: address_to_string_with_0x(component_id),
                         tokens: tokens.clone(),
                         contracts: vec![component_id.into()],
-                        static_att: vec![
-                            Attribute {
-                                name: "pool_type".into(),
-                                value: "plain_pool".into(),
-                                change: ChangeType::Creation.into(),
-                            },
-                            Attribute {
-                                name: "name".into(),
-                                value: add_pool.name.into(),
-                                change: ChangeType::Creation.into(),
-                            },
-                            Attribute {
-                                name: "factory_name".into(),
-                                value: "meta_pool_factory".into(),
-                                change: ChangeType::Creation.into(),
-                            },
-                            Attribute {
-                                name: "factory".into(),
-                                value: address_to_bytes_with_0x(&META_POOL_FACTORY),
-                                change: ChangeType::Creation.into(),
-                            },
-                            Attribute {
-                                name: "coins".into(),
-                                value: json_serialize_address_list(&tokens),
-                                change: ChangeType::Creation.into(),
-                            },
-                            Attribute {
-                                name: "set_oracle".into(),
-                                value: vec![use_set_oracle as u8],
-                                change: ChangeType::Creation.into(),
-                            },
-                        ],
+                        static_att: static_attrs,
                         change: ChangeType::Creation.into(),
                         protocol_type: Some(ProtocolType {
                             name: "curve_pool".into(),
@@ -787,39 +816,58 @@ pub fn address_map(
                     .collect();
 
                 let pool_implementation = extract_proxy_impl(call, tx, 0).unwrap_or([1u8; 20]);
+                let mut static_attrs = vec![
+                    Attribute {
+                        name: "pool_type".into(),
+                        value: "plain_pool".into(),
+                        change: ChangeType::Creation.into(),
+                    },
+                    Attribute {
+                        name: "name".into(),
+                        value: add_pool.name.into(),
+                        change: ChangeType::Creation.into(),
+                    },
+                    Attribute {
+                        name: "factory_name".into(),
+                        value: "stable_swap_factory".into(),
+                        change: ChangeType::Creation.into(),
+                    },
+                    Attribute {
+                        name: "factory".into(),
+                        value: address_to_bytes_with_0x(&STABLESWAP_FACTORY),
+                        change: ChangeType::Creation.into(),
+                    },
+                    Attribute {
+                        name: "coins".into(),
+                        value: json_serialize_address_list(&tokens),
+                        change: ChangeType::Creation.into(),
+                    },
+                ];
+                if tokens.len() == 2 &&
+                    add_pool
+                        .implementation_idx
+                        .eq(&BigInt::from(1))
+                {
+                    let rebasing_tokens: Vec<Vec<u8>> = tokens
+                        .iter()
+                        .filter(|coin| coin.as_slice() != ETH_ADDRESS)
+                        .cloned()
+                        .collect();
 
+                    if !rebasing_tokens.is_empty() {
+                        static_attrs.push(Attribute {
+                            name: "rebasing_tokens".to_string(),
+                            value: json_serialize_address_list(&rebasing_tokens),
+                            change: ChangeType::Creation.into(),
+                        });
+                    }
+                }
                 Some((
                     ProtocolComponent {
                         id: address_to_string_with_0x(component_id),
                         tokens: tokens.clone(),
                         contracts: vec![component_id.into()],
-                        static_att: vec![
-                            Attribute {
-                                name: "pool_type".into(),
-                                value: "plain_pool".into(),
-                                change: ChangeType::Creation.into(),
-                            },
-                            Attribute {
-                                name: "name".into(),
-                                value: add_pool.name.into(),
-                                change: ChangeType::Creation.into(),
-                            },
-                            Attribute {
-                                name: "factory_name".into(),
-                                value: "stable_swap_factory".into(),
-                                change: ChangeType::Creation.into(),
-                            },
-                            Attribute {
-                                name: "factory".into(),
-                                value: address_to_bytes_with_0x(&STABLESWAP_FACTORY),
-                                change: ChangeType::Creation.into(),
-                            },
-                            Attribute {
-                                name: "coins".into(),
-                                value: json_serialize_address_list(&tokens),
-                                change: ChangeType::Creation.into(),
-                            },
-                        ],
+                        static_att: static_attrs,
                         change: ChangeType::Creation.into(),
                         protocol_type: Some(ProtocolType {
                             name: "curve_pool".into(),
