@@ -245,7 +245,7 @@ pub fn address_map(
                         change: ChangeType::Creation.into(),
                     },
                 ];
-                // Pool implementation contracts that support rebasing tokens:
+                // Pool implementation contracts that support rebase tokens:
                 // n_coins=2: implementation_idx=[1, 5]
                 // n_coins=3: implementation_idx=[1]
                 // n_coins=4: implementation_idx=[1]
@@ -259,16 +259,16 @@ pub fn address_map(
                 };
 
                 if is_rebasing {
-                    let rebasing_tokens: Vec<Vec<u8>> = tokens
+                    let rebase_tokens: Vec<Vec<u8>> = tokens
                         .iter()
                         .filter(|coin| coin.as_slice() != ETH_ADDRESS)
                         .cloned()
                         .collect();
 
-                    if !rebasing_tokens.is_empty() {
+                    if !rebase_tokens.is_empty() {
                         static_attrs.push(Attribute {
-                            name: "rebasing_tokens".to_string(),
-                            value: json_serialize_address_list(&rebasing_tokens),
+                            name: "rebase_tokens".to_string(),
+                            value: json_serialize_address_list(&rebase_tokens),
                             change: ChangeType::Creation.into(),
                         });
                     }
@@ -537,7 +537,7 @@ pub fn address_map(
                         change: ChangeType::Creation.into(),
                     },
                 ];
-                let rebasing_tokens: Vec<Vec<u8>> = add_pool
+                let rebase_tokens: Vec<Vec<u8>> = add_pool
                     .asset_types
                     .iter()
                     .enumerate()
@@ -549,10 +549,10 @@ pub fn address_map(
                         }
                     })
                     .collect();
-                if !rebasing_tokens.is_empty() {
+                if !rebase_tokens.is_empty() {
                     static_attrs.push(Attribute {
-                        name: "rebasing_tokens".to_string(),
-                        value: json_serialize_address_list(&rebasing_tokens),
+                        name: "rebase_tokens".to_string(),
+                        value: json_serialize_address_list(&rebase_tokens),
                         change: ChangeType::Creation.into(),
                     });
                 }
@@ -639,7 +639,7 @@ pub fn address_map(
                 ];
                 if add_pool.asset_type.eq(&BigInt::from(2)) {
                     static_attrs.push(Attribute {
-                        name: "rebasing_tokens".to_string(),
+                        name: "rebase_tokens".to_string(),
                         value: json_serialize_address_list(&[
                             pool_added.coin.clone(),
                             lp_token.clone(),
@@ -848,16 +848,16 @@ pub fn address_map(
                         .implementation_idx
                         .eq(&BigInt::from(1))
                 {
-                    let rebasing_tokens: Vec<Vec<u8>> = tokens
+                    let rebase_tokens: Vec<Vec<u8>> = tokens
                         .iter()
                         .filter(|coin| coin.as_slice() != ETH_ADDRESS)
                         .cloned()
                         .collect();
 
-                    if !rebasing_tokens.is_empty() {
+                    if !rebase_tokens.is_empty() {
                         static_attrs.push(Attribute {
-                            name: "rebasing_tokens".to_string(),
-                            value: json_serialize_address_list(&rebasing_tokens),
+                            name: "rebase_tokens".to_string(),
+                            value: json_serialize_address_list(&rebase_tokens),
                             change: ChangeType::Creation.into(),
                         });
                     }

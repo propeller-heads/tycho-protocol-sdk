@@ -315,13 +315,13 @@ pub fn map_protocol_changes(
                 .for_each(|component| {
                     let pool_addr = hex::decode(component.id.trim_start_matches("0x"))
                         .unwrap_or_else(|e| panic!("Invalid hex in address: {e}"));
-                    let rebasing_tokens = component
+                    let rebase_tokens = component
                         .static_att
                         .iter()
-                        .find(|att| att.name == "rebasing_tokens")
+                        .find(|att| att.name == "rebase_tokens")
                         .map(|att| json_deserialize_address_list(&att.value));
-                    if let Some(rebasing_tokens) = rebasing_tokens {
-                        rebasing_tokens
+                    if let Some(rebase_tokens) = rebase_tokens {
+                        rebase_tokens
                             .into_iter()
                             .for_each(|r| {
                                 let trace_data = TraceData::Rpc(RpcTraceData {
