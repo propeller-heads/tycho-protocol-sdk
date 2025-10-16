@@ -127,7 +127,7 @@ tests:
 
   - name: test_ETH_stETH_pool
     start_block: 11592551
-    stop_block: 11623551
+    stop_block: 17266005 # stETH upgrade
     expected_components:
       - id: "0xdc24316b9ae028f1497c275eb9192a3ea0f67022"
         tokens:
