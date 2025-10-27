@@ -31,17 +31,15 @@ fn get_new_pools(
     pool_manager_address: &str,
 ) {
     // Extract new pools from Initialize events
-    let mut on_pool_created = |event: Initialize, _tx: &eth::TransactionTrace, _log: &eth::Log| {
+    let mut on_pool_created = |event: Initialize, tx: &eth::TransactionTrace, _log: &eth::Log| {
         // Filter: only include pools WITH swap hooks
         let hook_address = Address::from_slice(&event.hooks);
         if !HookPermissionsDetector::has_swap_hooks(&hook_address) {
             return; // Skip pools without swap hooks
         }
 
-        let tycho_tx: ethereum_uniswap_v4_shared::pb::uniswap::v4::Transaction = _tx.into();
-
         new_pools.push(TransactionEntityChanges {
-            tx: Some(tycho_tx.clone().into()),
+            tx: Some(tx.into()),
             entity_changes: vec![EntityChanges {
                 component_id: event.id.to_vec().to_hex(),
                 attributes: vec![
