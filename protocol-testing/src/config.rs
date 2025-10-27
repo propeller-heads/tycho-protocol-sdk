@@ -1,9 +1,9 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use colored::Colorize;
 use serde::{Deserialize, Serialize};
 use similar::{ChangeTag, TextDiff};
-use tycho_common::{dto::ProtocolComponent, Bytes};
+use tycho_simulation::{protocol::models::ProtocolComponent, tycho_common::Bytes};
 
 /// Represents a ProtocolComponent with its main attributes
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -22,20 +22,28 @@ pub struct ProtocolComponentWithTestConfig {
     pub base: ProtocolComponentExpectation,
     #[serde(default = "default_false")]
     pub skip_simulation: bool,
+    #[serde(default = "default_false")]
+    pub skip_execution: bool,
 }
 
 impl ProtocolComponentExpectation {
     pub fn compare(&self, other: &ProtocolComponent, colorize_output: bool) -> Option<String> {
         let mut diffs = Vec::new();
 
-        // Compare id
-        if self.id != other.id {
-            let diff = self.format_diff("id", &self.id, &other.id, colorize_output);
+        // Compare id (case-insensitive)
+        if self.id.to_lowercase() != other.id.to_string().to_lowercase() {
+            let diff = self.format_diff("id", &self.id, &other.id.to_string(), colorize_output);
             diffs.push(format!("Field 'id' mismatch for {}:\n{}", self.id, diff));
         }
 
-        // Compare tokens
-        if self.tokens != other.tokens {
+        // Compare tokens (order-independent)
+        let self_tokens_set: HashSet<_> = self.tokens.iter().collect();
+        let other_tokens_set: HashSet<_> = other
+            .tokens
+            .iter()
+            .map(|token| &token.address)
+            .collect();
+        if self_tokens_set != other_tokens_set {
             let self_tokens = format!("{:?}", self.tokens);
             let other_tokens = format!("{:?}", other.tokens);
             let diff = self.format_diff("tokens", &self_tokens, &other_tokens, colorize_output);
@@ -48,8 +56,8 @@ impl ProtocolComponentExpectation {
             match other_value {
                 Some(other_value) => {
                     if value != other_value {
-                        let self_value = format!("{:?}", value);
-                        let other_value = format!("{:?}", other_value);
+                        let self_value = format!("{value:?}");
+                        let other_value = format!("{other_value:?}");
                         let diff = self.format_diff(
                             "static_attributes",
                             &self_value,
@@ -64,8 +72,8 @@ impl ProtocolComponentExpectation {
                 }
                 None => {
                     diffs.push(format!(
-                        "Field 'static_attributes' mismatch for {}: Key '{}' not found",
-                        self.id, key
+                        "Field 'static_attributes' mismatch for {}: Key '{}' not found. Available attributes: {:?}",
+                        self.id, key, other.static_attributes,
                     ));
                 }
             }
@@ -134,11 +142,13 @@ pub struct IntegrationTest {
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct IntegrationTestsConfig {
     pub substreams_yaml_path: String,
-    pub adapter_contract: String,
+    pub adapter_contract: Option<String>,
     pub adapter_build_signature: Option<String>,
     pub adapter_build_args: Option<String>,
     pub initialized_accounts: Option<Vec<String>>,
     pub skip_balance_check: bool,
     pub protocol_type_names: Vec<String>,
+    pub protocol_system: String,
+    pub module_name: Option<String>,
     pub tests: Vec<IntegrationTest>,
 }

@@ -1,28 +1,29 @@
 use std::{collections::HashMap, error::Error as StdError, fmt};
 
-use tracing::info;
-use tycho_client::{rpc::RPCClient, HttpRPCClient};
-use tycho_common::{
-    dto::{
-        Chain, PaginationParams, ProtocolComponent, ProtocolComponentsRequestBody, ResponseAccount,
-        ResponseProtocolState, ResponseToken, StateRequestBody, VersionParam,
+use tracing::debug;
+use tycho_simulation::{
+    tycho_client::{rpc::RPCClient, HttpRPCClient},
+    tycho_common::{
+        dto::{
+            Chain, EntryPointWithTracingParams, PaginationParams, ProtocolComponent,
+            ProtocolComponentsRequestBody, ResponseAccount, ResponseProtocolState, ResponseToken,
+            StateRequestBody, TracedEntryPointRequestBody, TracingResult, VersionParam,
+        },
+        models::token::Token,
+        Bytes,
     },
-    models::token::Token,
-    Bytes,
 };
 
 /// Custom error type for RPC operations
 #[derive(Debug)]
 pub enum RpcError {
     ClientError(String),
-    ResponseError(String),
 }
 
 impl fmt::Display for RpcError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            RpcError::ClientError(msg) => write!(f, "RPC client error: {}", msg),
-            RpcError::ResponseError(msg) => write!(f, "RPC response error: {}", msg),
+            RpcError::ClientError(msg) => write!(f, "RPC client error: {msg}"),
         }
     }
 }
@@ -35,8 +36,8 @@ impl From<Box<dyn StdError>> for RpcError {
     }
 }
 
-impl From<tycho_client::RPCError> for RpcError {
-    fn from(error: tycho_client::RPCError) -> Self {
+impl From<tycho_simulation::tycho_client::RPCError> for RpcError {
+    fn from(error: tycho_simulation::tycho_client::RPCError) -> Self {
         RpcError::ClientError(error.to_string())
     }
 }
@@ -81,7 +82,7 @@ impl TychoClient {
     ) -> Result<Vec<ResponseProtocolState>, RpcError> {
         let chunk_size = 100;
         let concurrency = 1;
-        let version: tycho_common::dto::VersionParam = VersionParam::default();
+        let version: tycho_simulation::tycho_common::dto::VersionParam = VersionParam::default();
 
         let protocol_states = self
             .http_client
@@ -105,20 +106,35 @@ impl TychoClient {
         protocol_system: &str,
         chain: Chain,
     ) -> Result<Vec<ResponseAccount>, RpcError> {
-        let request_body = StateRequestBody {
-            contract_ids: None,
-            protocol_system: protocol_system.to_string(),
-            version: Default::default(),
-            chain,
-            pagination: PaginationParams { page: 0, page_size: 100 },
-        };
+        let mut all_accounts = Vec::new();
+        let mut page = 0;
+        let page_size = 100;
 
-        let contract_states = self
-            .http_client
-            .get_contract_state(&request_body)
-            .await?;
+        loop {
+            let request_body = StateRequestBody {
+                contract_ids: None,
+                protocol_system: protocol_system.to_string(),
+                version: Default::default(),
+                chain,
+                pagination: PaginationParams { page, page_size },
+            };
 
-        Ok(contract_states.accounts)
+            let response = self
+                .http_client
+                .get_contract_state(&request_body)
+                .await?;
+
+            let returned_count = response.accounts.len();
+            all_accounts.extend(response.accounts);
+
+            if returned_count < page_size as usize {
+                break;
+            }
+
+            page += 1;
+        }
+
+        Ok(all_accounts)
     }
 
     pub async fn get_tokens(
@@ -127,7 +143,7 @@ impl TychoClient {
         min_quality: Option<i32>,
         max_days_since_last_trade: Option<u64>,
     ) -> Result<HashMap<Bytes, Token>, RpcError> {
-        info!("Loading tokens from Tycho...");
+        debug!("Loading tokens from Tycho...");
 
         #[allow(clippy::mutable_key_type)]
         let res = self
@@ -152,5 +168,27 @@ impl TychoClient {
             .collect::<HashMap<_, Token>>();
 
         Ok(res)
+    }
+
+    /// Gets traced entry points from the RPC server
+    pub async fn get_traced_entry_points(
+        &self,
+        protocol_system: &str,
+        component_ids: Vec<String>,
+        chain: Chain,
+    ) -> Result<HashMap<String, Vec<(EntryPointWithTracingParams, TracingResult)>>, RpcError> {
+        let request_body = TracedEntryPointRequestBody {
+            protocol_system: protocol_system.to_string(),
+            chain,
+            pagination: PaginationParams { page: 0, page_size: 100 },
+            component_ids: Some(component_ids),
+        };
+
+        let traced_entry_points = self
+            .http_client
+            .get_traced_entry_points(&request_body)
+            .await?;
+
+        Ok(traced_entry_points.traced_entry_points)
     }
 }

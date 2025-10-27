@@ -4,6 +4,7 @@ use std::{
 };
 
 use miette::{miette, IntoDiagnostic, WrapErr};
+use tracing::{debug, info};
 
 pub struct AdapterContractBuilder {
     src_path: String,
@@ -63,16 +64,16 @@ impl AdapterContractBuilder {
         let output: Output = cmd
             .output()
             .into_diagnostic()
-            .wrap_err(miette!("Error running '{script_path}'"))?;
-
-        println!("Output:\n{}", String::from_utf8_lossy(&output.stdout));
-        if !output.stderr.is_empty() {
-            println!("Errors:\n{}", String::from_utf8_lossy(&output.stderr));
-        }
+            .wrap_err("Error running '{script_path}'")?;
 
         if !output.status.success() {
-            return Err(miette!("An error occurred: {}", String::from_utf8_lossy(&output.stderr)));
+            return Err(miette!(
+                "Failed to build adapter: {}",
+                String::from_utf8_lossy(&output.stderr)
+            ));
         }
+        info!("Adapter built successfully");
+        debug!("{}", String::from_utf8_lossy(&output.stdout));
 
         self.find_contract(adapter_contract)
     }
