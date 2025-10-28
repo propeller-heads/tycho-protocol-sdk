@@ -321,31 +321,64 @@ pub fn map_protocol_changes(
                         .find(|att| att.name == "rebase_tokens")
                         .map(|att| json_deserialize_address_list(&att.value));
                     if let Some(rebase_tokens) = rebase_tokens {
-                        rebase_tokens
-                            .into_iter()
-                            .for_each(|r| {
-                                let trace_data = TraceData::Rpc(RpcTraceData {
-                                    caller: Some(pool_addr.clone()),
-                                    calldata: [
-                                        hex::decode("70a08231")
-                                            .unwrap()
-                                            .as_slice(), // balanceOf(address)
-                                        &[0u8; 12],
-                                        &pool_addr,
-                                    ]
-                                    .concat(),
-                                });
-
-                                let (entrypoint, entrypoint_param) = create_entrypoint(
-                                    r.clone(),
-                                    "balanceOf".to_string(),
-                                    component.id.clone(),
-                                    trace_data,
-                                );
-
-                                entrypoints.insert(entrypoint);
-                                entrypoint_params.insert(entrypoint_param);
+                        rebase_tokens.into_iter().for_each(|r| {
+                            let trace_data = TraceData::Rpc(RpcTraceData {
+                                caller: Some(pool_addr.clone()),
+                                calldata: [
+                                    hex::decode("70a08231")
+                                        .unwrap()
+                                        .as_slice(), // balanceOf(address)
+                                    &[0u8; 12],
+                                    &pool_addr,
+                                ]
+                                .concat(),
                             });
+
+                            let (entrypoint, entrypoint_param) = create_entrypoint(
+                                r.clone(),
+                                "balanceOf".to_string(),
+                                component.id.clone(),
+                                trace_data,
+                            );
+
+                            entrypoints.insert(entrypoint);
+                            entrypoint_params.insert(entrypoint_param);
+                        });
+                    }
+
+                    let base_pool = component
+                        .static_att
+                        .iter()
+                        .find(|att| att.name == "base_pool")
+                        .map(|att| {
+                            let s = String::from_utf8(att.value.clone())
+                                .expect("Invalid UTF-8 in base_pool");
+                            hex::decode(s.trim_start_matches("0x"))
+                                .expect("Invalid hex bytes in base_pool")
+                        });
+
+                    let implementation_idx = component
+                        .static_att
+                        .iter()
+                        .find(|att| att.name == "implementation_idx")
+                        .map(|att| BigInt::from_signed_bytes_be(&att.value));
+                    if let (Some(base_pool), Some(implementation_idx)) =
+                        (base_pool, implementation_idx)
+                    {
+                        if implementation_idx == BigInt::from(0) {
+                            let trace_data = TraceData::Rpc(RpcTraceData {
+                                caller: Some(pool_addr.clone()),
+                                calldata: hex::decode("bb7b8b80").unwrap(),
+                            });
+                            let (entrypoint, entrypoint_param) = create_entrypoint(
+                                base_pool,
+                                "get_virtual_price".to_string(),
+                                component.id.clone(),
+                                trace_data,
+                            );
+                            entrypoints.insert(entrypoint);
+                            entrypoint_params.insert(entrypoint_param);
+                        }
                     }
 
                     let asset_types: Option<Vec<BigInt>> = component
