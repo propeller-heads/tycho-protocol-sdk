@@ -38,10 +38,10 @@ fn get_new_pools(
             return; // Skip pools with swap hooks
         }
 
-        let tycho_tx: ethereum_uniswap_v4_shared::pb::uniswap::v4::Transaction = _tx.into();
+        let tycho_tx: tycho_substreams::prelude::Transaction = _tx.into();
 
         new_pools.push(TransactionEntityChanges {
-            tx: Some(tycho_tx.clone().into()),
+            tx: Some(tycho_tx),
             entity_changes: vec![EntityChanges {
                 component_id: event.id.to_vec().to_hex(),
                 attributes: vec![

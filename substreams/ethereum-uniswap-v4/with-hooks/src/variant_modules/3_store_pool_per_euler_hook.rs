@@ -33,7 +33,10 @@ pub fn _track_uniswap_pools_by_hook<T: StoreGet<i64>>(
                 .find(|attr| attr.name == "hooks")
             {
                 let hook_address = hooks_attr.value.to_hex();
-                if let Some(_) = euler_hooks_store.get_last(&hook_address) {
+                if euler_hooks_store
+                    .get_last(&hook_address)
+                    .is_some()
+                {
                     let pool_id = component_change.id.clone();
 
                     // Store the pool ID under the hook address key

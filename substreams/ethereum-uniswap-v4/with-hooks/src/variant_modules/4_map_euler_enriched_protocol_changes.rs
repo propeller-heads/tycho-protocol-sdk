@@ -50,7 +50,10 @@ pub fn _enrich_protocol_changes(
                     substreams::log::debug!("Hook address: {}", hook_address);
 
                     // Check if this hook address is a known Euler hook
-                    if let Some(_) = euler_hooks_store.get_last(&hook_address) {
+                    if euler_hooks_store
+                        .get_last(&hook_address)
+                        .is_some()
+                    {
                         // Add the hook_identifier static attribute
                         component_change
                             .static_att
@@ -132,8 +135,8 @@ fn handle_pool_uninstalled_events(
                     .expect("Transaction not found in block");
                 let new_tx: Transaction = block_tx.into();
 
-                let mut new_tx_changes = TransactionChanges::default();
-                new_tx_changes.tx = Some(new_tx);
+                let mut new_tx_changes =
+                    TransactionChanges { tx: Some(new_tx), ..Default::default() };
                 new_tx_changes
                     .entity_changes
                     .push(EntityChanges {

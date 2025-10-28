@@ -1,5 +1,5 @@
 #[cfg(test)]
-mod tests {
+mod hooks_tests {
     use std::collections::HashMap;
     use substreams::store::StoreGet;
     use substreams_ethereum::pb::eth::v2::{Block, Log, TransactionReceipt, TransactionTrace};
@@ -90,9 +90,10 @@ mod tests {
     fn create_mock_pools_created() -> BlockEntityChanges {
         let mut tx_changes = TransactionEntityChanges::default();
 
-        let mut component_change = ProtocolComponent::default();
-        component_change.id =
-            "0x85405f10672f18aa00705afe87ec937d4eadcfc2652f223591b17040ea1d39d4".to_string();
+        let mut component_change = ProtocolComponent {
+            id: "0x85405f10672f18aa00705afe87ec937d4eadcfc2652f223591b17040ea1d39d4".to_string(),
+            ..Default::default()
+        };
         component_change.change = i32::from(ChangeType::Creation);
 
         // Add hook address attribute
@@ -162,20 +163,19 @@ mod tests {
     // Test based on real block 23120299 and transaction
     // 0xb2347c7bd922fe5c7f5027523e3f3b4c2e72e7b535e4d0ddd2f4ea4f21c6edbf
     fn create_real_block_23120299() -> Block {
-        let mut block = Block::default();
-        block.number = 23120299;
+        let mut block = Block { number: 23120299, ..Default::default() };
 
         // Create the transaction trace based on the real transaction
-        let mut tx = TransactionTrace::default();
-        tx.index = 0; // Assuming this was the first transaction in the block for simplicity
+        let mut tx = TransactionTrace { index: 0, ..Default::default() }; // Assuming this was the first transaction in the block for simplicity
         tx.hash = hex::decode("b2347c7bd922fe5c7f5027523e3f3b4c2e72e7b535e4d0ddd2f4ea4f21c6edbf")
             .unwrap();
         tx.to = hex::decode("000AFbF798467f9b3b97F90D05Bf7Df592d89A6CF0").unwrap(); // EulerSwap factory (padded to 20 bytes)
 
         // Create PoolDeployed log (simplified - real log would have proper event encoding)
-        let mut pool_deployed_log = Log::default();
-        pool_deployed_log.address =
-            hex::decode("000AFbF798467f9b3b97F90D05Bf7Df592d89A6CF0").unwrap();
+        let mut pool_deployed_log = Log {
+            address: hex::decode("000AFbF798467f9b3b97F90D05Bf7Df592d89A6CF0").unwrap(),
+            ..Default::default()
+        };
 
         // Real addresses from the transaction
         pool_deployed_log.topics = vec![
@@ -199,8 +199,10 @@ mod tests {
                 .unwrap();
 
         // Create Initialize log for UniswapV4 (simplified)
-        let mut initialize_log = Log::default();
-        initialize_log.address = hex::decode("000000000004444c5dc75cB358380D2e3dE08A90").unwrap(); // PoolManager
+        let mut initialize_log = Log {
+            address: hex::decode("000000000004444c5dc75cB358380D2e3dE08A90").unwrap(), /* PoolManager */
+            ..Default::default()
+        };
 
         // This would contain the real Initialize event data
         initialize_log.topics = vec![
@@ -223,17 +225,21 @@ mod tests {
     fn create_real_pools_created_23120299() -> BlockEntityChanges {
         let mut tx_changes = TransactionEntityChanges::default();
 
-        let mut component_change = ProtocolComponent::default();
-        // This would be the actual pool ID from the Initialize event
-        component_change.id = "real_pool_id_from_tx".to_string();
-        component_change.change = i32::from(ChangeType::Creation);
+        let mut component_change = ProtocolComponent {
+            id: "real_pool_id_from_tx".to_string(), /* This would be the actual pool ID from the
+                                                     * Initialize event */
+            change: i32::from(ChangeType::Creation),
+            ..Default::default()
+        };
 
         // Add the hook address that corresponds to the EulerSwap pool
-        component_change.static_att.push(Attribute {
-            name: "hooks".to_string(),
-            value: hex::decode("D585c8Baa6c0099d2cc59a5a089B8366Cb3ea8A8").unwrap(), // Real hook address
-            change: ChangeType::Creation.into(),
-        });
+        component_change
+            .static_att
+            .push(Attribute {
+                name: "hooks".to_string(),
+                value: hex::decode("D585c8Baa6c0099d2cc59a5a089B8366Cb3ea8A8").unwrap(), // Real hook address
+                change: ChangeType::Creation.into(),
+            });
 
         tx_changes.component_changes = vec![component_change];
 
