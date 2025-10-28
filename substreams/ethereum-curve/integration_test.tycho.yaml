@@ -239,6 +239,27 @@ tests:
         skip_simulation: false
         skip_execution: true
 
+  - name: test_ng_meta_pool
+    start_block: 20414774
+    stop_block: 20424774
+    initialized_accounts:
+      - "0xdcef968d416a41cdac0ed8702fac8128a64241a2"
+    expected_components:
+      - id: "0x057c658dfbbcbb96c361fb4e66b86cca081b6c6a"
+        tokens:
+          - "0x3175Df0976dFA876431C2E9eE6Bc45b65d3473CC" # crvFRAX
+          - "0x69000405f9DcE69BD4Cbf4f2865b79144A69BFE0" # USDz
+        static_attributes:
+          factory_name: "0x63727970746f5f737761705f6e675f666163746f7279"
+          pool_type: "0x6d657461706f6f6c"
+          name: "0x5a41492f465241584250"
+          factory: "0x307836613863626564373536383034623136653035653734316564616264356362353434616532316266"
+          base_pool: "0x307864636566393638643431366134316364616330656438373032666163383132386136343234316132"
+          implementation_idx: "0x00"
+        creation_tx: "0x3f7cf289a5044de34959e747f8abd05203955282901f806cae02ce20c158bccf"
+        skip_simulation: false
+        skip_execution: false
+
   - name: test_crvUSD_stUSDT_pool
     start_block: 18248830
     stop_block: 18249830

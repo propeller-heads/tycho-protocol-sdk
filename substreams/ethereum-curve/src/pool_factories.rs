@@ -624,6 +624,13 @@ pub fn address_map(
                         change: ChangeType::Creation.into(),
                     },
                     Attribute {
+                        name: "implementation_idx".into(),
+                        value: add_pool
+                            .implementation_idx
+                            .to_signed_bytes_be(),
+                        change: ChangeType::Creation.into(),
+                    },
+                    Attribute {
                         name: "asset_type".into(),
                         value: add_pool.asset_type.to_signed_bytes_be(),
                         change: ChangeType::Creation.into(),
