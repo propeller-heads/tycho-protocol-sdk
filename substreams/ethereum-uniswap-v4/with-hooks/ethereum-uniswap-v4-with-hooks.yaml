@@ -1,7 +1,7 @@
 specVersion: v0.1.0
 package:
   name: "ethereum_uniswap_v4_with_hooks"
-  version: v0.6.0
+  version: v0.6.1
   url: "https://github.com/propeller-heads/tycho-protocol-sdk/tree/main/substreams/ethereum-uniswap-v4/with-hooks"
 
 protobuf:
@@ -165,6 +165,15 @@ modules:
         mode: get
       - store: store_pool_per_euler_hook
         mode: get
+    output:
+      type: proto:tycho.evm.v1.BlockChanges
+
+  - name: map_dci_protocol_changes
+    kind: map
+    initialBlock: 21688329
+    inputs:
+      - source: sf.ethereum.type.v2.Block
+      - map: map_euler_enriched_protocol_changes
     output:
       type: proto:tycho.evm.v1.BlockChanges
 
