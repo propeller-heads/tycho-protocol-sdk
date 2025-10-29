@@ -10,8 +10,8 @@ pub mod store_pool_per_euler_hook;
 #[path = "4_map_euler_enriched_protocol_changes.rs"]
 pub mod map_euler_enriched_protocol_changes;
 
-#[path = "5_map_dci_protocol_changes.rs"]
-pub mod map_dci_protocol_changes;
+#[path = "5_map_protocol_changes.rs"]
+pub mod map_protocol_changes;
 
 #[cfg(test)]
 mod tests;

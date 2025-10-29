@@ -5,15 +5,15 @@ use crate::pb::uniswap::v4::{
 use itertools::Itertools;
 use std::{collections::HashMap, str::FromStr, vec};
 use substreams::{pb::substreams::StoreDeltas, scalar::BigInt};
-use substreams_ethereum::pb::eth::v2::{self as eth};
 use substreams_helper::hex::Hexable;
 use tycho_substreams::{balances::aggregate_balances_changes, prelude::*};
 
 type PoolAddress = Vec<u8>;
 
-#[substreams::handlers::map]
-pub fn map_protocol_changes(
-    block: eth::Block,
+/// Core logic for collecting transaction changes from various inputs.
+/// Returns the sorted transaction changes ready to be used in BlockChanges.
+#[allow(clippy::too_many_arguments)]
+pub fn collect_transaction_changes(
     created_pools: BlockEntityChanges,
     events: Events,
     balances_map_deltas: BlockBalanceDeltas,
@@ -22,7 +22,7 @@ pub fn map_protocol_changes(
     ticks_store_deltas: StoreDeltas,
     pool_liquidity_changes: LiquidityChanges,
     pool_liquidity_store_deltas: StoreDeltas,
-) -> Result<BlockChanges, substreams::errors::Error> {
+) -> Vec<TransactionChanges> {
     // We merge contract changes by transaction (identified by transaction index) making it easy to
     // sort them at the very end.
     let mut transaction_changes: HashMap<_, TransactionChangesBuilder> = HashMap::new();
@@ -153,15 +153,11 @@ pub fn map_protocol_changes(
             });
         });
 
-    Ok(BlockChanges {
-        block: Some((&block).into()),
-        changes: transaction_changes
-            .drain()
-            .sorted_unstable_by_key(|(index, _)| *index)
-            .filter_map(|(_, builder)| builder.build())
-            .collect::<Vec<_>>(),
-        storage_changes: vec![],
-    })
+    transaction_changes
+        .drain()
+        .sorted_unstable_by_key(|(index, _)| *index)
+        .filter_map(|(_, builder)| builder.build())
+        .collect()
 }
 
 fn event_to_attributes_updates(event: PoolEvent) -> Vec<(Transaction, PoolAddress, Attribute)> {

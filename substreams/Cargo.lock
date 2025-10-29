@@ -541,7 +541,7 @@ dependencies = [
  "substreams-ethereum",
  "substreams-helper 0.0.2 (git+https://github.com/propeller-heads/tycho-protocol-sdk.git?tag=0.5.0)",
  "tiny-keccak",
- "tycho-substreams 0.5.1",
+ "tycho-substreams 0.6.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -562,12 +562,12 @@ dependencies = [
  "substreams-ethereum",
  "substreams-helper 0.0.2 (git+https://github.com/propeller-heads/tycho-protocol-sdk.git?tag=0.5.0)",
  "tiny-keccak",
- "tycho-substreams 0.5.1",
+ "tycho-substreams 0.6.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
 name = "ethereum-uniswap-v4-with-hooks"
-version = "0.5.2"
+version = "0.6.1"
 dependencies = [
  "anyhow",
  "ethabi 18.0.0",

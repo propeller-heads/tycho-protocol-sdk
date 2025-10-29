@@ -23,9 +23,6 @@ pub mod map_store_ticks;
 #[path = "5_map_store_liquidity.rs"]
 pub mod map_store_liquidity;
 
-#[path = "6_map_protocol_changes.rs"]
-pub mod map_protocol_changes;
-
 pub mod uni_math;
 
 impl From<TransactionTrace> for Transaction {
