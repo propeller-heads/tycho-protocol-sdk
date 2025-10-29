@@ -15,7 +15,10 @@ use substreams_ethereum::{pb::eth, Function};
 use crate::{
     abi,
     abi::set_oracle_implementation::functions::SetOracle,
-    consts::{CONTRACTS_TO_INDEX, ETH_ADDRESS, NEW_SUSD, OLD_SUSD, STETH_ADDRESS},
+    consts::{
+        CONTRACTS_TO_INDEX, NEW_SUSD, OLD_SUSD, RUSDY_ADDRESS, RUSDY_BLOCKLIST_ADDRESS,
+        STETH_ADDRESS,
+    },
     pool_changes::emit_eth_deltas,
     pool_factories,
     pools::emit_specific_pools,
@@ -436,8 +439,27 @@ pub fn map_protocol_changes(
 
                     if let Some(coins) = &coins {
                         for coin in coins.iter() {
-                            if coin.to_vec() == ETH_ADDRESS {
-                                continue;
+                            if coin.to_vec() == RUSDY_ADDRESS {
+                                let trace_data = TraceData::Rpc(RpcTraceData {
+                                    caller: None,
+                                    calldata: [
+                                        hex::decode("fbac3951")
+                                            .unwrap()
+                                            .as_slice(), // isBlocked(address)
+                                        &[0u8; 12],
+                                        &pool_addr,
+                                    ]
+                                    .concat(),
+                                });
+                                let (entrypoint, entrypoint_param) = create_entrypoint(
+                                    RUSDY_BLOCKLIST_ADDRESS.to_vec(),
+                                    "isBlocked".to_string(),
+                                    component.id.clone(),
+                                    trace_data,
+                                );
+
+                                entrypoints.insert(entrypoint);
+                                entrypoint_params.insert(entrypoint_param);
                             }
                             if coin.to_vec() == STETH_ADDRESS {
                                 let trace_data = TraceData::Rpc(RpcTraceData {
