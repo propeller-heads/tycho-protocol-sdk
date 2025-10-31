@@ -1,5 +1,6 @@
+use super::{BalanceDelta, EventTrait};
 use crate::{
-    abi::pool::events::Flash,
+    abi::pool::events::CollectFees,
     pb::tycho::evm::aerodrome::Pool,
     storage::{constants::TRACKED_SLOTS, pool_storage::SlipstreamsPoolStorage},
 };
@@ -7,9 +8,7 @@ use substreams_ethereum::pb::eth::v2::StorageChange;
 use substreams_helper::{hex::Hexable, storage_change::StorageChangesFilter};
 use tycho_substreams::{models::Transaction, prelude::Attribute};
 
-use super::{BalanceDelta, EventTrait};
-
-impl EventTrait for Flash {
+impl EventTrait for CollectFees {
     fn get_changed_attributes(
         &self,
         storage_changes: &[StorageChange],
@@ -34,7 +33,11 @@ impl EventTrait for Flash {
                 ord: ordinal,
                 tx: Some(tx.clone()),
                 token: pool.token0.clone(),
-                delta: self.paid0.clone().to_signed_bytes_be(),
+                delta: self
+                    .amount0
+                    .neg()
+                    .clone()
+                    .to_signed_bytes_be(),
                 component_id: pool
                     .address
                     .clone()
@@ -46,7 +49,11 @@ impl EventTrait for Flash {
                 ord: ordinal,
                 tx: Some(tx.clone()),
                 token: pool.token1.clone(),
-                delta: self.paid1.clone().to_signed_bytes_be(),
+                delta: self
+                    .amount1
+                    .neg()
+                    .clone()
+                    .to_signed_bytes_be(),
                 component_id: pool
                     .address
                     .clone()
