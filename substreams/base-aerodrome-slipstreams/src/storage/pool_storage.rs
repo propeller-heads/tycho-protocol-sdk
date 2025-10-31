@@ -1,10 +1,10 @@
 use crate::storage::utils;
 use tycho_substreams::prelude::{Attribute, ChangeType};
 
+use super::{constants::TICKS_MAP_SLOT, utils::read_bytes};
+use crate::storage::constants::OBSERVATIONS;
 use substreams::scalar::BigInt;
 use substreams_ethereum::pb::eth::v2::StorageChange;
-
-use super::{constants::TICKS_MAP_SLOT, utils::read_bytes};
 
 /// `StorageLocation` is a struct that represents a specific location within a contract's storage
 /// associated with a name.
@@ -28,12 +28,12 @@ pub struct StorageLocation<'a> {
     pub signed: bool,
 }
 
-pub struct UniswapPoolStorage<'a> {
+pub struct SlipstreamsPoolStorage<'a> {
     pub storage_changes: &'a Vec<StorageChange>,
 }
 
-impl<'a> UniswapPoolStorage<'a> {
-    pub fn new(storage_changes: &'a Vec<StorageChange>) -> UniswapPoolStorage<'a> {
+impl<'a> SlipstreamsPoolStorage<'a> {
+    pub fn new(storage_changes: &'a Vec<StorageChange>) -> SlipstreamsPoolStorage<'a> {
         Self { storage_changes }
     }
 
@@ -121,6 +121,33 @@ impl<'a> UniswapPoolStorage<'a> {
                 slot: tick_slot,
                 offset: 16,
                 number_of_bytes: 16,
+                signed: true,
+            });
+        }
+
+        self.get_changed_attributes(storage_locs.iter().collect())
+    }
+
+    pub fn get_observations_changes(&self, observations_idx: Vec<&BigInt>) -> Vec<Attribute> {
+        let mut storage_locs = Vec::new();
+        let mut observation_names = Vec::new();
+
+        for observation_idx in observations_idx.iter() {
+            observation_names.push(format!("observations/{observation_idx}"));
+        }
+
+        for (observation_idx, observation_name) in observations_idx
+            .iter()
+            .zip(observation_names.iter())
+        {
+            let observation_slot =
+                utils::calc_fixed_array_slot(&OBSERVATIONS, observation_idx.to_u64());
+
+            storage_locs.push(StorageLocation {
+                name: observation_name,
+                slot: observation_slot,
+                offset: 0,
+                number_of_bytes: 32,
                 signed: true,
             });
         }
