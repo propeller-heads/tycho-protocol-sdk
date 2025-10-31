@@ -1,7 +1,7 @@
-substreams_yaml_path: ./ethereum-uniswap-v3.yaml
-protocol_system: "uniswap_v3"
+substreams_yaml_path: ./base-aerodrome-slipstreams.yaml
+protocol_system: "aerodrome_slipstreams"
 protocol_type_names:
-  - "uniswap_v3_pool"
+  - "aerodrome_slipstreams_pool"
 module_name: "map_pool_events"
 skip_balance_check: true
 initialized_accounts:
