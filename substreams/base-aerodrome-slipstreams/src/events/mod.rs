@@ -1,20 +1,24 @@
+use crate::{
+    abi::pool::events::{
+        Burn, Collect, CollectFees, Flash, IncreaseObservationCardinalityNext, Initialize, Mint,
+        SetFeeProtocol, Swap,
+    },
+    pb::tycho::evm::aerodrome::Pool,
+};
 use substreams_ethereum::{
     pb::eth::v2::{Log, StorageChange},
     Event,
 };
-
-use crate::{
-    abi::pool::events::{
-        Burn, Collect, CollectProtocol, Flash, Initialize, Mint, SetFeeProtocol, Swap,
-    },
-    pb::uniswap::v3::{BalanceDelta, Pool},
+use tycho_substreams::{
+    models::{BalanceDelta, Transaction},
+    prelude::Attribute,
 };
-use tycho_substreams::prelude::Attribute;
 
 pub mod burn;
 pub mod collect;
-pub mod collect_fee_protocol;
+pub mod collect_fees;
 pub mod flash;
+pub mod increase_observation_cardinality_next;
 pub mod initialize;
 pub mod mint;
 pub mod set_fee_protocol;
@@ -50,7 +54,7 @@ pub trait EventTrait {
     /// # Returns
     ///
     /// A vector of `BalanceDelta` that represents the balance deltas.
-    fn get_balance_delta(&self, pool: &Pool, ordinal: u64) -> Vec<BalanceDelta>;
+    fn get_balance_delta(&self, tx: &Transaction, pool: &Pool, ordinal: u64) -> Vec<BalanceDelta>;
 }
 
 /// Represent every events of a UniswapV3 pool.
@@ -62,7 +66,8 @@ pub enum EventType {
     Burn(Burn),
     Collect(Collect),
     SetFeeProtocol(SetFeeProtocol),
-    CollectProtocol(CollectProtocol),
+    CollectFees(CollectFees),
+    IncreaseObservationCardinalityNext(IncreaseObservationCardinalityNext),
 }
 
 impl EventType {
@@ -75,7 +80,8 @@ impl EventType {
             EventType::Burn(e) => e,
             EventType::Collect(e) => e,
             EventType::SetFeeProtocol(e) => e,
-            EventType::CollectProtocol(e) => e,
+            EventType::CollectFees(e) => e,
+            EventType::IncreaseObservationCardinalityNext(e) => e,
         }
     }
 }
@@ -98,7 +104,9 @@ pub fn decode_event(event: &Log) -> Option<EventType> {
         Burn::match_and_decode(event).map(EventType::Burn),
         Collect::match_and_decode(event).map(EventType::Collect),
         SetFeeProtocol::match_and_decode(event).map(EventType::SetFeeProtocol),
-        CollectProtocol::match_and_decode(event).map(EventType::CollectProtocol),
+        CollectFees::match_and_decode(event).map(EventType::CollectFees),
+        IncreaseObservationCardinalityNext::match_and_decode(event)
+            .map(EventType::IncreaseObservationCardinalityNext),
     ]
     .into_iter()
     .find_map(std::convert::identity)
@@ -132,17 +140,18 @@ pub fn get_log_changed_attributes(
 ///
 /// # Arguments
 ///
+/// * `tx` - Reference to the `Transaction` structure.
 /// * `event` - A reference to the `Log`.
 /// * `pool` - Reference to the `Pool` structure.
 ///
 /// # Returns
 ///
 /// A vector of `BalanceDelta` that represents
-pub fn get_log_changed_balances(event: &Log, pool: &Pool) -> Vec<BalanceDelta> {
+pub fn get_log_changed_balances(tx: &Transaction, event: &Log, pool: &Pool) -> Vec<BalanceDelta> {
     decode_event(event)
         .map(|e| {
             e.as_event_trait()
-                .get_balance_delta(pool, event.ordinal)
+                .get_balance_delta(tx, pool, event.ordinal)
         })
         .unwrap_or_default()
 }

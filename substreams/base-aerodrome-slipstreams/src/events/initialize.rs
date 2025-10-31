@@ -1,14 +1,14 @@
+use substreams::scalar::BigInt;
 use substreams_ethereum::pb::eth::v2::StorageChange;
 
+use super::{BalanceDelta, EventTrait};
 use crate::{
     abi::pool::events::Initialize,
-    pb::uniswap::v3::Pool,
-    storage::{constants::TRACKED_SLOTS, pool_storage::UniswapPoolStorage},
+    pb::tycho::evm::aerodrome::Pool,
+    storage::{constants::TRACKED_SLOTS, pool_storage::SlipstreamsPoolStorage},
 };
 use substreams_helper::storage_change::StorageChangesFilter;
-use tycho_substreams::prelude::Attribute;
-
-use super::{BalanceDelta, EventTrait};
+use tycho_substreams::{models::Transaction, prelude::Attribute};
 
 impl EventTrait for Initialize {
     fn get_changed_attributes(
@@ -23,13 +23,21 @@ impl EventTrait for Initialize {
             .into_iter()
             .cloned()
             .collect();
+        let pool_storage = SlipstreamsPoolStorage::new(&filtered_storage_changes);
 
-        let pool_storage = UniswapPoolStorage::new(&filtered_storage_changes);
+        let mut attributes =
+            pool_storage.get_changed_attributes(TRACKED_SLOTS.to_vec().iter().collect());
+        attributes.extend(pool_storage.get_observations_changes(vec![&BigInt::zero()]));
 
-        pool_storage.get_changed_attributes(TRACKED_SLOTS.to_vec().iter().collect())
+        attributes
     }
 
-    fn get_balance_delta(&self, _pool: &Pool, _ordinal: u64) -> Vec<BalanceDelta> {
+    fn get_balance_delta(
+        &self,
+        _tx: &Transaction,
+        _pool: &Pool,
+        _ordinal: u64,
+    ) -> Vec<BalanceDelta> {
         vec![]
     }
 }
