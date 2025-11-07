@@ -3,9 +3,9 @@ use tycho_simulation::{
         decoder::TychoStreamDecoder,
         engine_db::tycho_db::PreCachedDB,
         protocol::{
-            ekubo::state::EkuboState, pancakeswap_v2::state::PancakeswapV2State,
-            uniswap_v2::state::UniswapV2State, uniswap_v3::state::UniswapV3State,
-            vm::state::EVMPoolState,
+            aerodrome_slipstreams::state::AerodromeSlipstreamsState, ekubo::state::EkuboState,
+            pancakeswap_v2::state::PancakeswapV2State, uniswap_v2::state::UniswapV2State,
+            uniswap_v3::state::UniswapV3State, vm::state::EVMPoolState,
         },
     },
     protocol::models::DecoderContext,
@@ -33,6 +33,12 @@ pub fn register_decoder_for_protocol(
         "uniswap_v3" | "pancakeswap_v3" => {
             decoder
                 .register_decoder_with_context::<UniswapV3State>(protocol_system, decoder_context);
+        }
+        "aerodrome_slipstreams" => {
+            decoder.register_decoder_with_context::<AerodromeSlipstreamsState>(
+                protocol_system,
+                decoder_context,
+            );
         }
         "ekubo_v2" => {
             decoder.register_decoder_with_context::<EkuboState>(protocol_system, decoder_context);

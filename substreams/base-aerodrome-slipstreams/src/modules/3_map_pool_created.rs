@@ -1,8 +1,10 @@
 use crate::{abi::factory::events::PoolCreated, modules::utils::Params};
 use ethabi::ethereum_types::Address;
-use prost::Message;
 use std::str::FromStr;
-use substreams::store::{StoreGet, StoreGetInt64};
+use substreams::{
+    scalar::BigInt,
+    store::{StoreGet, StoreGetInt64},
+};
 use substreams_ethereum::pb::eth::v2::{self as eth};
 use substreams_helper::{event_handler::EventHandler, hex::Hexable};
 use tycho_substreams::prelude::*;
@@ -32,8 +34,8 @@ fn get_new_pools(
         let tycho_tx: Transaction = _tx.into();
         // Get default fee for tick spacing
         let default_fee = tick_spacing_to_fee_store
-            .get_last(event.tick_spacing.to_string())
-            .unwrap_or_default(); // todo default fee for test
+            .get_last(format!("tick_spacing_{}", event.tick_spacing))
+            .expect("Failed to get default fee");
         new_pools.push(TransactionProtocolComponents {
             tx: Some(tycho_tx.clone()),
             components: vec![ProtocolComponent {
@@ -43,7 +45,7 @@ fn get_new_pools(
                 static_att: vec![
                     Attribute {
                         name: "default_fee".to_string(),
-                        value: default_fee.encode_to_vec(),
+                        value: BigInt::from(default_fee).to_signed_bytes_be(),
                         change: ChangeType::Creation.into(),
                     },
                     Attribute {
