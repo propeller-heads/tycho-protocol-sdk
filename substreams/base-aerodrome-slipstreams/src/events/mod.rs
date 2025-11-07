@@ -1,7 +1,7 @@
 use crate::{
     abi::pool::events::{
         Burn, Collect, CollectFees, Flash, IncreaseObservationCardinalityNext, Initialize, Mint,
-        SetFeeProtocol, Swap,
+        Swap,
     },
     pb::tycho::evm::aerodrome::Pool,
 };
@@ -21,7 +21,6 @@ pub mod flash;
 pub mod increase_observation_cardinality_next;
 pub mod initialize;
 pub mod mint;
-pub mod set_fee_protocol;
 pub mod swap;
 
 /// A trait for extracting changed attributes and balance from an event.
@@ -65,7 +64,6 @@ pub enum EventType {
     Mint(Mint),
     Burn(Burn),
     Collect(Collect),
-    SetFeeProtocol(SetFeeProtocol),
     CollectFees(CollectFees),
     IncreaseObservationCardinalityNext(IncreaseObservationCardinalityNext),
 }
@@ -79,7 +77,6 @@ impl EventType {
             EventType::Mint(e) => e,
             EventType::Burn(e) => e,
             EventType::Collect(e) => e,
-            EventType::SetFeeProtocol(e) => e,
             EventType::CollectFees(e) => e,
             EventType::IncreaseObservationCardinalityNext(e) => e,
         }
@@ -103,7 +100,6 @@ pub fn decode_event(event: &Log) -> Option<EventType> {
         Mint::match_and_decode(event).map(EventType::Mint),
         Burn::match_and_decode(event).map(EventType::Burn),
         Collect::match_and_decode(event).map(EventType::Collect),
-        SetFeeProtocol::match_and_decode(event).map(EventType::SetFeeProtocol),
         CollectFees::match_and_decode(event).map(EventType::CollectFees),
         IncreaseObservationCardinalityNext::match_and_decode(event)
             .map(EventType::IncreaseObservationCardinalityNext),

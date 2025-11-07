@@ -6,6 +6,7 @@ use crate::{
     modules::utils::Params,
     pb::tycho::evm::aerodrome::Pool,
 };
+use anyhow::anyhow;
 use itertools::Itertools;
 use num_bigint::BigInt;
 use std::{collections::HashMap, vec};
@@ -33,7 +34,8 @@ pub fn map_pool_events(
     balance_deltas: BlockBalanceDeltas,
 ) -> Result<BlockChanges, substreams::errors::Error> {
     let params = Params::parse_from_query(&params)?;
-    let dynamic_fee_module_address = params.dynamic_fee_module.into_bytes();
+    let dynamic_fee_module_address = hex::decode(params.dynamic_fee_module)
+        .map_err(|e| anyhow!("Invalid dynamic_fee_module hex: {}", e))?;
     let mut transaction_changes: HashMap<_, TransactionChangesBuilder> = HashMap::new();
 
     protocol_components
@@ -114,51 +116,61 @@ pub fn map_pool_events(
                 .address
                 .eq(&dynamic_fee_module_address)
             {
-                if let Some(custom_fee_set) = CustomFeeSet::match_and_decode(log) {
-                    builder.add_entity_change(&EntityChanges {
-                        component_id: custom_fee_set.pool.clone().to_hex(),
-                        attributes: vec![Attribute {
-                            name: "dfc_baseFee".to_string(),
-                            value: custom_fee_set.fee.to_signed_bytes_be(),
-                            change: ChangeType::Creation.into(),
+                let mut handle_event = |pool: &Vec<u8>, attrs: Vec<Attribute>| {
+                    let pool_key = format!("Pool:{}", pool.to_hex());
+                    if pools_store
+                        .get_last(&pool_key)
+                        .is_some()
+                    {
+                        builder.add_entity_change(&EntityChanges {
+                            component_id: pool.to_hex(),
+                            attributes: attrs,
+                        });
+                    }
+                };
+                if let Some(e) = CustomFeeSet::match_and_decode(log) {
+                    handle_event(
+                        &e.pool.clone(),
+                        vec![Attribute {
+                            name: "dfc_baseFee".into(),
+                            value: e.fee.to_signed_bytes_be(),
+                            change: ChangeType::Update.into(),
                         }],
-                    });
-                } else if let Some(scaling_factor_set) = ScalingFactorSet::match_and_decode(log) {
-                    builder.add_entity_change(&EntityChanges {
-                        component_id: scaling_factor_set.pool.clone().to_hex(),
-                        attributes: vec![Attribute {
-                            name: "dfc_scalingFactor".to_string(),
-                            value: scaling_factor_set
-                                .scaling_factor
-                                .to_signed_bytes_be(),
-                            change: ChangeType::Creation.into(),
+                    );
+                } else if let Some(e) = ScalingFactorSet::match_and_decode(log) {
+                    handle_event(
+                        &e.pool.clone(),
+                        vec![Attribute {
+                            name: "dfc_scalingFactor".into(),
+                            value: e.scaling_factor.to_signed_bytes_be(),
+                            change: ChangeType::Update.into(),
                         }],
-                    });
-                } else if let Some(fee_cap_set) = FeeCapSet::match_and_decode(log) {
-                    builder.add_entity_change(&EntityChanges {
-                        component_id: fee_cap_set.pool.clone().to_hex(),
-                        attributes: vec![Attribute {
-                            name: "dfc_feeCap".to_string(),
-                            value: fee_cap_set.fee_cap.to_signed_bytes_be(),
-                            change: ChangeType::Creation.into(),
+                    );
+                } else if let Some(e) = FeeCapSet::match_and_decode(log) {
+                    handle_event(
+                        &e.pool.clone(),
+                        vec![Attribute {
+                            name: "dfc_feeCap".into(),
+                            value: e.fee_cap.to_signed_bytes_be(),
+                            change: ChangeType::Update.into(),
                         }],
-                    });
-                } else if let Some(dynamic_fee_reset) = DynamicFeeReset::match_and_decode(log) {
-                    builder.add_entity_change(&EntityChanges {
-                        component_id: dynamic_fee_reset.pool.clone().to_hex(),
-                        attributes: vec![
+                    );
+                } else if let Some(e) = DynamicFeeReset::match_and_decode(log) {
+                    handle_event(
+                        &e.pool.clone(),
+                        vec![
                             Attribute {
-                                name: "dfc_scalingFactor".to_string(),
+                                name: "dfc_scalingFactor".into(),
                                 value: BigInt::from(0).to_signed_bytes_be(),
                                 change: ChangeType::Update.into(),
                             },
                             Attribute {
-                                name: "dfc_feeCap".to_string(),
+                                name: "dfc_feeCap".into(),
                                 value: BigInt::from(0).to_signed_bytes_be(),
                                 change: ChangeType::Update.into(),
                             },
                         ],
-                    });
+                    );
                 }
             }
         }

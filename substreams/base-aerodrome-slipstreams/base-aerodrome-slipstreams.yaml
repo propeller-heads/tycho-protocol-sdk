@@ -8,6 +8,7 @@ protobuf:
   files:
     - tycho/evm/v1/common.proto
     - tycho/evm/v1/entity.proto
+    - tycho/evm/v1/utils.proto
     - slipstreams.proto
   importPaths:
     - ./proto/v1
@@ -21,24 +22,24 @@ binaries:
 modules:
   - name: map_tick_spacing_fee
     kind: map
-    initialBlock: 13843704
+    initialBlock: 13843704    
     inputs:
       - params: string
       - source: sf.ethereum.type.v2.Block
     output:
-      type: proto:slipstreams.TickSpacingFees
+      type: proto:tycho.evm.aerodrome.TickSpacingFees
 
   - name: store_tick_spacing_fee
     kind: store
-    initialBlock: 13843704
-    updatePolicy: set_if_not_exists
+    initialBlock: 13843704    
+    updatePolicy: set
     valueType: proto:slipstreams.TickSpacingFees
     inputs:
       - map: map_tick_spacing_fee
 
   - name: map_pools_created
     kind: map
-    initialBlock: 13843704
+    initialBlock: 13843704    
     inputs:
       - params: string
       - source: sf.ethereum.type.v2.Block
@@ -48,7 +49,7 @@ modules:
 
   - name: store_pools
     kind: store
-    initialBlock: 13843704
+    initialBlock: 13843704    
     updatePolicy: set_if_not_exists
     valueType: proto:slipstreams.Pool
     inputs:
@@ -56,7 +57,7 @@ modules:
 
   - name: map_balance_changes
     kind: map
-    initialBlock: 13843704
+    initialBlock: 13843704    
     inputs:
       - source: sf.ethereum.type.v2.Block
       - store: store_pools
@@ -65,7 +66,7 @@ modules:
 
   - name: store_pools_balances
     kind: store
-    initialBlock: 13843704
+    initialBlock: 13843704    
     updatePolicy: add
     valueType: bigint
     inputs:
@@ -73,7 +74,7 @@ modules:
 
   - name: map_pool_events
     kind: map
-    initialBlock: 13843704
+    initialBlock: 13843704    
     inputs:
       - params: string
       - source: sf.ethereum.type.v2.Block

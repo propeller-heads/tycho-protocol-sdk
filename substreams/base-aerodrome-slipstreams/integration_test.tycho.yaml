@@ -6,15 +6,17 @@ module_name: "map_pool_events"
 skip_balance_check: true
 initialized_accounts:
 tests:
-  - name: test_weth_now_pool
-    start_block: 22182832
-    stop_block: 22182834
+  - name: test_weth_b3
+    start_block: 26204083
+    stop_block: 26301121 # dynamic fee module
     expected_components:
-      - id: "0x545b7db6632ab230fd84897488291def7912319c"
+      - id: "0xB099C658e784b41EE435d48a8eb67e8f27285C93"
         tokens:
-          - "0xe9a95d175a5f4c9369f3b74222402eb1b837693b"
-          - "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2"
+          - "0x4200000000000000000000000000000000000006" # weth
+          - "0xB3B32F9f8827D4634fE7d973Fa1034Ec9fdDB3B3" # b3
         static_attributes:
-          fee: "0x0bb8"
-        creation_tx: "0x6d22d1823e4d68e3123f326a34d26d5f17943c446c74608da2834092918cd4bb"
+          default_fee: "0x1f4"
+          tick_spacing: "0x64"
+        creation_tx: "0xa47c7350a988573e757b524fd2ab2b0cb0a7f377a1580ce191cbaec5949a3972"
         skip_simulation: false
+        skip_execution: true
