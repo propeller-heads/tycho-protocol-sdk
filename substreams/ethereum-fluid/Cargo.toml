@@ -18,9 +18,8 @@ ethabi = "18.0.0"
 num-bigint = "0.4.6"
 hex = "0.4.3"
 itertools = "0.10.5"
-serde = "1.0.217"
-serde-sibor = "0.1.0"
-
+serde = { version = "1.0.217", features = ["derive"] }
+serde_qs = "0.15.0"
 
 [build-dependencies]
 anyhow = "1"
