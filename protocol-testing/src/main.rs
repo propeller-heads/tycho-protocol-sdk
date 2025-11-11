@@ -131,6 +131,10 @@ struct CommonArgs {
     /// Enable tracing during execution simulations
     #[arg(long, default_value_t = false)]
     execution_traces: bool,
+
+    /// Skip indexing if testing simulation or execution changes only
+    #[arg(long, default_value_t = false)]
+    skip_indexing: bool,
 }
 
 impl CommonArgs {

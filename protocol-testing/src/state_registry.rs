@@ -3,7 +3,7 @@ use tycho_simulation::{
         decoder::TychoStreamDecoder,
         engine_db::tycho_db::PreCachedDB,
         protocol::{
-            ekubo::state::EkuboState, pancakeswap_v2::state::PancakeswapV2State,
+            ekubo::state::EkuboState, fluid::FluidV1, pancakeswap_v2::state::PancakeswapV2State,
             uniswap_v2::state::UniswapV2State, uniswap_v3::state::UniswapV3State,
             vm::state::EVMPoolState,
         },
@@ -36,6 +36,9 @@ pub fn register_decoder_for_protocol(
         }
         "ekubo_v2" => {
             decoder.register_decoder_with_context::<EkuboState>(protocol_system, decoder_context);
+        }
+        "fluid_v1" => {
+            decoder.register_decoder_with_context::<FluidV1>(protocol_system, decoder_context);
         }
         // Default to EVMPoolState for all other protocols
         _ => {

@@ -276,7 +276,7 @@ dependencies = [
  "prost-types 0.12.6",
  "regex",
  "serde",
- "serde_qs",
+ "serde_qs 0.13.0",
  "substreams",
  "substreams-ethereum",
  "tycho-substreams 0.2.1 (git+https://github.com/propeller-heads/tycho-protocol-sdk.git?rev=51995f9)",
@@ -297,7 +297,7 @@ dependencies = [
  "prost 0.11.9",
  "prost-types 0.12.6",
  "serde",
- "serde_qs",
+ "serde_qs 0.13.0",
  "substreams",
  "substreams-ethereum",
  "tycho-substreams 0.2.1 (git+https://github.com/propeller-heads/tycho-protocol-sdk.git?rev=52d5021)",
@@ -314,7 +314,7 @@ dependencies = [
  "num-bigint",
  "prost 0.11.9",
  "serde",
- "serde_qs",
+ "serde_qs 0.13.0",
  "substreams",
  "substreams-ethereum",
  "substreams-helper 0.0.2 (git+https://github.com/propeller-heads/tycho-protocol-sdk.git?tag=0.4.0)",
@@ -333,7 +333,7 @@ dependencies = [
  "num-bigint",
  "prost 0.11.9",
  "serde",
- "serde-sibor",
+ "serde_qs 0.15.0",
  "substreams",
  "substreams-ethereum",
  "substreams-helper 0.0.2 (git+https://github.com/propeller-heads/tycho-protocol-sdk.git?rev=b8aeaa3)",
@@ -352,7 +352,7 @@ dependencies = [
  "prost 0.11.9",
  "serde",
  "serde-sibor",
- "serde_qs",
+ "serde_qs 0.13.0",
  "substreams",
  "substreams-ethereum",
  "substreams-helper 0.0.2 (git+https://github.com/propeller-heads/tycho-protocol-sdk.git?rev=52d5021)",
@@ -448,7 +448,7 @@ dependencies = [
  "prost 0.11.9",
  "serde",
  "serde-sibor",
- "serde_qs",
+ "serde_qs 0.13.0",
  "substreams",
  "substreams-ethereum",
  "tycho-substreams 0.2.1 (git+https://github.com/propeller-heads/tycho-protocol-sdk.git?rev=52d5021)",
@@ -494,7 +494,7 @@ dependencies = [
  "num-bigint",
  "prost 0.11.9",
  "serde",
- "serde_qs",
+ "serde_qs 0.13.0",
  "substreams",
  "substreams-ethereum",
  "substreams-helper 0.0.2 (git+https://github.com/propeller-heads/tycho-protocol-sdk.git?rev=b8aeaa3)",
@@ -888,9 +888,9 @@ checksum = "78b3ae25bc7c8c38cec158d1f2757ee79e9b3740fbc7ccf0e59e4b08d793fa89"
 
 [[package]]
 name = "log"
-version = "0.4.22"
+version = "0.4.28"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a7a70ba024b9dc04c27ea2f0c0548feb474ec5c54bba33a7f72f873a39d07b24"
+checksum = "34080505efa8e45a4b816c349525ebe327ceaa8559756f0356cba97ef3bf7432"
 
 [[package]]
 name = "memchr"
@@ -1416,6 +1416,17 @@ dependencies = [
  "percent-encoding",
  "serde",
  "thiserror 1.0.69",
+]
+
+[[package]]
+name = "serde_qs"
+version = "0.15.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f3faaf9e727533a19351a43cc5a8de957372163c7d35cc48c90b75cdda13c352"
+dependencies = [
+ "percent-encoding",
+ "serde",
+ "thiserror 2.0.7",
 ]
 
 [[package]]
