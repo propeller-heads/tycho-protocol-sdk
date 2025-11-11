@@ -77,6 +77,7 @@ pub struct TestRunner {
     adapter_contract_builder: AdapterContractBuilder,
     runtime: Runtime,
     rpc_provider: RPCProvider,
+    skip_indexing: bool,
 }
 
 impl TestRunner {
@@ -90,6 +91,7 @@ impl TestRunner {
         rpc_url: String,
         vm_simulation_traces: bool,
         execution_traces: bool,
+        skip_indexing: bool,
     ) -> miette::Result<Self> {
         let base_protocol = CLONE_TO_BASE_PROTOCOL
             .get(protocol.as_str())
@@ -129,6 +131,7 @@ impl TestRunner {
             adapter_contract_builder,
             runtime,
             rpc_provider,
+            skip_indexing,
         })
     }
 
@@ -297,16 +300,20 @@ impl TestRunner {
             let tycho_runner = self.tycho_runner(initialized_accounts)?;
             let spkg_path = build_spkg(substreams_yaml_path, test.start_block)
                 .wrap_err("Failed to build spkg")?;
-            tycho_runner
-                .run_tycho(
-                    &spkg_path,
-                    test.start_block,
-                    test.stop_block,
-                    &config.protocol_type_names,
-                    &config.protocol_system,
-                    config.module_name.clone(),
-                )
-                .wrap_err("Failed to run Tycho")?;
+            if !self.skip_indexing {
+                tycho_runner
+                    .run_tycho(
+                        &spkg_path,
+                        test.start_block,
+                        test.stop_block,
+                        &config.protocol_type_names,
+                        &config.protocol_system,
+                        config.module_name.clone(),
+                    )
+                    .wrap_err("Failed to run Tycho")?;
+            } else {
+                info!("Skipping indexing")
+            }
             let rpc_server = tycho_runner.start_rpc_server()?;
             match self.run_test(test, &config, test.stop_block) {
                 Ok(_) => {
@@ -395,9 +402,12 @@ impl TestRunner {
     }
 
     fn tycho_runner(&self, initialized_accounts: Vec<String>) -> miette::Result<TychoRunner> {
-        self.empty_database()
-            .into_diagnostic()
-            .wrap_err("Failed to empty the database")?;
+        // If we skip indexing, reuse current db state
+        if !self.skip_indexing {
+            self.empty_database()
+                .into_diagnostic()
+                .wrap_err("Failed to empty the database")?;
+        }
         Ok(TychoRunner::new(self.chain, self.db_url.to_string(), initialized_accounts))
     }
 
@@ -993,6 +1003,7 @@ mod tests {
             "test-protocol".to_string(),
             "".to_string(),
             rpc_url,
+            false,
             false,
             false,
         )
