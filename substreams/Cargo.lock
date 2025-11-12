@@ -323,8 +323,8 @@ dependencies = [
 ]
 
 [[package]]
-name = "ethereum-fluid"
-version = "0.1.0"
+name = "ethereum-fluid_v1"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "ethabi 18.0.0",
@@ -337,7 +337,7 @@ dependencies = [
  "substreams",
  "substreams-ethereum",
  "substreams-helper 0.0.2 (git+https://github.com/propeller-heads/tycho-protocol-sdk.git?rev=b8aeaa3)",
- "tycho-substreams 0.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "tycho-substreams 0.5.1",
 ]
 
 [[package]]
