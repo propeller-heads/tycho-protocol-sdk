@@ -336,7 +336,7 @@ fn map_protocol_changes(
     );
 
     // handle attributes if a pool was paused or unpaused
-    add_paused_attributes(contracts_store, &mut transaction_changes, &block);
+    add_paused_attributes(&components_store, &mut transaction_changes, &block);
 
     if params.should_query_tvl(block.number) ||
         !initialised_components
@@ -367,7 +367,7 @@ fn map_protocol_changes(
 }
 
 pub fn add_paused_attributes(
-    dex_addresses: StoreGetRaw,
+    dex_addresses: &StoreGetInt64,
     tx_changes: &mut HashMap<u64, TransactionChangesBuilder>,
     block: &eth::v2::Block,
 ) {

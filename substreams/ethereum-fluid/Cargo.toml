@@ -1,10 +1,10 @@
 [package]
-name = "ethereum-fluid"
-version = "0.1.0"
+name = "ethereum-fluid_v1"
+version = "0.2.0"
 edition = "2021"
 
 [lib]
-name = "ethereum_fluid"
+name = "ethereum_fluid_v1"
 crate-type = ["cdylib"]
 
 [dependencies]
