@@ -3,8 +3,8 @@ use serde::Deserialize;
 
 #[derive(Debug, Deserialize)]
 pub struct Params {
-    pub factory: String,
-    pub dynamic_fee_module: String,
+    pub factories: Vec<String>,
+    pub dynamic_fee_modules: Vec<String>,
 }
 
 impl Params {
