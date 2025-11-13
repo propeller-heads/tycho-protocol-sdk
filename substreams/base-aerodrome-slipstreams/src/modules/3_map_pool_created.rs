@@ -14,19 +14,24 @@ pub fn map_pools_created(
     params: String,
     block: eth::Block,
     tick_spacing_to_fee_store: StoreGetInt64,
-) -> Result<BlockTransactionProtocolComponents, substreams::errors::Error> {
-    let mut new_pools: Vec<TransactionProtocolComponents> = vec![];
+) -> Result<BlockChanges, substreams::errors::Error> {
+    let mut new_pools: Vec<TransactionChanges> = vec![];
     let params = Params::parse_from_query(&params)?;
-    get_new_pools(&block, &mut new_pools, params.factory.as_str(), tick_spacing_to_fee_store);
+    let factory_addresses = params
+        .factories
+        .iter()
+        .map(|f| Address::from_str(f).expect("invalid address"))
+        .collect::<Vec<_>>();
+    get_new_pools(&block, &mut new_pools, factory_addresses, tick_spacing_to_fee_store);
 
-    Ok(BlockTransactionProtocolComponents { tx_components: new_pools })
+    Ok(BlockChanges { block: Some((&block).into()), changes: new_pools, ..Default::default() })
 }
 
 // Extract new pools from PoolCreated events
 fn get_new_pools(
     block: &eth::Block,
-    new_pools: &mut Vec<TransactionProtocolComponents>,
-    factory_address: &str,
+    new_pools: &mut Vec<TransactionChanges>,
+    factory_addresses: Vec<Address>,
     tick_spacing_to_fee_store: StoreGetInt64,
 ) {
     // Extract new pools from PoolCreated events
@@ -36,9 +41,55 @@ fn get_new_pools(
         let default_fee = tick_spacing_to_fee_store
             .get_last(format!("tick_spacing_{}", event.tick_spacing))
             .expect("Failed to get default fee");
-        new_pools.push(TransactionProtocolComponents {
+        new_pools.push(TransactionChanges {
             tx: Some(tycho_tx.clone()),
-            components: vec![ProtocolComponent {
+            contract_changes: vec![],
+            entity_changes: vec![EntityChanges {
+                component_id: event.pool.to_hex(),
+                attributes: vec![
+                    Attribute {
+                        name: "liquidity".to_string(),
+                        value: BigInt::from(0).to_signed_bytes_be(),
+                        change: ChangeType::Creation.into(),
+                    },
+                    Attribute {
+                        name: "tick".to_string(),
+                        value: BigInt::from(0).to_signed_bytes_be(),
+                        change: ChangeType::Creation.into(),
+                    },
+                    Attribute {
+                        name: "sqrt_price_x96".to_string(),
+                        value: BigInt::from(0).to_signed_bytes_be(),
+                        change: ChangeType::Creation.into(),
+                    },
+                    Attribute {
+                        name: "observationIndex".to_string(),
+                        value: BigInt::from(0).to_signed_bytes_be(),
+                        change: ChangeType::Creation.into(),
+                    },
+                    Attribute {
+                        name: "observationCardinality".to_string(),
+                        value: BigInt::from(0).to_signed_bytes_be(),
+                        change: ChangeType::Creation.into(),
+                    },
+                    Attribute {
+                        name: "dfc_baseFee".to_string(),
+                        value: BigInt::from(0).to_signed_bytes_be(),
+                        change: ChangeType::Creation.into(),
+                    },
+                    Attribute {
+                        name: "dfc_scalingFactor".to_string(),
+                        value: BigInt::from(0).to_signed_bytes_be(),
+                        change: ChangeType::Creation.into(),
+                    },
+                    Attribute {
+                        name: "dfc_feeCap".to_string(),
+                        value: BigInt::from(0).to_signed_bytes_be(),
+                        change: ChangeType::Creation.into(),
+                    },
+                ],
+            }],
+            component_changes: vec![ProtocolComponent {
                 id: event.pool.to_hex(),
                 tokens: vec![event.token0, event.token1],
                 contracts: vec![],
@@ -67,12 +118,14 @@ fn get_new_pools(
                     implementation_type: ImplementationType::Custom.into(),
                 }),
             }],
+            balance_changes: vec![],
+            ..Default::default()
         })
     };
 
     let mut eh = EventHandler::new(block);
 
-    eh.filter_by_address(vec![Address::from_str(factory_address).unwrap()]);
+    eh.filter_by_address(factory_addresses);
 
     eh.on::<PoolCreated, _>(&mut on_pool_created);
     eh.handle_events();
