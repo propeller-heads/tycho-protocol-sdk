@@ -2,7 +2,7 @@ substreams_yaml_path: ./base-aerodrome-slipstreams.yaml
 protocol_system: "aerodrome_slipstreams"
 protocol_type_names:
   - "aerodrome_slipstreams_pool"
-module_name: "map_pool_events"
+module_name: "map_protocol_changes"
 skip_balance_check: true
 initialized_accounts:
 tests:
