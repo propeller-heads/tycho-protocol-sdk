@@ -6,7 +6,7 @@ use crate::{
     modules::utils::Params,
     pb::tycho::evm::aerodrome::Pool,
 };
-use anyhow::anyhow;
+
 use itertools::Itertools;
 use num_bigint::BigInt;
 use std::{collections::HashMap, vec};
