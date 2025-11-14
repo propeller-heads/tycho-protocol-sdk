@@ -16,6 +16,6 @@ mod map_balance_changes;
 #[path = "6_store_pools_balances.rs"]
 mod store_pools_balances;
 
-#[path = "7_map_pool_events.rs"]
-mod map_pool_events;
+#[path = "7_map_protocol_changes.rs"]
+mod map_protocol_changes;
 mod utils;

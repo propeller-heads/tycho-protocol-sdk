@@ -22,7 +22,7 @@ use substreams_helper::hex::Hexable;
 use tycho_substreams::{balances::aggregate_balances_changes, prelude::*};
 
 #[substreams::handlers::map]
-pub fn map_pool_events(
+pub fn map_protocol_changes(
     params: String,
     block: eth::Block,
     protocol_components: BlockChanges,
