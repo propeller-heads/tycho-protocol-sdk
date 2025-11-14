@@ -10,12 +10,13 @@ pub fn store_tick_spacing_fee(tick_spacing_fees: TickSpacingFees, store: StoreSe
     // To keep the tests fast, we pre-store the factory’s tick spacing fees here.
     // This allows us to start the integration test from the pool’s creation block
     // while still retaining the update logic to handle future on-chain changes properly.
-    store.set(0, "tick_spacing_1", &100);
-    store.set(0, "tick_spacing_10", &500);
-    store.set(0, "tick_spacing_50", &500);
-    store.set(0, "tick_spacing_100", &500);
-    store.set(0, "tick_spacing_200", &3000);
-    store.set(0, "tick_spacing_2000", &10000);
+    // store.set(0, "tick_spacing_1", &100);
+    // store.set(0, "tick_spacing_10", &500);
+    // store.set(0, "tick_spacing_50", &500);
+    // store.set(0, "tick_spacing_100", &500);
+    // store.set(0, "tick_spacing_200", &3000);
+    // store.set(0, "tick_spacing_2000", &10000);
+
     for fee in tick_spacing_fees
         .tick_spacing_fees
         .iter()
