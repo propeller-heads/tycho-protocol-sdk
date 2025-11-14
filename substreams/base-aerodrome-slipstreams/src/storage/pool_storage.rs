@@ -1,10 +1,12 @@
 use std::collections::HashSet;
 
-use crate::storage::utils;
+use crate::storage::{
+    constants::{OBSERVATIONS, OBSERVATIONS_BASE_U64},
+    utils,
+};
 use tycho_substreams::prelude::{Attribute, ChangeType};
 
 use super::{constants::TICKS_MAP_SLOT, utils::read_bytes};
-use crate::storage::constants::OBSERVATIONS;
 use substreams::scalar::BigInt;
 use substreams_ethereum::pb::eth::v2::StorageChange;
 
@@ -160,11 +162,6 @@ impl<'a> SlipstreamsPoolStorage<'a> {
     pub fn get_all_observations_changes(&self) -> Vec<Attribute> {
         let mut observations_idx: Vec<BigInt> = Vec::new();
         let mut seen = HashSet::new();
-        let base_low = u64::from_be_bytes(
-            OBSERVATIONS[24..32]
-                .try_into()
-                .expect("slice length must be 8"),
-        );
         let max_obs = 65535u64;
 
         for change in self.storage_changes.iter() {
@@ -173,11 +170,11 @@ impl<'a> SlipstreamsPoolStorage<'a> {
                     .try_into()
                     .expect("slice length must be 8"),
             );
-            if key_low < base_low {
+            if key_low < OBSERVATIONS_BASE_U64 {
                 continue;
             }
 
-            let idx = key_low - base_low;
+            let idx = key_low - OBSERVATIONS_BASE_U64;
 
             if idx > max_obs {
                 continue;
