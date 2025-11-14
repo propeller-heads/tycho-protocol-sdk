@@ -19,10 +19,7 @@ use substreams_ethereum::{
     Event,
 };
 use substreams_helper::hex::Hexable;
-use tycho_substreams::{
-    balances::aggregate_balances_changes, block_storage::get_block_storage_changes,
-    contract::extract_contract_changes_builder, prelude::*,
-};
+use tycho_substreams::{balances::aggregate_balances_changes, prelude::*};
 
 #[substreams::handlers::map]
 pub fn map_pool_events(
@@ -74,16 +71,6 @@ pub fn map_pool_events(
                         .for_each(|bc| builder.add_balance_change(bc))
                 });
         });
-
-    extract_contract_changes_builder(
-        &block,
-        |addr| {
-            pools_store
-                .get_last(format!("Pool:0x{}", hex::encode(addr)))
-                .is_some()
-        },
-        &mut transaction_changes,
-    );
 
     for trx in block.transactions() {
         let tx = Transaction {
@@ -177,8 +164,6 @@ pub fn map_pool_events(
         }
     }
 
-    let block_storage_changes = get_block_storage_changes(&block);
-
     Ok(BlockChanges {
         block: Some((&block).into()),
         changes: transaction_changes
@@ -186,6 +171,6 @@ pub fn map_pool_events(
             .sorted_unstable_by_key(|(index, _)| *index)
             .filter_map(|(_, builder)| builder.build())
             .collect::<Vec<_>>(),
-        storage_changes: block_storage_changes,
+        storage_changes: vec![],
     })
 }
