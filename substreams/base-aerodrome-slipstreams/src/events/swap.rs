@@ -29,17 +29,8 @@ impl EventTrait for Swap {
         let mut changed_attributes =
             pool_storage.get_changed_attributes(TRACKED_SLOTS.to_vec().iter().collect());
 
-        let changed_observation_index = changed_attributes
-            .iter()
-            .find(|attr| attr.name == "observationIndex")
-            .map(|attr| attr.value.clone());
-
-        if let Some(observation_index) = changed_observation_index {
-            let observation_index = BigInt::from_signed_bytes_be(observation_index.as_slice());
-            let changed_observation =
-                pool_storage.get_observations_changes(vec![&observation_index]);
-            changed_attributes.extend(changed_observation);
-        }
+        let changed_observation = pool_storage.get_all_observations_changes();
+        changed_attributes.extend(changed_observation);
 
         changed_attributes
     }
