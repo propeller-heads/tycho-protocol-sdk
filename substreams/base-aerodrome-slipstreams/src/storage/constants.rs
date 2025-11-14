@@ -45,6 +45,8 @@ pub(crate) const TICKS_MAP_SLOT: [u8; 32] =
 pub(crate) const OBSERVATIONS: [u8; 32] =
     hex!("0000000000000000000000000000000000000000000000000000000000000014");
 
+pub(crate) const OBSERVATIONS_BASE_U64: u64 = 20;
+
 pub(crate) const TRACKED_SLOTS: [StorageLocation; 5] = [
     LIQUIDITY_SLOT,
     SQRT_PRICE_X96_SLOT,
