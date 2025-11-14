@@ -21,6 +21,21 @@ tests:
         skip_simulation: false
         skip_execution: true
 
+  - name: test_crvUSD_USDC
+    start_block: 13901096
+    stop_block: 13928560 # observations[0] changed
+    expected_components:
+      - id: "0xf8d5df4d3408acd52a3ff54e8dbce0b3b28aa744"
+        tokens:
+          - "0x417Ac0e078398C154EdFadD9Ef675d30Be60Af93" # crvUSD
+          - "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913" # usdc
+        static_attributes:
+          default_fee: "0x64"
+          tick_spacing: "0x01"
+        creation_tx: "0x742dde25cb497abebb36eacc75aee7bd1c409e2c85db125b03fd1fbcb78679a9"
+        skip_simulation: false
+        skip_execution: true
+
   # created by new factory
   - name: test_weth_bmi
     start_block: 38086214
