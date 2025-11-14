@@ -1,6 +1,6 @@
 use std::{collections::HashMap, error::Error as StdError, fmt};
 
-use tracing::debug;
+use tracing::{debug, info};
 use tycho_simulation::{
     tycho_client::{
         feed::synchronizer::Snapshot,
@@ -52,9 +52,10 @@ pub struct TychoClient {
 }
 
 impl TychoClient {
-    pub fn new(host: &str) -> Result<Self, RpcError> {
-        let http_client = HttpRPCClient::new(host, HttpRPCClientOptions::default())
-            .map_err(|e| RpcError::ClientError(e.to_string()))?;
+    pub fn new(host: &str, auth_key: Option<String>) -> Result<Self, RpcError> {
+        let options = HttpRPCClientOptions::new().with_auth_key(auth_key);
+        let http_client =
+            HttpRPCClient::new(host, options).map_err(|e| RpcError::ClientError(e.to_string()))?;
         Ok(Self { http_client })
     }
 
@@ -154,5 +155,41 @@ impl TychoClient {
             .await?;
 
         Ok(response)
+    }
+
+    /// Waits for the protocol to be synced and have components available
+    pub async fn wait_for_protocol_sync(
+        &self,
+        protocol_system: &str,
+        chain: Chain,
+    ) -> Result<(), RpcError> {
+        use tokio::time::{sleep, Duration};
+        use tracing::warn;
+
+        loop {
+            match self
+                .get_protocol_components(protocol_system, chain)
+                .await
+            {
+                Ok(components) => {
+                    info!("Found {} components for protocol {}", components.len(), protocol_system);
+                    if !components.is_empty() {
+                        return Ok(());
+                    }
+                    info!(
+                        "Protocol {} found but no components available yet, waiting...",
+                        protocol_system
+                    );
+                }
+                Err(e) => {
+                    warn!(
+                        "Failed to get protocol components for {}: {}. Retrying in 15 minutes...",
+                        protocol_system, e
+                    );
+                }
+            }
+
+            sleep(Duration::from_secs(15 * 60)).await;
+        }
     }
 }

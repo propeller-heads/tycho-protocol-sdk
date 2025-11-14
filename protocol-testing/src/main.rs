@@ -31,7 +31,7 @@ enum TestSubcommand {
     Range(RangeTestCommand),
 }
 
-/// Run a test from a specific initial block to the latest block
+/// Run continuous sync test from a specific initial block
 #[derive(Args)]
 pub struct FullTestCommand {
     #[command(flatten)]
@@ -42,22 +42,13 @@ pub struct FullTestCommand {
     /// configuration.
     #[arg(long)]
     initial_block: Option<u64>,
-
-    /// Stop the test at this block number.
-    /// If not provided, it will use the latest block of the chain at the time of running the
-    /// command.
-    #[arg(long)]
-    stop_block: Option<u64>,
 }
 
 impl FullTestCommand {
     fn run(self) -> miette::Result<()> {
         let args = self.common_args;
         TestRunner::new(
-            TestType::Full(TestTypeFull {
-                initial_block: self.initial_block,
-                stop_block: self.stop_block,
-            }),
+            TestType::Full(TestTypeFull { initial_block: self.initial_block }),
             args.root_path()?,
             args.chain,
             args.package,
