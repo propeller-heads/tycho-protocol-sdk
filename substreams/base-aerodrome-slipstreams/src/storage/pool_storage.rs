@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use crate::storage::utils;
 use tycho_substreams::prelude::{Attribute, ChangeType};
 
@@ -148,10 +150,44 @@ impl<'a> SlipstreamsPoolStorage<'a> {
                 slot: observation_slot,
                 offset: 0,
                 number_of_bytes: 32,
-                signed: true,
+                signed: false,
             });
         }
 
         self.get_changed_attributes(storage_locs.iter().collect())
+    }
+
+    pub fn get_all_observations_changes(&self) -> Vec<Attribute> {
+        let mut observations_idx: Vec<BigInt> = Vec::new();
+        let mut seen = HashSet::new();
+        let base_low = u64::from_be_bytes(
+            OBSERVATIONS[24..32]
+                .try_into()
+                .expect("slice length must be 8"),
+        );
+        let max_obs = 65535u64;
+
+        for change in self.storage_changes.iter() {
+            let key_low = u64::from_be_bytes(
+                change.key[24..32]
+                    .try_into()
+                    .expect("slice length must be 8"),
+            );
+            if key_low < base_low {
+                continue;
+            }
+
+            let idx = key_low - base_low;
+
+            if idx > max_obs {
+                continue;
+            }
+            if seen.insert(idx) {
+                observations_idx.push(BigInt::from(idx));
+            }
+        }
+        let observation_idx_refs: Vec<&BigInt> = observations_idx.iter().collect();
+
+        self.get_observations_changes(observation_idx_refs)
     }
 }
