@@ -3,7 +3,6 @@ use crate::{
     pb::tycho::evm::aerodrome::Pool,
     storage::{constants::TRACKED_SLOTS, pool_storage::SlipstreamsPoolStorage},
 };
-use substreams::prelude::BigInt;
 use substreams_ethereum::pb::eth::v2::StorageChange;
 use substreams_helper::storage_change::StorageChangesFilter;
 use tycho_substreams::models::Transaction;
@@ -35,17 +34,8 @@ impl EventTrait for Burn {
 
         changed_attributes.extend(changed_ticks);
 
-        let changed_observation_index = changed_attributes
-            .iter()
-            .find(|attr| attr.name == "observationIndex")
-            .map(|attr| attr.value.clone());
-
-        if let Some(observation_index) = changed_observation_index {
-            let observation_index = BigInt::from_signed_bytes_be(observation_index.as_slice());
-            let changed_observation =
-                pool_storage.get_observations_changes(vec![&observation_index]);
-            changed_attributes.extend(changed_observation);
-        }
+        let changed_observation = pool_storage.get_all_observations_changes();
+        changed_attributes.extend(changed_observation);
 
         changed_attributes
     }

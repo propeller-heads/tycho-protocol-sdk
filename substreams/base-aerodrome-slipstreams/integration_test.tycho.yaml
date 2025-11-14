@@ -8,7 +8,7 @@ initialized_accounts:
 tests:
   - name: test_weth_b3
     start_block: 26204083
-    stop_block: 26301121 # dynamic fee module
+    stop_block: 26281121 # dynamic fee module
     expected_components:
       - id: "0xB099C658e784b41EE435d48a8eb67e8f27285C93"
         tokens:
@@ -24,15 +24,15 @@ tests:
   # created by new factory
   - name: test_weth_bmi
     start_block: 38086214
-    stop_block: 38121693
+    stop_block: 38087214
     expected_components:
       - id: "0x1b7088833548A8C4Ab12a900a2f4bdFA49221081"
         tokens:
           - "0x4200000000000000000000000000000000000006" # weth
           - "0x2F16386bB37709016023232523FF6d9DAF444BE3" # bmi
         static_attributes:
-          default_fee: "0x1f4"
-          tick_spacing: "0x64"
+          default_fee: "0x0bb8"
+          tick_spacing: "0x00c8"
         creation_tx: "0x77fae105ce2c7c959b8839f8a5fd787f6d2b79f9f7e17d66d55f714b710372a6"
         skip_simulation: false
         skip_execution: true
