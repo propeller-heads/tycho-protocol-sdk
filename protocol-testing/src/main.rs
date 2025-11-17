@@ -55,7 +55,7 @@ impl FullTestCommand {
             args.db_url,
             args.rpc_url,
             args.vm_simulation_traces,
-            args.skip_indexing,
+            args.clear_db,
         )?
         .run()
     }
@@ -83,7 +83,7 @@ impl RangeTestCommand {
             args.db_url,
             args.rpc_url,
             args.vm_simulation_traces,
-            args.skip_indexing,
+            args.clear_db,
         )?
         .run()
     }
@@ -122,9 +122,11 @@ struct CommonArgs {
     #[arg(long, default_value_t = false)]
     execution_traces: bool,
 
-    /// Skip indexing and run directly against the database
-    #[arg(long, default_value_t = false)]
-    skip_indexing: bool,
+    /// If true (default), clears the DB and re-syncs from start. If false:
+    //   - for the ranged test, it skips indexing and uses the current state
+    //   - for the full test, it starts syncing from the last block in the db
+    #[arg(long, default_value_t = true)]
+    clear_db: bool,
 }
 
 impl CommonArgs {

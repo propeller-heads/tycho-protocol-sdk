@@ -97,7 +97,7 @@ pub struct TestRunner {
     runtime: Runtime,
     rpc_provider: RPCProvider,
     protocol_components: Arc<RwLock<HashMap<String, ProtocolComponentModel>>>,
-    skip_indexing: bool,
+    clear_db: bool,
 }
 
 impl TestRunner {
@@ -110,7 +110,7 @@ impl TestRunner {
         db_url: String,
         rpc_url: String,
         vm_simulation_traces: bool,
-        skip_indexing: bool,
+        clear_db: bool,
     ) -> miette::Result<Self> {
         let base_protocol = CLONE_TO_BASE_PROTOCOL
             .get(protocol.as_str())
@@ -150,7 +150,7 @@ impl TestRunner {
             adapter_contract_builder,
             runtime,
             rpc_provider,
-            skip_indexing,
+            clear_db,
             protocol_components: Arc::new(RwLock::new(HashMap::new())),
         })
     }
@@ -497,7 +497,7 @@ impl TestRunner {
             let tycho_runner = self
                 .runtime
                 .block_on(self.tycho_runner(initialized_accounts))?;
-            if !self.skip_indexing {
+            if self.clear_db {
                 let spkg_path = build_spkg(substreams_yaml_path, test.start_block)
                     .wrap_err("Failed to build spkg")?;
                 tycho_runner
@@ -511,7 +511,7 @@ impl TestRunner {
                     )
                     .wrap_err("Failed to run Tycho")?;
             } else {
-                info!("Skipping indexing")
+                info!("Skipping indexing and using existent DB")
             }
             let rpc_server = tycho_runner.start_rpc_server()?;
             match self.run_test(test, &config, test.stop_block) {
@@ -638,10 +638,10 @@ impl TestRunner {
     }
 
     async fn tycho_runner(&self, initialized_accounts: Vec<String>) -> miette::Result<TychoRunner> {
-        // If we skip indexing, reuse current db state
-        if !self.skip_indexing {
+        // If we want to clear db, reuse current db state
+        if self.clear_db {
             self.empty_database()
-            .await
+                .await
                 .into_diagnostic()
                 .wrap_err("Failed to empty the database")?;
         }

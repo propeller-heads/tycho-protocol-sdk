@@ -6478,6 +6478,7 @@ name = "protocol-testing"
 version = "0.1.0"
 dependencies = [
  "alloy",
+ "async-trait",
  "clap",
  "colored",
  "dotenv",
@@ -6501,6 +6502,7 @@ dependencies = [
  "termsize",
  "tokio",
  "tokio-postgres",
+ "tokio-retry2",
  "tracing",
  "tracing-subscriber 0.3.20",
  "tycho-execution",
@@ -9107,7 +9109,7 @@ dependencies = [
 
 [[package]]
 name = "tycho-execution"
-version = "0.132.0"
+version = "0.131.0"
 dependencies = [
  "alloy",
  "chrono",
