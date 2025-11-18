@@ -1,6 +1,7 @@
 use std::{collections::HashMap, error::Error as StdError, fmt};
 
-use tracing::{debug, info};
+use tokio::time::{sleep, Duration};
+use tracing::{debug, info, warn};
 use tycho_simulation::{
     tycho_client::{
         feed::synchronizer::Snapshot,
@@ -165,9 +166,6 @@ impl TychoClient {
         protocol_system: &str,
         chain: Chain,
     ) -> Result<(), RpcError> {
-        use tokio::time::{sleep, Duration};
-        use tracing::warn;
-
         loop {
             match self
                 .get_protocol_components(protocol_system, chain)

@@ -32,7 +32,7 @@ use tycho_simulation::{
     tycho_client::feed::{synchronizer::StateSyncMessage, BlockHeader, FeedMessage},
     tycho_common::{
         dto::{Chain, ProtocolComponent, ResponseProtocolState},
-        models::token::Token,
+        models::{token::Token, Chain as ChainModel},
         Bytes,
     },
 };
@@ -62,16 +62,6 @@ static CLONE_TO_BASE_PROTOCOL: LazyLock<HashMap<&str, &str>> = LazyLock::new(|| 
         ("ethereum-pancakeswap-v2", "ethereum-uniswap-v2"),
     ])
 });
-
-/// Returns the approximate block time in seconds for different chains
-fn get_chain_block_time(chain: Chain) -> u64 {
-    match chain {
-        Chain::Ethereum => 12, // ~12 seconds
-        Chain::Base => 2,      // ~2 seconds
-        Chain::Unichain => 1,  // ~1 second
-        _ => 12,               // Default fallback to Ethereum timing
-    }
-}
 
 pub enum TestType {
     Full(TestTypeFull),
@@ -277,7 +267,7 @@ impl TestRunner {
     async fn run_live_testing(&self, config: &IntegrationTestsConfig) -> miette::Result<()> {
         info!("Starting live testing for protocol {}", &config.protocol_system);
 
-        let chain = tycho_simulation::tycho_common::models::Chain::from(self.chain);
+        let chain = ChainModel::from(self.chain);
         // Load tokens for the stream
         let all_tokens = tycho_simulation::utils::load_all_tokens(
             "http://localhost:4242",
@@ -396,11 +386,7 @@ impl TestRunner {
                         execution_data.len()
                     );
 
-                    // Step 2: Sleep for block time (chain-specific)
-                    tokio::time::sleep(std::time::Duration::from_secs(self.get_chain_block_time()))
-                        .await;
-
-                    // Step 3: Get the actual block from RPC
+                    // Step 2: Get the actual block from RPC
                     let block = match self
                         .rpc_provider
                         .get_block(BlockNumberOrTag::Number(update.block_number_or_timestamp))
@@ -422,7 +408,7 @@ impl TestRunner {
                         execution_data.len()
                     );
 
-                    // Step 4: Execute the batch against the real block
+                    // Step 3: Execute the batch against the real block
                     match self
                         .run_execution(
                             execution_data,
@@ -1047,8 +1033,7 @@ impl TestRunner {
                             (protocol_system): EXECUTOR_ADDRESS
                         }
                     });
-                    let chain_model =
-                        tycho_simulation::tycho_common::models::Chain::from(self.chain);
+                    let chain_model = ChainModel::from(self.chain);
                     let (solution, calldata) = encode_swap(
                         component,
                         None,
@@ -1137,7 +1122,7 @@ impl TestRunner {
             return Ok(());
         }
 
-        let chain_model = tycho_simulation::tycho_common::models::Chain::from(self.chain);
+        let chain_model = ChainModel::from(self.chain);
         let rpc_tools = RPCTools::new(self.rpc_provider.url.as_ref(), &chain_model).await?;
 
         // Prepare router overwrites data
@@ -1172,7 +1157,6 @@ impl TestRunner {
                 &rpc_tools,
                 batch.clone(),
                 block,
-                0,
                 router_overwrites_data.clone(),
             )
             .await;
@@ -1332,11 +1316,6 @@ impl TestRunner {
         } else {
             Ok(None)
         }
-    }
-
-    /// Gets the block time for the current chain
-    fn get_chain_block_time(&self) -> u64 {
-        get_chain_block_time(self.chain)
     }
 }
 
