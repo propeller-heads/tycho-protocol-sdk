@@ -4,6 +4,7 @@ use tycho_simulation::{
         protocol::{
             ekubo::state::EkuboState, pancakeswap_v2::state::PancakeswapV2State,
             uniswap_v2::state::UniswapV2State, uniswap_v3::state::UniswapV3State,
+            cowamm::state::CowAMMState,
             uniswap_v4::state::UniswapV4State, vm::state::EVMPoolState,
         },
         stream::ProtocolStreamBuilder,
@@ -27,15 +28,21 @@ pub fn register_protocol(
                 tvl_filter,
                 None,
                 decoder_context,
-            ),
-        "pancakeswap_v2" => stream_builder.exchange_with_decoder_context::<PancakeswapV2State>(
-            protocol_system,
-            tvl_filter,
-            None,
-            decoder_context,
-        ),
-        "uniswap_v3" | "pancakeswap_v3" => stream_builder
-            .exchange_with_decoder_context::<UniswapV3State>(
+            );
+        }
+        "uniswap_v3" | "pancakeswap_v3" => {
+            decoder
+                .register_decoder_with_context::<UniswapV3State>(protocol_system, decoder_context);
+        }
+        "ekubo_v2" => {
+            decoder.register_decoder_with_context::<EkuboState>(protocol_system, decoder_context);
+        }
+        "cowamm" => {
+            decoder.register_decoder_with_context::<CowAMMState>(protocol_system, decoder_context);
+        }
+        // Default to EVMPoolState for all other protocols
+        _ => {
+            decoder.register_decoder_with_context::<EVMPoolState<PreCachedDB>>(
                 protocol_system,
                 tvl_filter,
                 None,
