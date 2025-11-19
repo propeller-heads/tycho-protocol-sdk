@@ -6506,7 +6506,7 @@ dependencies = [
  "tracing",
  "tracing-subscriber 0.3.20",
  "tycho-execution",
- "tycho-simulation",
+ "tycho-simulation 0.198.0",
  "tycho-test",
 ]
 
@@ -9174,6 +9174,44 @@ dependencies = [
 ]
 
 [[package]]
+name = "tycho-simulation"
+version = "0.198.0"
+source = "git+https://github.com/adpthegreat/tycho-simulation?branch=add_cowamm_simulation#25769283475a80fa158e96f8330d6569b7bd53ff"
+dependencies = [
+ "alloy",
+ "chrono",
+ "dialoguer 0.10.4",
+ "dotenv",
+ "enum_delegate",
+ "evm_ekubo_sdk",
+ "foundry-config",
+ "foundry-evm",
+ "futures 0.3.31",
+ "hex",
+ "itertools 0.10.5",
+ "lazy_static",
+ "mini-moka",
+ "num-bigint",
+ "num-traits",
+ "revm",
+ "revm-inspectors",
+ "serde",
+ "serde_json",
+ "solar-config",
+ "solar-data-structures",
+ "strum 0.25.0",
+ "strum_macros 0.25.3",
+ "thiserror 1.0.69",
+ "tokio",
+ "tokio-stream",
+ "tracing",
+ "tycho-client",
+ "tycho-common",
+ "tycho-ethereum",
+ "uuid 1.18.1",
+]
+
+[[package]]
 name = "tycho-test"
 version = "0.197.0"
 source = "git+https://github.com/propeller-heads/tycho-simulation.git?tag=0.197.0#c4f4c6d2b9412707130fa7fdf88d80b89b938a22"
@@ -10297,3 +10335,8 @@ dependencies = [
  "cc",
  "pkg-config",
 ]
+
+[[patch.unused]]
+name = "tycho-test"
+version = "0.198.0"
+source = "git+https://github.com/adpthegreat/tycho-simulation?branch=add_cowamm_simulation#25769283475a80fa158e96f8330d6569b7bd53ff"
