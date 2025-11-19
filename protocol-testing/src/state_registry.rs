@@ -28,21 +28,22 @@ pub fn register_protocol(
                 tvl_filter,
                 None,
                 decoder_context,
-            );
-        }
-        "uniswap_v3" | "pancakeswap_v3" => {
-            decoder
-                .register_decoder_with_context::<UniswapV3State>(protocol_system, decoder_context);
-        }
-        "ekubo_v2" => {
-            decoder.register_decoder_with_context::<EkuboState>(protocol_system, decoder_context);
-        }
-        "cowamm" => {
-            decoder.register_decoder_with_context::<CowAMMState>(protocol_system, decoder_context);
-        }
-        // Default to EVMPoolState for all other protocols
-        _ => {
-            decoder.register_decoder_with_context::<EVMPoolState<PreCachedDB>>(
+            ),
+         "pancakeswap_v2" => stream_builder.exchange_with_decoder_context::<PancakeswapV2State>(
+            protocol_system,
+            tvl_filter,
+            None,
+            decoder_context,
+        ),
+          "uniswap_v3" | "pancakeswap_v3" => stream_builder
+            .exchange_with_decoder_context::<UniswapV3State>(
+                protocol_system,
+                tvl_filter,
+                None,
+                decoder_context,
+            ),
+        "cowamm" => stream_builder
+            .exchange_with_decoder_context::<CowAMMState>(
                 protocol_system,
                 tvl_filter,
                 None,
