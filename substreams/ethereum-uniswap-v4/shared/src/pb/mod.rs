@@ -5,4 +5,8 @@ pub mod uniswap {
         include!("uniswap.v4.rs");
         // @@protoc_insertion_point(uniswap.v4)
     }
+    pub mod angstrom {
+        include!("uniswap.v4.angstrom.rs");
+        // @@protoc_insertion_point(uniswap.v4.angstrom)
+    }
 }
