@@ -3,6 +3,7 @@ skip_balance_check: false
 protocol_type_names:
   - "uniswap_v4_pool"
 protocol_system: "uniswap_v4_hooks"
+module_name: "map_combined_enriched_protocol_changes"
 initialized_accounts:
   - "0x000000000004444c5dc75cB358380D2e3dE08A90" # pool manager
 tests:
