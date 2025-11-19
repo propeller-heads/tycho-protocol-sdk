@@ -85,14 +85,15 @@ contract CurveAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
             address[] memory tokens = adapter.getTokens(pair);
             uint256[] memory amounts = new uint256[](1);
 
-            try ICurveStableSwapPool(ADDITIONAL_POOLS_FOR_TESTING[i]).balances(
-                0
-            ) returns (uint256 bal) {
+            try ICurveStableSwapPool(ADDITIONAL_POOLS_FOR_TESTING[i])
+                .balances(0) returns (
+                uint256 bal
+            ) {
                 amounts[0] = bal / 10;
             } catch {
                 amounts[0] = ICurveCustomInt128Pool(
-                    ADDITIONAL_POOLS_FOR_TESTING[i]
-                ).balances(int128(0)) / 10;
+                        ADDITIONAL_POOLS_FOR_TESTING[i]
+                    ).balances(int128(0)) / 10;
             }
 
             deal(tokens[0], address(this), amounts[0]);
@@ -202,9 +203,7 @@ contract CurveAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
         );
     }
 
-    function testSwapFuzzCurveStableOracleSwap(uint256 specifiedAmount)
-        public
-    {
+    function testSwapFuzzCurveStableOracleSwap(uint256 specifiedAmount) public {
         OrderSide side = OrderSide.Sell;
 
         bytes32 pair = bytes32(bytes20(ORACLE_STABLE_POOL));
