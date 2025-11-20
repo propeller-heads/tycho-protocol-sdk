@@ -68,34 +68,34 @@ impl PoolConfigured {
                 v.to_vec()
             },
             bundle_fee: {
-                let mut v = [0 as u8; 32];
-                values
+                let uint_val = values
                     .pop()
                     .expect("Missing bundleFee")
                     .into_uint()
-                    .expect("Invalid bundleFee")
-                    .to_big_endian(v.as_mut_slice());
-                v.to_vec()
+                    .expect("Invalid bundleFee");
+                let mut v = [0 as u8; 32];
+                uint_val.to_big_endian(&mut v);
+                v[29..32].to_vec()
             },
             unlocked_fee: {
-                let mut v = [0 as u8; 32];
-                values
+                let uint_val = values
                     .pop()
                     .expect("Missing unlockedFee")
                     .into_uint()
-                    .expect("Invalid unlockedFee")
-                    .to_big_endian(v.as_mut_slice());
-                v.to_vec()
+                    .expect("Invalid unlockedFee");
+                let mut v = [0 as u8; 32];
+                uint_val.to_big_endian(&mut v);
+                v[29..32].to_vec()
             },
             protocol_unlocked_fee: {
-                let mut v = [0 as u8; 32];
-                values
+                let uint_val = values
                     .pop()
                     .expect("Missing protocolUnlockedFee")
                     .into_uint()
-                    .expect("Invalid protocolUnlockedFee")
-                    .to_big_endian(v.as_mut_slice());
-                v.to_vec()
+                    .expect("Invalid protocolUnlockedFee");
+                let mut v = [0 as u8; 32];
+                uint_val.to_big_endian(&mut v);
+                v[29..32].to_vec()
             },
         })
     }
@@ -116,33 +116,31 @@ pub struct BatchUpdatePools {
 
 impl BatchUpdatePools {
     const SELECTOR: [u8; 4] = hex!("4d2bf47c");
-    
+
     pub fn match_call(call_input: &[u8]) -> bool {
         call_input.len() >= 4 && call_input[0..4] == Self::SELECTOR
     }
-    
+
     pub fn decode_call(call_input: &[u8]) -> Result<Self, String> {
         if !Self::match_call(call_input) {
             return Err("Invalid selector for batchUpdatePools".to_string());
         }
-        
+
         let values = ethabi::decode(
-            &[ethabi::ParamType::Array(Box::new(ethabi::ParamType::Tuple(
-                vec![
-                    ethabi::ParamType::Address,  // assetA
-                    ethabi::ParamType::Address,  // assetB
-                    ethabi::ParamType::Uint(24), // bundleFee
-                    ethabi::ParamType::Uint(24), // unlockedFee
-                    ethabi::ParamType::Uint(24), // protocolUnlockedFee
-                ],
-            )))],
+            &[ethabi::ParamType::Array(Box::new(ethabi::ParamType::Tuple(vec![
+                ethabi::ParamType::Address,  // assetA
+                ethabi::ParamType::Address,  // assetB
+                ethabi::ParamType::Uint(24), // bundleFee
+                ethabi::ParamType::Uint(24), // unlockedFee
+                ethabi::ParamType::Uint(24), // protocolUnlockedFee
+            ])))],
             &call_input[4..],
         )
         .map_err(|e| format!("unable to decode call input: {:?}", e))?;
-        
+
         if let Some(ethabi::Token::Array(updates_tokens)) = values.first() {
             let mut updates = Vec::new();
-            
+
             for update_token in updates_tokens {
                 if let ethabi::Token::Tuple(tuple_tokens) = update_token {
                     if tuple_tokens.len() == 5 {
@@ -162,23 +160,27 @@ impl BatchUpdatePools {
                             // Convert addresses to 20 bytes (remove padding)
                             let asset_a_bytes = asset_a.as_bytes()[12..].to_vec();
                             let asset_b_bytes = asset_b.as_bytes()[12..].to_vec();
-                            
-                            // Convert fees to 32-byte arrays
-                            let mut bundle_fee_bytes = [0u8; 32];
-                            bundle_fee.to_big_endian(&mut bundle_fee_bytes);
-                            
-                            let mut unlocked_fee_bytes = [0u8; 32];
-                            unlocked_fee.to_big_endian(&mut unlocked_fee_bytes);
-                            
-                            let mut protocol_unlocked_fee_bytes = [0u8; 32];
-                            protocol_unlocked_fee.to_big_endian(&mut protocol_unlocked_fee_bytes);
-                            
+
+                            // Convert fees to 3-byte arrays (U24)
+                            let mut bundle_fee_temp = [0u8; 32];
+                            bundle_fee.to_big_endian(&mut bundle_fee_temp);
+                            let bundle_fee_bytes = bundle_fee_temp[29..32].to_vec();
+
+                            let mut unlocked_fee_temp = [0u8; 32];
+                            unlocked_fee.to_big_endian(&mut unlocked_fee_temp);
+                            let unlocked_fee_bytes = unlocked_fee_temp[29..32].to_vec();
+
+                            let mut protocol_unlocked_fee_temp = [0u8; 32];
+                            protocol_unlocked_fee.to_big_endian(&mut protocol_unlocked_fee_temp);
+                            let protocol_unlocked_fee_bytes =
+                                protocol_unlocked_fee_temp[29..32].to_vec();
+
                             updates.push(PoolUpdate {
                                 asset_a: asset_a_bytes,
                                 asset_b: asset_b_bytes,
-                                bundle_fee: bundle_fee_bytes.to_vec(),
-                                unlocked_fee: unlocked_fee_bytes.to_vec(),
-                                protocol_unlocked_fee: protocol_unlocked_fee_bytes.to_vec(),
+                                bundle_fee: bundle_fee_bytes,
+                                unlocked_fee: unlocked_fee_bytes,
+                                protocol_unlocked_fee: protocol_unlocked_fee_bytes,
                             });
                         }
                     }

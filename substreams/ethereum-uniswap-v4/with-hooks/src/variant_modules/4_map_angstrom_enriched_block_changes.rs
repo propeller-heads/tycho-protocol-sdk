@@ -50,11 +50,6 @@ pub fn _enrich_block_changes(
             if let Some(fees) = store.get_last(&entity_change.component_id) {
                 let fee_attributes = vec![
                     Attribute {
-                        name: "angstrom_bundle_fee".to_string(),
-                        value: fees.bundle_fee,
-                        change: ChangeType::Update.into(),
-                    },
-                    Attribute {
                         name: "angstrom_unlocked_fee".to_string(),
                         value: fees.unlocked_fee,
                         change: ChangeType::Update.into(),

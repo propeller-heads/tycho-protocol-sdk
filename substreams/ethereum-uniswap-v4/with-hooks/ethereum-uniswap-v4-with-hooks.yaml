@@ -198,7 +198,7 @@ modules:
     output:
       type: proto:tycho.evm.v1.BlockChanges
 
-  - name: map_combined_enriched_protocol_changes
+  - name: map_combined_enriched_block_changes
     kind: map
     initialBlock: 21688329
     inputs:
