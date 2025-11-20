@@ -160,7 +160,7 @@ impl TestRunner {
         let config = match Self::parse_config(&self.config_file_path) {
             Ok(cfg) => cfg,
             Err(e) => {
-                warn!("Failed to parse config: {:?}", e);
+                warn!("Failed to parse config: {:#}", e);
                 return Ok(());
             }
         };
@@ -243,7 +243,7 @@ impl TestRunner {
                 &protocol_system,
                 module_name,
             ) {
-                error!("Tycho Index command failed: {}", e);
+                error!("Tycho Index command failed: {:#}", e);
             }
         });
 
@@ -334,7 +334,7 @@ impl TestRunner {
                             }
                         }
                         Err(e) => {
-                            error!("Failed to acquire write lock on protocol components: {}. Skipping component update.", e);
+                            error!("Failed to acquire write lock on protocol components: {:#}. Skipping component update.", e);
                         }
                     }
 
@@ -352,7 +352,7 @@ impl TestRunner {
                             })
                             .collect(),
                         Err(e) => {
-                            error!("Failed to acquire read lock on protocol components: {}. Using fallback to new_pairs only.", e);
+                            error!("Failed to acquire read lock on protocol components: {:#}. Using fallback to new_pairs only.", e);
                             // Fallback to the old behavior if we can't read the persistent state
                             update
                                 .new_pairs
@@ -371,7 +371,7 @@ impl TestRunner {
                     ) {
                         Ok(data) => data,
                         Err(e) => {
-                            error!("Failed to run simulation: {}", e);
+                            error!("Failed to run simulation: {:#}", e);
                             continue;
                         }
                     };
@@ -433,7 +433,7 @@ impl TestRunner {
                     }
                 }
                 Err(e) => {
-                    error!("Stream error: {:?}", e);
+                    error!("Stream error: {:#}", e);
                     // Continue processing instead of breaking - streams can have temporary errors
                     continue;
                 }
@@ -486,6 +486,7 @@ impl TestRunner {
             if self.clear_db {
                 let spkg_path = build_spkg(substreams_yaml_path, test.start_block)
                     .wrap_err("Failed to build spkg")?;
+
                 tycho_runner
                     .run_tycho(
                         &spkg_path,
@@ -506,7 +507,7 @@ impl TestRunner {
                 }
                 Err(e) => {
                     failed_tests.push(test.name.clone());
-                    error!("❗️{} failed: {e}\n", test.name);
+                    error!("❗️{} failed: {:#}\n", test.name, e);
                 }
             }
             tycho_runner.stop_rpc_server(rpc_server)?;
@@ -609,7 +610,7 @@ impl TestRunner {
         // Spawn the connection handler
         tokio::spawn(async move {
             if let Err(e) = connection.await {
-                eprintln!("Database connection error: {}", e);
+                eprintln!("Database connection error: {:#}", e);
             }
         });
 
@@ -728,7 +729,7 @@ impl TestRunner {
             .runtime
             .block_on(tycho_client.get_snapshots(
                 chain,
-                stop_block - 1,
+                stop_block,
                 protocol_system,
                 &components_by_id,
                 &contract_ids,
@@ -1164,7 +1165,7 @@ impl TestRunner {
             let batch_results = match batch_results {
                 Ok(results) => results,
                 Err((error, _, _)) => {
-                    error!("Batch {} failed: {}", batch_index + 1, error);
+                    error!("Batch {} failed: {:#}", batch_index + 1, error);
                     return Err(error);
                 }
             };
@@ -1369,7 +1370,7 @@ mod tests {
             .collect();
         if !errors.is_empty() {
             for error in errors {
-                println!("{error}");
+                println!("{error:#}");
             }
             panic!("One or more config files failed to parse.");
         }

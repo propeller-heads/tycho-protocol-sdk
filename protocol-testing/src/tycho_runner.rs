@@ -248,12 +248,7 @@ impl TychoRunner {
     ) -> miette::Result<String> {
         let protocol_types = protocol_type_names
             .iter()
-            .map(|name| {
-                format!(
-                    "    - name: \"{}\"\n      financial_type: Swap",
-                    name
-                )
-            })
+            .map(|name| format!("    - name: \"{}\"\n      financial_type: Swap", name))
             .collect::<Vec<_>>()
             .join("\n");
 
