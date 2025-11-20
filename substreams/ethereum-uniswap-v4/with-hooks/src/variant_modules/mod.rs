@@ -22,8 +22,5 @@ pub mod map_angstrom_enriched_block_changes;
 #[path = "5_map_protocol_changes.rs"]
 pub mod map_protocol_changes;
 
-#[path = "6_map_combined_enriched_block_changes.rs"]
-pub mod map_combined_enriched_block_changes;
-
 #[cfg(test)]
 mod tests;

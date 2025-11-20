@@ -194,18 +194,10 @@ modules:
     inputs:
       - params: string
       - store: store_angstrom_config
-      - map: map_protocol_changes
+      - map: map_euler_enriched_protocol_changes
     output:
       type: proto:tycho.evm.v1.BlockChanges
 
-  - name: map_combined_enriched_block_changes
-    kind: map
-    initialBlock: 21688329
-    inputs:
-      - map: map_euler_enriched_protocol_changes
-      - map: map_angstrom_enriched_block_changes
-    output:
-      type: proto:tycho.evm.v1.BlockChanges
 
 params:
   map_pools_created: "000000000004444c5dc75cB358380D2e3dE08A90"
