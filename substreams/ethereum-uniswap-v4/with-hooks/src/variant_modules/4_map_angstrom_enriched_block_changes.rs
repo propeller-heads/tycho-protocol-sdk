@@ -1,4 +1,4 @@
-use crate::pb::uniswap::angstrom::AngstromFees;
+use crate::pb::uniswap::angstrom::AngstromConfig;
 use substreams::store::{StoreGet, StoreGetProto};
 use substreams_helper::hex::Hexable;
 use tycho_substreams::prelude::*;
@@ -6,7 +6,7 @@ use tycho_substreams::prelude::*;
 #[substreams::handlers::map]
 pub fn map_angstrom_enriched_block_changes(
     angstrom_address: String,
-    store: StoreGetProto<AngstromFees>,
+    store: StoreGetProto<AngstromConfig>,
     block_changes: BlockChanges,
 ) -> Result<BlockChanges, substreams::errors::Error> {
     let enriched_changes = _enrich_block_changes(angstrom_address, &store, block_changes);
@@ -16,7 +16,7 @@ pub fn map_angstrom_enriched_block_changes(
 
 pub fn _enrich_block_changes(
     angstrom_address: String,
-    store: &StoreGetProto<AngstromFees>,
+    store: &StoreGetProto<AngstromConfig>,
     mut protocol_changes: BlockChanges,
 ) -> BlockChanges {
     // Process each transaction's changes
@@ -48,7 +48,7 @@ pub fn _enrich_block_changes(
         for entity_change in &mut tx_changes.entity_changes {
             // if yes, it will be an angstrom pool
             if let Some(fees) = store.get_last(&entity_change.component_id) {
-                let fee_attributes = vec![
+                let angstrom_config = vec![
                     Attribute {
                         name: "angstrom_unlocked_fee".to_string(),
                         value: fees.unlocked_fee,
@@ -59,10 +59,15 @@ pub fn _enrich_block_changes(
                         value: fees.protocol_unlocked_fee,
                         change: ChangeType::Update.into(),
                     },
+                    Attribute {
+                        name: "angstrom_removed_pool".to_string(),
+                        value: if fees.pool_removed { vec![1] } else { vec![0] },
+                        change: ChangeType::Update.into(),
+                    },
                 ];
                 entity_change
                     .attributes
-                    .extend(fee_attributes);
+                    .extend(angstrom_config);
             }
         }
     }

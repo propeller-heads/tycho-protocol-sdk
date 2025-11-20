@@ -194,8 +194,98 @@ impl BatchUpdatePools {
     }
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct PoolRemoved {
+    pub asset0: Vec<u8>,
+    pub asset1: Vec<u8>,
+    pub tick_spacing: Vec<u8>,
+    pub fee_in_e6: Vec<u8>,
+}
+
+impl PoolRemoved {
+    const TOPIC_ID: [u8; 32] =
+        hex!("79f612570217c00df128c1b828dd6b321b3a70ae4c61b7a97fe4a71fc19df9ba");
+    
+    pub fn match_log(log: &substreams_ethereum::pb::eth::v2::Log) -> bool {
+        if log.topics.len() != 3usize {
+            return false;
+        }
+        return log
+            .topics
+            .get(0)
+            .expect("bounds already checked")
+            .as_ref()
+            == Self::TOPIC_ID;
+    }
+    
+    pub fn decode(log: &substreams_ethereum::pb::eth::v2::Log) -> Result<Self, String> {
+        let mut values = ethabi::decode(
+            &[
+                ethabi::ParamType::Int(24),   // tickSpacing
+                ethabi::ParamType::Uint(24),  // feeInE6
+            ],
+            log.data.as_ref(),
+        )
+        .map_err(|e| format!("unable to decode log.data: {:?}", e))?;
+        values.reverse();
+
+        // Extract indexed parameters from topics (last 20 bytes for addresses)
+        let asset0 = log
+            .topics
+            .get(1)
+            .expect("asset0 topic missing")
+            .iter()
+            .skip(12)
+            .copied()
+            .collect::<Vec<u8>>();
+        let asset1 = log
+            .topics
+            .get(2)
+            .expect("asset1 topic missing")
+            .iter()
+            .skip(12)
+            .copied()
+            .collect::<Vec<u8>>();
+
+        Ok(Self {
+            asset0,
+            asset1,
+            tick_spacing: {
+                let uint_val = values
+                    .pop()
+                    .expect("Missing tickSpacing")
+                    .into_int()
+                    .expect("Invalid tickSpacing");
+                let mut v = [0 as u8; 32];
+                uint_val.to_big_endian(&mut v);
+                v.to_vec()
+            },
+            fee_in_e6: {
+                let uint_val = values
+                    .pop()
+                    .expect("Missing feeInE6")
+                    .into_uint()
+                    .expect("Invalid feeInE6");
+                let mut v = [0 as u8; 32];
+                uint_val.to_big_endian(&mut v);
+                v[29..32].to_vec()
+            },
+        })
+    }
+}
+
 impl substreams_ethereum::Event for PoolConfigured {
     const NAME: &'static str = "PoolConfigured";
+    fn match_log(log: &substreams_ethereum::pb::eth::v2::Log) -> bool {
+        Self::match_log(log)
+    }
+    fn decode(log: &substreams_ethereum::pb::eth::v2::Log) -> Result<Self, String> {
+        Self::decode(log)
+    }
+}
+
+impl substreams_ethereum::Event for PoolRemoved {
+    const NAME: &'static str = "PoolRemoved";
     fn match_log(log: &substreams_ethereum::pb::eth::v2::Log) -> bool {
         Self::match_log(log)
     }
