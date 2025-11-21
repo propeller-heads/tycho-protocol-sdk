@@ -552,7 +552,6 @@ impl TestRunner {
         let (protocol_components, snapshot, all_tokens) =
             self.fetch_from_tycho_rpc(&config.protocol_system, expected_ids, stop_block)?;
 
-        dbg!(&snapshot);
         let response_protocol_states_by_id: HashMap<String, ResponseProtocolState> = snapshot
             .states
             .clone()
@@ -603,7 +602,6 @@ impl TestRunner {
             adapter_contract_path_str,
             self.vm_simulation_traces,
         )?;
-        dbg!(&update);
 
         let protocol_components_simulation: HashMap<String, ProtocolComponentModel> =
             update.new_pairs.clone();
@@ -946,6 +944,12 @@ impl TestRunner {
             .map(|c| c.base.id.to_lowercase())
             .collect();
 
+        let skip_execution: HashSet<_> = expected_components
+            .iter()
+            .filter(|c| c.skip_execution)
+            .map(|c| c.base.id.to_lowercase())
+            .collect();
+
         let mut execution_data = HashMap::new();
 
         for (id, state) in update.states.iter() {
@@ -1026,6 +1030,11 @@ impl TestRunner {
                             token_out.symbol,
                             amount_out_result.gas
                         );
+
+                    if skip_execution.contains(id) {
+                        info!("Skipping execution for component {id}");
+                        continue;
+                    }
 
                     let executors_json = json!({
                         "ethereum": {
