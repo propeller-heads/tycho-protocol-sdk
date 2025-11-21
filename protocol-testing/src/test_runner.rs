@@ -540,7 +540,6 @@ impl TestRunner {
             .map(|c| c.base.id.to_lowercase())
             .collect::<Vec<String>>();
 
-        // Get block header to extract the timestamp
         let block = self
             .runtime
             .block_on(
@@ -552,6 +551,7 @@ impl TestRunner {
         let (protocol_components, snapshot, all_tokens) =
             self.fetch_from_tycho_rpc(&config.protocol_system, expected_ids, stop_block)?;
 
+        dbg!(&snapshot);
         let response_protocol_states_by_id: HashMap<String, ResponseProtocolState> = snapshot
             .states
             .clone()
@@ -602,6 +602,7 @@ impl TestRunner {
             adapter_contract_path_str,
             self.vm_simulation_traces,
         )?;
+        dbg!(&update);
 
         let protocol_components_simulation: HashMap<String, ProtocolComponentModel> =
             update.new_pairs.clone();
@@ -869,7 +870,7 @@ impl TestRunner {
 
         let protocol_components_by_id: HashMap<String, ProtocolComponent> = protocol_components
             .iter()
-            .map(|component| (component.id.clone(), component.clone()))
+            .map(|component| (component.id.clone().to_lowercase(), component.clone()))
             .collect();
         debug!("Validating {:?} expected components", expected_components.len());
         for expected_component in expected_components {
