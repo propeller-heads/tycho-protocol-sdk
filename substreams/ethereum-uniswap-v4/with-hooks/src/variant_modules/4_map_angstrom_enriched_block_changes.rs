@@ -1,4 +1,4 @@
-use crate::pb::uniswap::angstrom::AngstromConfig;
+use crate::pb::uniswap::v4::angstrom::AngstromConfig;
 use substreams::store::{StoreGet, StoreGetProto};
 use substreams_helper::hex::Hexable;
 use tycho_substreams::prelude::*;

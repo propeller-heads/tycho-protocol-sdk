@@ -1,9 +1,9 @@
 use crate::{
-    pb::uniswap::angstrom::AngstromConfig,
+    abi::angstrom::{BatchUpdatePools, PoolConfigured, PoolRemoved},
+    pb::uniswap::v4::angstrom::AngstromConfig,
     store_tokens_to_pool_id_angstrom::generate_store_key_from_assets,
 };
 use ethabi::ethereum_types::Address;
-use ethereum_uniswap_v4_shared::abi::angstrom::{BatchUpdatePools, PoolConfigured, PoolRemoved};
 use std::str::FromStr;
 use substreams::store::{StoreGet, StoreGetString, StoreNew, StoreSet, StoreSetProto};
 use substreams_ethereum::pb::eth::v2::{self as eth};
