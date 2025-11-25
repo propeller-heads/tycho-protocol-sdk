@@ -1,0 +1,368 @@
+use crate::{
+    abi::erc4626::{
+        self,
+        events::{Deposit, Withdraw},
+    },
+    pools::PoolParams,
+};
+use anyhow::Result;
+use itertools::Itertools;
+use std::{collections::HashMap, iter::zip};
+use substreams::{pb::substreams::StoreDeltas, prelude::*};
+use substreams_ethereum::{pb::eth, Event, Function};
+use substreams_helper::hex::Hexable;
+use tycho_substreams::{
+    balances::aggregate_balances_changes,
+    block_storage::get_block_storage_changes,
+    contract::extract_contract_changes_builder,
+    entrypoint::create_entrypoint,
+    prelude::{entry_point_params::TraceData, *},
+};
+
+/// Find and create all relevant protocol components
+///
+/// This method maps over blocks and instantiates ProtocolComponents with a unique ids
+/// as well as all necessary metadata for routing and encoding.
+#[substreams::handlers::map]
+fn map_protocol_components(
+    params: String,
+    block: eth::v2::Block,
+) -> Result<BlockTransactionProtocolComponents> {
+    let tx_to_pools = PoolParams::parse_params(params.as_str())?;
+
+    let tx_components: Vec<TransactionProtocolComponents> = block
+        .transactions()
+        .filter_map(|tx_trace| {
+            let tx = Transaction {
+                hash: tx_trace.hash.clone(),
+                from: tx_trace.from.clone(),
+                to: tx_trace.to.clone(),
+                index: tx_trace.index as u64,
+            };
+
+            let encoded_hash = hex::encode(&tx.hash);
+
+            let pools = tx_to_pools.get(&encoded_hash)?;
+
+            let mut tx_pc = TransactionProtocolComponents { tx: Some(tx), components: Vec::new() };
+
+            for pool in pools {
+                tx_pc
+                    .components
+                    .push(ProtocolComponent {
+                        id: format!("0x{}", pool.address.clone()),
+                        tokens: vec![
+                            hex::decode(&pool.asset).expect("invalid asset hex"), // underlying token
+                            hex::decode(&pool.address).expect("invalid address hex"), // share token
+                        ],
+                        contracts: pool
+                            .contracts
+                            .clone()
+                            .unwrap_or_default()
+                            .into_iter()
+                            .map(|contract| hex::decode(contract).expect("invalid contract hex"))
+                            .chain(std::iter::once(
+                                hex::decode(&pool.address).expect("invalid address hex"),
+                            ))
+                            .collect::<Vec<Vec<u8>>>(),
+                        static_att: zip(
+                            pool.static_attribute_keys
+                                .clone()
+                                .unwrap_or(vec![]),
+                            pool.static_attribute_vals
+                                .clone()
+                                .unwrap_or(vec![]),
+                        )
+                        .clone()
+                        .map(|(key, value)| Attribute {
+                            name: key,
+                            value: value.into(),
+                            change: ChangeType::Creation.into(),
+                        })
+                        .collect::<Vec<_>>(),
+                        change: ChangeType::Creation.into(),
+                        protocol_type: Some(ProtocolType {
+                            name: "erc4626".into(),
+                            financial_type: FinancialType::Swap.into(),
+                            attribute_schema: Vec::new(),
+                            implementation_type: ImplementationType::Custom.into(),
+                        }),
+                    });
+            }
+
+            Some(tx_pc)
+        })
+        .collect();
+
+    Ok(BlockTransactionProtocolComponents { tx_components })
+}
+
+/// Get result `map_components` and stores the created `ProtocolComponent`s with the pool id as the
+/// key and tokens as the value
+#[substreams::handlers::store]
+pub fn store_component_tokens(map: BlockTransactionProtocolComponents, store: StoreSetString) {
+    map.tx_components
+        .iter()
+        .flat_map(|tx_pc| &tx_pc.components)
+        .for_each(|component| {
+            store.set(
+                0,
+                format!("pool:{0}", component.id),
+                &component
+                    .tokens
+                    .iter()
+                    .map(hex::encode)
+                    .join(":"),
+            );
+        });
+}
+
+#[substreams::handlers::map]
+pub fn map_relative_balances(
+    block: eth::v2::Block,
+    tokens_store: StoreGetString,
+) -> Result<BlockBalanceDeltas, anyhow::Error> {
+    let mut balance_deltas = vec![];
+    for tx in block.transactions() {
+        let tx_meta: Transaction = tx.into();
+        for (log, _) in tx.logs_with_calls() {
+            let pool_id = format!("Pool:{}", log.address.to_hex());
+            let Some(pool_tokens_str) = tokens_store.get_last(&pool_id) else {
+                continue;
+            };
+            let pool_tokens: Vec<Vec<u8>> = pool_tokens_str
+                .split(':')
+                .map(hex::decode)
+                .collect::<Result<Vec<_>, _>>()?;
+
+            if let Some(deposit) = Deposit::match_and_decode(log) {
+                let token_deltas = vec![
+                    BalanceDelta {
+                        ord: log.ordinal,
+                        tx: Some(tx_meta.clone()),
+                        token: pool_tokens[0].clone(),
+                        delta: deposit.assets.to_signed_bytes_be(),
+                        component_id: pool_id.clone().into(),
+                    },
+                    BalanceDelta {
+                        ord: log.ordinal,
+                        tx: Some(tx_meta.clone()),
+                        token: pool_tokens[1].clone(),
+                        delta: deposit.shares.to_signed_bytes_be(),
+                        component_id: pool_id.clone().into(),
+                    },
+                ];
+                balance_deltas.extend(token_deltas);
+            }
+            if let Some(withdraw) = Withdraw::match_and_decode(log) {
+                let token_deltas = vec![
+                    BalanceDelta {
+                        ord: log.ordinal,
+                        tx: Some(tx_meta.clone()),
+                        token: pool_tokens[0].clone(),
+                        delta: withdraw
+                            .assets
+                            .neg()
+                            .to_signed_bytes_be(),
+                        component_id: pool_id.clone().into(),
+                    },
+                    BalanceDelta {
+                        ord: log.ordinal,
+                        tx: Some(tx_meta.clone()),
+                        token: pool_tokens[1].clone(),
+                        delta: withdraw
+                            .shares
+                            .neg()
+                            .to_signed_bytes_be(),
+                        component_id: pool_id.clone().into(),
+                    },
+                ];
+                balance_deltas.extend(token_deltas);
+            }
+        }
+    }
+
+    Ok(BlockBalanceDeltas { balance_deltas })
+}
+
+/// Aggregates relative balances values into absolute values
+///
+/// Aggregate the relative balances in an additive store since tycho-indexer expects
+/// absolute balance inputs.
+///
+/// ## Note:
+/// This method should usually not require any changes.
+#[substreams::handlers::store]
+pub fn store_component_balances(deltas: BlockBalanceDeltas, store: StoreAddBigInt) {
+    tycho_substreams::balances::store_balance_changes(deltas, store);
+}
+
+#[substreams::handlers::store]
+pub fn store_component_first_interaction(
+    block: eth::v2::Block,
+    deltas: BlockBalanceDeltas,
+    store: StoreSetIfNotExistsBigInt,
+) {
+    for delta in deltas.balance_deltas {
+        store.set_if_not_exists(
+            0,
+            format!("first:{}", hex::encode(delta.component_id)),
+            &BigInt::from(block.number),
+        );
+    }
+}
+
+/// Aggregates protocol components and balance changes by transaction.
+///
+/// This is the main method that will aggregate all changes as well as extract all
+/// relevant contract storage deltas.
+///
+/// ## Note:
+/// You may have to change this method if your components have any default dynamic
+/// attributes, or if you need any additional static contracts indexed.
+#[substreams::handlers::map]
+fn map_protocol_changes(
+    block: eth::v2::Block,
+    new_components: BlockTransactionProtocolComponents,
+    tokens_store: StoreGetString,
+    balance_store: StoreDeltas,
+    deltas: BlockBalanceDeltas,
+    first_interaction_store: StoreGetBigInt,
+) -> Result<BlockChanges, substreams::errors::Error> {
+    // We merge contract changes by transaction (identified by transaction index)
+    // making it easy to sort them at the very end.
+    let mut transaction_changes: HashMap<_, TransactionChangesBuilder> = HashMap::new();
+
+    // Aggregate newly created components per tx
+    new_components
+        .tx_components
+        .iter()
+        .for_each(|tx_component| {
+            // initialise builder if not yet present for this tx
+            let tx = tx_component.tx.as_ref().unwrap();
+            let builder = transaction_changes
+                .entry(tx.index)
+                .or_insert_with(|| TransactionChangesBuilder::new(tx));
+
+            // iterate over individual components created within this tx
+            tx_component
+                .components
+                .iter()
+                .for_each(|component| {
+                    builder.add_protocol_component(component);
+                    // TODO: In case you require to add any dynamic attributes to the
+                    //  component you can do so here:
+                    /*
+                        builder.add_entity_change(&EntityChanges {
+                            component_id: component.id.clone(),
+                            attributes: default_attributes.clone(),
+                        });
+                    */
+                });
+        });
+
+    for tx in block.transactions() {
+        let tx_meta: Transaction = tx.into();
+        let builder = transaction_changes
+            .entry(tx_meta.index)
+            .or_insert_with(|| TransactionChangesBuilder::new(&tx_meta));
+        for (log, _) in tx.logs_with_calls() {
+            let pool_id = format!("Pool:{}", log.address.to_hex());
+            if tokens_store
+                .get_last(&pool_id)
+                .is_none()
+            {
+                continue;
+            }
+            // Check if this block is the first interaction
+            let key = format!("first:{}", log.address.to_hex());
+            let Some(first_block) = first_interaction_store.get_last(&key) else {
+                continue;
+            };
+
+            if first_block.to_u64() != block.number {
+                continue;
+            }
+
+            let (assets, user) = if let Some(ev) = Deposit::match_and_decode(log) {
+                (ev.assets, ev.sender)
+            } else if let Some(ev) = Withdraw::match_and_decode(log) {
+                (ev.assets, ev.sender)
+            } else {
+                continue;
+            };
+
+            let mut add_entrypoint = |name: &str, calldata: Vec<u8>| {
+                let trace_data = TraceData::Rpc(RpcTraceData { caller: None, calldata });
+
+                let (ep, ep_param) = create_entrypoint(
+                    log.address.clone(),
+                    name.to_string(),
+                    log.address.to_hex(),
+                    trace_data,
+                );
+
+                builder.add_entrypoint(&ep);
+                builder.add_entrypoint_params(&ep_param);
+            };
+
+            add_entrypoint(
+                erc4626::functions::PreviewDeposit::NAME,
+                erc4626::functions::PreviewDeposit { assets: assets.clone() }.encode(),
+            );
+            add_entrypoint(
+                erc4626::functions::PreviewWithdraw::NAME,
+                erc4626::functions::PreviewWithdraw { assets: assets.clone() }.encode(),
+            );
+            add_entrypoint(
+                erc4626::functions::MaxDeposit::NAME,
+                erc4626::functions::MaxDeposit { receiver: user.clone() }.encode(),
+            );
+            add_entrypoint(
+                erc4626::functions::MaxWithdraw::NAME,
+                erc4626::functions::MaxWithdraw { owner: user.clone() }.encode(),
+            );
+        }
+    }
+
+    // // Aggregate absolute balances per transaction.
+    aggregate_balances_changes(balance_store, deltas)
+        .into_iter()
+        .for_each(|(_, (tx, balances))| {
+            let builder = transaction_changes
+                .entry(tx.index)
+                .or_insert_with(|| TransactionChangesBuilder::new(&tx));
+            balances
+                .values()
+                .for_each(|token_bc_map| {
+                    token_bc_map
+                        .values()
+                        .for_each(|bc| builder.add_balance_change(bc))
+                });
+        });
+
+    // // Extract and insert any storage changes that happened for any of the components.
+    extract_contract_changes_builder(
+        &block,
+        |addr| {
+            tokens_store
+                .get_last(format!("Pool:0x{}", hex::encode(addr)))
+                .is_some()
+        },
+        &mut transaction_changes,
+    );
+
+    let block_storage_changes = get_block_storage_changes(&block);
+
+    // Process all `transaction_changes` for final output in the `BlockChanges`,
+    //  sorted by transaction index (the key).
+    Ok(BlockChanges {
+        block: Some((&block).into()),
+        changes: transaction_changes
+            .drain()
+            .sorted_unstable_by_key(|(index, _)| *index)
+            .filter_map(|(_, builder)| builder.build())
+            .collect::<Vec<_>>(),
+        storage_changes: block_storage_changes,
+    })
+}
