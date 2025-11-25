@@ -80,7 +80,7 @@ if aws s3api head-object --bucket "$bucket" --key "$key" >/dev/null 2>&1; then
     exit 1
 fi
 
-# aws s3 cp "$output_file" "$repository_path"
+aws s3 cp "$output_file" "$repository_path"
 
 echo "------------------------------------------------------"
 echo "PUBLISHED SUBSTREAMS PACKAGE: '$repository_path'"
