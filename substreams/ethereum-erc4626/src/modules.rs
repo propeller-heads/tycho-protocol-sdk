@@ -7,7 +7,10 @@ use crate::{
 };
 use anyhow::Result;
 use itertools::Itertools;
-use std::{collections::HashMap, iter::zip};
+use std::{
+    collections::{HashMap, HashSet},
+    iter::zip,
+};
 use substreams::{pb::substreams::StoreDeltas, prelude::*};
 use substreams_ethereum::{pb::eth, Event, Function};
 use substreams_helper::hex::Hexable;
@@ -24,7 +27,7 @@ use tycho_substreams::{
 /// This method maps over blocks and instantiates ProtocolComponents with a unique ids
 /// as well as all necessary metadata for routing and encoding.
 #[substreams::handlers::map]
-fn map_protocol_components(
+pub fn map_protocol_components(
     params: String,
     block: eth::v2::Block,
 ) -> Result<BlockTransactionProtocolComponents> {
@@ -101,13 +104,20 @@ fn map_protocol_components(
 /// key and tokens as the value
 #[substreams::handlers::store]
 pub fn store_component_tokens(map: BlockTransactionProtocolComponents, store: StoreSetString) {
+    // mock store for tests
+    // store.set(
+    //     0,
+    //     "Pool:0x28B3a8fb53B741A8Fd78c0fb9A6B2393d896a43d",
+    //     &"a0b86991c6218b36c1d19d4a2e9eb0ce3606eb48:28b3a8fb53b741a8fd78c0fb9a6b2393d896a43d"
+    //         .to_string(),
+    // );
     map.tx_components
         .iter()
         .flat_map(|tx_pc| &tx_pc.components)
         .for_each(|component| {
             store.set(
                 0,
-                format!("pool:{0}", component.id),
+                format!("Pool:{0}", component.id),
                 &component
                     .tokens
                     .iter()
@@ -142,14 +152,24 @@ pub fn map_relative_balances(
                         tx: Some(tx_meta.clone()),
                         token: pool_tokens[0].clone(),
                         delta: deposit.assets.to_signed_bytes_be(),
-                        component_id: pool_id.clone().into(),
+                        component_id: log
+                            .address
+                            .clone()
+                            .to_hex()
+                            .as_bytes()
+                            .to_vec(),
                     },
                     BalanceDelta {
                         ord: log.ordinal,
                         tx: Some(tx_meta.clone()),
                         token: pool_tokens[1].clone(),
                         delta: deposit.shares.to_signed_bytes_be(),
-                        component_id: pool_id.clone().into(),
+                        component_id: log
+                            .address
+                            .clone()
+                            .to_hex()
+                            .as_bytes()
+                            .to_vec(),
                     },
                 ];
                 balance_deltas.extend(token_deltas);
@@ -164,7 +184,12 @@ pub fn map_relative_balances(
                             .assets
                             .neg()
                             .to_signed_bytes_be(),
-                        component_id: pool_id.clone().into(),
+                        component_id: log
+                            .address
+                            .clone()
+                            .to_hex()
+                            .as_bytes()
+                            .to_vec(),
                     },
                     BalanceDelta {
                         ord: log.ordinal,
@@ -174,7 +199,12 @@ pub fn map_relative_balances(
                             .shares
                             .neg()
                             .to_signed_bytes_be(),
-                        component_id: pool_id.clone().into(),
+                        component_id: log
+                            .address
+                            .clone()
+                            .to_hex()
+                            .as_bytes()
+                            .to_vec(),
                     },
                 ];
                 balance_deltas.extend(token_deltas);
@@ -204,11 +234,9 @@ pub fn store_component_first_interaction(
     store: StoreSetIfNotExistsBigInt,
 ) {
     for delta in deltas.balance_deltas {
-        store.set_if_not_exists(
-            0,
-            format!("first:{}", hex::encode(delta.component_id)),
-            &BigInt::from(block.number),
-        );
+        let component_id =
+            String::from_utf8(delta.component_id.clone()).expect("component_id is not valid utf-8");
+        store.set_if_not_exists(0, format!("first:{}", component_id), &BigInt::from(block.number));
     }
 }
 
@@ -221,7 +249,7 @@ pub fn store_component_first_interaction(
 /// You may have to change this method if your components have any default dynamic
 /// attributes, or if you need any additional static contracts indexed.
 #[substreams::handlers::map]
-fn map_protocol_changes(
+pub fn map_protocol_changes(
     block: eth::v2::Block,
     new_components: BlockTransactionProtocolComponents,
     tokens_store: StoreGetString,
@@ -261,6 +289,7 @@ fn map_protocol_changes(
                 });
         });
 
+    let mut emitted_pools: HashSet<String> = HashSet::new();
     for tx in block.transactions() {
         let tx_meta: Transaction = tx.into();
         let builder = transaction_changes
@@ -279,7 +308,6 @@ fn map_protocol_changes(
             let Some(first_block) = first_interaction_store.get_last(&key) else {
                 continue;
             };
-
             if first_block.to_u64() != block.number {
                 continue;
             }
@@ -291,7 +319,9 @@ fn map_protocol_changes(
             } else {
                 continue;
             };
-
+            if !emitted_pools.insert(pool_id.clone()) {
+                continue;
+            }
             let mut add_entrypoint = |name: &str, calldata: Vec<u8>| {
                 let trace_data = TraceData::Rpc(RpcTraceData { caller: None, calldata });
 
@@ -325,7 +355,7 @@ fn map_protocol_changes(
         }
     }
 
-    // // Aggregate absolute balances per transaction.
+    // Aggregate absolute balances per transaction.
     aggregate_balances_changes(balance_store, deltas)
         .into_iter()
         .for_each(|(_, (tx, balances))| {
