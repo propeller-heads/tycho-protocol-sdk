@@ -257,7 +257,6 @@ impl ProtocolComponent {
     ///
     /// ## Parameters
     /// - `id`: Contract address to be encoded and set as the component's ID.
-    /// - `tx`: Reference to the associated transaction.
     pub fn at_contract(id: &[u8]) -> Self {
         Self {
             id: format!("0x{}", hex::encode(id)),
