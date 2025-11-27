@@ -103,8 +103,7 @@ impl TransactionChangesBuilder {
 
     /// Marks a protocol component as paused or unpaused.
     ///
-    /// The `paused` state attribute is used to mark protocol components that no longer
-    /// allow for swapping.
+    /// Enables/disables swapping on the protocol component.
     ///
     /// # Parameters
     /// * `component_id` - The unique identifier of the protocol component
