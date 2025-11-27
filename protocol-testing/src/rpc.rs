@@ -1,13 +1,14 @@
 use alloy::{
     contract::{ContractInstance, Interface},
     dyn_abi::DynSolValue,
-    eips::eip1898::BlockId,
+    eips::{eip1898::BlockId, BlockNumberOrTag},
     primitives::{address, Address, U256},
     providers::{Provider, ProviderBuilder},
     rpc::types::Block,
     transports::http::reqwest::Url,
 };
 use miette::{IntoDiagnostic, WrapErr};
+use tracing::info;
 
 const NATIVE_ALIASES: &[Address] = &[
     address!("0x0000000000000000000000000000000000000000"),
@@ -17,7 +18,7 @@ const NATIVE_ALIASES: &[Address] = &[
 const ERC_20_ABI: &str = r#"[{"inputs":[{"name":"_owner","type":"address"}],"name":"balanceOf","outputs":[{"name":"balance","type":"uint256"}],"stateMutability":"view","type":"function"}]"#;
 
 pub struct RPCProvider {
-    url: Url,
+    pub url: Url,
 }
 
 impl RPCProvider {
@@ -79,6 +80,17 @@ impl RPCProvider {
             .await
             .into_diagnostic()
             .wrap_err("Failed to fetch block header")
+            .and_then(|block_opt| block_opt.ok_or_else(|| miette::miette!("Block not found")))
+    }
+
+    pub async fn get_block(&self, block_number: BlockNumberOrTag) -> miette::Result<Block> {
+        info!("Fetching block {:?}...", block_number.as_number());
+        let provider = ProviderBuilder::new().connect_http(self.url.clone());
+        provider
+            .get_block_by_number(block_number)
+            .await
+            .into_diagnostic()
+            .wrap_err(format!("Failed to fetch block {:?}", block_number))
             .and_then(|block_opt| block_opt.ok_or_else(|| miette::miette!("Block not found")))
     }
 }

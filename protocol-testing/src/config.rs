@@ -3,7 +3,7 @@ use std::collections::{HashMap, HashSet};
 use colored::Colorize;
 use serde::{Deserialize, Serialize};
 use similar::{ChangeTag, TextDiff};
-use tycho_common::{dto::ProtocolComponent, Bytes};
+use tycho_simulation::tycho_common::{dto::ProtocolComponent, Bytes};
 
 /// Represents a ProtocolComponent with its main attributes
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -22,6 +22,8 @@ pub struct ProtocolComponentWithTestConfig {
     pub base: ProtocolComponentExpectation,
     #[serde(default = "default_false")]
     pub skip_simulation: bool,
+    #[serde(default = "default_false")]
+    pub skip_execution: bool,
 }
 
 impl ProtocolComponentExpectation {
@@ -29,8 +31,8 @@ impl ProtocolComponentExpectation {
         let mut diffs = Vec::new();
 
         // Compare id (case-insensitive)
-        if self.id.to_lowercase() != other.id.to_lowercase() {
-            let diff = self.format_diff("id", &self.id, &other.id, colorize_output);
+        if self.id.to_lowercase() != other.id.to_string().to_lowercase() {
+            let diff = self.format_diff("id", &self.id, &other.id.to_string(), colorize_output);
             diffs.push(format!("Field 'id' mismatch for {}:\n{}", self.id, diff));
         }
 
@@ -143,6 +145,6 @@ pub struct IntegrationTestsConfig {
     pub skip_balance_check: bool,
     pub protocol_type_names: Vec<String>,
     pub protocol_system: String,
-    pub module_name: String,
+    pub module_name: Option<String>,
     pub tests: Vec<IntegrationTest>,
 }

@@ -1,14 +1,22 @@
 use std::{collections::HashMap, error::Error as StdError, fmt};
 
-use tracing::info;
-use tycho_client::{rpc::RPCClient, HttpRPCClient};
-use tycho_common::{
-    dto::{
-        Chain, PaginationParams, ProtocolComponent, ProtocolComponentsRequestBody, ResponseAccount,
-        ResponseProtocolState, ResponseToken, StateRequestBody, VersionParam,
+use tokio::time::{sleep, Duration};
+use tracing::{debug, info, warn};
+use tycho_simulation::{
+    tycho_client::{
+        feed::synchronizer::Snapshot,
+        rpc::{HttpRPCClientOptions, RPCClient},
+        HttpRPCClient, SnapshotParameters,
     },
-    models::token::Token,
-    Bytes,
+    tycho_common::{
+        dto::{
+            Chain, EntryPointWithTracingParams, PaginationParams, ProtocolComponent,
+            ProtocolComponentsRequestBody, ResponseToken, TracedEntryPointRequestBody,
+            TracingResult,
+        },
+        models::{token::Token, ComponentId},
+        Bytes,
+    },
 };
 
 /// Custom error type for RPC operations
@@ -33,8 +41,8 @@ impl From<Box<dyn StdError>> for RpcError {
     }
 }
 
-impl From<tycho_client::RPCError> for RpcError {
-    fn from(error: tycho_client::RPCError) -> Self {
+impl From<tycho_simulation::tycho_client::RPCError> for RpcError {
+    fn from(error: tycho_simulation::tycho_client::RPCError) -> Self {
         RpcError::ClientError(error.to_string())
     }
 }
@@ -45,9 +53,10 @@ pub struct TychoClient {
 }
 
 impl TychoClient {
-    pub fn new(host: &str) -> Result<Self, RpcError> {
+    pub fn new(host: &str, auth_key: Option<String>) -> Result<Self, RpcError> {
+        let options = HttpRPCClientOptions::new().with_auth_key(auth_key);
         let http_client =
-            HttpRPCClient::new(host, None).map_err(|e| RpcError::ClientError(e.to_string()))?;
+            HttpRPCClient::new(host, options).map_err(|e| RpcError::ClientError(e.to_string()))?;
         Ok(Self { http_client })
     }
 
@@ -64,59 +73,10 @@ impl TychoClient {
 
         let response = self
             .http_client
-            .get_protocol_components_paginated(&request, chunk_size, concurrency)
+            .get_protocol_components_paginated(&request, Some(chunk_size), concurrency)
             .await?;
 
         Ok(response.protocol_components)
-    }
-
-    /// Gets protocol state from the RPC server
-    pub async fn get_protocol_state(
-        &self,
-        protocol_system: &str,
-        component_ids: Vec<String>,
-        chain: Chain,
-    ) -> Result<Vec<ResponseProtocolState>, RpcError> {
-        let chunk_size = 100;
-        let concurrency = 1;
-        let version: tycho_common::dto::VersionParam = VersionParam::default();
-
-        let protocol_states = self
-            .http_client
-            .get_protocol_states_paginated(
-                chain,
-                &component_ids,
-                protocol_system,
-                true,
-                &version,
-                chunk_size,
-                concurrency,
-            )
-            .await?;
-
-        Ok(protocol_states.states)
-    }
-
-    /// Gets contract state from the RPC server
-    pub async fn get_contract_state(
-        &self,
-        protocol_system: &str,
-        chain: Chain,
-    ) -> Result<Vec<ResponseAccount>, RpcError> {
-        let request_body = StateRequestBody {
-            contract_ids: None,
-            protocol_system: protocol_system.to_string(),
-            version: Default::default(),
-            chain,
-            pagination: PaginationParams { page: 0, page_size: 100 },
-        };
-
-        let contract_states = self
-            .http_client
-            .get_contract_state(&request_body)
-            .await?;
-
-        Ok(contract_states.accounts)
     }
 
     pub async fn get_tokens(
@@ -125,12 +85,14 @@ impl TychoClient {
         min_quality: Option<i32>,
         max_days_since_last_trade: Option<u64>,
     ) -> Result<HashMap<Bytes, Token>, RpcError> {
-        info!("Loading tokens from Tycho...");
+        debug!("Loading tokens from Tycho...");
+
+        let concurrency = 1;
 
         #[allow(clippy::mutable_key_type)]
         let res = self
             .http_client
-            .get_all_tokens(chain, min_quality, max_days_since_last_trade, 3_000)
+            .get_all_tokens(chain, min_quality, max_days_since_last_trade, Some(3_000), concurrency)
             .await?
             .into_iter()
             .map(|token| {
@@ -150,5 +112,84 @@ impl TychoClient {
             .collect::<HashMap<_, Token>>();
 
         Ok(res)
+    }
+
+    /// Gets traced entry points from the RPC server
+    pub async fn get_traced_entry_points(
+        &self,
+        protocol_system: &str,
+        component_ids: Vec<String>,
+        chain: Chain,
+    ) -> Result<HashMap<String, Vec<(EntryPointWithTracingParams, TracingResult)>>, RpcError> {
+        let request_body = TracedEntryPointRequestBody {
+            protocol_system: protocol_system.to_string(),
+            chain,
+            pagination: PaginationParams { page: 0, page_size: 100 },
+            component_ids: Some(component_ids),
+        };
+
+        let traced_entry_points = self
+            .http_client
+            .get_traced_entry_points(&request_body)
+            .await?;
+
+        Ok(traced_entry_points.traced_entry_points)
+    }
+
+    pub async fn get_snapshots(
+        &self,
+        chain: Chain,
+        block_number: u64,
+        protocol_system: &str,
+        components: &HashMap<ComponentId, ProtocolComponent>,
+        contract_ids: &[Bytes],
+        entrypoints: &HashMap<String, Vec<(EntryPointWithTracingParams, TracingResult)>>,
+    ) -> Result<Snapshot, RpcError> {
+        let params =
+            SnapshotParameters::new(chain, protocol_system, components, contract_ids, block_number)
+                .entrypoints(entrypoints);
+
+        let chunk_size = 100;
+        let concurrency = 1;
+
+        let response = self
+            .http_client
+            .get_snapshots(&params, Some(chunk_size), concurrency)
+            .await?;
+
+        Ok(response)
+    }
+
+    /// Waits for the protocol to be synced and have components available
+    pub async fn wait_for_protocol_sync(
+        &self,
+        protocol_system: &str,
+        chain: Chain,
+    ) -> Result<(), RpcError> {
+        loop {
+            match self
+                .get_protocol_components(protocol_system, chain)
+                .await
+            {
+                Ok(components) => {
+                    info!("Found {} components for protocol {}", components.len(), protocol_system);
+                    if !components.is_empty() {
+                        return Ok(());
+                    }
+                    info!(
+                        "Protocol {} found but no components available yet, waiting...",
+                        protocol_system
+                    );
+                }
+                Err(e) => {
+                    warn!(
+                        "Failed to get protocol components for {}: {}. Retrying in 15 minutes...",
+                        protocol_system, e
+                    );
+                }
+            }
+
+            sleep(Duration::from_secs(15 * 60)).await;
+        }
     }
 }
