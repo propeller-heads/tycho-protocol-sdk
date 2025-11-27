@@ -13,6 +13,21 @@ use ethabi::ethereum_types::Address;
 use std::str::FromStr;
 use substreams_helper::event_handler::EventHandler;
 
+use anyhow::{anyhow, Result};
+use serde::Deserialize;
+
+#[derive(Debug, Deserialize)]
+pub struct Params {
+    pub controller_address: String,
+    pub angstrom_address: String,
+}
+
+impl Params {
+    pub fn parse_from_query(input: &str) -> Result<Self> {
+        serde_qs::from_str(input).map_err(|e| anyhow!("Failed to parse query params: {}", e))
+    }
+}
+
 #[substreams::handlers::map]
 pub fn map_angstrom_enriched_block_changes(
     params: String,
@@ -20,12 +35,11 @@ pub fn map_angstrom_enriched_block_changes(
     tokens_to_id_store: StoreGetString,
     block_changes: BlockChanges,
 ) -> Result<BlockChanges, substreams::errors::Error> {
-    let param_parts: Vec<&str> = params.split(',').collect();
-    let (controller_address, angstrom_address) = (param_parts[0], param_parts[1]);
+    let params = Params::parse_from_query(&params)?;
     let enriched_changes = _enrich_block_changes(
-        controller_address.to_string(),
+        params.controller_address,
         block,
-        angstrom_address.to_string(),
+        params.angstrom_address,
         tokens_to_id_store,
         block_changes,
     );

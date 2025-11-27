@@ -197,4 +197,4 @@ params:
   store_euler_hooks: "0xb013be1D0D380C13B58e889f412895970A2Cf228"
   map_euler_enriched_protocol_changes: "0xb013be1D0D380C13B58e889f412895970A2Cf228"
   store_tokens_to_pool_id_angstrom: "0x0000000aa232009084bd71a5797d089aa4edfad4" # angstrom hook address
-  map_angstrom_enriched_block_changes: "0x1746484ea5e11c75e009252c102c8c33e0315fd4,0x0000000aa232009084bd71a5797d089aa4edfad4" # angstrom controller address and hook address
+  map_angstrom_enriched_block_changes: controller_address=0x1746484ea5e11c75e009252c102c8c33e0315fd4&angstrom_address=0x0000000aa232009084bd71a5797d089aa4edfad4
