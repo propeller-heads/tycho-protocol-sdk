@@ -81,30 +81,44 @@ pub fn _enrich_block_changes(
                 }
             }
         }
-        for entity_change in &mut tx_changes.entity_changes {
-            // if yes, it will be an angstrom pool
-            if let Some(config) = angstrom_configs.get(&entity_change.component_id) {
-                let angstrom_config = vec![
-                    Attribute {
-                        name: "angstrom_unlocked_fee".to_string(),
-                        value: config.unlocked_fee.clone(),
-                        change: ChangeType::Update.into(),
-                    },
-                    Attribute {
-                        name: "angstrom_protocol_unlocked_fee".to_string(),
-                        value: config.protocol_unlocked_fee.clone(),
-                        change: ChangeType::Update.into(),
-                    },
-                    Attribute {
-                        name: "angstrom_removed_pool".to_string(),
-                        value: if config.pool_removed { vec![1] } else { vec![0] },
-                        change: ChangeType::Update.into(),
-                    },
-                ];
-                entity_change
-                    .attributes
-                    .extend(angstrom_config);
+
+        let tx_hash = &tx_changes
+            .tx
+            .as_ref()
+            .expect("Transaction not set in TransactionChanges")
+            .hash;
+
+        // Get all angstrom configs for this transaction
+        if let Some(tx_configs) = angstrom_configs.get(tx_hash) {
+            // First pass: update existing entity changes
+            for entity_change in &mut tx_changes.entity_changes {
+                if let Some(config) = tx_configs.get(&entity_change.component_id) {
+                    entity_change
+                        .attributes
+                        .extend(_create_angstrom_attributes(config));
+                }
             }
+
+            // Second pass: collect new entity changes needed
+            let existing_component_ids: std::collections::HashSet<_> = tx_changes
+                .entity_changes
+                .iter()
+                .map(|ec| &ec.component_id)
+                .collect();
+
+            let new_entity_changes: Vec<_> = tx_configs
+                .iter()
+                .filter(|(component_id, _)| !existing_component_ids.contains(component_id))
+                .map(|(component_id, config)| EntityChanges {
+                    component_id: component_id.clone(),
+                    attributes: _create_angstrom_attributes(config),
+                })
+                .collect();
+
+            // Add the new entity changes
+            tx_changes
+                .entity_changes
+                .extend(new_entity_changes);
         }
     }
 
@@ -115,7 +129,7 @@ fn _track_angstrom_config(
     controller_address: String,
     block: eth::Block,
     tokens_to_id_store: StoreGetString,
-) -> HashMap<String, AngstromConfig> {
+) -> HashMap<Vec<u8>, HashMap<String, AngstromConfig>> {
     let mut config = HashMap::new();
 
     // Process batchUpdatePools calls first
@@ -150,7 +164,10 @@ fn _track_angstrom_config(
                                 protocol_unlocked_fee: pool_update.protocol_unlocked_fee,
                                 pool_removed: false,
                             };
-                            config.insert(component_id, angstrom_config);
+                            config
+                                .entry(tx.hash.clone())
+                                .or_insert_with(HashMap::new)
+                                .insert(component_id, angstrom_config);
                         }
                     }
                 }
@@ -162,7 +179,7 @@ fn _track_angstrom_config(
     {
         // Create closure for PoolConfigured events
         let mut on_pool_configured = |event: PoolConfigured,
-                                      _tx: &eth::TransactionTrace,
+                                      tx: &eth::TransactionTrace,
                                       _log: &eth::Log| {
             let store_key = generate_store_key_from_assets(&event.asset0, &event.asset1);
 
@@ -186,7 +203,10 @@ fn _track_angstrom_config(
                 hex::encode(&angstrom_config.unlocked_fee),
                 hex::encode(&angstrom_config.protocol_unlocked_fee),
             );
-            config.insert(component_id, angstrom_config);
+            config
+                .entry(tx.hash.clone())
+                .or_insert_with(HashMap::new)
+                .insert(component_id, angstrom_config);
         };
 
         let mut eh = EventHandler::new(&block);
@@ -198,7 +218,7 @@ fn _track_angstrom_config(
     // Handle PoolRemoved events in separate scope
     {
         let mut on_pool_removed =
-            |event: PoolRemoved, _tx: &eth::TransactionTrace, _log: &eth::Log| {
+            |event: PoolRemoved, tx: &eth::TransactionTrace, _log: &eth::Log| {
                 let store_key = generate_store_key_from_assets(&event.asset0, &event.asset1);
 
                 if let Some(component_id) = tokens_to_id_store.get_last(&store_key) {
@@ -209,7 +229,10 @@ fn _track_angstrom_config(
                         pool_removed: true,
                     };
 
-                    config.insert(component_id.clone(), angstrom_config);
+                    config
+                        .entry(tx.hash.clone())
+                        .or_insert_with(HashMap::new)
+                        .insert(component_id.clone(), angstrom_config);
                     substreams::log::debug!(
                         "Pool removed for assets {}/{} with component id: {:?}",
                         event.asset0.to_hex(),
@@ -226,4 +249,24 @@ fn _track_angstrom_config(
     }
 
     config
+}
+
+fn _create_angstrom_attributes(config: &AngstromConfig) -> Vec<Attribute> {
+    vec![
+        Attribute {
+            name: "angstrom_unlocked_fee".to_string(),
+            value: config.unlocked_fee.clone(),
+            change: ChangeType::Update.into(),
+        },
+        Attribute {
+            name: "angstrom_protocol_unlocked_fee".to_string(),
+            value: config.protocol_unlocked_fee.clone(),
+            change: ChangeType::Update.into(),
+        },
+        Attribute {
+            name: "angstrom_removed_pool".to_string(),
+            value: if config.pool_removed { vec![1] } else { vec![0] },
+            change: ChangeType::Update.into(),
+        },
+    ]
 }
