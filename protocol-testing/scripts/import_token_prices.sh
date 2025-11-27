@@ -3,6 +3,7 @@ set -e
 
 # Configuration
 S3_BUCKET="repo.propellerheads-propellerheads"
+S3_REGION="eu-central-1"
 TEMP_DIR="/tmp/token_price_import_$$"
 
 usage() {
@@ -45,23 +46,18 @@ fi
 mkdir -p "$TEMP_DIR"
 trap "rm -rf $TEMP_DIR" EXIT
 
-# Find latest export
-S3_PREFIX="s3://${S3_BUCKET}/token-prices/${CHAIN}/"
-echo "Finding latest export for $CHAIN..."
-LATEST_EXPORT=$(aws s3 ls "${S3_PREFIX}" | grep PRE | awk '{print $2}' | sed 's#/##' | sort -r | head -n 1)
+# Download latest CSV (no need to find latest - always use /latest/)
+CSV_FILE="${TEMP_DIR}/token-prices.csv"
+S3_URL="https://s3.${S3_REGION}.amazonaws.com/${S3_BUCKET}"
+CSV_URL="${S3_URL}/token-prices/${CHAIN}/latest/token-prices.csv"
 
-if [[ -z "$LATEST_EXPORT" ]]; then
-    echo "Error: No exports found for chain: $CHAIN"
+echo "Downloading latest token prices for $CHAIN..."
+echo "From: $CSV_URL"
+
+if ! curl -sf "$CSV_URL" -o "$CSV_FILE"; then
+    echo "Error: Failed to download CSV from $CSV_URL"
     exit 1
 fi
-
-S3_EXPORT_PATH="${S3_PREFIX}${LATEST_EXPORT}/"
-echo "Latest export: $LATEST_EXPORT"
-
-# Download CSV
-CSV_FILE="${TEMP_DIR}/token-prices.csv"
-echo "Downloading from S3..."
-aws s3 cp "${S3_EXPORT_PATH}token-prices.csv" "$CSV_FILE" --quiet
 
 ROW_COUNT=$(($(wc -l < "$CSV_FILE") - 1))
 echo "CSV contains $ROW_COUNT token prices"
