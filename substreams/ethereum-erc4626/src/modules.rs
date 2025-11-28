@@ -104,13 +104,6 @@ pub fn map_protocol_components(
 /// key and tokens as the value
 #[substreams::handlers::store]
 pub fn store_component_tokens(map: BlockTransactionProtocolComponents, store: StoreSetString) {
-    // mock store for tests
-    // store.set(
-    //     0,
-    //     "Pool:0x28B3a8fb53B741A8Fd78c0fb9A6B2393d896a43d",
-    //     &"a0b86991c6218b36c1d19d4a2e9eb0ce3606eb48:28b3a8fb53b741a8fd78c0fb9a6b2393d896a43d"
-    //         .to_string(),
-    // );
     map.tx_components
         .iter()
         .flat_map(|tx_pc| &tx_pc.components)
@@ -312,10 +305,10 @@ pub fn map_protocol_changes(
                 continue;
             }
 
-            let (assets, user) = if let Some(ev) = Deposit::match_and_decode(log) {
-                (ev.assets, ev.sender)
+            let (assets, shares, user) = if let Some(ev) = Deposit::match_and_decode(log) {
+                (ev.assets, ev.shares, ev.sender)
             } else if let Some(ev) = Withdraw::match_and_decode(log) {
-                (ev.assets, ev.sender)
+                (ev.assets, ev.shares, ev.sender)
             } else {
                 continue;
             };
@@ -341,16 +334,16 @@ pub fn map_protocol_changes(
                 erc4626::functions::PreviewDeposit { assets: assets.clone() }.encode(),
             );
             add_entrypoint(
-                erc4626::functions::PreviewWithdraw::NAME,
-                erc4626::functions::PreviewWithdraw { assets: assets.clone() }.encode(),
+                erc4626::functions::PreviewRedeem::NAME,
+                erc4626::functions::PreviewRedeem { shares: shares.clone() }.encode(),
             );
             add_entrypoint(
                 erc4626::functions::MaxDeposit::NAME,
                 erc4626::functions::MaxDeposit { receiver: user.clone() }.encode(),
             );
             add_entrypoint(
-                erc4626::functions::MaxWithdraw::NAME,
-                erc4626::functions::MaxWithdraw { owner: user.clone() }.encode(),
+                erc4626::functions::MaxRedeem::NAME,
+                erc4626::functions::MaxRedeem { owner: user.clone() }.encode(),
             );
         }
     }
