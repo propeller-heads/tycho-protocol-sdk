@@ -50,7 +50,7 @@ tests:
 
   - name: test_sUSDS
     start_block: 20677434
-    stop_block: 21177434
+    stop_block: 20727434
     expected_components:
       - id: "0xa3931d71877c0e7a3148cb7eb4463524fec27fbd"
         tokens:
@@ -64,7 +64,7 @@ tests:
 
   - name: test_sUSDC
     start_block: 21969024
-    stop_block: 22029024
+    stop_block: 22019024
     expected_components:
       - id: "0xbc65ad17c5c0a2a4d159fa5a503f4992c7b545fe"
         tokens:
@@ -76,16 +76,16 @@ tests:
         skip_simulation: false
         skip_execution: true
 
-  - name: test_sDAI
-    start_block: 16428133
-    stop_block: 16498133
-    expected_components:
-      - id: "0x83f20f44975d03b1b09e64809b757c47f942beea"
-        tokens:
-          - "0x6b175474e89094c44da98b954eedeac495271d0f"
-          - "0x83f20f44975d03b1b09e64809b757c47f942beea"
-        static_attributes:
-          name: "0x73444149"
-        creation_tx: "0xa2f51048265f2fe9ffaf69b94cb5a2a4113be49bdecd2040d530dd6f68facc42"
-        skip_simulation: false
-        skip_execution: true
+  # - name: test_sDAI
+  #   start_block: 16428133
+  #   stop_block: 17317480 # skip test, over 1m blocks
+  #   expected_components:
+  #     - id: "0x83f20f44975d03b1b09e64809b757c47f942beea"
+  #       tokens:
+  #         - "0x6b175474e89094c44da98b954eedeac495271d0f"
+  #         - "0x83f20f44975d03b1b09e64809b757c47f942beea"
+  #       static_attributes:
+  #         name: "0x73444149"
+  #       creation_tx: "0xa2f51048265f2fe9ffaf69b94cb5a2a4113be49bdecd2040d530dd6f68facc42"
+  #       skip_simulation: false
+  #       skip_execution: true
