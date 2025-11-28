@@ -407,8 +407,11 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "ethabi 18.0.0",
+ "hex",
  "itertools 0.10.5",
  "num-bigint",
+ "serde",
+ "serde_json",
  "substreams",
  "substreams-ethereum",
  "tycho-substreams 0.8.0",
