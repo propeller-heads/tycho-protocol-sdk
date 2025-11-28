@@ -36,7 +36,7 @@ pub fn map_angstrom_enriched_block_changes(
     block_changes: BlockChanges,
 ) -> Result<BlockChanges, substreams::errors::Error> {
     let params = Params::parse_from_query(&params)?;
-    let enriched_changes = _enrich_block_changes(
+    let enriched_changes = enrich_block_changes(
         params.controller_address,
         block,
         params.angstrom_address,
@@ -47,14 +47,14 @@ pub fn map_angstrom_enriched_block_changes(
     Ok(enriched_changes)
 }
 
-pub fn _enrich_block_changes(
+pub fn enrich_block_changes(
     controller_address: String,
     block: eth::Block,
     angstrom_address: String,
     tokens_to_id_store: StoreGetString,
     mut protocol_changes: BlockChanges,
 ) -> BlockChanges {
-    let angstrom_configs = _track_angstrom_config(controller_address, block, tokens_to_id_store);
+    let angstrom_configs = track_angstrom_config(controller_address, block, tokens_to_id_store);
     // Process each transaction's changes
     for tx_changes in &mut protocol_changes.changes {
         // Enrich component creations with Angstrom hook identifier
@@ -69,7 +69,6 @@ pub fn _enrich_block_changes(
                     let hook_address = hooks_attr.value.to_hex();
                     // Check if this hook address is the only Angstrom hook
                     if hook_address.to_lowercase() == angstrom_address {
-                        substreams::log::debug!("Angstrom pool created: {}", protocol_component.id);
                         protocol_component
                             .static_att
                             .push(Attribute {
@@ -95,7 +94,7 @@ pub fn _enrich_block_changes(
                 if let Some(config) = tx_configs.get(&entity_change.component_id) {
                     entity_change
                         .attributes
-                        .extend(_create_angstrom_attributes(config));
+                        .extend(create_angstrom_attributes(config));
                 }
             }
 
@@ -111,7 +110,7 @@ pub fn _enrich_block_changes(
                 .filter(|(component_id, _)| !existing_component_ids.contains(component_id))
                 .map(|(component_id, config)| EntityChanges {
                     component_id: component_id.clone(),
-                    attributes: _create_angstrom_attributes(config),
+                    attributes: create_angstrom_attributes(config),
                 })
                 .collect();
 
@@ -125,7 +124,7 @@ pub fn _enrich_block_changes(
     protocol_changes
 }
 
-fn _track_angstrom_config(
+fn track_angstrom_config(
     controller_address: String,
     block: eth::Block,
     tokens_to_id_store: StoreGetString,
@@ -149,15 +148,6 @@ fn _track_angstrom_config(
                         );
 
                         if let Some(component_id) = tokens_to_id_store.get_last(&store_key) {
-                            substreams::log::debug!(
-                                "Updating Angstrom fees via batchUpdatePools for assets {}/{} with component id: {:?} - bundle: {}, unlocked: {}, protocol: {}",
-                                pool_update.asset_a.to_hex(),
-                                pool_update.asset_b.to_hex(),
-                                component_id,
-                                hex::encode(&pool_update.bundle_fee),
-                                hex::encode(&pool_update.unlocked_fee),
-                                hex::encode(&pool_update.protocol_unlocked_fee));
-
                             let angstrom_config = AngstromConfig {
                                 bundle_fee: pool_update.bundle_fee,
                                 unlocked_fee: pool_update.unlocked_fee,
@@ -178,36 +168,25 @@ fn _track_angstrom_config(
     // Use block scope to avoid borrow checker issues
     {
         // Create closure for PoolConfigured events
-        let mut on_pool_configured = |event: PoolConfigured,
-                                      tx: &eth::TransactionTrace,
-                                      _log: &eth::Log| {
-            let store_key = generate_store_key_from_assets(&event.asset0, &event.asset1);
+        let mut on_pool_configured =
+            |event: PoolConfigured, tx: &eth::TransactionTrace, _log: &eth::Log| {
+                let store_key = generate_store_key_from_assets(&event.asset0, &event.asset1);
 
-            let component_id = tokens_to_id_store
-                .get_last(store_key.clone())
-                .expect("Component ID should exist for Angstrom pool assets store");
+                let component_id = tokens_to_id_store
+                    .get_last(store_key.clone())
+                    .expect("Component ID should exist for Angstrom pool assets store");
 
-            let angstrom_config = AngstromConfig {
-                bundle_fee: event.bundle_fee.clone(),
-                unlocked_fee: event.unlocked_fee.clone(),
-                protocol_unlocked_fee: event.protocol_unlocked_fee.clone(),
-                pool_removed: false,
+                let angstrom_config = AngstromConfig {
+                    bundle_fee: event.bundle_fee.clone(),
+                    unlocked_fee: event.unlocked_fee.clone(),
+                    protocol_unlocked_fee: event.protocol_unlocked_fee.clone(),
+                    pool_removed: false,
+                };
+                config
+                    .entry(tx.hash.clone())
+                    .or_insert_with(HashMap::new)
+                    .insert(component_id, angstrom_config);
             };
-
-            substreams::log::debug!(
-                "Angstrom fees were configured for assets {}/{} with component id: {:?} - bundle: {}, unlocked: {}, protocol: {}",
-                event.asset0.to_hex(),
-                event.asset1.to_hex(),
-                component_id,
-                hex::encode(&angstrom_config.bundle_fee),
-                hex::encode(&angstrom_config.unlocked_fee),
-                hex::encode(&angstrom_config.protocol_unlocked_fee),
-            );
-            config
-                .entry(tx.hash.clone())
-                .or_insert_with(HashMap::new)
-                .insert(component_id, angstrom_config);
-        };
 
         let mut eh = EventHandler::new(&block);
         eh.filter_by_address(vec![Address::from_str(&controller_address).unwrap()]);
@@ -233,12 +212,6 @@ fn _track_angstrom_config(
                         .entry(tx.hash.clone())
                         .or_insert_with(HashMap::new)
                         .insert(component_id.clone(), angstrom_config);
-                    substreams::log::debug!(
-                        "Pool removed for assets {}/{} with component id: {:?}",
-                        event.asset0.to_hex(),
-                        event.asset1.to_hex(),
-                        component_id,
-                    );
                 }
             };
 
@@ -251,7 +224,7 @@ fn _track_angstrom_config(
     config
 }
 
-fn _create_angstrom_attributes(config: &AngstromConfig) -> Vec<Attribute> {
+fn create_angstrom_attributes(config: &AngstromConfig) -> Vec<Attribute> {
     vec![
         Attribute {
             name: "angstrom_unlocked_fee".to_string(),
