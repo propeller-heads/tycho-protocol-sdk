@@ -1,0 +1,79 @@
+specVersion: v0.1.0
+package:
+  name: "ethereum_rocketpool"
+  version: v0.1.0
+
+protobuf:
+  files:
+    - tycho/evm/v1/vm.proto
+    - tycho/evm/v1/common.proto
+    - tycho/evm/v1/utils.proto
+  importPaths:
+    - ../../proto
+
+binaries:
+  default:
+    type: wasm/rust-v1
+    file: ../target/wasm32-unknown-unknown/release/ethereum_rocketpool.wasm
+
+
+network: mainnet
+
+params:
+  map_protocol_components: &starting_block 17002370 # RocketDepositPool_V1_2 was deployed
+  map_protocol_changes: &initial_state |
+    {
+      "liquidity": "0x0000000000000000000000000000000000000000000003cfc82e37e9a7400000",
+      "deposits_enabled": "0x0000000000000000000000000000000000000000000000000000000000000001",
+      "deposit_assign_enabled": "0x0000000000000000000000000000000000000000000000000000000000000001",
+      "deposit_assign_maximum": "0x0000000000000000000000000000000000000000000000000000000000000002",
+      "deposit_assign_socialised_maximum": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "min_deposit_amount": "0x000000000000000000000000000000000000000000000000002386f26fc10000",
+      "max_deposit_amount": "0x0000000000000000000000000000000000000000000003cfc82e37e9a7400000",
+      "deposit_fee": "0x0000000000000000000000000000000000000000000000000001c6bf52634000",
+      "queue_full_start": "0x00000000000000000000000000000000000000000000000000000000000001bf",
+      "queue_full_end": "0x00000000000000000000000000000000000000000000000000000000000001bf",
+      "queue_half_start": "0x0000000000000000000000000000000000000000000000000000000000003449",
+      "queue_half_end": "0x0000000000000000000000000000000000000000000000000000000000003449",
+      "queue_variable_start": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "queue_variable_end": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "total_eth": "0x0000000000000000000000000000000000000000000033fce75847ad24792c72",
+      "reth_supply": "0x0000000000000000000000000000000000000000000030cc5d3db8bc5c4e46df"
+    }
+
+modules:
+  - name: map_protocol_components
+    kind: map
+    initialBlock: *starting_block
+    inputs:
+      - params: string
+      - source: sf.ethereum.type.v2.Block
+    output:
+      type: proto:tycho.evm.v1.BlockTransactionProtocolComponents
+
+  - name: map_relative_liquidity
+    kind: map
+    initialBlock: *starting_block
+    inputs:
+      - source: sf.ethereum.type.v2.Block
+    output:
+      type: proto:tycho.evm.v1.BlockBalanceDeltas
+
+
+  - name: store_liquidity
+    kind: store
+    initialBlock: *starting_block
+    updatePolicy: add
+    valueType: bigint
+    inputs:
+      - map: map_relative_liquidity
+
+  - name: map_protocol_changes
+    kind: map
+    initialBlock: *starting_block
+    inputs:
+      - params: string
+      - source: sf.ethereum.type.v2.Block
+      - map: map_protocol_components
+    output:
+      type: proto:tycho.evm.v1.BlockChanges
