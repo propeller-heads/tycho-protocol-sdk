@@ -55,9 +55,8 @@ modules:
     kind: store
     initialBlock: 16428133
     updatePolicy: set_if_not_exists
-    valueType: bigint
+    valueType: int64
     inputs:
-      - source: sf.ethereum.type.v2.Block
       - map: map_relative_balances
 
   - name: map_protocol_changes
@@ -71,6 +70,7 @@ modules:
         mode: deltas
       - map: map_relative_balances
       - store: store_component_first_interaction
+        mode: deltas
     output:
       type: proto:tycho.evm.v1.BlockChanges
 

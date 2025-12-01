@@ -11,7 +11,10 @@ use std::{
     collections::{HashMap, HashSet},
     iter::zip,
 };
-use substreams::{pb::substreams::StoreDeltas, prelude::*};
+use substreams::{
+    pb::substreams::{store_delta::Operation, StoreDeltas},
+    prelude::*,
+};
 use substreams_ethereum::{pb::eth, Event, Function};
 use substreams_helper::hex::Hexable;
 use tycho_substreams::{
@@ -222,14 +225,13 @@ pub fn store_component_balances(deltas: BlockBalanceDeltas, store: StoreAddBigIn
 
 #[substreams::handlers::store]
 pub fn store_component_first_interaction(
-    block: eth::v2::Block,
     deltas: BlockBalanceDeltas,
-    store: StoreSetIfNotExistsBigInt,
+    store: StoreSetIfNotExistsInt64,
 ) {
     for delta in deltas.balance_deltas {
         let component_id =
             String::from_utf8(delta.component_id.clone()).expect("component_id is not valid utf-8");
-        store.set_if_not_exists(0, format!("first:{}", component_id), &BigInt::from(block.number));
+        store.set_if_not_exists(0, format!("first:{}", component_id), &1);
     }
 }
 
@@ -248,7 +250,7 @@ pub fn map_protocol_changes(
     tokens_store: StoreGetString,
     balance_store: StoreDeltas,
     deltas: BlockBalanceDeltas,
-    first_interaction_store: StoreGetBigInt,
+    first_interaction_store: StoreDeltas,
 ) -> Result<BlockChanges, substreams::errors::Error> {
     // We merge contract changes by transaction (identified by transaction index)
     // making it easy to sort them at the very end.
@@ -283,28 +285,32 @@ pub fn map_protocol_changes(
         });
 
     let mut emitted_pools: HashSet<String> = HashSet::new();
+
+    let first_pools: HashSet<String> = first_interaction_store
+        .deltas
+        .into_iter()
+        .filter(|delta| delta.operation == Operation::Create as i32)
+        .filter_map(|delta| {
+            delta
+                .key
+                .strip_prefix("first:")
+                .map(|id| id.to_string())
+        })
+        .collect();
+
     for tx in block.transactions() {
         let tx_meta: Transaction = tx.into();
         let builder = transaction_changes
             .entry(tx_meta.index)
             .or_insert_with(|| TransactionChangesBuilder::new(&tx_meta));
-        for (log, _) in tx.logs_with_calls() {
-            let pool_id = format!("Pool:{}", log.address.to_hex());
-            if tokens_store
-                .get_last(&pool_id)
-                .is_none()
-            {
-                continue;
+        for (log, _call) in tx.logs_with_calls().filter(|(log, _)| {
+            if !first_pools.contains(&log.address.to_hex()) {
+                return false;
             }
-            // Check if this block is the first interaction
-            let key = format!("first:{}", log.address.to_hex());
-            let Some(first_block) = first_interaction_store.get_last(&key) else {
-                continue;
-            };
-            if first_block.to_u64() != block.number {
-                continue;
-            }
-
+            tokens_store
+                .get_last(format!("Pool:{}", log.address.to_hex()))
+                .is_some()
+        }) {
             let (assets, shares, user) = if let Some(ev) = Deposit::match_and_decode(log) {
                 (ev.assets, ev.shares, ev.sender)
             } else if let Some(ev) = Withdraw::match_and_decode(log) {
@@ -312,9 +318,11 @@ pub fn map_protocol_changes(
             } else {
                 continue;
             };
-            if !emitted_pools.insert(pool_id.clone()) {
+
+            if !emitted_pools.insert(log.address.to_hex()) {
                 continue;
             }
+
             let mut add_entrypoint = |name: &str, calldata: Vec<u8>| {
                 let trace_data = TraceData::Rpc(RpcTraceData { caller: None, calldata });
 
@@ -328,7 +336,6 @@ pub fn map_protocol_changes(
                 builder.add_entrypoint(&ep);
                 builder.add_entrypoint_params(&ep_param);
             };
-
             add_entrypoint(
                 erc4626::functions::PreviewDeposit::NAME,
                 erc4626::functions::PreviewDeposit { assets: assets.clone() }.encode(),
