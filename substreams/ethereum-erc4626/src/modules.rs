@@ -288,7 +288,7 @@ pub fn map_protocol_changes(
 
     let first_pools: HashSet<String> = first_interaction_store
         .deltas
-        .into_iter()
+        .iter()
         .filter(|delta| delta.operation == Operation::Create as i32)
         .filter_map(|delta| {
             delta
@@ -298,60 +298,63 @@ pub fn map_protocol_changes(
         })
         .collect();
 
-    for tx in block.transactions() {
-        let tx_meta: Transaction = tx.into();
-        let builder = transaction_changes
-            .entry(tx_meta.index)
-            .or_insert_with(|| TransactionChangesBuilder::new(&tx_meta));
-        for (log, _call) in tx.logs_with_calls().filter(|(log, _)| {
-            if !first_pools.contains(&log.address.to_hex()) {
-                return false;
-            }
-            tokens_store
-                .get_last(format!("Pool:{}", log.address.to_hex()))
-                .is_some()
-        }) {
-            let (assets, shares, user) = if let Some(ev) = Deposit::match_and_decode(log) {
-                (ev.assets, ev.shares, ev.sender)
-            } else if let Some(ev) = Withdraw::match_and_decode(log) {
-                (ev.assets, ev.shares, ev.sender)
-            } else {
-                continue;
-            };
+    if !first_pools.is_empty() {
+        for tx in block.transactions() {
+            for (log, _call) in tx.logs_with_calls().filter(|(log, _)| {
+                if !first_pools.contains(&log.address.to_hex()) {
+                    return false;
+                }
+                tokens_store
+                    .get_last(format!("Pool:{}", log.address.to_hex()))
+                    .is_some()
+            }) {
+                let (assets, shares, user) = if let Some(ev) = Deposit::match_and_decode(log) {
+                    (ev.assets, ev.shares, ev.sender)
+                } else if let Some(ev) = Withdraw::match_and_decode(log) {
+                    (ev.assets, ev.shares, ev.sender)
+                } else {
+                    continue;
+                };
 
-            if !emitted_pools.insert(log.address.to_hex()) {
-                continue;
-            }
+                if !emitted_pools.insert(log.address.to_hex()) {
+                    continue;
+                }
 
-            let mut add_entrypoint = |name: &str, calldata: Vec<u8>| {
-                let trace_data = TraceData::Rpc(RpcTraceData { caller: None, calldata });
+                let tx_meta: Transaction = tx.into();
+                let builder = transaction_changes
+                    .entry(tx_meta.index)
+                    .or_insert_with(|| TransactionChangesBuilder::new(&tx_meta));
 
-                let (ep, ep_param) = create_entrypoint(
-                    log.address.clone(),
-                    name.to_string(),
-                    log.address.to_hex(),
-                    trace_data,
+                let mut add_entrypoint = |name: &str, calldata: Vec<u8>| {
+                    let trace_data = TraceData::Rpc(RpcTraceData { caller: None, calldata });
+
+                    let (ep, ep_param) = create_entrypoint(
+                        log.address.clone(),
+                        name.to_string(),
+                        log.address.to_hex(),
+                        trace_data,
+                    );
+
+                    builder.add_entrypoint(&ep);
+                    builder.add_entrypoint_params(&ep_param);
+                };
+                add_entrypoint(
+                    erc4626::functions::PreviewDeposit::NAME,
+                    erc4626::functions::PreviewDeposit { assets: assets.clone() }.encode(),
                 );
-
-                builder.add_entrypoint(&ep);
-                builder.add_entrypoint_params(&ep_param);
-            };
-            add_entrypoint(
-                erc4626::functions::PreviewDeposit::NAME,
-                erc4626::functions::PreviewDeposit { assets: assets.clone() }.encode(),
-            );
-            add_entrypoint(
-                erc4626::functions::PreviewRedeem::NAME,
-                erc4626::functions::PreviewRedeem { shares: shares.clone() }.encode(),
-            );
-            add_entrypoint(
-                erc4626::functions::MaxDeposit::NAME,
-                erc4626::functions::MaxDeposit { receiver: user.clone() }.encode(),
-            );
-            add_entrypoint(
-                erc4626::functions::MaxRedeem::NAME,
-                erc4626::functions::MaxRedeem { owner: user.clone() }.encode(),
-            );
+                add_entrypoint(
+                    erc4626::functions::PreviewRedeem::NAME,
+                    erc4626::functions::PreviewRedeem { shares: shares.clone() }.encode(),
+                );
+                add_entrypoint(
+                    erc4626::functions::MaxDeposit::NAME,
+                    erc4626::functions::MaxDeposit { receiver: user.clone() }.encode(),
+                );
+                add_entrypoint(
+                    erc4626::functions::MaxRedeem::NAME,
+                    erc4626::functions::MaxRedeem { owner: user.clone() }.encode(),
+                );
+            }
         }
     }
 
