@@ -279,8 +279,8 @@ impl TestRunner {
         let chain = ChainModel::from(self.chain);
         // Load tokens for the stream
         let all_tokens = tycho_simulation::utils::load_all_tokens(
-            "http://localhost:4242",
-            false,
+            "localhost:4242",
+            true,
             Some("dummy"),
             true,
             chain,
@@ -293,7 +293,7 @@ impl TestRunner {
 
         let _ = tycho_simulation::evm::engine_db::SHARED_TYCHO_DB.clear();
 
-        let protocol_stream_builder = ProtocolStreamBuilder::new("http://localhost:4242", chain)
+        let protocol_stream_builder = ProtocolStreamBuilder::new("localhost:4242/", chain)
             .skip_state_decode_failures(true);
 
         let adapter_contract_path = self.get_adapter_contract_path(
@@ -1144,7 +1144,10 @@ impl TestRunner {
         let router_overwrites_data =
             Some(execution::create_router_overwrites_data(protocol_system)?);
 
-        info!("Executing {} simulations in batches...", filtered_execution_data.len());
+        info!(
+            "Executing {} simulations in batches ...",
+            filtered_execution_data.len()
+        );
 
         // Split execution data into smaller batches to avoid RPC request size limits
         // This happens because our overwrites are colossal
