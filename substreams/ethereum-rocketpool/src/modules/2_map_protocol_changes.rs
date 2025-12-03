@@ -164,6 +164,7 @@ fn update_deposit_liquidity(
         let attributes = tx
             .calls
             .iter()
+            .filter(|call| !call.state_reverted)
             .filter(|call| call.address == ROCKET_VAULT_ADDRESS)
             .flat_map(|call| {
                 get_changed_attributes(
@@ -209,6 +210,7 @@ fn update_reth_liquidity(
         let reth_balance = tx
             .calls
             .iter()
+            .filter(|call| !call.state_reverted)
             .flat_map(|call| call.balance_changes.iter())
             .filter(|bc| bc.address == RETH_ADDRESS)
             .filter_map(|bc| bc.new_value.as_ref())
@@ -306,6 +308,7 @@ fn update_protocol_settings(
         let attributes = tx
             .calls
             .iter()
+            .filter(|call| !call.state_reverted)
             .filter(|call| call.address == ROCKET_STORAGE_ADDRESS)
             .flat_map(|call| {
                 get_changed_attributes(
@@ -378,6 +381,7 @@ fn update_minipool_queue_sizes(
         let attributes = tx
             .calls
             .iter()
+            .filter(|call| !call.state_reverted)
             .filter(|call| call.address == ROCKET_STORAGE_ADDRESS)
             .flat_map(|call| get_changed_attributes(&call.storage_changes, slots))
             .collect::<Vec<_>>();
