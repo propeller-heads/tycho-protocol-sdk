@@ -28,4 +28,7 @@ tests:
         creation_tx: "0xb36e241ec355da4888e9ae7a9b06570fdc90a37084ef31293ab00ed5c681397b"
         # Well you can't simulate a swap on cow pools directly because of the 99% swap fee
         skip_simulation: true 
+        # Execution happens differently and is in a separate repo because the order needs to be posted to the orderbook 
+        # via cow protocol
+        skip_execution: true
  
