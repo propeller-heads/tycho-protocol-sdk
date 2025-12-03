@@ -5,7 +5,10 @@ use substreams::hex;
 #[path = "1_map_components.rs"]
 mod map_protocol_components;
 
-#[path = "2_map_protocol_changes.rs"]
+#[path = "2_store_storage_variables.rs"]
+mod store_storage_variables;
+
+#[path = "3_map_protocol_changes.rs"]
 mod map_protocol_changes;
 
 pub const ST_ETH_ADDRESS_PROXY: [u8; 20] = hex!("ae7ab96520de3a18e5e111b5eaab095312d7fe84");
