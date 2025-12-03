@@ -9,7 +9,7 @@ miette = { version = "7.6.0", features = ["fancy"] }
 # Logging & Tracing
 tracing = "0.1.37"
 tycho-simulation = { git = "https://github.com/adpthegreat/tycho-simulation", branch = "add_cowamm_simulation", package = "tycho-simulation", default-features = false, features = ["evm"]}
-tycho-test = { git = "https://github.com/propeller-heads/tycho-simulation.git", tag = "0.198.0" }
+tycho-test = { git = "https://github.com/propeller-heads/tycho-simulation.git", tag = "0.210.0" }
 tycho-execution = ">=0.134.0"
 num-bigint = "0.4"
 num-traits = "0.2"
