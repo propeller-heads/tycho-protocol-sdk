@@ -9199,7 +9199,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "tycho-simulation"
+name = "tycho-test"
 version = "0.198.0"
 source = "git+https://github.com/adpthegreat/tycho-simulation?branch=add_cowamm_simulation#25769283475a80fa158e96f8330d6569b7bd53ff"
 dependencies = [
@@ -10362,8 +10362,3 @@ dependencies = [
  "cc",
  "pkg-config",
 ]
-
-[[patch.unused]]
-name = "tycho-test"
-version = "0.198.0"
-source = "git+https://github.com/adpthegreat/tycho-simulation?branch=add_cowamm_simulation#25769283475a80fa158e96f8330d6569b7bd53ff"
