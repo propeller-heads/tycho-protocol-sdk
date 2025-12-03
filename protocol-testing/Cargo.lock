@@ -9162,8 +9162,8 @@ dependencies = [
 
 [[package]]
 name = "tycho-simulation"
-version = "0.211.1"
-source = "git+https://github.com/propeller-heads/tycho-simulation.git?tag=0.211.1#6660923fcc2b10d31632830d34212c1b3ad5d46e"
+version = "0.210.0"
+source = "git+https://github.com/adpthegreat/tycho-simulation?branch=add_cowamm_simulation#25769283475a80fa158e96f8330d6569b7bd53ff"
 dependencies = [
  "alloy",
  "chrono",
@@ -9200,7 +9200,7 @@ dependencies = [
 
 [[package]]
 name = "tycho-test"
-version = "0.198.0"
+version = "0.210.0"
 source = "git+https://github.com/adpthegreat/tycho-simulation?branch=add_cowamm_simulation#25769283475a80fa158e96f8330d6569b7bd53ff"
 dependencies = [
  "alloy",
