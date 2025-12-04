@@ -1,5 +1,6 @@
 pub use map_protocol_changes::map_protocol_changes;
 pub use map_protocol_components::map_protocol_components;
+pub use store_storage_variables::store_storage_variables;
 use substreams::hex;
 
 #[path = "1_map_components.rs"]

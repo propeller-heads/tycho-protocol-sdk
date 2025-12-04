@@ -18,13 +18,13 @@ fn store_storage_variables(params: String, block: eth::v2::Block, store: StoreSe
         .expect("Failed to parse start block parameter");
 
     // Initialize values at the start block. These values are taken from tx:
-    // 0xa9c829e0540bdf7fdbf52a8c3210577b33ded712977aa30029f73acb7b20e3b4
+    // 0x1d93c1ffe57bcbd01c22bd31ce0d8bdb531a29f1a88461463232ebcf1a4458f6
     if block.number == start_block {
         store.set(
             0,
             format!("{ST_ETH_ADDRESS_PROXY_COMPONENT_ID}:buffered_eth"),
             &BigInt::from(
-                num_bigint::BigInt::parse_bytes("837274498337430765349".as_bytes(), 10)
+                num_bigint::BigInt::parse_bytes("6039330734020734919508".as_bytes(), 10)
                     .expect("Failed to parse initial buffered_eth value"),
             ),
         );
@@ -32,7 +32,7 @@ fn store_storage_variables(params: String, block: eth::v2::Block, store: StoreSe
             0,
             format!("{ST_ETH_ADDRESS_PROXY_COMPONENT_ID}:cl_balance_position"),
             &BigInt::from(
-                num_bigint::BigInt::parse_bytes("8480021185935757000000000".as_bytes(), 10)
+                num_bigint::BigInt::parse_bytes("8627987356661781000000000".as_bytes(), 10)
                     .expect("Failed to parse initial cl_balance_position value"),
             ),
         );
@@ -40,7 +40,7 @@ fn store_storage_variables(params: String, block: eth::v2::Block, store: StoreSe
             0,
             format!("{ST_ETH_ADDRESS_PROXY_COMPONENT_ID}:cl_validators_position"),
             &BigInt::from(
-                num_bigint::BigInt::parse_bytes("403995".as_bytes(), 10)
+                num_bigint::BigInt::parse_bytes("408746".as_bytes(), 10)
                     .expect("Failed to parse initial cl_validators_position value"),
             ),
         );
@@ -48,7 +48,7 @@ fn store_storage_variables(params: String, block: eth::v2::Block, store: StoreSe
             0,
             format!("{ST_ETH_ADDRESS_PROXY_COMPONENT_ID}:deposited_validators_position"),
             &BigInt::from(
-                num_bigint::BigInt::parse_bytes("408739".as_bytes(), 10)
+                num_bigint::BigInt::parse_bytes("409420".as_bytes(), 10)
                     .expect("Failed to parse initial deposited_validators_position value"),
             ),
         );

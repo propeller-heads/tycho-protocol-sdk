@@ -23,7 +23,7 @@ network: mainnet
 modules:
   - name: map_protocol_components
     kind: map
-    initialBlock: &start_block 23740315
+    initialBlock: &start_block 23939449
     inputs:
       - params: string
       - source: sf.ethereum.type.v2.Block
