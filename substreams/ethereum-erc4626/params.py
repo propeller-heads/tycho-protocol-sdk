@@ -14,6 +14,7 @@ def encode_erc4626_params(params: list[dict[str, Any]]) -> str:
             address: str = param["address"]
             tx_hash: str = param["tx_hash"]
             asset: str = param["asset"]
+            block: int = param["block"]
 
             # static attributes
             static_attributes = {
@@ -23,6 +24,7 @@ def encode_erc4626_params(params: list[dict[str, Any]]) -> str:
             encoded_address = f"address={address}"
             encoded_tx = f"tx_hash={tx_hash}"
             encoded_asset = f"asset={asset}"
+            encoded_block = f"block={block}"
 
             encoded_static_attributes = "&".join(
                 [
@@ -35,6 +37,7 @@ def encode_erc4626_params(params: list[dict[str, Any]]) -> str:
                 f"{encoded_address}&"
                 f"{encoded_tx}&"
                 f"{encoded_asset}&"
+                f"{encoded_block}&"
                 f"{encoded_static_attributes}"
             ).rstrip("&")
 

@@ -20,7 +20,6 @@ use substreams_helper::hex::Hexable;
 use tycho_substreams::{
     balances::aggregate_balances_changes,
     block_storage::get_block_storage_changes,
-    contract::extract_contract_changes_builder,
     entrypoint::create_entrypoint,
     prelude::{entry_point_params::TraceData, *},
 };
@@ -34,11 +33,34 @@ pub fn map_protocol_components(
     params: String,
     block: eth::v2::Block,
 ) -> Result<BlockTransactionProtocolComponents> {
-    let tx_to_pools = PoolParams::parse_params(params.as_str())?;
+    let pool_params = PoolParams::parse_params(params.as_str())?;
+
+    let pools_for_block: Vec<&PoolParams> = pool_params
+        .iter()
+        .filter(|p| p.block == block.number)
+        .collect();
+
+    if pools_for_block.is_empty() {
+        return Ok(BlockTransactionProtocolComponents { tx_components: vec![] });
+    }
+
+    let mut pools_by_tx: HashMap<&str, Vec<&PoolParams>> = HashMap::new();
+    for p in &pools_for_block {
+        pools_by_tx
+            .entry(p.tx_hash.as_str())
+            .or_default()
+            .push(*p);
+    }
 
     let tx_components: Vec<TransactionProtocolComponents> = block
         .transactions()
         .filter_map(|tx_trace| {
+            let encoded_hash = hex::encode(&tx_trace.hash);
+
+            let pools = pools_by_tx
+                .get(encoded_hash.as_str())
+                .filter(|p| !p.is_empty())?;
+
             let tx = Transaction {
                 hash: tx_trace.hash.clone(),
                 from: tx_trace.from.clone(),
@@ -46,46 +68,34 @@ pub fn map_protocol_components(
                 index: tx_trace.index as u64,
             };
 
-            let encoded_hash = hex::encode(&tx.hash);
-
-            let pools = tx_to_pools.get(&encoded_hash)?;
-
             let mut tx_pc = TransactionProtocolComponents { tx: Some(tx), components: Vec::new() };
 
             for pool in pools {
                 tx_pc
                     .components
                     .push(ProtocolComponent {
-                        id: format!("0x{}", pool.address.clone()),
+                        id: format!("0x{}", pool.address),
                         tokens: vec![
-                            hex::decode(&pool.asset).expect("invalid asset hex"), // underlying token
-                            hex::decode(&pool.address).expect("invalid address hex"), // share token
+                            hex::decode(&pool.asset).expect("invalid asset hex"), // asset
+                            hex::decode(&pool.address).expect("invalid address hex"), // share
                         ],
-                        contracts: pool
-                            .contracts
-                            .clone()
-                            .unwrap_or_default()
-                            .into_iter()
-                            .map(|contract| hex::decode(contract).expect("invalid contract hex"))
-                            .chain(std::iter::once(
-                                hex::decode(&pool.address).expect("invalid address hex"),
-                            ))
-                            .collect::<Vec<Vec<u8>>>(),
+                        contracts: vec![],
                         static_att: zip(
                             pool.static_attribute_keys
                                 .clone()
-                                .unwrap_or(vec![]),
+                                .unwrap_or_default()
+                                .into_iter(),
                             pool.static_attribute_vals
                                 .clone()
-                                .unwrap_or(vec![]),
+                                .unwrap_or_default()
+                                .into_iter(),
                         )
-                        .clone()
                         .map(|(key, value)| Attribute {
                             name: key,
                             value: value.into(),
                             change: ChangeType::Creation.into(),
                         })
-                        .collect::<Vec<_>>(),
+                        .collect(),
                         change: ChangeType::Creation.into(),
                         protocol_type: Some(ProtocolType {
                             name: "erc4626".into(),
@@ -130,7 +140,6 @@ pub fn map_relative_balances(
 ) -> Result<BlockBalanceDeltas, anyhow::Error> {
     let mut balance_deltas = vec![];
     for tx in block.transactions() {
-        let tx_meta: Transaction = tx.into();
         for (log, _) in tx.logs_with_calls() {
             let pool_id = format!("Pool:{}", log.address.to_hex());
             let Some(pool_tokens_str) = tokens_store.get_last(&pool_id) else {
@@ -142,68 +151,35 @@ pub fn map_relative_balances(
                 .collect::<Result<Vec<_>, _>>()?;
 
             if let Some(deposit) = Deposit::match_and_decode(log) {
-                let token_deltas = vec![
-                    BalanceDelta {
-                        ord: log.ordinal,
-                        tx: Some(tx_meta.clone()),
-                        token: pool_tokens[0].clone(),
-                        delta: deposit.assets.to_signed_bytes_be(),
-                        component_id: log
-                            .address
-                            .clone()
-                            .to_hex()
-                            .as_bytes()
-                            .to_vec(),
-                    },
-                    BalanceDelta {
-                        ord: log.ordinal,
-                        tx: Some(tx_meta.clone()),
-                        token: pool_tokens[1].clone(),
-                        delta: deposit.shares.to_signed_bytes_be(),
-                        component_id: log
-                            .address
-                            .clone()
-                            .to_hex()
-                            .as_bytes()
-                            .to_vec(),
-                    },
-                ];
-                balance_deltas.extend(token_deltas);
+                balance_deltas.push(BalanceDelta {
+                    ord: log.ordinal,
+                    tx: Some(tx.into()),
+                    token: pool_tokens[0].clone(),
+                    delta: deposit.assets.to_signed_bytes_be(),
+                    component_id: log
+                        .address
+                        .clone()
+                        .to_hex()
+                        .as_bytes()
+                        .to_vec(),
+                });
             }
             if let Some(withdraw) = Withdraw::match_and_decode(log) {
-                let token_deltas = vec![
-                    BalanceDelta {
-                        ord: log.ordinal,
-                        tx: Some(tx_meta.clone()),
-                        token: pool_tokens[0].clone(),
-                        delta: withdraw
-                            .assets
-                            .neg()
-                            .to_signed_bytes_be(),
-                        component_id: log
-                            .address
-                            .clone()
-                            .to_hex()
-                            .as_bytes()
-                            .to_vec(),
-                    },
-                    BalanceDelta {
-                        ord: log.ordinal,
-                        tx: Some(tx_meta.clone()),
-                        token: pool_tokens[1].clone(),
-                        delta: withdraw
-                            .shares
-                            .neg()
-                            .to_signed_bytes_be(),
-                        component_id: log
-                            .address
-                            .clone()
-                            .to_hex()
-                            .as_bytes()
-                            .to_vec(),
-                    },
-                ];
-                balance_deltas.extend(token_deltas);
+                balance_deltas.push(BalanceDelta {
+                    ord: log.ordinal,
+                    tx: Some(tx.into()),
+                    token: pool_tokens[0].clone(),
+                    delta: withdraw
+                        .assets
+                        .neg()
+                        .to_signed_bytes_be(),
+                    component_id: log
+                        .address
+                        .clone()
+                        .to_hex()
+                        .as_bytes()
+                        .to_vec(),
+                });
             }
         }
     }
@@ -339,12 +315,16 @@ pub fn map_protocol_changes(
                     builder.add_entrypoint_params(&ep_param);
                 };
                 add_entrypoint(
-                    erc4626::functions::PreviewDeposit::NAME,
-                    erc4626::functions::PreviewDeposit { assets: assets.clone() }.encode(),
+                    erc4626::functions::TotalSupply::NAME,
+                    erc4626::functions::TotalSupply {}.encode(),
                 );
                 add_entrypoint(
-                    erc4626::functions::PreviewRedeem::NAME,
-                    erc4626::functions::PreviewRedeem { shares: shares.clone() }.encode(),
+                    erc4626::functions::ConvertToShares::NAME,
+                    erc4626::functions::ConvertToShares { assets: assets.clone() }.encode(),
+                );
+                add_entrypoint(
+                    erc4626::functions::ConvertToAssets::NAME,
+                    erc4626::functions::ConvertToAssets { shares: shares.clone() }.encode(),
                 );
                 add_entrypoint(
                     erc4626::functions::MaxDeposit::NAME,
@@ -373,17 +353,6 @@ pub fn map_protocol_changes(
                         .for_each(|bc| builder.add_balance_change(bc))
                 });
         });
-
-    // // Extract and insert any storage changes that happened for any of the components.
-    extract_contract_changes_builder(
-        &block,
-        |addr| {
-            tokens_store
-                .get_last(format!("Pool:0x{}", hex::encode(addr)))
-                .is_some()
-        },
-        &mut transaction_changes,
-    );
 
     let block_storage_changes = get_block_storage_changes(&block);
 
