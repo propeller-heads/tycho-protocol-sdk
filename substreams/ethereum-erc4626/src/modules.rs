@@ -15,7 +15,7 @@ use substreams::{
     pb::substreams::{store_delta::Operation, StoreDeltas},
     prelude::*,
 };
-use substreams_ethereum::{pb::eth, Event, Function};
+use substreams_ethereum::{pb::eth, Event};
 use substreams_helper::hex::Hexable;
 use tycho_substreams::{
     balances::aggregate_balances_changes,
@@ -300,12 +300,12 @@ pub fn map_protocol_changes(
                     .entry(tx_meta.index)
                     .or_insert_with(|| TransactionChangesBuilder::new(&tx_meta));
 
-                let mut add_entrypoint = |name: &str, calldata: Vec<u8>| {
+                let mut add_entrypoint = |signature: &str, calldata: Vec<u8>| {
                     let trace_data = TraceData::Rpc(RpcTraceData { caller: None, calldata });
 
                     let (ep, ep_param) = create_entrypoint(
                         log.address.clone(),
-                        name.to_string(),
+                        signature.to_string(),
                         log.address.to_hex(),
                         trace_data,
                     );
@@ -313,24 +313,21 @@ pub fn map_protocol_changes(
                     builder.add_entrypoint(&ep);
                     builder.add_entrypoint_params(&ep_param);
                 };
+                add_entrypoint("totalSupply()", erc4626::functions::TotalSupply {}.encode());
                 add_entrypoint(
-                    erc4626::functions::TotalSupply::NAME,
-                    erc4626::functions::TotalSupply {}.encode(),
-                );
-                add_entrypoint(
-                    erc4626::functions::ConvertToShares::NAME,
+                    "convertToShares(uint256)",
                     erc4626::functions::ConvertToShares { assets: assets.clone() }.encode(),
                 );
                 add_entrypoint(
-                    erc4626::functions::ConvertToAssets::NAME,
+                    "convertToAssets(uint256)",
                     erc4626::functions::ConvertToAssets { shares: shares.clone() }.encode(),
                 );
                 add_entrypoint(
-                    erc4626::functions::MaxDeposit::NAME,
+                    "maxDeposit(address)",
                     erc4626::functions::MaxDeposit { receiver: user.clone() }.encode(),
                 );
                 add_entrypoint(
-                    erc4626::functions::MaxRedeem::NAME,
+                    "maxRedeem(address)",
                     erc4626::functions::MaxRedeem { owner: user.clone() }.encode(),
                 );
             }
