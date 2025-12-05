@@ -7,15 +7,24 @@ use substreams::{
     Hex,
 };
 use substreams_helper::hex::Hexable;
+use crate::pb::cowamm::Transaction;
 
 #[derive(Debug, Deserialize, Serialize)]
 struct CowPoolBindJson {
     address: String,
     token: String,
     weight: String,
+    amount: String,
+    //fields for Transaction 
+    from: String,
+    to: String,
+    hash: String,
+    index: String,
+
+    ordinal: String
 }
 
-fn parse_binds(bind_str: &str) -> Option<Vec<CowPoolBind>> {
+pub fn parse_binds(bind_str: &str) -> Option<Vec<CowPoolBind>> {
     let bind_strs: Vec<&str> = bind_str.split(';').collect();
     let mut binds = Vec::new();
     for bind in bind_strs {
@@ -26,15 +35,36 @@ fn parse_binds(bind_str: &str) -> Option<Vec<CowPoolBind>> {
         }
         // Wrap the bind in square brackets to create an array of JSON objects
         let formatted_str = format!("[{}]", bind.replace("};", "},"));
+        //this will def need to be modified because its now two levels 
         let parsed: Vec<CowPoolBindJson> = serde_json::from_str(&formatted_str).ok()?;
+
         for bind_json in parsed {
             let cow_bind = CowPoolBind {
                 address: hex::decode(&bind_json.address).expect("Invalid hex for address"),
                 token: hex::decode(&bind_json.token).expect("Invalid hex for token"),
                 weight: hex::decode(&bind_json.weight).expect("Invalid hex for weight"),
+                amount: hex::decode(&bind_json.amount).expect("Invalid hex for amount"),
+                tx: Some(Transaction {
+                    from: hex::decode(&bind_json.from).expect("Invalid hex for tx from address"),
+                    to: hex::decode(&bind_json.to).expect("Invalid hex for tx to address"),
+                    hash: hex::decode(&bind_json.hash).expect("Invalid hex for tx to hash"),
+                    index: u64::from_le_bytes( //verify this 
+                          hex::decode(&bind_json.index)
+                            .expect("Invalid hex for tx index")
+                            .try_into()
+                            .expect("tx index must be exactly 8 bytes")
+                    ),
+                }),
+                ordinal: u64::from_le_bytes( //verify this 
+                          hex::decode(&bind_json.ordinal)
+                            .expect("Invalid hex for tx ordinal")
+                            .try_into()
+                            .expect("tx index must be exactly 8 bytes")
+                    ),
             };
             binds.push(cow_bind);
         }
+        substreams::log::info!("this is binds: {:?}", binds);
     }
     if binds.is_empty() {
         None
@@ -66,6 +96,8 @@ pub fn map_cowpools(
         };
         let bind1 = &parsed_binds[0];
         let bind2 = &parsed_binds[1];
+        substreams::log::info!("this is bind 1: {:?}", bind1);
+        substreams::log::info!("this is bind 2: {:?}", bind2);
 
         let (token_a, weight_a, token_b, weight_b) =
             if bind1.token < bind2.token {
@@ -83,6 +115,8 @@ pub fn map_cowpools(
                     &bind1.weight,
                 )
             };
+        substreams::log::info!("this is token a: {:?}", token_a);
+        substreams::log::info!("this is token b: {:?}", token_b);
             pools.push(
             CowPool {
                 address: creation.address.clone(),
@@ -143,3 +177,11 @@ mod tests {
         assert!(result.is_none());
     }
 }
+//add more tests for tx field parsing
+
+// map_cowpools: log: THIS IS THE BIND JSON: CowPoolBindJson { address: "9bd702e05b9c97e4a4a3e47df1e0fe7a0c26d2f1", token: "def1ca1fb7fbcdc777520aa7f396b4e015f497ab", weight: "0000000000000000000000000000000000000000000000000de0b6b3a7640000", amount: "000000000000000000000000000000000000000000000029ee7807d244a60000", from: "b2f08dede8c84ee19eb90035d07391a91cf1a871", to: "9bd702e05b9c97e4a4a3e47df1e0fe7a0c26d2f1", hash: "aa75de3fa46228f352e6b453d1da2b9ec2bbcd581006a5f02ce56344cd1e7513", index: "2600000000000000" }
+// map_cowpools: log: THIS IS THE BIND JSON: CowPoolBindJson { address: "9bd702e05b9c97e4a4a3e47df1e0fe7a0c26d2f1", token: "7f39c581f595b53c5cb19bd0b3f8da6c935e2ca0", weight: "0000000000000000000000000000000000000000000000000de0b6b3a7640000", amount: "00000000000000000000000000000000000000000000000000b1a2bc2ec50000", from: "b2f08dede8c84ee19eb90035d07391a91cf1a871", to: "9bd702e05b9c97e4a4a3e47df1e0fe7a0c26d2f1", hash: "2bbde880256a6143656937e85b00694926300117686ee5810564371234445498", index: "5700000000000000" }
+
+
+// map_cowpools: log: THIS IS THE BIND JSON: CowPoolBindJson { address: "fec04c31b6099ce76c4c5d6d754a34141884fd91", token: "6810e776880c02933d47db1b9fc05908e5386b96", weight: "0000000000000000000000000000000000000000000000000de0b6b3a7640000", amount: "0000000000000000000000000000000000000000000000000c4e8be6cad10000", from: "b2f08dede8c84ee19eb90035d07391a91cf1a871", to: "fec04c31b6099ce76c4c5d6d754a34141884fd91", hash: "03c2f57ba5ee0b653810b131db7d74e05563b46004cf96b0adeffb0637969527", index: "2f00000000000000" }
+// map_cowpools: log: THIS IS THE BIND JSON: CowPoolBindJson { address: "fec04c31b6099ce76c4c5d6d754a34141884fd91", token: "7f39c581f595b53c5cb19bd0b3f8da6c935e2ca0", weight: "0000000000000000000000000000000000000000000000000de0b6b3a7640000", amount: "00000000000000000000000000000000000000000000000000b1a2bc2ec50000", from: "b2f08dede8c84ee19eb90035d07391a91cf1a871", to: "fec04c31b6099ce76c4c5d6d754a34141884fd91", hash: "826017c690263c611a62439dfb13aa1945c1110f6b6e3870b712b7fa9a16bc5d", index: "5700000000000000" }

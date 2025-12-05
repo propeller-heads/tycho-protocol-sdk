@@ -7,11 +7,15 @@ skip_balance_check: false
 initialized_accounts:
   - "0xf76c421bAb7df8548604E60deCCcE50477C10462" # factory address
 protocol_type_names:
-  - "cowamm"
+  - "cowamm_pool"
 tests:
   - name: test_pool_creation 
     start_block: 20522030
-    stop_block: 20532030
+    # stop_block: 20522040
+    stop_block: 20540030
+    initialized_accounts:
+      - "0x9bd702e05b9c97e4a4a3e47df1e0fe7a0c26d2f1"
+      - "0xfec04c31b6099ce76c4c5d6d754a34141884fd91"
     expected_components:
       - id: "0x9bd702e05b9c97e4a4a3e47df1e0fe7a0c26d2f1"
         tokens:
@@ -19,13 +23,31 @@ tests:
           - "0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0" 
           - "0x9bd702e05b9c97e4a4a3e47df1e0fe7a0c26d2f1"
         static_attributes: 
-           token_a: "0xdef1ca1fb7fbcdc777520aa7f396b4e015f497ab"
-           token_b: "0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0" 
+           token_a: "0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0" 
+           token_b: "0xdef1ca1fb7fbcdc777520aa7f396b4e015f497ab"
            lp_token: "0x9bd702e05b9c97e4a4a3e47df1e0fe7a0c26d2f1"
            weight_a: "0000000000000000000000000000000000000000000000000de0b6b3a7640000"
            weight_b: "0000000000000000000000000000000000000000000000000de0b6b3a7640000"
            fee: "0x0"
-        creation_tx: "0xb36e241ec355da4888e9ae7a9b06570fdc90a37084ef31293ab00ed5c681397b"
+        creation_tx: "0xbedc6a4b23aadc836f76001c0feac79c3603719269e917e53afae22debaddb12"
+        # Well you can't simulate a swap on cow pools directly because of the 99% swap fee
+        skip_simulation: true 
+        # Execution happens differently and is in a separate repo because the order needs to be posted to the orderbook 
+        # via cow protocol
+        skip_execution: true
+      - id: "0xfec04c31b6099ce76c4c5d6d754a34141884fd91"
+        tokens:
+          - "0x6810e776880c02933d47db1b9fc05908e5386b96"
+          - "0x7f39c581f595b53c5cb19bd0b3f8da6c935e2ca0"
+          - "0xfec04c31b6099ce76c4c5d6d754a34141884fd91"
+        static_attributes: 
+           token_a:  "0x6810e776880c02933d47db1b9fc05908e5386b96"
+           token_b:  "0x7f39c581f595b53c5cb19bd0b3f8da6c935e2ca0"
+           lp_token: "0xfec04c31b6099ce76c4c5d6d754a34141884fd91"
+           weight_b: "0x0000000000000000000000000000000000000000000000000de0b6b3a7640000"
+           weight_a: "0x0000000000000000000000000000000000000000000000000de0b6b3a7640000"
+           fee:      "0x00"
+        creation_tx: "0xdf6f141bdd44ef389c9418992ab854567192e25eec7f2bfe4f2057b4e3e9a4de"
         # Well you can't simulate a swap on cow pools directly because of the 99% swap fee
         skip_simulation: true 
         # Execution happens differently and is in a separate repo because the order needs to be posted to the orderbook 
