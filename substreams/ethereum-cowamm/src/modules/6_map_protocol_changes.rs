@@ -45,15 +45,6 @@ fn map_protocol_changes(
                     builder.add_protocol_component(component);
                 });
         });
-        //combine binds_store and binds_balance_store
-        //combine balance_deltas with binds_balance_deltas 
-
-        // let combined_store_iter = binds_balance_store.deltas.into_iter()
-        //     .chain(balance_store.deltas.into_iter());
-
-        // let combined_deltas_iter = binds_balance_deltas.balance_deltas.into_iter()
-        //     .chain(balance_deltas.balance_deltas.into_iter());
-
         // Register the Pool liquidities for token_a , token_b and lp_token_supply as Entity Changes
     balance_store
         .clone()
@@ -66,19 +57,13 @@ fn map_protocol_changes(
                 &String::from_utf8(store_delta.new_value).unwrap(),
             )
             .unwrap();
-
             
             let address = String::from_utf8(balance_delta.component_id).unwrap();
-            substreams::log::info!("THIS IS THE COMPONENT ID: {}", address.clone());
-
             let builder = transaction_changes
                                 .entry(tx.index)
                                 .or_insert_with(|| TransactionChangesBuilder::new(&tx));
-                                //must_get_last
-            let pool = match pool_store.get_last(format!("Pool:{}", address)) {
-                Some(p) => p,
-                None => return, // equivalent to continue
-            };
+            let pool = pool_store
+                    .must_get_last(format!("Pool:{}", address));
 
             let mut attr_vec : Vec<Attribute> = Vec::new(); 
             match balance_delta.token {
