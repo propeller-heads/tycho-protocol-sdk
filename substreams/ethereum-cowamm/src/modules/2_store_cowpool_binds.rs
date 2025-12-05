@@ -11,13 +11,6 @@ pub fn store_cowpool_binds(binds: CowPoolBinds, store: StoreAppend<String>) {
             "address": hex::encode(&bind.address),
             "token": hex::encode(&bind.token),
             "weight": hex::encode(&bind.weight),
-            "amount": hex::encode(&bind.amount), 
-            //store fields individually, reconstruct tx object in map cowpools
-            "from": hex::encode(&bind.tx.as_ref().unwrap().from.to_vec()),      
-            "to": hex::encode(&bind.tx.as_ref().unwrap().to.to_vec()),
-            "hash": hex::encode(&bind.tx.as_ref().unwrap().hash.to_vec()), 
-            "index": hex::encode(&bind.tx.clone().unwrap().index.to_le_bytes().to_vec()), 
-            "ordinal": hex::encode(&bind.tx.clone().unwrap().index.to_le_bytes().to_vec()), //might remove
         })
         .to_string();
         store.append(0, pool_key, bind_string);
