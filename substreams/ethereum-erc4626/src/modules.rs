@@ -28,6 +28,7 @@ use tycho_substreams::{
 ///
 /// This method maps over blocks and instantiates ProtocolComponents with a unique ids
 /// as well as all necessary metadata for routing and encoding.
+/// Filter configured pools to the current block/tx and build their protocol components
 #[substreams::handlers::map]
 pub fn map_protocol_components(
     params: String,
@@ -79,7 +80,8 @@ pub fn map_protocol_components(
                             hex::decode(&pool.asset).expect("invalid asset hex"), // asset
                             hex::decode(&pool.address).expect("invalid address hex"), // share
                         ],
-                        contracts: vec![],
+                        contracts: vec![], /* no on-chain state tracked here; DCI entrypoints
+                                            * supply needed state */
                         static_att: zip(
                             pool.static_attribute_keys
                                 .clone()
@@ -150,6 +152,8 @@ pub fn map_relative_balances(
                 .map(hex::decode)
                 .collect::<Result<Vec<_>, _>>()?;
 
+            // Track only underlying asset deltas for TVL (totalAssets * asset_price); share-token
+            // deltas are skipped to avoid skewing protocol TVL calculations.
             if let Some(deposit) = Deposit::match_and_decode(log) {
                 balance_deltas.push(BalanceDelta {
                     ord: log.ordinal,
@@ -199,6 +203,9 @@ pub fn store_component_balances(deltas: BlockBalanceDeltas, store: StoreAddBigIn
     tycho_substreams::balances::store_balance_changes(deltas, store);
 }
 
+/// Record the first deposit/withdraw interaction per protocol component so we can
+/// emit entrypoints only once; uses delta mode to ensure entrypoints are added
+/// only on the initial interaction.
 #[substreams::handlers::store]
 pub fn store_component_first_interaction(
     deltas: BlockBalanceDeltas,
@@ -249,14 +256,6 @@ pub fn map_protocol_changes(
                 .iter()
                 .for_each(|component| {
                     builder.add_protocol_component(component);
-                    // TODO: In case you require to add any dynamic attributes to the
-                    //  component you can do so here:
-                    /*
-                        builder.add_entity_change(&EntityChanges {
-                            component_id: component.id.clone(),
-                            attributes: default_attributes.clone(),
-                        });
-                    */
                 });
         });
 
