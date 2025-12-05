@@ -37,7 +37,7 @@ modules:
       - source: sf.ethereum.type.v2.Block
     output:
       type: proto:cowamm.CowPoolBinds
-    
+  
   - name: store_cowpool_binds
     kind: store
     initialBlock: 20522030 
@@ -45,7 +45,23 @@ modules:
     valueType: string
     inputs:
       - map: map_cowpool_binds
-
+    
+  # - name: map_cowpool_binds_balances
+  #   kind: map
+  #   initialBlock: 20522030
+  #   inputs:
+  #     - map: map_cowpool_binds
+  #   output:
+  #     type: proto:tycho.evm.v1.BlockBalanceDeltas
+    
+  # - name: store_cowpool_binds_balances
+  #   kind: store
+  #   initialBlock: 20522030
+  #   updatePolicy: add
+  #   valueType: bigint
+  #   inputs:
+  #     - map: map_cowpool_binds_balances
+    
   - name: map_cowpools
     kind: map
     inputs:
@@ -86,7 +102,9 @@ modules:
     initialBlock: 20522030
     inputs:
       - source: sf.ethereum.type.v2.Block
+      - map: map_cowpool_binds_balances
       - store: store_components
+        mode: get 
     output:
       type: proto:tycho.evm.v1.BlockBalanceDeltas
 
@@ -107,6 +125,7 @@ modules:
       - map: map_components
       - map: map_relative_balances
       - store: store_components
+        mode: get
       - store: store_balances
         mode: deltas
     output:

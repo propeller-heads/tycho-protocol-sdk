@@ -18,10 +18,32 @@ message CowPools {
   repeated CowPool pools = 1;
 } 
 
+// A struct describing a transaction.
+message Transaction {
+  // The transaction hash.
+  bytes hash = 1;
+  // The sender of the transaction.
+  bytes from = 2;
+  // The receiver of the transaction.
+  bytes to = 3;
+  // The transactions index within the block.
+  // TODO: should this be uint32? to match the type from the native substream type?
+  uint64 index = 4;
+}
+
 message CowPoolBind {
+  // Address of the pool that the bind method was called on 
   bytes address = 1;
+  //Token bound to the pool 
   bytes token = 2;
+  //Weight of the token bound to the pool 
   bytes weight = 3;
+  //Amount of the token bound to the pool
+  bytes amount = 4;
+  //tx that the bind happened
+  Transaction tx = 5;
+  //ordinal of the event the bind was recorded in the block
+  uint64 ordinal = 6;
 }
 
 message CowPoolBinds {
