@@ -63,32 +63,25 @@ modules:
     inputs:
       - map: map_cowpools
 
-  - name: map_components
+  - name: map_components_with_balances
     kind: map
     inputs:
       - params: string
       - source: sf.ethereum.type.v2.Block
       - store: store_cowpools
         mode: get
+      - store: store_cowpool_binds
+        mode: get
     output:
-      type: proto:tycho.evm.v1.BlockTransactionProtocolComponents
-    
+      type: proto:cowamm.BlockChanges
+
   - name: store_components
     kind: store
     initialBlock: 20522030 	
     updatePolicy: set_if_not_exists
     valueType: string
     inputs:
-      - map: map_components
-
-  - name: map_relative_balances
-    kind: map
-    initialBlock: 20522030
-    inputs:
-      - source: sf.ethereum.type.v2.Block
-      - store: store_components
-    output:
-      type: proto:tycho.evm.v1.BlockBalanceDeltas
+      - map: map_components_with_balances
 
   - name: store_balances
     kind: store
@@ -96,7 +89,7 @@ modules:
     updatePolicy: add
     valueType: bigint
     inputs:
-      - map: map_relative_balances
+      - map: map_components_with_balances
 
   - name: map_protocol_changes
     kind: map
@@ -104,8 +97,7 @@ modules:
     inputs:
       - params: string
       - source: sf.ethereum.type.v2.Block
-      - map: map_components
-      - map: map_relative_balances
+      - map: map_components_with_balances
       - store: store_components
       - store: store_balances
         mode: deltas
@@ -114,6 +106,6 @@ modules:
 
 params:
   map_cowpool_creations: factory_address=f76c421bAb7df8548604E60deCCcE50477C10462 
-  map_components: factory_address=f76c421bAb7df8548604E60deCCcE50477C10462 
+  map_components_with_balances: factory_address=f76c421bAb7df8548604E60deCCcE50477C10462 
   map_protocol_changes: factory_address=f76c421bAb7df8548604E60deCCcE50477C10462 
 

@@ -1,5 +1,5 @@
 use crate::modules::utils::Params;
-use crate::pb::cowamm::CowPool;
+use crate::pb::cowamm::{CowPool, BlockPoolChanges};
 use anyhow::Result;
 use itertools::Itertools;
 use std::collections::HashMap;
@@ -15,11 +15,19 @@ use std::{str::FromStr};
 fn map_protocol_changes(
     params: String,
     block: Block,
-    protocol_components: BlockTransactionProtocolComponents,
-    balance_deltas: BlockBalanceDeltas,
+    block_pool_changes: BlockPoolChanges,
     pool_store: StoreGetProto<CowPool>,
     balance_store: StoreDeltas,
 ) -> Result<BlockChanges, substreams::errors::Error> {
+    let protocol_components = block_pool_changes.tx_protocol_components.expect("no tx components"); //change this to a return
+    let balance_deltas = block_pool_changes
+                                .block_balance_deltas
+                                .expect("no block balance deltas")
+                                .balance_deltas
+                                .into_iter()
+                                .map(Into::into)
+                                .collect::<Vec<BalanceDelta>>();
+
     let params = Params::parse_from_query(&params)?;
     let factory_address = params
         .decode_addresses()
@@ -29,20 +37,19 @@ fn map_protocol_changes(
     // Aggregate newly created components per tx
     protocol_components
         .tx_components
-        .iter()
+        .into_iter()
         .for_each(|tx_component| {
-            // initialise builder if not yet present for this tx
-            let tx = tx_component.tx.as_ref().unwrap();
+            let tx = tx_component.tx.unwrap();
             let builder = transaction_changes
                 .entry(tx.index)
-                .or_insert_with(|| TransactionChangesBuilder::new(tx));
+                .or_insert_with(|| TransactionChangesBuilder::new(&(&tx).into()));
 
             // iterate over individual components created within this tx
             tx_component
                 .components
                 .iter()
                 .for_each(|component| {
-                    builder.add_protocol_component(component);
+                    builder.add_protocol_component(&component.into());
                 });
         });
         // Register the Pool liquidities for token_a , token_b and lp_token_supply as Entity Changes
@@ -50,7 +57,7 @@ fn map_protocol_changes(
         .clone()
         .deltas
         .into_iter()
-        .zip(balance_deltas.balance_deltas.clone())
+        .zip(balance_deltas.clone())
         .for_each(|(store_delta, balance_delta)| { 
             let tx = balance_delta.tx.clone().unwrap();
             let new_value_bigint = BigInt::from_str(
@@ -121,7 +128,7 @@ fn map_protocol_changes(
 
     let new_balance_store = StoreDeltas { deltas : store_delta_vec };
 
-    let balance_deltas_vec = balance_deltas.balance_deltas.into_iter().filter(|balance_delta| {
+    let balance_deltas_vec = balance_deltas.into_iter().filter(|balance_delta| {
         let delta = String::from_utf8(balance_delta.component_id.clone()).unwrap();
         let address = format!("{}", delta); 
         balance_delta.token.to_hex() != address
@@ -135,12 +142,12 @@ fn map_protocol_changes(
             let builder = transaction_changes
                 .entry(tx.index)
                 .or_insert_with(|| TransactionChangesBuilder::new(&tx));
-            balances
+                balances
                 .values()
                 .for_each(|token_bc_map| {
                     token_bc_map
-                        .values()
-                        .for_each(|bc| { 
+                    .values()
+                    .for_each(|bc| { 
                                 builder.add_balance_change(bc)
                         })
                 });
