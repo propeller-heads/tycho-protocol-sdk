@@ -54,6 +54,11 @@ runs:
           --load .
       shell: bash
 
+    - name: Check the space after running Build db image
+      run: |
+        df -h
+      shell: bash
+
     - name: Run protocol tests
       env:
         PROTOCOLS: ${{ inputs.protocols }}
