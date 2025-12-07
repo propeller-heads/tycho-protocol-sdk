@@ -10,6 +10,11 @@ runs:
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
 
+    - name: Check the space before running jobs
+      run: |
+        df -h
+      shell: bash
+
     - name: Cache Docker layers
       uses: actions/cache@v4
       with:
@@ -17,6 +22,11 @@ runs:
         key: ${{ runner.os }}-buildx-${{ github.sha }}
         restore-keys: |
           ${{ runner.os }}-buildx-
+
+    - name: Check the space after running Cache Docker layers
+      run: |
+        df -h
+      shell: bash
 
     - name: Build db image
       run: |
@@ -26,6 +36,12 @@ runs:
           -f protocol-testing/postgres.Dockerfile \
           -t protocol-testing-db:latest \
           --load .
+      shell: bash
+
+
+    - name: Check the space after running Build db image
+      run: |
+        df -h
       shell: bash
 
     - name: Build test-runner image
