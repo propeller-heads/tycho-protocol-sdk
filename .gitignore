@@ -7,6 +7,8 @@ target/
 # Substreams spkg files are build artifacts
 *.spkg
 
+.substreams.env
+
 */.env
 .vscode
 .idea
