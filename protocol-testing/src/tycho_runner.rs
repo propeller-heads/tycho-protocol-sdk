@@ -212,7 +212,7 @@ impl TychoRunner {
             "--chains",
             &self.chain.to_string(),
             "--retention-horizon",
-            "2024-01-01T00:00:00",
+            "2026-01-01T00:00:00",
         ]);
 
         cmd.stdout(Stdio::piped())
@@ -269,7 +269,7 @@ impl TychoRunner {
         };
 
         let config = format!(
-            "extractors:\n  {}:\n    name: \"{}\"\n    chain: {}\n    implementation_type: Vm\n    sync_batch_size: 1\n    start_block: {}\n    stop_block: null\n    protocol_types:\n{}\n    spkg: \"{}\"\n    module_name: \"{}\"\n{}\n    dci_plugin: RPC\n",
+            "extractors:\n  {}:\n    name: \"{}\"\n    chain: {}\n    implementation_type: Vm\n    sync_batch_size: 1\n    start_block: {}\n    stop_block: null\n    protocol_types:\n{}\n    spkg: \"{}\"\n    module_name: \"{}\"\n{}\n    dci_plugin:\n      type: rpc\n",
             protocol_system,
             protocol_system,
             self.chain.to_string().to_lowercase(),

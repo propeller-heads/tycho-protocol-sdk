@@ -1,6 +1,6 @@
 [package]
 name = "ethereum-uniswap-v4-with-hooks"
-version = "0.6.1"
+version = "0.7.0"
 edition = "2021"
 
 [lib]
@@ -24,6 +24,8 @@ itertools = "0.13.0"
 
 # Shared library dependency
 ethereum-uniswap-v4-shared = { path = "../shared" }
+serde = "1.0.217"
+serde_qs = "0.13.0"
 
 [dev-dependencies]
 rstest = "0.24.0"
