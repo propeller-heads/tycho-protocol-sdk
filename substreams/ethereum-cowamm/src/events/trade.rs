@@ -10,51 +10,43 @@ impl BalanceEventTrait for Trade {
         pool: &CowPool,
         event: &Log,
     ) -> Vec<BalanceDelta> {
-        let mut changed_balance = Vec::new();
+        //if sell token is token_a is true then buy token is token_b is automatically true
+        //we create deltas for both changes from one Trade event
 
-        let sell_token = &self.sell_token;
-        let buy_token = &self.buy_token;
+        //no more than conditions can ever be true at the same time
+        let mut changed = Vec::new();
+        let tx_clone = Some(tx.clone());
+        let component_id = pool.address.to_hex().as_bytes().to_vec();
 
-        let is_sell_token_in_pool = sell_token == &pool.token_a || sell_token == &pool.token_b;
-        let is_buy_token_in_pool = buy_token == &pool.token_a || buy_token == &pool.token_b;
+        // Precompute deltas
+        let sell_delta = self.sell_amount.clone().neg().to_signed_bytes_be();
+        let buy_delta = self.buy_amount.clone().to_signed_bytes_be();
 
-        if is_sell_token_in_pool {
-            changed_balance.push(BalanceDelta {
+        // Helper closure to reduce repetition
+        let mut push_delta = |token: &Vec<u8>, delta: Vec<u8>| {
+            changed.push(BalanceDelta {
                 ord: event.ordinal,
-                tx: Some(tx.clone()),
-                token: sell_token.clone(),
-                delta: self
-                    .sell_amount
-                    .clone()
-                    .to_signed_bytes_be(),
-                component_id: pool
-                    .address
-                    .clone()
-                    .to_hex()
-                    .as_bytes()
-                    .to_vec(),
+                tx: tx_clone.clone(),
+                token: token.clone(),
+                delta,
+                component_id: component_id.clone(),
             });
+        };
+
+        // Sells (negative delta)
+        if &self.sell_token == &pool.token_a {
+            push_delta(&pool.token_a, sell_delta.clone());
+        } else if &self.sell_token == &pool.token_b {
+            push_delta(&pool.token_b, sell_delta.clone());
         }
 
-        if is_buy_token_in_pool {
-            changed_balance.push(BalanceDelta {
-                ord: event.ordinal,
-                tx: Some(tx.clone()),
-                token: buy_token.clone(),
-                delta: self
-                    .buy_amount
-                    .clone()
-                    .neg()
-                    .to_signed_bytes_be(),
-                component_id: pool
-                    .address
-                    .clone()
-                    .to_hex()
-                    .as_bytes()
-                    .to_vec(),
-            });
+        // Buys (positive delta)
+        if &self.buy_token == &pool.token_a {
+            push_delta(&pool.token_a, buy_delta.clone());
+        } else if &self.buy_token == &pool.token_b {
+            push_delta(&pool.token_b, buy_delta);
         }
 
-        changed_balance
+        changed
     }
 }

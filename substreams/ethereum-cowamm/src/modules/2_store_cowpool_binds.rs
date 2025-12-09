@@ -6,7 +6,9 @@ use substreams::store::{Appender, StoreAppend, StoreNew};
 pub fn store_cowpool_binds(binds: CowPoolBinds, store: StoreAppend<String>) {
     for bind in binds.binds.iter() {
         let pool_key = hex::encode(&bind.address);
-        // Format the bind as a JSON string
+        // Format the bind as a JSON string, we use an AppendString store so that 
+        // the binds can persist across block state and we can create pools with the binds 
+        // in map_cowpools
         let bind_string = serde_json::json!({
             "address": hex::encode(&bind.address),
             "token": hex::encode(&bind.token),
