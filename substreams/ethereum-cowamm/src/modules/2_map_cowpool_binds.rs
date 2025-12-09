@@ -1,6 +1,7 @@
 use crate::pb::cowamm::{CowPoolBind, CowPoolBinds};
 use anyhow::{Ok, Result};
 use substreams_ethereum::pb::eth::v2::Block;
+use crate::abi::b_cow_pool::functions::Bind;
 use substreams_helper::hex::Hexable;
 
 #[substreams::handlers::map]
@@ -26,17 +27,17 @@ pub fn map_cowpool_binds(block: Block) -> Result<CowPoolBinds> {
                 })
                 // validate log data and map to CowPoolBind
                 .filter_map(move |log| {
-                    let data = &log.data;
-                    if data.len() < 165 {
-                        return None;
-                    }
-                    let token = data.get(80..100)?.to_vec();
-                    let amount = data.get(100..132)?.to_vec();
-                    let weight = data.get(132..164)?.to_vec();
-                    substreams::log::info!("THIS IS THE amount: {}", substreams::Hex(amount.clone())); 
 
-                    //check if the address is the same one (9bd702....)
-                    substreams::log::info!("THIS IS THE address: {}", substreams::Hex(log.address.clone()));
+                    // Find the call that contains this log by matching addresses and checking calls
+                    let call = tx.calls.iter().find(|call| {
+                        call.address == log.address && !call.state_reverted
+                    })?;
+
+                    let bind = Bind::decode(call).expect("couldn't decode bind");
+                    let token = bind.token;
+                    let amount = bind.balance.to_signed_bytes_be();
+                    let weight = bind.denorm.to_signed_bytes_be();
+
                     Some(CowPoolBind {
                         address: log.address.clone(),
                         token: token,

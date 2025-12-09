@@ -70,6 +70,18 @@ fn create_component(factory_address: &[u8], pool: CowPool) -> Option<CowProtocol
     })
 }
 
+fn extract_address(word: &str) -> String {
+    // Remove 0x prefix if present
+    let clean = word.trim_start_matches("0x");
+
+    // Last 40 hex chars = 20 bytes = ETH address
+    let addr_hex = &clean[clean.len() - 40..];
+
+    // Return with 0x prefix
+    format!("0x{}", addr_hex)
+}
+
+
 #[substreams::handlers::map]
 pub fn map_components_with_balances(
     params: String,
@@ -80,7 +92,10 @@ pub fn map_components_with_balances(
     let params = Params::parse_from_query(&params)?;
     const COWAMM_POOL_CREATED_TOPIC: &str =
         "0x0d03834d0d86c7f57e877af40e26f176dc31bd637535d4ba153d1ac9de88a7ea";
-    let factory_address = params.decode_addresses().unwrap();
+    const COW_PROTOCOL_GPV2_SETTLEMENT_ADDRESS: &str = "0x9008d19f58aabd9ed0d60971565aa8510560ab41";
+    const COW_PROTOCOL_GPV2_TOPIC: &str = "0xa07a543ab8a018198e99ca0184c93fe9050a79400a0a723441f84de1d972cc17";
+
+    let factory_address = params.decode_addresses().expect("failed to get factory address");
     let store = &store;
     let mut tx_deltas = Vec::new();
     let mut tx_protocol_components = Vec::new();
@@ -97,7 +112,6 @@ pub fn map_components_with_balances(
                 && log.topics
                     .get(0)
                     .map(|t| t.to_hex()) == Some(COWAMM_POOL_CREATED_TOPIC.to_string());
-            
             if is_pool_creation {
                 // Handle pool creation
                 let pool_address_topic = match log.topics.get(1) {
@@ -118,17 +132,7 @@ pub fn map_components_with_balances(
                     _ => continue,
                 };
                 
-                // substreams::log::info!("THIS IS THE PARSED BINDS:{:?}", parsed_binds);
-                // substreams::log::info!("THIS IS THE PARSED BINDS LENGTH:{:?}", parsed_binds.len());
-                // substreams::log::info!("THIS IS THE PARSED BINDS ADDRESS:{:?}", parsed_binds.len());
-                
-                // Create deltas for each bind, since the bind happens before the actual CowAMMPoolCreated event 
-                //we'll add the deltas in the block where the pool was created
-                
                 for bind in parsed_binds.iter() {
-                    substreams::log::info!("We are in bind right now {}", hex::encode(&log.address));
-                    substreams::log::info!("We are in bind right now {:?}", bind);
-                    
                     let bind_tx = bind.tx.as_ref().unwrap();
                     let delta = BalanceDelta {
                         ord: bind.ordinal,
@@ -151,13 +155,24 @@ pub fn map_components_with_balances(
                 if let Some(component) = create_component(&factory_address, pool.clone()) {
                     tx_components.push(component);
                 }
-            } else {
-                //its possible that we encounter logs from a CowAMMPool buts its not creation related
-                //we extract any balance deltas from this log
-                if let Some(pool) = store.get_last(format!("Pool:{}", &log.address.to_hex())) {
-                    tx_deltas.extend(get_log_changed_balances(&tx.into(), log, &pool));
-                } else {
-                    continue;
+                //this case extract any balance deltas from this log that is CowAMM related for the particular pool
+            } else if let Some(pool) = store.get_last(format!("Pool:{}", &log.address.to_hex())) {
+                tx_deltas.extend(get_log_changed_balances(&tx.into(), log, &pool));
+            } else if log.address.to_hex() == COW_PROTOCOL_GPV2_SETTLEMENT_ADDRESS {
+                //when a trade is settled on the CowAMM via the cowprotocol a delta also occurs but the log.address 
+                //will be the GPV2_SETTLEMENT address, we just have to check the owner if its this pool
+
+                //https://etherscan.io/tx/0x530416d2f894e7d029a42854fc7656a1605a4bddf711707e41e4c8997becbac5#eventlog#504 example
+                if log.topics.get(0).map(|t| t.to_hex()) == Some(COW_PROTOCOL_GPV2_TOPIC.to_string()) {
+                    if let Some(pool_address) = log.topics.get(1).map(|t| t.to_hex()) {
+                        //24 + 40 chars 
+                        //pool is address is left padded with 24 '0's so we remove that
+                        //0x0000000000000000000000009bd702e05b9c97e4a4a3e47df1e0fe7a0c26d2f1 left padded to 44 bytes
+                        let address = extract_address(&pool_address);
+                        if let Some(pool) = store.get_last(format!("Pool:{}", &address)) {
+                            tx_deltas.extend(get_log_changed_balances(&tx.into(), log, &pool));
+                        }
+                    }
                 }
             }
             if !tx_components.is_empty() {
@@ -173,12 +188,10 @@ pub fn map_components_with_balances(
         delta.into()
     }).collect::<Vec<CowBalanceDelta>>();
 
-    Ok(BlockPoolChanges {
-        //we need the tx object 
+    Ok(BlockPoolChanges { 
         tx_protocol_components: Some(BlockTransactionProtocolComponents { 
             tx_components: tx_protocol_components
         }),
-        // dont want to make it inconsistne by using a non Block-type
         block_balance_deltas: Some(BlockBalanceDeltas { balance_deltas: final_deltas })
     })
 }

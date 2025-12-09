@@ -13,16 +13,7 @@ protocol_type_names:
 tests:
   - name: test_pool_creation 
     start_block: 20522030
-    # stop_block: 20523030 1000
-    # stop_block: 20522530 500
-    stop_block: 20522130 #100
-    # stop_block: 20522080 50
-
-    # stop_block: 20527530 #5500 token balance mismatch from here
-    # stop_block: 20526030 #6k
-    # stop_block: 20529030 #7k
-    # stop_block: 20532030 10k
-    # stop_block: 20562030 40k
+    stop_block: 20527230
     expected_components:
       - id: "0x9bd702e05b9c97e4a4a3e47df1e0fe7a0c26d2f1"
         tokens:
@@ -37,8 +28,6 @@ tests:
            weight_b: "0000000000000000000000000000000000000000000000000de0b6b3a7640000"
            fee: "0x0"
         creation_tx: "0xbedc6a4b23aadc836f76001c0feac79c3603719269e917e53afae22debaddb12"
-        # creation_tx: "0xb36e241ec355da4888e9ae7a9b06570fdc90a37084ef31293ab00ed5c681397b" (LOG_NEW_B_POOL)
-
         # Well you can't simulate a swap on cow pools directly because of the 99% swap fee
         skip_simulation: false
         # Execution happens differently and is in a separate repo because the order needs to be posted to the orderbook 
@@ -62,4 +51,3 @@ tests:
         # Execution happens differently and is in a separate repo because the order needs to be posted to the orderbook 
         # via cow protocol
         skip_execution: true
-      # - id: "0x41Ff63c864097A7FbDF206fE676223E29F729FcB"
