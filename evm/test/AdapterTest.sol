@@ -430,7 +430,7 @@ contract AdapterTest is Test, ISwapAdapterTypes {
         // The tolerance is `1 / toleranceDenominator`, so we increase the value
         // of `a` by this amount. adjustedA = a * (denom+1) / denom
         uint256 adjustedA = FractionMath.mulDiv(
-            b, toleranceDenominator + 1, toleranceDenominator
+            a, toleranceDenominator + 1, toleranceDenominator
         );
         assertGe(adjustedA, b, errorMessage);
     }
@@ -444,7 +444,7 @@ contract AdapterTest is Test, ISwapAdapterTypes {
         // The tolerance is `1 / toleranceDenominator`, so we increase the value
         // of `a` by this amount. adjustedA = a * (denom+1) / denom
         uint256 adjustedA = FractionMath.mulDiv(
-            b, toleranceDenominator + 1, toleranceDenominator
+            a, toleranceDenominator + 1, toleranceDenominator
         );
         assertGt(adjustedA, b, errorMessage);
     }
