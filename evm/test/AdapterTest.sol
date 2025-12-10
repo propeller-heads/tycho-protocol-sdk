@@ -106,6 +106,9 @@ contract AdapterTest is Test, ISwapAdapterTypes {
                 amounts[j]
             );
             uint256 priceAtAmount = fractionToInt(prices[j]);
+            // We allow the assertions to tolerate rounding errors
+            // not greater than `1/amounts[j]`
+            uint256 toleranceDenominator = amounts[j];
 
             console2.log("TEST: Swapping %d of %s", amounts[j], tokenIn);
             try adapter.swap(
@@ -122,47 +125,41 @@ contract AdapterTest is Test, ISwapAdapterTypes {
                 console2.log("TEST:  - Price after swap: %d", priceAfterSwap);
 
                 if (hasPriceImpact) {
-                    assertGe(
-                        executedPrice
-                            // within rounding tolerance
-                            * (amounts[j] + 1) / amounts[j],
+                    assertGeTol(
+                        executedPrice,
                         priceAtAmount,
+                        toleranceDenominator,
                         "Price should be greater than executed price."
                     );
-                    assertGt(
-                        executedPrice
-                            // within rounding tolerance
-                            * (amounts[j] + 1) / amounts[j],
+                    assertGtTol(
+                        executedPrice,
                         priceAfterSwap,
+                        toleranceDenominator,
                         "Executed price should be greater than price after swap."
                     );
-                    assertGt(
-                        priceAtZero
-                            // within rounding tolerance
-                            * (amounts[j] + 1) / amounts[j],
+                    assertGtTol(
+                        priceAtZero,
                         executedPrice,
+                        toleranceDenominator,
                         "Price should be greater than price after swap."
                     );
                 } else {
-                    assertGe(
-                        priceAtZero
-                            // within rounding tolerance
-                            * (amounts[j] + 1) / amounts[j],
+                    assertGeTol(
+                        priceAtZero,
                         priceAfterSwap,
+                        toleranceDenominator,
                         "Executed price should be or equal to price after swap."
                     );
-                    assertGe(
-                        priceAtZero
-                            // within rounding tolerance
-                            * (amounts[j] + 1) / amounts[j],
+                    assertGeTol(
+                        priceAtZero,
                         priceAtAmount,
+                        toleranceDenominator,
                         "Executed price should be or equal to price after swap."
                     );
-                    assertGe(
-                        priceAtZero
-                            // within rounding tolerance
-                            * (amounts[j] + 1) / amounts[j],
+                    assertGeTol(
+                        priceAtZero,
                         executedPrice,
+                        toleranceDenominator,
                         "Price should be or equal to price after swap."
                     );
                 }
@@ -418,5 +415,37 @@ contract AdapterTest is Test, ISwapAdapterTypes {
             result[i] = data[start + i];
         }
         return result;
+    }
+
+    //
+    // Helper functions to assert with tolerance
+    //
+
+    function assertGeTol(
+        uint256 a,
+        uint256 b,
+        uint256 toleranceDenominator,
+        string memory errorMessage
+    ) internal {
+        // The tolerance is `1 / toleranceDenominator`, so we increase the value
+        // of `a` by this amount. adjustedA = a * (denom+1) / denom
+        uint256 adjustedA = FractionMath.mulDiv(
+            b, toleranceDenominator + 1, toleranceDenominator
+        );
+        assertGe(adjustedA, b, errorMessage);
+    }
+
+    function assertGtTol(
+        uint256 a,
+        uint256 b,
+        uint256 toleranceDenominator,
+        string memory errorMessage
+    ) internal {
+        // The tolerance is `1 / toleranceDenominator`, so we increase the value
+        // of `a` by this amount. adjustedA = a * (denom+1) / denom
+        uint256 adjustedA = FractionMath.mulDiv(
+            b, toleranceDenominator + 1, toleranceDenominator
+        );
+        assertGt(adjustedA, b, errorMessage);
     }
 }
