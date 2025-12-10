@@ -24,6 +24,7 @@ members = [
     "base-aerodrome-slipstreams",
     "ethereum-erc4626",
     "unichain-velodrome",
+    "ethereum-etherfi",
 ]
 resolver = "2"
 
