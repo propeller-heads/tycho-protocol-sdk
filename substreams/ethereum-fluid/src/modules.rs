@@ -3,8 +3,9 @@ use crate::abi::{
         LogInitializePriceParams, LogPauseSwapAndArbitrage, LogUnpauseSwapAndArbitrage,
     },
     dex_t1_deployment_logic::events::DexT1Deployed,
+    erc20,
 };
-use anyhow::{Ok, Result};
+use anyhow::{anyhow, Ok, Result};
 use ethabi::ethereum_types::Address;
 use itertools::Itertools;
 use prost::Message;
@@ -13,6 +14,7 @@ use std::collections::HashMap;
 use substreams::{hex, prelude::*};
 use substreams_ethereum::{
     pb::{eth, eth::v2::TransactionTrace},
+    rpc::RpcBatch,
     Event,
 };
 use substreams_helper::{common::HasAddresser, event_handler::EventHandler, hex::Hexable};
@@ -77,10 +79,66 @@ pub fn map_dex_deployed(
     params: String,
     block: eth::v2::Block,
 ) -> Result<BlockTransactionProtocolComponents> {
+    // Note: since we buffer components, it is not necessary to aggregate them per
+    // transaction here.
     let mut new_dexes = vec![];
     let params: DeploymentParameters = serde_qs::from_str(&params)?;
-
     get_new_dexes(&block, &mut new_dexes, &params);
+
+    // add token decimals to static attributes
+    let mut batch = RpcBatch::new();
+    let mut tokens = vec![];
+    for components in new_dexes.iter_mut() {
+        for component in components.components.iter() {
+            for t in component.tokens.iter() {
+                tokens.push(t.clone());
+                batch = batch.add(erc20::functions::Decimals {}, t.clone());
+            }
+        }
+    }
+    // Handle any bad responses so we can unwrap later safely
+    let decimal_responses = batch
+        .execute()
+        .map_err(|e| anyhow!("Failed getting decimal batch: {}", e))?
+        .responses;
+    if decimal_responses
+        .iter()
+        .any(|r| r.failed)
+    {
+        return Err(anyhow!("Decimal method reverted"));
+    }
+
+    decimal_responses
+        .into_iter()
+        .zip(tokens)
+        .map(|(r, t)| {
+            // handle ETH address
+            if t == ZERO_ADDRESS {
+                BigInt::from(18)
+            } else {
+                RpcBatch::decode::<_, erc20::functions::Decimals>(&r).unwrap_or_else(|| {
+                    panic!("Failed to decode decimals for token {}", hex::encode(t))
+                })
+            }
+        })
+        .tuples::<(_, _)>()
+        .zip(
+            new_dexes
+                .iter_mut()
+                .flat_map(|c| c.components.iter_mut()),
+        )
+        .for_each(|((t0_decimals, t1_decimals), components)| {
+            components.static_att.push(Attribute {
+                name: "t0_decimals".to_string(),
+                value: t0_decimals.to_signed_bytes_be(),
+                change: ChangeType::Creation.into(),
+            });
+            components.static_att.push(Attribute {
+                name: "t1_decimals".to_string(),
+                value: t1_decimals.to_signed_bytes_be(),
+                change: ChangeType::Creation.into(),
+            });
+        });
 
     Ok(BlockTransactionProtocolComponents { tx_components: new_dexes })
 }
@@ -196,6 +254,7 @@ fn map_initialized_components(
     let pre_resolver_dexes = params.get_hex_addresses();
 
     let mut new_components = HashMap::new();
+    // emit all components that were deployed before the resolvers were deployed
     for tx in block.transactions() {
         if tx.hash == hex!("eb645a1cec04e843da6b268282d7002e3abaeb792cc380db11982b89dd52997a") {
             for address in pre_resolver_dexes.iter() {
@@ -262,7 +321,8 @@ fn map_protocol_changes(
     params: String,
     block: eth::v2::Block,
     initialised_components: BlockTransactionProtocolComponents,
-    components_store: StoreGetInt64,
+    component_store: StoreGetRaw,
+    component_initialized_store: StoreGetInt64,
     contracts_store: StoreGetRaw,
 ) -> Result<BlockChanges, substreams::errors::Error> {
     // We merge contract changes by transaction (identified by transaction index)
@@ -336,7 +396,7 @@ fn map_protocol_changes(
     );
 
     // handle attributes if a pool was paused or unpaused
-    add_paused_attributes(&components_store, &mut transaction_changes, &block);
+    add_paused_attributes(&component_initialized_store, &mut transaction_changes, &block);
 
     if params.should_query_tvl(block.number) ||
         !initialised_components
@@ -345,7 +405,8 @@ fn map_protocol_changes(
     {
         query_and_emit_balances(
             &block,
-            components_store,
+            component_store,
+            component_initialized_store,
             params.get_reserves_resolver(block.number),
             &mut transaction_changes,
         );
@@ -410,48 +471,94 @@ pub fn add_paused_attributes(
     }
 }
 
+fn from_adjusted_amount(adjusted_amount: BigInt, decimals: i32) -> BigInt {
+    let diff = decimals - 12;
+
+    if diff == 0 {
+        adjusted_amount
+    } else if diff < 0 {
+        // Divide by 10^(-diff)
+        let divisor = BigInt::from(10u64).pow(diff.unsigned_abs());
+        adjusted_amount / divisor
+    } else {
+        // Multiply by 10^(diff)
+        let multiplier = BigInt::from(10u64).pow(diff as u32);
+        adjusted_amount * multiplier
+    }
+}
+
 fn query_and_emit_balances(
     block: &eth::v2::Block,
-    components_store: StoreGetInt64,
+    component_store: StoreGetRaw,
+    component_initialized_store: StoreGetInt64,
     resolver_address: Address,
     transaction_changes: &mut HashMap<u64, TransactionChangesBuilder>,
 ) {
-    let tx = block.transactions().last().unwrap();
-    let reserves_call = crate::abi::reserves_resolver::functions::GetAllPoolsReservesAdjusted {};
-    if let Some(reserves) = reserves_call.call(resolver_address.as_bytes().to_vec()) {
-        for pool_with_reserves in reserves {
-            let pool_hex_address = pool_with_reserves.0.to_hex();
-            if components_store
-                .get_last(&pool_hex_address)
-                .is_some()
-            {
-                let builder = transaction_changes
-                    .entry(tx.index as u64)
-                    .or_insert_with(|| TransactionChangesBuilder::new(&(tx.into())));
+    if let Some(tx) = block.transactions().last() {
+        let reserves_call = crate::abi::reserves_resolver::functions::GetAllPoolsReservesAdjusted {};
+        if let Some(reserves) = reserves_call.call(resolver_address.as_bytes().to_vec()) {
+            for pool_with_reserves in reserves {
+                let pool_hex_address = pool_with_reserves.0.to_hex();
+                if component_initialized_store
+                    .get_last(&pool_hex_address)
+                    .is_some()
+                {
+                    let component = component_store
+                        .get_last(&pool_hex_address)
+                        .map(|v| {
+                            ProtocolComponent::decode(v.as_slice())
+                                .expect("component serialization valid")
+                        })
+                        .expect("initialized component exists in store");
 
-                builder.add_balance_change(&BalanceChange {
-                    token: coerce_native_address(pool_with_reserves.1.clone()),
-                    balance: (pool_with_reserves.5 .0 + pool_with_reserves.6 .0)
-                        .to_signed_bytes_be(),
-                    component_id: pool_hex_address.clone().into(),
-                });
+                    let t0_decimals = component
+                        .static_att
+                        .iter()
+                        .find(|a| a.name == "t0_decimals")
+                        .map(|attr| BigInt::from_signed_bytes_be(&attr.value).to_u64())
+                        .expect("t0_decimals attribute exists");
 
-                builder.add_balance_change(&BalanceChange {
-                    token: coerce_native_address(pool_with_reserves.2.clone()),
-                    balance: (pool_with_reserves.5 .1 + pool_with_reserves.6 .1)
-                        .to_signed_bytes_be(),
-                    component_id: pool_hex_address.clone().into(),
-                })
-            } else {
-                substreams::log::debug!(
-                    "Skipping balance emission uninitialized pool: {}",
-                    pool_with_reserves.0.to_hex()
-                );
+                    let t1_decimals = component
+                        .static_att
+                        .iter()
+                        .find(|a| a.name == "t1_decimals")
+                        .map(|attr| BigInt::from_signed_bytes_be(&attr.value).to_u64())
+                        .expect("t1_decimals attribute exists");
+
+                    let builder = transaction_changes
+                        .entry(tx.index as u64)
+                        .or_insert_with(|| TransactionChangesBuilder::new(&(tx.into())));
+
+                    builder.add_balance_change(&BalanceChange {
+                        token: coerce_native_address(pool_with_reserves.1.clone()),
+                        balance: from_adjusted_amount(
+                            pool_with_reserves.5.0 + pool_with_reserves.6.0,
+                            t0_decimals as i32,
+                        )
+                            .to_signed_bytes_be(),
+                        component_id: pool_hex_address.clone().into(),
+                    });
+
+                    builder.add_balance_change(&BalanceChange {
+                        token: coerce_native_address(pool_with_reserves.2.clone()),
+                        balance: from_adjusted_amount(
+                            pool_with_reserves.5.1 + pool_with_reserves.6.1,
+                            t1_decimals as i32,
+                        )
+                            .to_signed_bytes_be(),
+                        component_id: pool_hex_address.clone().into(),
+                    })
+                } else {
+                    substreams::log::debug!(
+                        "Skipping balance emission uninitialized pool: {}",
+                        pool_with_reserves.0.to_hex()
+                    );
+                }
             }
-        }
-    } else {
-        substreams::log::info!("Reserves call failed");
-    };
+        } else {
+            substreams::log::info!("Reserves call failed");
+        };
+    }
 }
 
 #[cfg(test)]

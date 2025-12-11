@@ -68,6 +68,7 @@ pub fn register_protocol(
             None,
             decoder_context,
         ),
+
         // Default to EVMPoolState for all other protocols
         _ => stream_builder.exchange_with_decoder_context::<EVMPoolState<PreCachedDB>>(
             protocol_system,
