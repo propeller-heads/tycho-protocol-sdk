@@ -19,12 +19,13 @@ fn map_protocol_components(
     params: String,
     block: eth::v2::Block,
 ) -> Result<BlockTransactionProtocolComponents> {
+    substreams::log::debug!("Fake log to trigger CI");
     if block.number !=
         params
             .parse::<u64>()
             .map_err(|e| anyhow::anyhow!("Failed to parse block number from params: {}", e))?
     {
-        return Ok(BlockTransactionProtocolComponents { tx_components: vec![] })
+        return Ok(BlockTransactionProtocolComponents { tx_components: vec![] });
     }
 
     let tx: &eth::v2::TransactionTrace = block.transactions().next().unwrap();
