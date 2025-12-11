@@ -61,9 +61,12 @@ pub fn register_protocol(
             None,
             decoder_context,
         ),
-        "fluid_v1" => {
-            decoder.register_decoder_with_context::<FluidV1>(protocol_system, decoder_context);
-        }
+        "fluid_v1" => stream_builder.exchange_with_decoder_context::<FluidV1>(
+            protocol_system,
+            tvl_filter,
+            None,
+            decoder_context,
+        ),
         // Default to EVMPoolState for all other protocols
         _ => stream_builder.exchange_with_decoder_context::<EVMPoolState<PreCachedDB>>(
             protocol_system,
