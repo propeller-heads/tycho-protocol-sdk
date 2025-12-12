@@ -7,6 +7,7 @@
     "tricrypto_factory": "0c0e5f2ff0ff18a3be9b835635039256dc4b4963",
     "twocrypto_factory": "98ee851a00abee0d95d08cf4ca2bdce32aeaaf7f",
     "stableswap_factory": "4f8846ae9380b90d2e71d5e3d042dff3e7ebb40d",
+    "core_stableswap_factory": "",
     "weth": "c02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
     "steth": "ae7ab96520de3a18e5e111b5eaab095312d7fe84",
     "rusdy": "af37c1167910ebc994e266949387d2c7c326b879",
