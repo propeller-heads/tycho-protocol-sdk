@@ -1075,6 +1075,102 @@ pub fn address_map(
         addr if addr ==
             curve_params
                 .protocol_params
+                .core_stableswap_factory =>
+        {
+            let pool_added =
+                abi::curve_core_stableswap_factory::events::PlainPoolDeployed::match_and_decode(
+                    log,
+                )?;
+            let add_pool =
+                abi::curve_core_stableswap_factory::functions::DeployPlainPool::match_and_decode(
+                    call,
+                )?;
+            let component_id = &call.return_data[12..];
+
+            let tokens: Vec<_> = pool_added
+                .coins
+                .into_iter()
+                .filter(|token| *token != [0; 20])
+                .collect();
+
+            let pool_implementation = extract_proxy_impl(call, tx, 0).unwrap_or([1u8; 20]);
+            let mut static_attrs = vec![
+                Attribute {
+                    name: "pool_type".into(),
+                    value: "plain_pool".into(),
+                    change: ChangeType::Creation.into(),
+                },
+                Attribute {
+                    name: "name".into(),
+                    value: add_pool.name.into(),
+                    change: ChangeType::Creation.into(),
+                },
+                Attribute {
+                    name: "factory_name".into(),
+                    value: "core_stable_swap_factory".into(),
+                    change: ChangeType::Creation.into(),
+                },
+                Attribute {
+                    name: "factory".into(),
+                    value: address_to_bytes_with_0x(
+                        &curve_params
+                            .protocol_params
+                            .core_stableswap_factory,
+                    ),
+                    change: ChangeType::Creation.into(),
+                },
+                Attribute {
+                    name: "coins".into(),
+                    value: json_serialize_address_list(&tokens),
+                    change: ChangeType::Creation.into(),
+                },
+            ];
+            if tokens.len() == 2 &&
+                add_pool
+                    .implementation_idx
+                    .eq(&BigInt::from(1))
+            {
+                let rebase_tokens: Vec<Vec<u8>> = tokens
+                    .iter()
+                    .filter(|coin| coin.as_slice() != ETH_ADDRESS)
+                    .cloned()
+                    .collect();
+
+                if !rebase_tokens.is_empty() {
+                    static_attrs.push(Attribute {
+                        name: "rebase_tokens".to_string(),
+                        value: json_serialize_address_list(&rebase_tokens),
+                        change: ChangeType::Creation.into(),
+                    });
+                }
+            }
+            Some((
+                ProtocolComponent {
+                    id: address_to_string_with_0x(component_id),
+                    tokens: tokens.clone(),
+                    contracts: vec![component_id.into()],
+                    static_att: static_attrs,
+                    change: ChangeType::Creation.into(),
+                    protocol_type: Some(ProtocolType {
+                        name: "curve_pool".into(),
+                        financial_type: FinancialType::Swap.into(),
+                        attribute_schema: Vec::new(),
+                        implementation_type: ImplementationType::Vm.into(),
+                    }),
+                },
+                vec![EntityChanges {
+                    component_id: address_to_string_with_0x(component_id),
+                    attributes: vec![Attribute {
+                        name: "stateless_contract_addr_0".into(),
+                        value: address_to_bytes_with_0x(&pool_implementation),
+                        change: ChangeType::Creation.into(),
+                    }],
+                }],
+            ))
+        }
+        addr if addr ==
+            curve_params
+                .protocol_params
                 .twocrypto_factory =>
         {
             if let Some(pool_added) =
