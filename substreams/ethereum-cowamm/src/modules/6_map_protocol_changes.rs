@@ -152,57 +152,6 @@ fn map_protocol_changes(
                         })
                 });
         });
-    
-    extract_contract_changes_builder(
-        &block,
-        |address| {
-            pool_store
-                .get_last(format!("Pool:0x{}", hex::encode(address)))
-                .is_some()
-                || address.eq(factory_address.as_slice())
-        },
-        &mut transaction_changes,
-    );
-    block
-        .transactions()
-        .for_each(|block_tx| {
-            block_tx.calls.iter().for_each(|call| {
-                if call.address == factory_address {
-                    let mut contract_change =
-                        InterimContractChange::new(call.address.as_slice(), true);
-
-                    if let Some(code_change) = &call.code_changes.first() {
-                        contract_change.set_code(&code_change.new_code);
-                    }
-
-                    let builder = transaction_changes
-                        .entry(block_tx.index.into())
-                        .or_insert_with(|| TransactionChangesBuilder::new(&(block_tx.into())));
-                    builder.add_contract_changes(&contract_change);
-                }
-            });
-        });
-
-    transaction_changes
-        .iter_mut()
-        .for_each(|(_, change)| {
-            // this indirection is necessary due to borrowing rules.
-            let addresses = change
-                .changed_contracts()
-                .map(|e| e.to_vec())
-                .collect::<Vec<_>>();
-            addresses
-                .into_iter()
-                .for_each(|address| {
-                    // check if the address is not the factory address
-                    if address != factory_address.as_slice() {
-                        let pool = pool_store
-                            .get_last(format!("Pool:0x{}", hex::encode(address)))
-                            .unwrap();
-                        change.mark_component_as_updated(&pool.address.to_hex()); // does this overwrites the previous entity changes -> no
-                    }
-                })
-        });
 
     Ok(BlockChanges {
         block: Some((&block).into()),

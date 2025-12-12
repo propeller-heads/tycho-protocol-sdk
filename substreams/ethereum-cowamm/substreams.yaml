@@ -23,7 +23,7 @@ network: mainnet
 modules:
   - name: map_cowpool_creations
     kind: map
-    initialBlock: 20522030
+    initialBlock: 20522024
     inputs:
       - params: string
       - source: sf.ethereum.type.v2.Block
@@ -32,7 +32,7 @@ modules:
 
   - name: map_cowpool_binds
     kind: map
-    initialBlock: 20522030
+    initialBlock: 20522024
     inputs:
       - source: sf.ethereum.type.v2.Block
     output:
@@ -40,7 +40,7 @@ modules:
     
   - name: store_cowpool_binds
     kind: store
-    initialBlock: 20522030 
+    initialBlock: 20522024 
     updatePolicy: append
     valueType: string
     inputs:
@@ -57,7 +57,7 @@ modules:
     
   - name: store_cowpools
     kind: store
-    initialBlock: 20522030
+    initialBlock: 20522024
     updatePolicy: set
     valueType: proto:cowamm.CowPool
     inputs:
@@ -77,7 +77,7 @@ modules:
 
   - name: store_components
     kind: store
-    initialBlock: 20522030 	
+    initialBlock: 20522024 	
     updatePolicy: set_if_not_exists
     valueType: string
     inputs:
@@ -85,7 +85,7 @@ modules:
 
   - name: store_balances
     kind: store
-    initialBlock: 20522030
+    initialBlock: 20522024
     updatePolicy: add
     valueType: bigint
     inputs:
@@ -93,7 +93,7 @@ modules:
 
   - name: map_protocol_changes
     kind: map
-    initialBlock: 20522030
+    initialBlock: 20522024
     inputs:
       - params: string
       - source: sf.ethereum.type.v2.Block

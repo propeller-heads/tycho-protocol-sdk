@@ -15,6 +15,7 @@ use substreams_ethereum::pb::eth::v2::Block;
 use substreams_ethereum::Event;
 use substreams_helper::hex::Hexable;
 use tycho_substreams::prelude::*;
+use crate::modules::utils::extract_address;
 
 fn create_component(factory_address: &[u8], pool: CowPool) -> Option<CowProtocolComponent> {
          Some(CowProtocolComponent {
@@ -24,10 +25,7 @@ fn create_component(factory_address: &[u8], pool: CowPool) -> Option<CowProtocol
             pool.token_b.to_vec(),
             pool.lp_token.to_vec(),
         ],
-        contracts: vec![
-            factory_address.to_vec(),
-            pool.address.to_vec(),
-        ],
+        contracts: vec![],
         static_att: vec![
             Attribute {
                 name: "token_a".to_string(),
@@ -70,16 +68,6 @@ fn create_component(factory_address: &[u8], pool: CowPool) -> Option<CowProtocol
     })
 }
 
-fn extract_address(word: &str) -> String {
-    // Remove 0x prefix if present
-    let clean = word.trim_start_matches("0x");
-
-    // Last 40 hex chars = 20 bytes = ETH address
-    let addr_hex = &clean[clean.len() - 40..];
-
-    // Return with 0x prefix
-    format!("0x{}", addr_hex)
-}
 
 
 #[substreams::handlers::map]
@@ -168,7 +156,7 @@ pub fn map_components_with_balances(
                         //24 + 40 chars 
                         //pool is address is left padded with 24 '0's so we remove that
                         //0x0000000000000000000000009bd702e05b9c97e4a4a3e47df1e0fe7a0c26d2f1 left padded to 44 bytes
-                        let address = extract_address(&pool_address);
+                        let address = extract_address(&pool_address, 40);
                         if let Some(pool) = store.get_last(format!("Pool:{}", &address)) {
                             tx_deltas.extend(get_log_changed_balances(&tx.into(), log, &pool));
                         }

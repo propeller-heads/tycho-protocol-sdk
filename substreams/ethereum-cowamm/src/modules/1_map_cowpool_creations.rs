@@ -3,6 +3,7 @@ use crate::pb::cowamm::{CowPoolCreation, CowPoolCreations};
 use anyhow::{Ok, Result};
 use substreams_ethereum::pb::eth::v2::Block;
 use substreams_helper::hex::Hexable;
+use crate::{abi::b_cow_factory::events::LogNewPool};
 
 #[substreams::handlers::map]
 pub fn map_cowpool_creations(params: String, block: Block) -> Result<CowPoolCreations> {
