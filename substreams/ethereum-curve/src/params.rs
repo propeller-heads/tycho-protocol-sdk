@@ -49,6 +49,8 @@ impl CurveParams {
             self.protocol_params.tricrypto_2_lp,
             self.protocol_params.tricrypto_2_math,
             self.protocol_params.tricrypto_factory,
+            self.protocol_params
+                .core_stableswap_factory,
         ]
         .into_iter()
         .filter(|addr| *addr != ZERO_ADDRESS)

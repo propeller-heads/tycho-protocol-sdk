@@ -1093,7 +1093,6 @@ pub fn address_map(
                 .filter(|token| *token != [0; 20])
                 .collect();
 
-            let pool_implementation = extract_proxy_impl(call, tx, 0).unwrap_or([1u8; 20]);
             let mut static_attrs = vec![
                 Attribute {
                     name: "pool_type".into(),
@@ -1103,6 +1102,27 @@ pub fn address_map(
                 Attribute {
                     name: "name".into(),
                     value: add_pool.name.into(),
+                    change: ChangeType::Creation.into(),
+                },
+                Attribute {
+                    name: "asset_types".into(),
+                    value: json_serialize_bigint_list(&add_pool.asset_types),
+                    change: ChangeType::Creation.into(),
+                },
+                Attribute {
+                    name: "oracles".into(),
+                    value: json_serialize_address_list(&add_pool.oracles),
+                    change: ChangeType::Creation.into(),
+                },
+                Attribute {
+                    name: "method_ids".into(),
+                    value: json_serialize_value(
+                        add_pool
+                            .method_ids
+                            .iter()
+                            .map(|id| format!("0x{}", hex::encode(id)))
+                            .collect::<Vec<_>>(),
+                    ),
                     change: ChangeType::Creation.into(),
                 },
                 Attribute {
@@ -1162,7 +1182,16 @@ pub fn address_map(
                     component_id: address_to_string_with_0x(component_id),
                     attributes: vec![Attribute {
                         name: "stateless_contract_addr_0".into(),
-                        value: address_to_bytes_with_0x(&pool_implementation),
+                        // Call views_implementation() on core_stableswap_factory
+                        value: format!(
+                            "call:0x{}:views_implementation()",
+                            hex::encode(
+                                curve_params
+                                    .protocol_params
+                                    .core_stableswap_factory
+                            )
+                        )
+                        .into(),
                         change: ChangeType::Creation.into(),
                     }],
                 }],
