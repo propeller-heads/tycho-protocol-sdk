@@ -493,7 +493,7 @@ impl TestRunner {
             );
             let tycho_runner = self
                 .runtime
-                .block_on(self.tycho_runner(initialized_accounts))?;
+                .block_on(self.tycho_runner(initialized_accounts.clone()))?;
             if self.reuse_last_sync {
                 info!("Skipping indexing and using existent DB")
             } else {
@@ -512,7 +512,7 @@ impl TestRunner {
                     .wrap_err("Failed to run Tycho")?;
             }
             let rpc_server = tycho_runner.start_rpc_server()?;
-            match self.run_test(test, &config, test.stop_block) {
+            match self.run_test(test, &config, test.stop_block, initialized_accounts.clone()) {
                 Ok(_) => {
                     info!("✅ {} passed\n", test.name);
                 }
@@ -540,6 +540,7 @@ impl TestRunner {
         test: &IntegrationTest,
         config: &IntegrationTestsConfig,
         stop_block: u64,
+        initialized_accounts: Vec<String>,
     ) -> miette::Result<()> {
         // Fetch protocol data from Tycho RPC
         let expected_ids = test
@@ -557,8 +558,12 @@ impl TestRunner {
             )
             .wrap_err("Failed to get block header")?;
 
-        let (protocol_components, snapshot, all_tokens) =
-            self.fetch_from_tycho_rpc(&config.protocol_system, expected_ids, stop_block)?;
+        let (protocol_components, snapshot, all_tokens) = self.fetch_from_tycho_rpc(
+            &config.protocol_system,
+            expected_ids,
+            stop_block,
+            initialized_accounts,
+        )?;
 
         let response_protocol_states_by_id: HashMap<String, ResponseProtocolState> = snapshot
             .states
@@ -761,6 +766,7 @@ impl TestRunner {
         protocol_system: &str,
         expected_component_ids: Vec<String>,
         stop_block: u64,
+        initialized_accounts: Vec<String>,
     ) -> miette::Result<(Vec<ProtocolComponent>, Snapshot, HashMap<Bytes, Token>)> {
         info!("Fetching protocol data from Tycho with stop block {}...", stop_block);
 
@@ -818,6 +824,11 @@ impl TestRunner {
                     .values()
                     .flatten()
                     .flat_map(|(_, results)| results.accessed_slots.keys().cloned()),
+            )
+            .chain(
+                initialized_accounts
+                    .iter()
+                    .map(|account| Bytes::from(account.as_bytes())),
             )
             .collect();
 
