@@ -236,7 +236,7 @@ impl TestRunner {
 
         // Use tycho-indexer's Index command which handles both continuous syncing and RPC server
         let tycho_runner = self
-            .tycho_runner(initialized_accounts)
+            .tycho_runner(&initialized_accounts)
             .await?;
 
         let spkg_path_for_index = spkg_path.clone();
@@ -493,7 +493,7 @@ impl TestRunner {
             );
             let tycho_runner = self
                 .runtime
-                .block_on(self.tycho_runner(initialized_accounts.clone()))?;
+                .block_on(self.tycho_runner(&initialized_accounts))?;
             if self.reuse_last_sync {
                 info!("Skipping indexing and using existent DB")
             } else {
@@ -512,7 +512,7 @@ impl TestRunner {
                     .wrap_err("Failed to run Tycho")?;
             }
             let rpc_server = tycho_runner.start_rpc_server()?;
-            match self.run_test(test, &config, test.stop_block, initialized_accounts.clone()) {
+            match self.run_test(test, &config, test.stop_block, &initialized_accounts) {
                 Ok(_) => {
                     info!("✅ {} passed\n", test.name);
                 }
@@ -540,7 +540,7 @@ impl TestRunner {
         test: &IntegrationTest,
         config: &IntegrationTestsConfig,
         stop_block: u64,
-        initialized_accounts: Vec<String>,
+        initialized_accounts: &[String],
     ) -> miette::Result<()> {
         // Fetch protocol data from Tycho RPC
         let expected_ids = test
@@ -665,14 +665,14 @@ impl TestRunner {
         Ok(())
     }
 
-    async fn tycho_runner(&self, initialized_accounts: Vec<String>) -> miette::Result<TychoRunner> {
+    async fn tycho_runner(&self, initialized_accounts: &[String]) -> miette::Result<TychoRunner> {
         if !self.reuse_last_sync {
             self.empty_database()
                 .await
                 .into_diagnostic()
                 .wrap_err("Failed to empty the database")?;
         }
-        Ok(TychoRunner::new(self.chain, self.db_url.to_string(), initialized_accounts))
+        Ok(TychoRunner::new(self.chain, self.db_url.to_string(), initialized_accounts.to_vec()))
     }
 
     fn run_tvl_import(&self) -> miette::Result<()> {
@@ -766,7 +766,7 @@ impl TestRunner {
         protocol_system: &str,
         expected_component_ids: Vec<String>,
         stop_block: u64,
-        initialized_accounts: Vec<String>,
+        initialized_accounts: &[String],
     ) -> miette::Result<(Vec<ProtocolComponent>, Snapshot, HashMap<Bytes, Token>)> {
         info!("Fetching protocol data from Tycho with stop block {}...", stop_block);
 
