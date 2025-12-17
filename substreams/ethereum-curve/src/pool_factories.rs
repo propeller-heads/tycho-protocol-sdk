@@ -1168,7 +1168,13 @@ pub fn address_map(
                 ProtocolComponent {
                     id: address_to_string_with_0x(component_id),
                     tokens: tokens.clone(),
-                    contracts: vec![component_id.into()],
+                    contracts: vec![
+                        component_id.into(),
+                        curve_params
+                            .protocol_params
+                            .core_stableswap_factory
+                            .into(),
+                    ],
                     static_att: static_attrs,
                     change: ChangeType::Creation.into(),
                     protocol_type: Some(ProtocolType {
