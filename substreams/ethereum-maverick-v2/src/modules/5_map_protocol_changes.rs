@@ -60,30 +60,11 @@ pub fn map_protocol_changes(
             pool_store
                 .get_last(format!("Pool:0x{}", hex::encode(addr)))
                 .is_some() ||
-                addr.eq(factory_address.as_slice())
+                addr.eq(factory_address.as_slice()) ||
+                addr.eq(quoter_address.as_slice())
         },
         &mut transaction_changes,
     );
-
-    block
-        .transactions()
-        .for_each(|block_tx| {
-            block_tx.calls.iter().for_each(|call| {
-                if call.address == quoter_address {
-                    let mut contract_change =
-                        InterimContractChange::new(call.address.as_slice(), true);
-
-                    if let Some(code_change) = &call.code_changes.first() {
-                        contract_change.set_code(&code_change.new_code);
-                    }
-
-                    let builder = transaction_changes
-                        .entry(block_tx.index.into())
-                        .or_insert_with(|| TransactionChangesBuilder::new(&(block_tx.into())));
-                    builder.add_contract_changes(&contract_change);
-                }
-            });
-        });
 
     transaction_changes
         .iter_mut()
