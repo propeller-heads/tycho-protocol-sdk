@@ -14,7 +14,7 @@ protobuf:
     - ../../proto
 
 binaries:
-  default: 
+  default:
     type: wasm/rust-v1
     file: ../target/wasm32-unknown-unknown/release/ethereum_cowamm.wasm
 
@@ -37,10 +37,10 @@ modules:
       - source: sf.ethereum.type.v2.Block
     output:
       type: proto:cowamm.CowPoolBinds
-    
+
   - name: store_cowpool_binds
     kind: store
-    initialBlock: 20522024 
+    initialBlock: 20522024
     updatePolicy: append
     valueType: string
     inputs:
@@ -54,7 +54,7 @@ modules:
         mode: get
     output:
       type: proto:cowamm.CowPools
-    
+
   - name: store_cowpools
     kind: store
     initialBlock: 20522024
@@ -73,11 +73,11 @@ modules:
       - store: store_cowpool_binds
         mode: get
     output:
-      type: proto:cowamm.BlockChanges
+      type: proto:cowamm.BlockPoolChanges
 
   - name: store_components
     kind: store
-    initialBlock: 20522024 	
+    initialBlock: 20522024
     updatePolicy: set_if_not_exists
     valueType: string
     inputs:
@@ -105,7 +105,7 @@ modules:
       type: proto:tycho.evm.v1.BlockChanges
 
 params:
-  map_cowpool_creations: factory_address=f76c421bAb7df8548604E60deCCcE50477C10462 
-  map_components_with_balances: factory_address=f76c421bAb7df8548604E60deCCcE50477C10462 
+  map_cowpool_creations: factory_address=f76c421bAb7df8548604E60deCCcE50477C10462
+  map_components_with_balances: factory_address=f76c421bAb7df8548604E60deCCcE50477C10462
   map_protocol_changes: factory_address=f76c421bAb7df8548604E60deCCcE50477C10462 
 
