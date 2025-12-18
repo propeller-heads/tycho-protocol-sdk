@@ -229,14 +229,10 @@ impl TestRunner {
         };
         let spkg_path =
             build_spkg(substreams_yaml_path, start_block).wrap_err("Failed to build spkg")?;
-        let initialized_accounts = config
-            .initialized_accounts
-            .clone()
-            .unwrap_or_default();
 
         // Use tycho-indexer's Index command which handles both continuous syncing and RPC server
         let tycho_runner = self
-            .tycho_runner(&initialized_accounts)
+            .tycho_runner(&[])
             .await?;
 
         let spkg_path_for_index = spkg_path.clone();
