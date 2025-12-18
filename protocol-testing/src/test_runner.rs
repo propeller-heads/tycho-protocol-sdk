@@ -482,18 +482,24 @@ impl TestRunner {
 
         for test in &tests {
             info!("TEST {}: {}", count, test.name);
-            let mut initialized_accounts = config
+            let mut raw_initialized_accounts = config
                 .initialized_accounts
                 .clone()
                 .unwrap_or_default();
-            initialized_accounts.extend(
+            raw_initialized_accounts.extend(
                 test.initialized_accounts
                     .clone()
                     .unwrap_or_default(),
             );
+            let initialized_accounts: Vec<Bytes> = raw_initialized_accounts
+                .iter()
+                .map(|account| {
+                    Bytes::from_str(account).expect("Invalid initialized_account address")
+                })
+                .collect();
             let tycho_runner = self
                 .runtime
-                .block_on(self.tycho_runner(&initialized_accounts))?;
+                .block_on(self.tycho_runner(&raw_initialized_accounts))?;
             if self.reuse_last_sync {
                 info!("Skipping indexing and using existent DB")
             } else {
@@ -540,7 +546,7 @@ impl TestRunner {
         test: &IntegrationTest,
         config: &IntegrationTestsConfig,
         stop_block: u64,
-        initialized_accounts: &[String],
+        initialized_accounts: &[Bytes],
     ) -> miette::Result<()> {
         // Fetch protocol data from Tycho RPC
         let expected_ids = test
@@ -766,7 +772,7 @@ impl TestRunner {
         protocol_system: &str,
         expected_component_ids: Vec<String>,
         stop_block: u64,
-        initialized_accounts: &[String],
+        initialized_accounts: &[Bytes],
     ) -> miette::Result<(Vec<ProtocolComponent>, Snapshot, HashMap<Bytes, Token>)> {
         info!("Fetching protocol data from Tycho with stop block {}...", stop_block);
 
@@ -825,11 +831,7 @@ impl TestRunner {
                     .flatten()
                     .flat_map(|(_, results)| results.accessed_slots.keys().cloned()),
             )
-            .chain(
-                initialized_accounts
-                    .iter()
-                    .map(|account| Bytes::from(account.as_bytes())),
-            )
+            .chain(initialized_accounts.iter().cloned())
             .collect();
 
         let snapshot = self
