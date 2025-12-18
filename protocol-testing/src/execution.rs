@@ -28,6 +28,7 @@ const CURVE_BYTECODE_JSON: &str = include_str!("../../evm/test/executors/Curve.r
 const MAVERICK_V2_BYTECODE_JSON: &str =
     include_str!("../../evm/test/executors/MaverickV2.runtime.json");
 const EKUBO_BYTECODE_JSON: &str = include_str!("../../evm/test/executors/Ekubo.runtime.json");
+const LIDO_BYTECODE_JSON: &str = include_str!("../../evm/test/executors/Lido.runtime.json");
 
 /// Mapping from protocol component patterns to executor bytecode JSON strings
 static EXECUTOR_MAPPING: LazyLock<HashMap<&'static str, &'static str>> = LazyLock::new(|| {
@@ -46,6 +47,7 @@ static EXECUTOR_MAPPING: LazyLock<HashMap<&'static str, &'static str>> = LazyLoc
     map.insert("vm:curve", CURVE_BYTECODE_JSON);
     map.insert("vm:maverick_v2", MAVERICK_V2_BYTECODE_JSON);
     map.insert("ekubo", EKUBO_BYTECODE_JSON);
+    map.insert("lido", LIDO_BYTECODE_JSON);
     map
 });
 
