@@ -1,26 +1,22 @@
-use crate::pb::cowamm::{CowPool, CowPoolBind, CowPoolCreations, CowPools};
+use crate::pb::cowamm::{CowPool, CowPoolBind, CowPoolCreations, CowPools, Transaction};
 use anyhow::{Ok, Result};
 use serde::{Deserialize, Serialize};
-use serde_json;
 use substreams::{
     store::{StoreGet, StoreGetString},
-    Hex,
 };
-use crate::pb::cowamm::Transaction;
-use substreams_helper::hex::Hexable;
 
 #[derive(Debug, Deserialize, Serialize)]
 struct CowPoolBindJson {
     address: String,
     token: String,
     weight: String,
-    amount:String,
-    //fields for Bind Transaction 
+    amount: String,
+    //fields for Bind Transaction
     from: String,
     to: String,
     hash: String,
     index: String,
-    ordinal: String
+    ordinal: String,
 }
 
 pub fn parse_binds(bind_str: &str) -> Option<Vec<CowPoolBind>> {
@@ -35,7 +31,8 @@ pub fn parse_binds(bind_str: &str) -> Option<Vec<CowPoolBind>> {
         // Wrap the bind in square brackets to create an array of JSON objects
         let formatted_str = format!("[{}]", bind.replace("};", "},"));
 
-        let parsed: Vec<CowPoolBindJson> = serde_json::from_str(&formatted_str).expect("im panicking");
+        let parsed: Vec<CowPoolBindJson> =
+            serde_json::from_str(&formatted_str).expect("im panicking");
         for bind_json in parsed {
             let cow_bind = CowPoolBind {
                 address: hex::decode(&bind_json.address).expect("Invalid hex for address"),
@@ -46,19 +43,21 @@ pub fn parse_binds(bind_str: &str) -> Option<Vec<CowPoolBind>> {
                     from: hex::decode(&bind_json.from).expect("Invalid hex for tx from address"),
                     to: hex::decode(&bind_json.to).expect("Invalid hex for tx to address"),
                     hash: hex::decode(&bind_json.hash).expect("Invalid hex for tx to hash"),
-                    index: u64::from_le_bytes( //verify this 
-                          hex::decode(&bind_json.index)
+                    index: u64::from_le_bytes(
+                        //verify this
+                        hex::decode(&bind_json.index)
                             .expect("Invalid hex for tx index")
                             .try_into()
-                            .expect("tx index must be exactly 8 bytes")
+                            .expect("tx index must be exactly 8 bytes"),
                     ),
                 }),
-                ordinal: u64::from_le_bytes( //verify this 
-                          hex::decode(&bind_json.ordinal)
-                            .expect("Invalid hex for tx ordinal")
-                            .try_into()
-                            .expect("tx index must be exactly 8 bytes")
-                    ),
+                ordinal: u64::from_le_bytes(
+                    //verify this
+                    hex::decode(&bind_json.ordinal)
+                        .expect("Invalid hex for tx ordinal")
+                        .try_into()
+                        .expect("tx index must be exactly 8 bytes"),
+                ),
             };
             binds.push(cow_bind);
         }
@@ -97,32 +96,20 @@ pub fn map_cowpools(
         substreams::log::info!("this is bind 1: {:?}", bind1);
         substreams::log::info!("this is bind 2: {:?}", bind2);
 
-        let (token_a, weight_a, token_b, weight_b) =
-            if bind1.token < bind2.token {
-                (
-                    &bind1.token,
-                    &bind1.weight,
-                    &bind2.token,
-                    &bind2.weight,
-                )
-            } else {
-                (
-                    &bind2.token,
-                    &bind2.weight,
-                    &bind1.token,
-                    &bind1.weight,
-                )
-            };
-            pools.push(
-            CowPool {
-                address: creation.address.clone(),
-                token_a: token_a.clone(),
-                token_b: token_b.clone(),
-                lp_token: creation.lp_token.clone(),
-                weight_a: weight_a.to_vec(),
-                weight_b: weight_b.to_vec(),
-                fee: 0,
-                created_tx_hash: creation.created_tx_hash.clone(),
+        let (token_a, weight_a, token_b, weight_b) = if bind1.token < bind2.token {
+            (&bind1.token, &bind1.weight, &bind2.token, &bind2.weight)
+        } else {
+            (&bind2.token, &bind2.weight, &bind1.token, &bind1.weight)
+        };
+        pools.push(CowPool {
+            address: creation.address.clone(),
+            token_a: token_a.clone(),
+            token_b: token_b.clone(),
+            lp_token: creation.lp_token.clone(),
+            weight_a: weight_a.to_vec(),
+            weight_b: weight_b.to_vec(),
+            fee: 0,
+            created_tx_hash: creation.created_tx_hash.clone(),
         });
     }
 
@@ -173,4 +160,3 @@ mod tests {
         assert!(result.is_none());
     }
 }
-

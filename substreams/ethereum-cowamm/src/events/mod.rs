@@ -1,6 +1,8 @@
 use crate::{
-    abi::b_cow_pool::events::{LogExit, LogJoin, Transfer},
-    abi::gpv2_settlement::events::Trade,
+    abi::{
+        b_cow_pool::events::{LogExit, LogJoin, Transfer},
+        gpv2_settlement::events::Trade,
+    },
     pb::cowamm::CowPool,
 };
 use substreams_ethereum::{pb::eth::v2::Log, Event};
@@ -18,9 +20,10 @@ pub trait BalanceEventTrait {
     ///
     /// * `tx` - Reference to the `Transaction`.
     /// * `pool` - Reference to the `Pool`.
-    /// * `event` The event, we use it to access the ordinal number of the event, which is used by the balance store to sort the
-    /// and the address of the event, for lp_token Transfer event tracking
-    /// # Returns
+    /// * `event` The event, we use it to access the ordinal number of the event, which is used by
+    ///    the balance store to sort the
+    ///    and the address of the event, for lp_token Transfer event tracking
+    ///    # Returns
     ///
     /// A vector of `BalanceDelta` that represents the balance deltas.
     fn get_balance_delta(&self, tx: &Transaction, pool: &CowPool, event: &Log)

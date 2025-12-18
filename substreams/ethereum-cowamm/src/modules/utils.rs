@@ -1,8 +1,5 @@
-use crate::abi::b_cow_pool::functions;
 use anyhow::{anyhow, Result};
 use serde::Deserialize;
-use substreams::scalar::BigInt;
-use substreams::Hex;
 
 #[derive(Debug, Deserialize)]
 pub struct Params {
@@ -37,4 +34,3 @@ pub fn extract_address(word: &str, count: usize) -> String {
     // Return with 0x prefix
     format!("0x{}", addr_hex)
 }
-

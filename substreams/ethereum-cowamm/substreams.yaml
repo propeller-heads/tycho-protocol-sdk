@@ -95,7 +95,6 @@ modules:
     kind: map
     initialBlock: 20522024
     inputs:
-      - params: string
       - source: sf.ethereum.type.v2.Block
       - map: map_components_with_balances
       - store: store_components
@@ -107,5 +106,4 @@ modules:
 params:
   map_cowpool_creations: factory_address=f76c421bAb7df8548604E60deCCcE50477C10462
   map_components_with_balances: factory_address=f76c421bAb7df8548604E60deCCcE50477C10462
-  map_protocol_changes: factory_address=f76c421bAb7df8548604E60deCCcE50477C10462 
 

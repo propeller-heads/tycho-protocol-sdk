@@ -1,9 +1,10 @@
-use crate::modules::utils::Params;
-use crate::pb::cowamm::{CowPoolCreation, CowPoolCreations};
+use crate::{
+    modules::utils::Params,
+    pb::cowamm::{CowPoolCreation, CowPoolCreations},
+};
 use anyhow::{Ok, Result};
 use substreams_ethereum::pb::eth::v2::Block;
 use substreams_helper::hex::Hexable;
-use crate::{abi::b_cow_factory::events::LogNewPool};
 
 #[substreams::handlers::map]
 pub fn map_cowpool_creations(params: String, block: Block) -> Result<CowPoolCreations> {
@@ -18,9 +19,9 @@ pub fn map_cowpool_creations(params: String, block: Block) -> Result<CowPoolCrea
     let cow_pool_creations = block
         .logs()
         .filter(|log| {
-            log.address() == factory_address
-                && log.topics().get(0).map(|t| t.to_hex())
-                    == Some(COWAMM_POOL_CREATED_TOPIC.to_string())
+            log.address() == factory_address &&
+                log.topics().first().map(|t| t.to_hex()) ==
+                    Some(COWAMM_POOL_CREATED_TOPIC.to_string())
         })
         .filter_map(|log| {
             let address = &log

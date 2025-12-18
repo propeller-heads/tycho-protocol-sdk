@@ -1,7 +1,8 @@
-pub use map_cowpool_creations::map_cowpool_creations;
-pub use map_cowpool_binds::map_cowpool_binds;
-pub use map_cowpools::map_cowpools;
+use crate::pb::cowamm::{self};
 pub use map_components_with_balances::map_components_with_balances;
+pub use map_cowpool_binds::map_cowpool_binds;
+pub use map_cowpool_creations::map_cowpool_creations;
+pub use map_cowpools::map_cowpools;
 pub use map_protocol_changes::map_protocol_changes;
 pub use store_balances::store_balances;
 pub use store_components::store_components;
@@ -9,7 +10,6 @@ pub use store_cowpool_binds::store_cowpool_binds;
 pub use store_cowpools::store_cowpools;
 use substreams_ethereum::pb::eth::v2::TransactionTrace;
 use tycho_substreams::prelude::*;
-use crate::pb::cowamm::{self};
 
 #[path = "1_map_cowpool_creations.rs"]
 mod map_cowpool_creations;
@@ -56,11 +56,10 @@ impl From<&cowamm::Transaction> for Transaction {
             hash: value.hash.clone(),
             from: value.from.clone(),
             to: value.to.clone(),
-            index: value.index.into(),
+            index: value.index,
         }
     }
 }
-
 
 impl From<&cowamm::CowProtocolComponent> for ProtocolComponent {
     fn from(component: &cowamm::CowProtocolComponent) -> Self {
@@ -68,13 +67,15 @@ impl From<&cowamm::CowProtocolComponent> for ProtocolComponent {
             id: component.id.clone(),
             tokens: component.tokens.clone(),
             contracts: component.contracts.clone(),
-            static_att: component.static_att.iter().map(|attr|{
-                Attribute {
+            static_att: component
+                .static_att
+                .iter()
+                .map(|attr| Attribute {
                     name: attr.name.clone(),
                     value: attr.value.clone(),
-                    change: ChangeType::Creation.into()
-                }
-            }).collect(),
+                    change: ChangeType::Creation.into(),
+                })
+                .collect(),
             change: ChangeType::Creation.into(),
             protocol_type: Some(ProtocolType {
                 name: "cowamm_pool".to_string(),
@@ -95,11 +96,11 @@ impl From<&BalanceDelta> for cowamm::CowBalanceDelta {
                 from: delta.tx.clone().unwrap().from.clone(),
                 to: delta.tx.clone().unwrap().to.clone(),
                 hash: delta.tx.clone().unwrap().hash.clone(),
-                index: delta.tx.clone().unwrap().index.clone(),
+                index: delta.tx.clone().unwrap().index,
             }),
             token: delta.token.clone(),
             delta: delta.delta.clone(),
-            component_id: delta.component_id.clone()
+            component_id: delta.component_id.clone(),
         }
     }
 }
@@ -112,11 +113,11 @@ impl From<cowamm::CowBalanceDelta> for BalanceDelta {
                 from: delta.tx.clone().unwrap().from.clone(),
                 to: delta.tx.clone().unwrap().to.clone(),
                 hash: delta.tx.clone().unwrap().hash.clone(),
-                index: delta.tx.clone().unwrap().index.clone(),
+                index: delta.tx.clone().unwrap().index,
             }),
             token: delta.token.clone(),
             delta: delta.delta.clone(),
-            component_id: delta.component_id.clone()
+            component_id: delta.component_id.clone(),
         }
     }
 }

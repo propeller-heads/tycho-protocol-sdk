@@ -12,7 +12,7 @@ protocol_type_names:
   - "cowamm_pool"
 tests:
   - name: test_pool_creation 
-    start_block: 20522030
+    start_block: 20522030 
     stop_block: 20522130
     expected_components:
       - id: "0x9bd702e05b9c97e4a4a3e47df1e0fe7a0c26d2f1"
