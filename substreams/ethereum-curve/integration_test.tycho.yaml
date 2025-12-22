@@ -1,4 +1,4 @@
-substreams_yaml_path: ./substreams.yaml
+substreams_yaml_path: ./ethereum-curve.yaml
 protocol_system: "vm:curve"
 module_name: "map_protocol_changes"
 protocol_type_names:
