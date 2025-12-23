@@ -180,4 +180,100 @@ library FractionMath {
             result = prod0 * inv;
         }
     }
+
+    /// @notice Multiply a Fraction and a uint256 using full precision
+    function mul(ISwapAdapterTypes.Fraction memory rational, uint256 y)
+        internal
+        pure
+        returns (uint256 result)
+    {
+        return mulDiv(rational.numerator, y, rational.denominator);
+    }
+
+    /// @notice Full-precision mulDiv: computes floor(x * y / denominator)
+    ///         with 512-bit intermediate precision to avoid overflow.
+    ///
+    /// @dev Reverts if `denominator == 0` or the exact result >= 2^256.
+    ///      The implementation mirrors the 512/256 division flow used by
+    ///      `toQ128x128(uint256,uint256)`, but with a general multiplicand `y`
+    ///      instead of the fixed 2^128 shift.
+    function mulDiv(uint256 x, uint256 y, uint256 denominator)
+        internal
+        pure
+        returns (uint256 result)
+    {
+        require(denominator != 0, "mulDiv: div by zero");
+
+        // Compute the 512-bit product [prod1 prod0] = x * y.
+        // mm = (x * y) mod (2^256 - 1)
+        // prod0 = (x * y) mod 2^256
+        // prod1 = (x * y - prod0 - (mm < prod0 ? 1 : 0)) / 2^256
+        uint256 prod0;
+        uint256 prod1;
+        assembly {
+            let mm := mulmod(x, y, not(0))
+            prod0 := mul(x, y)
+            prod1 := sub(sub(mm, prod0), lt(mm, prod0))
+        }
+
+        // If the high 256 bits are zero, we can do a simple 256-bit division.
+        if (prod1 == 0) {
+            unchecked {
+                return prod0 / denominator;
+            }
+        }
+
+        // Ensure result < 2^256. This is equivalent to requiring
+        // denominator > prod1.
+        require(denominator > prod1, "mulDiv: overflow");
+
+        // Make division exact by subtracting the remainder from [prod1 prod0].
+        uint256 remainder;
+        assembly {
+            remainder := mulmod(x, y, denominator)
+            // Subtract remainder from the low part; if it underflows, borrow 1
+            // from the high part.
+            let borrow := lt(prod0, remainder)
+            prod0 := sub(prod0, remainder)
+            prod1 := sub(prod1, borrow)
+        }
+
+        // Factor powers of two out of denominator to simplify the division.
+        uint256 twos;
+        unchecked {
+            // largest power of two divisor of denominator
+            twos = denominator & (~denominator + 1);
+        }
+
+        assembly {
+            // Divide denominator by twos.
+            denominator := div(denominator, twos)
+
+            // Divide the low word by twos.
+            prod0 := div(prod0, twos)
+
+            // Compute twos = 2^256 / twos.
+            twos := add(div(sub(0, twos), twos), 1)
+
+            // Shift bits from the high word into the low word.
+            prod0 := or(prod0, mul(prod1, twos))
+        }
+
+        // Compute modular inverse of the (now odd) denominator modulo 2^256
+        // via Newton-Raphson iterations.
+        // `inv` is correct to four bits, so we require six iterations
+        // to achieve 256-bit precision.
+        unchecked {
+            uint256 inv = (3 * denominator) ^ 2;
+            inv *= 2 - denominator * inv; // 2^8
+            inv *= 2 - denominator * inv; // 2^16
+            inv *= 2 - denominator * inv; // 2^32
+            inv *= 2 - denominator * inv; // 2^64
+            inv *= 2 - denominator * inv; // 2^128
+            inv *= 2 - denominator * inv; // 2^256
+
+            // Exact division: result = prod0 * inv mod 2^256
+            result = prod0 * inv;
+        }
+    }
 }
