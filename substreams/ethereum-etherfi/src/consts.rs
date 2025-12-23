@@ -1,17 +1,17 @@
 use substreams::hex;
 
-pub const ZERO_ADDRESS: &[u8] = &[0u8; 20];
+// pub const ZERO_ADDRESS: &[u8] = &[0u8; 20];
 pub const ETH_ADDRESS: [u8; 20] = hex!("EeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE");
 
 pub const EETH_ADDRESS: [u8; 20] = hex!("35fA164735182de50811E8e2E824cFb9B6118ac2");
-pub const EETH_CREATION_BLOCK: u64 = 17664324;
-pub const EETH_CREATION_TX: &str =
-    "0xf6763c707b90b260bba114fce9a141aa4a923327539ded9d4d4ae4395b2200ff";
+// pub const EETH_CREATION_BLOCK: u64 = 17664324;
+// pub const EETH_CREATION_TX: &str =
+//     "0xf6763c707b90b260bba114fce9a141aa4a923327539ded9d4d4ae4395b2200ff";
 
 pub const LIQUIDITY_POOL_ADDRESS: [u8; 20] = hex!("A5C1ddD9185901E3c05E0660126627E039D0a626");
-pub const LIQUIDITY_POOL_CREATION_BLOCK: u64 = 23541953;
-pub const LIQUIDITY_POOL_CREATION_TX: &str =
-    "0x30d4e2adec5ab48d12758d4aa0cbad2950661f8bd6b83bcd49cc1cd968d9028a";
+// pub const LIQUIDITY_POOL_CREATION_BLOCK: u64 = 23541953;
+// pub const LIQUIDITY_POOL_CREATION_TX: &str =
+//     "0x30d4e2adec5ab48d12758d4aa0cbad2950661f8bd6b83bcd49cc1cd968d9028a";
 
 pub const WEETH_ADDRESS: [u8; 20] = hex!("Cd5fE23C85820F7B72D0926FC9b05b43E359b7ee");
 pub const WEETH_CREATION_BLOCK: u64 = 17664336;
