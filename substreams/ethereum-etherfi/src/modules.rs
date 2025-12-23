@@ -8,35 +8,23 @@ use crate::{
         REDEMPTION_MANAGER_CREATION_BLOCK, REDEMPTION_MANAGER_CREATION_TX, WEETH_ADDRESS,
         WEETH_CREATION_BLOCK, WEETH_CREATION_TX,
     },
+    storage::{get_changed_attributes, EETH_POOL_TRACKED_SLOTS, WEETH_POOL_TRACKED_SLOTS},
 };
 use anyhow::{Ok, Result};
 use itertools::Itertools;
 use std::collections::HashMap;
-use substreams::{hex, pb::substreams::StoreDeltas, prelude::*};
+use substreams::{pb::substreams::StoreDeltas, prelude::*};
 use substreams_ethereum::{
-    pb::eth::{self, v2::TransactionTrace},
+    pb::eth::{
+        self,
+        v2::{StorageChange, TransactionTrace},
+    },
     Function,
 };
 use substreams_helper::hex::Hexable;
 use tycho_substreams::{
     balances::aggregate_balances_changes, block_storage::get_block_storage_changes, prelude::*,
 };
-
-// LiquidityPool contract slots
-const STORAGE_SLOT_TOTAL_VALUE_IN_LP: [u8; 32] =
-    hex!("0000000000000000000000000000000000000000000000000000000000000002");
-const STORAGE_SLOT_TOTAL_VALUE_OUT_LP: [u8; 32] =
-    hex!("0000000000000000000000000000000000000000000000000000000000000002");
-const STORAGE_SLOT_ETH_AMOUNT_LOCKED_FOR_WITHDRAWL: [u8; 32] =
-    hex!("0000000000000000000000000000000000000000000000000000000000000003");
-
-// eETH contract slots
-const STORAGE_SLOT_EETH_TOTAL_SHARES: [u8; 32] =
-    hex!("0000000000000000000000000000000000000000000000000000000000000002");
-
-// RedemptionManager contract slots
-const STORAGE_SLOT_REDEMPTION_MANAGER_ETH_REDEMPTION_INFO: [u8; 32] =
-    hex!("0000000000000000000000000000000000000000000000000000000000000004");
 
 /// Find and create all relevant protocol components
 ///
@@ -331,39 +319,40 @@ fn weeth_entity_changes(
         let builder = transaction_changes
             .entry(tx.index)
             .or_insert_with(|| TransactionChangesBuilder::new(tx));
-        for tx_change in &change.storage_changes {
-            if tx_change.address != LIQUIDITY_POOL_ADDRESS.to_vec() &&
-                tx_change.address != EETH_ADDRESS.to_vec()
-            {
-                continue;
-            }
 
-            for slot in &tx_change.slots {
-                if tx_change.address == LIQUIDITY_POOL_ADDRESS &&
-                    slot.slot == STORAGE_SLOT_TOTAL_VALUE_IN_LP
-                {
-                    builder.add_entity_change(&EntityChanges {
-                        component_id: todo!(),
-                        attributes: todo!(),
-                    });
-                };
-                if tx_change.address == LIQUIDITY_POOL_ADDRESS &&
-                    slot.slot == STORAGE_SLOT_TOTAL_VALUE_OUT_LP
-                {
-                    builder.add_entity_change(&EntityChanges {
-                        component_id: todo!(),
-                        attributes: todo!(),
-                    });
-                };
-                if tx_change.address == EETH_ADDRESS && slot.slot == STORAGE_SLOT_EETH_TOTAL_SHARES
-                {
-                    builder.add_entity_change(&EntityChanges {
-                        component_id: todo!(),
-                        attributes: todo!(),
-                    });
-                };
-            }
-        }
+        let filtered_storage_changes: Vec<StorageChange> = change
+            .storage_changes
+            .iter()
+            .filter(|storage_change| {
+                storage_change.address == LIQUIDITY_POOL_ADDRESS.to_vec() ||
+                    storage_change.address == EETH_ADDRESS.to_vec()
+            })
+            .flat_map(|storage_change| {
+                storage_change
+                    .slots
+                    .iter()
+                    .map(|slot| StorageChange {
+                        address: storage_change.address.clone(),
+                        key: slot.slot.clone(),
+                        old_value: slot.previous_value.clone(),
+                        new_value: slot.value.clone(),
+                        ordinal: 0,
+                    })
+            })
+            .collect();
+
+        let changed_attributes = get_changed_attributes(
+            &filtered_storage_changes,
+            WEETH_POOL_TRACKED_SLOTS
+                .to_vec()
+                .iter()
+                .collect(),
+        );
+
+        builder.add_entity_change(&EntityChanges {
+            component_id: format!("0x{}", hex::encode(WEETH_ADDRESS)),
+            attributes: changed_attributes,
+        });
     }
     Ok(())
 }
@@ -380,67 +369,41 @@ fn eeth_entity_changes(
         let builder = transaction_changes
             .entry(tx.index)
             .or_insert_with(|| TransactionChangesBuilder::new(tx));
-        for tx_change in &change.storage_changes {
-            if tx_change.address != LIQUIDITY_POOL_ADDRESS.to_vec() &&
-                tx_change.address != EETH_ADDRESS.to_vec() &&
-                tx_change.address != REDEMPTION_MANAGER_ADDRESS.to_vec()
-            {
-                continue;
-            }
 
-            if tx_change.address == LIQUIDITY_POOL_ADDRESS {
-                builder.add_entity_change(&EntityChanges {
-                    component_id: todo!(),
-                    attributes: vec![Attribute {
-                        name: todo!(),
-                        value: tx_change.native_balance().to_vec(),
-                        change: todo!(),
-                    }],
-                });
-            }
+        let filtered_storage_changes: Vec<StorageChange> = change
+            .storage_changes
+            .iter()
+            .filter(|storage_change| {
+                storage_change.address == LIQUIDITY_POOL_ADDRESS.to_vec() ||
+                    storage_change.address == EETH_ADDRESS.to_vec() ||
+                    storage_change.address == REDEMPTION_MANAGER_ADDRESS.to_vec()
+            })
+            .flat_map(|storage_change| {
+                storage_change
+                    .slots
+                    .iter()
+                    .map(|slot| StorageChange {
+                        address: storage_change.address.clone(),
+                        key: slot.slot.clone(),
+                        old_value: slot.previous_value.clone(),
+                        new_value: slot.value.clone(),
+                        ordinal: 0,
+                    })
+            })
+            .collect();
 
-            for slot in &tx_change.slots {
-                if tx_change.address == LIQUIDITY_POOL_ADDRESS &&
-                    slot.slot == STORAGE_SLOT_TOTAL_VALUE_IN_LP
-                {
-                    builder.add_entity_change(&EntityChanges {
-                        component_id: todo!(),
-                        attributes: todo!(),
-                    });
-                };
-                if tx_change.address == LIQUIDITY_POOL_ADDRESS &&
-                    slot.slot == STORAGE_SLOT_TOTAL_VALUE_OUT_LP
-                {
-                    builder.add_entity_change(&EntityChanges {
-                        component_id: todo!(),
-                        attributes: todo!(),
-                    });
-                };
-                if tx_change.address == LIQUIDITY_POOL_ADDRESS &&
-                    slot.slot == STORAGE_SLOT_ETH_AMOUNT_LOCKED_FOR_WITHDRAWL
-                {
-                    builder.add_entity_change(&EntityChanges {
-                        component_id: todo!(),
-                        attributes: todo!(),
-                    });
-                };
-                if tx_change.address == EETH_ADDRESS && slot.slot == STORAGE_SLOT_EETH_TOTAL_SHARES
-                {
-                    builder.add_entity_change(&EntityChanges {
-                        component_id: todo!(),
-                        attributes: todo!(),
-                    });
-                };
-                if tx_change.address == REDEMPTION_MANAGER_ADDRESS &&
-                    slot.slot == STORAGE_SLOT_REDEMPTION_MANAGER_ETH_REDEMPTION_INFO
-                {
-                    builder.add_entity_change(&EntityChanges {
-                        component_id: todo!(),
-                        attributes: todo!(),
-                    });
-                };
-            }
-        }
+        let changed_attributes = get_changed_attributes(
+            &filtered_storage_changes,
+            EETH_POOL_TRACKED_SLOTS
+                .to_vec()
+                .iter()
+                .collect(),
+        );
+
+        builder.add_entity_change(&EntityChanges {
+            component_id: format!("0x{}", hex::encode(WEETH_ADDRESS)),
+            attributes: changed_attributes,
+        });
     }
     Ok(())
 }
