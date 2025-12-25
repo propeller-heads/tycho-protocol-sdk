@@ -1,9 +1,7 @@
 use crate::pb::cowamm::{CowPool, CowPoolBind, CowPoolCreations, CowPools, Transaction};
 use anyhow::{Ok, Result};
 use serde::{Deserialize, Serialize};
-use substreams::{
-    store::{StoreGet, StoreGetString},
-};
+use substreams::store::{StoreGet, StoreGetString};
 
 #[derive(Debug, Deserialize, Serialize)]
 struct CowPoolBindJson {

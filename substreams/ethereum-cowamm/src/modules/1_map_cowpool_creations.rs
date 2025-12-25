@@ -6,6 +6,7 @@ use anyhow::{Ok, Result};
 use substreams_ethereum::pb::eth::v2::Block;
 use substreams_helper::hex::Hexable;
 
+//map cowpool creations using the Bcowpool created event instead
 #[substreams::handlers::map]
 pub fn map_cowpool_creations(params: String, block: Block) -> Result<CowPoolCreations> {
     const COWAMM_POOL_CREATED_TOPIC: &str =

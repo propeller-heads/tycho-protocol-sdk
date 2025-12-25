@@ -15,7 +15,7 @@ use substreams::{
     prelude::{BigInt, StoreGetString},
     store::{StoreGet, StoreGetProto},
 };
-use substreams_ethereum::{pb::eth::v2::Block};
+use substreams_ethereum::pb::eth::v2::Block;
 use substreams_helper::hex::Hexable;
 use tycho_substreams::prelude::*;
 
@@ -61,7 +61,7 @@ fn create_component(pool: CowPool) -> Option<CowProtocolComponent> {
             name: "cowamm_pool".to_string(),
             financial_type: FinancialType::Swap.into(),
             attribute_schema: vec![],
-            implementation_type: ImplementationType::Vm.into(),
+            implementation_type: ImplementationType::Custom.into(),
         }),
     })
 }
@@ -94,6 +94,10 @@ pub fn map_components_with_balances(
             if call.call.state_reverted {
                 continue;
             }
+            // Get tx hash and index once per transaction
+            let tx_hash = tx.hash.clone();
+            let tx_index = tx.index;
+
             let is_pool_creation = log.address == factory_address &&
                 log.topics.first().map(|t| t.to_hex()) ==
                     Some(COWAMM_POOL_CREATED_TOPIC.to_string());
@@ -118,14 +122,28 @@ pub fn map_components_with_balances(
                 };
 
                 for bind in parsed_binds.iter() {
+                    //HACK - we'll make the txn hash of the balance delta to be the tx hash of the 
+                    //pool creation, also the index too, so that it gets emitted in the same transaction
+                    //and not as txns from previous block (Block N) emitted in Block N + X... the decision 
+                    // to come to this was deliberated and this was the conclusion:
+
+                    //we assign the index and the hash of the current balance delta to make it seem
+                    //like the component change actually happened in the same transaction in the same
+                    // block, and not from a previous txn from a previous block, doing this before caused 
+                    //write conflicts during syncing with the tycho indexer 
+
+                    //always emit transaction together with the block that produced them, just emit old
+                    // component balances together with the component creation in the same transaction 
+                    //(it’s not 100% accurate but from a Tycho perspective it doesn’t break anything 
+                    // so it’s acceptable) 
                     let bind_tx = bind.tx.as_ref().unwrap();
                     let delta = BalanceDelta {
                         ord: bind.ordinal,
                         tx: Some(Transaction {
                             from: bind_tx.from.clone(),
                             to: bind_tx.to.clone(),
-                            hash: bind_tx.hash.clone(),
-                            index: bind_tx.index,
+                            hash: tx_hash.clone(), //since the binds happen 
+                            index: tx_index as u64,
                         }),
                         token: bind.token.clone(),
                         delta: BigInt::from_unsigned_bytes_be(&bind.amount).to_signed_bytes_be(),

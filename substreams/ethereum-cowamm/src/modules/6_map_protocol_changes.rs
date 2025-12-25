@@ -1,6 +1,4 @@
-use crate::{
-    pb::cowamm::{BlockPoolChanges, CowPool},
-};
+use crate::pb::cowamm::{BlockPoolChanges, CowPool};
 use anyhow::Result;
 use itertools::Itertools;
 use std::{collections::HashMap, str::FromStr};
@@ -12,9 +10,7 @@ use substreams::{
 };
 use substreams_ethereum::pb::eth::v2::Block;
 use substreams_helper::hex::Hexable;
-use tycho_substreams::{
-    balances::aggregate_balances_changes, prelude::*,
-};
+use tycho_substreams::{balances::aggregate_balances_changes, prelude::*};
 
 #[substreams::handlers::map]
 fn map_protocol_changes(
@@ -54,6 +50,8 @@ fn map_protocol_changes(
                 });
         });
     // Register the Pool liquidities for token_a , token_b and lp_token_supply as Entity Changes
+    // so easy way out -> i have to find a way to add the entity changes of the previous txn to the
+    // current one just make the
     balance_store
         .clone()
         .deltas
@@ -113,7 +111,7 @@ fn map_protocol_changes(
 
     //Remember that the lp_token_address is the same as the pool address (which is the
     // component_id)
-
+    //we add the bind balance entity changes in the same txn as the lp token supply changes
     let store_delta_vec = balance_store
         .deltas
         .into_iter()

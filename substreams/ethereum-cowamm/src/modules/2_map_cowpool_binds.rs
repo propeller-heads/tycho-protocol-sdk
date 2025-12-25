@@ -26,7 +26,9 @@ pub fn map_cowpool_binds(block: Block) -> Result<CowPoolBinds> {
                 .logs
                 .iter()
                 // topic match
-                .filter(|log| log.topics.first().map(|t| t.to_hex()) == Some(BIND_TOPIC.to_string()))
+                .filter(|log| {
+                    log.topics.first().map(|t| t.to_hex()) == Some(BIND_TOPIC.to_string())
+                })
                 // validate log data and map to CowPoolBind
                 .filter_map(move |log| {
                     // Find the call that contains this log by matching addresses and checking calls

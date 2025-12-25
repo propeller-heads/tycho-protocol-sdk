@@ -11,10 +11,27 @@ initialized_accounts:
 protocol_type_names:
   - "cowamm_pool"
 tests:
-  - name: test_pool_creation 
-    start_block: 20522030 
-    stop_block: 20522130
+  - name: test_pool_creation
+    start_block: 20479340
+    stop_block:  21774745
     expected_components:
+      - id: "0xbB25d22123FE3c524D0b0E823953d2f3EcE0a36A"
+        tokens:
+          - "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2"
+          - "0x427A03Fb96D9A94A6727fbcfbBA143444090dd64" 
+          - "0xbB25d22123FE3c524D0b0E823953d2f3EcE0a36A"
+        static_attributes: 
+           token_a: "0x427A03Fb96D9A94A6727fbcfbBA143444090dd64" 
+           token_b: "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2"
+           lp_token: "0xbB25d22123FE3c524D0b0E823953d2f3EcE0a36A"
+           weight_a: "0x6f05b59d3b200000" #80
+           weight_b: "0x1bc16d674ec80000" #20
+           fee: "0x0"
+        creation_tx: "0x621ae66d5d22b52f52620d552ec2723e4c34260e65fe58c6239edc7727a55a0a"
+        skip_simulation: false
+        # Execution happens differently and is in a separate repo because the order needs to be posted to the orderbook 
+        # via cow protocol
+        skip_execution: true 
       - id: "0x9bd702e05b9c97e4a4a3e47df1e0fe7a0c26d2f1"
         tokens:
           - "0xdef1ca1fb7fbcdc777520aa7f396b4e015f497ab"

@@ -2,7 +2,7 @@ use crate::{
     events::{BalanceEventTrait, Trade},
     pb::cowamm::CowPool,
 };
-use substreams_ethereum::{pb::eth::v2::Log};
+use substreams_ethereum::pb::eth::v2::Log;
 use substreams_helper::hex::Hexable;
 use tycho_substreams::prelude::*;
 
