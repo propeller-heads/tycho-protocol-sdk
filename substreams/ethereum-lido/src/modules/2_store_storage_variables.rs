@@ -60,37 +60,35 @@ fn store_storage_variables(params: String, block: eth::v2::Block, store: StoreSe
                 continue;
             }
 
-            if call.address == ST_ETH_ADDRESS_IMPL {
-                for storage_change in call.storage_changes.iter() {
-                    let value = BigInt::from_unsigned_bytes_be(&storage_change.new_value);
-                    if storage_change.key == STORAGE_SLOT_BUFFERED_ETH {
-                        store.set(
-                            call.begin_ordinal,
-                            format!("{ST_ETH_ADDRESS_PROXY_COMPONENT_ID}:buffered_eth"),
-                            &value,
-                        );
-                    } else if storage_change.key == CL_BALANCE_POSITION {
-                        store.set(
-                            call.begin_ordinal,
-                            format!("{ST_ETH_ADDRESS_PROXY_COMPONENT_ID}:cl_balance_position"),
-                            &value,
-                        );
-                    } else if storage_change.key == CL_VALIDATORS_POSITION {
-                        store.set(
-                            call.begin_ordinal,
-                            format!("{ST_ETH_ADDRESS_PROXY_COMPONENT_ID}:cl_validators_position"),
-                            &value,
-                        );
-                    } else if storage_change.key == DEPOSITED_VALIDATORS_POSITION {
-                        store.set(
-                            call.begin_ordinal,
-                            format!(
-                                "{ST_ETH_ADDRESS_PROXY_COMPONENT_ID}:deposited_validators_position"
-                            ),
-                            &value,
-                        );
-                    };
-                }
+            for storage_change in call.storage_changes.iter() {
+                let value = BigInt::from_unsigned_bytes_be(&storage_change.new_value);
+                if storage_change.key == STORAGE_SLOT_BUFFERED_ETH {
+                    store.set(
+                        call.begin_ordinal,
+                        format!("{ST_ETH_ADDRESS_PROXY_COMPONENT_ID}:buffered_eth"),
+                        &value,
+                    );
+                } else if storage_change.key == CL_BALANCE_POSITION {
+                    store.set(
+                        call.begin_ordinal,
+                        format!("{ST_ETH_ADDRESS_PROXY_COMPONENT_ID}:cl_balance_position"),
+                        &value,
+                    );
+                } else if storage_change.key == CL_VALIDATORS_POSITION {
+                    store.set(
+                        call.begin_ordinal,
+                        format!("{ST_ETH_ADDRESS_PROXY_COMPONENT_ID}:cl_validators_position"),
+                        &value,
+                    );
+                } else if storage_change.key == DEPOSITED_VALIDATORS_POSITION {
+                    store.set(
+                        call.begin_ordinal,
+                        format!(
+                            "{ST_ETH_ADDRESS_PROXY_COMPONENT_ID}:deposited_validators_position"
+                        ),
+                        &value,
+                    );
+                };
             }
         }
     }
