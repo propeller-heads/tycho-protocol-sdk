@@ -59,7 +59,7 @@ pub fn create_components() -> Vec<ProtocolComponent> {
             ],
             change: ChangeType::Creation.into(),
             protocol_type: Some(ProtocolType {
-                name: "stETH".to_string(),
+                name: "lido_pool".to_string(),
                 financial_type: FinancialType::Swap.into(),
                 attribute_schema: vec![],
                 implementation_type: ImplementationType::Custom.into(),
@@ -83,7 +83,7 @@ pub fn create_components() -> Vec<ProtocolComponent> {
             ],
             change: ChangeType::Creation.into(),
             protocol_type: Some(ProtocolType {
-                name: "wstETH".to_string(),
+                name: "lido_pool".to_string(),
                 financial_type: FinancialType::Swap.into(),
                 attribute_schema: vec![],
                 implementation_type: ImplementationType::Custom.into(),
