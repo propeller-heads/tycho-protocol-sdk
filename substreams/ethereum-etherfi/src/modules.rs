@@ -105,6 +105,11 @@ fn map_protocol_components(block: eth::v2::Block) -> Result<BlockChanges> {
                             change: ChangeType::Creation.into(),
                         },
                         Attribute {
+                            name: "liquidityPoolNativeBalance".to_string(),
+                            value: BigInt::from(0).to_signed_bytes_be(),
+                            change: ChangeType::Creation.into(),
+                        },
+                        Attribute {
                             name: "ethRedemptionInfo".to_string(),
                             value: BigInt::from(0).to_signed_bytes_be(),
                             change: ChangeType::Creation.into(),
@@ -266,8 +271,8 @@ pub fn store_component_balances(deltas: BlockBalanceDeltas, store: StoreAddBigIn
 fn map_protocol_changes(
     block: eth::v2::Block,
     new_components: BlockChanges,
-    balance_store: StoreDeltas,
     deltas: BlockBalanceDeltas,
+    balance_store: StoreDeltas,
 ) -> Result<BlockChanges, substreams::errors::Error> {
     // We merge contract changes by transaction (identified by transaction index)
     // making it easy to sort them at the very end.
@@ -302,16 +307,30 @@ fn map_protocol_changes(
             balances
                 .values()
                 .for_each(|token_bc_map| {
-                    token_bc_map
-                        .values()
-                        .for_each(|bc| builder.add_balance_change(bc))
+                    token_bc_map.values().for_each(|bc| {
+                        if bc.component_id == EETH_ADDRESS {
+                            builder.add_entity_change(&EntityChanges {
+                                component_id: format!("0x{}", hex::encode(EETH_ADDRESS)),
+                                attributes: vec![Attribute {
+                                    name: "liquidityPoolNativeBalance".into(),
+                                    value: BigInt::from_unsigned_bytes_be(&bc.balance)
+                                        .to_signed_bytes_be(),
+                                    change: ChangeType::Update.into(),
+                                }],
+                            });
+                        }
+                        builder.add_balance_change(bc)
+                    })
                 });
         });
 
     let block_storage_changes = get_block_storage_changes(&block);
 
     weeth_entity_changes(&block_storage_changes, &mut transaction_changes)?;
-    eeth_entity_changes(&block_storage_changes, &mut transaction_changes)?;
+
+    if block.number >= REDEMPTION_MANAGER_CREATION_BLOCK {
+        eeth_entity_changes(&block_storage_changes, &mut transaction_changes)?;
+    }
 
     // Process all `transaction_changes` for final output in the `BlockChanges`,
     //  sorted by transaction index (the key).
