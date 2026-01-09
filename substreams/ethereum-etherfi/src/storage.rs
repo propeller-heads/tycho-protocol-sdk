@@ -37,9 +37,17 @@ const E_ETH_TOTAL_SUPPLY_SLOT: StorageLocation = StorageLocation {
 };
 
 // RedeemptionManager Storage Layout: https://repo.sourcify.dev/1/0xe3f384dc7002547dd240ac1ad69a430cce1e292d
+const ETH_BUCKET_LIMITER_SLOT: StorageLocation = StorageLocation {
+    name: "ethBucketLimiter",
+    slot: hex!("de214f9917f097ee519bb7c8046c126ea97c66e258d7d59038feae19259e4089"),
+    offset: 0,
+    number_of_bytes: 32,
+    signed: false,
+};
+
 const ETH_REDEMPTION_INFO_MAP_SLOT: StorageLocation = StorageLocation {
     name: "ethRedemptionInfo",
-    slot: hex!("de214f9917f097ee519bb7c8046c126ea97c66e258d7d59038feae19259e4089"),
+    slot: hex!("de214f9917f097ee519bb7c8046c126ea97c66e258d7d59038feae19259e408a"),
     offset: 0,
     number_of_bytes: 32,
     signed: false,
@@ -48,11 +56,12 @@ const ETH_REDEMPTION_INFO_MAP_SLOT: StorageLocation = StorageLocation {
 pub(crate) const WEETH_POOL_TRACKED_SLOTS: [StorageLocation; 3] =
     [TOTAL_VALUE_OUT_OF_LP_SLOT, TOTAL_VALUE_IN_LP_SLOT, E_ETH_TOTAL_SUPPLY_SLOT];
 
-pub(crate) const EETH_POOL_TRACKED_SLOTS: [StorageLocation; 5] = [
+pub(crate) const EETH_POOL_TRACKED_SLOTS: [StorageLocation; 6] = [
     TOTAL_VALUE_OUT_OF_LP_SLOT,
     TOTAL_VALUE_IN_LP_SLOT,
     ETH_AMOUNT_LOCKED_FOR_WITHDRAWL_SLOT,
     E_ETH_TOTAL_SUPPLY_SLOT,
+    ETH_BUCKET_LIMITER_SLOT,
     ETH_REDEMPTION_INFO_MAP_SLOT,
 ];
 

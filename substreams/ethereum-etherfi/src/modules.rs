@@ -109,6 +109,11 @@ fn map_protocol_components(block: eth::v2::Block) -> Result<BlockChanges> {
                             value: BigInt::from(0).to_signed_bytes_be(),
                             change: ChangeType::Creation.into(),
                         },
+                        Attribute {
+                            name: "ethBucketLimiter".to_string(),
+                            value: BigInt::from(0).to_signed_bytes_be(),
+                            change: ChangeType::Creation.into(),
+                        },
                     ],
                 }],
                 component_changes: vec![ProtocolComponent {
