@@ -19,7 +19,7 @@ tests:
         skip_execution: true
 
   - name: test_eeth
-    start_block: 22090400
+    start_block: 17664317
     stop_block: 23786124
     expected_components:
       - id: "0x35fA164735182de50811E8e2E824cFb9B6118ac2"

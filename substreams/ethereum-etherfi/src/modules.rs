@@ -2,8 +2,8 @@ use crate::{
     abi::weeth::functions::{Unwrap, Wrap, WrapWithPermit},
     consts::{
         EETH_ADDRESS, ETH_ADDRESS, LIQUIDITY_POOL_ADDRESS, LIQUIDITY_POOL_CREATION_BLOCK,
-        REDEMPTION_MANAGER_ADDRESS, REDEMPTION_MANAGER_CREATION_BLOCK,
-        REDEMPTION_MANAGER_CREATION_TX, WEETH_ADDRESS, WEETH_CREATION_BLOCK, WEETH_CREATION_TX,
+        LIQUIDITY_POOL_CREATION_TX, REDEMPTION_MANAGER_ADDRESS, REDEMPTION_MANAGER_CREATION_BLOCK,
+        WEETH_ADDRESS, WEETH_CREATION_BLOCK, WEETH_CREATION_TX,
     },
     storage::{get_changed_attributes, EETH_POOL_TRACKED_SLOTS, WEETH_POOL_TRACKED_SLOTS},
 };
@@ -74,10 +74,10 @@ fn map_protocol_components(block: eth::v2::Block) -> Result<BlockChanges> {
             });
         }
     }
-    if block.number == REDEMPTION_MANAGER_CREATION_BLOCK {
+    if block.number == LIQUIDITY_POOL_CREATION_BLOCK {
         if let Some(tx) = block
             .transactions()
-            .find(|tx| tx.hash == REDEMPTION_MANAGER_CREATION_TX)
+            .find(|tx| tx.hash == LIQUIDITY_POOL_CREATION_TX)
         {
             new_pools.push(TransactionChanges {
                 tx: Some(tx.into()),
@@ -141,13 +141,39 @@ fn map_protocol_components(block: eth::v2::Block) -> Result<BlockChanges> {
     Ok(BlockChanges { block: Some((&block).into()), changes: new_pools, ..Default::default() })
 }
 
+/// Simply stores the `ProtocolComponent`s with the pool address as the key and the pool id as value
+#[substreams::handlers::store]
+pub fn store_components(changes: BlockChanges, store: StoreSetString) {
+    changes
+        .changes
+        .into_iter()
+        .for_each(|change| {
+            change
+                .component_changes
+                .into_iter()
+                .for_each(|pc| store.set(0, pc.id.clone(), &pc.id))
+        });
+}
+
 #[substreams::handlers::map]
-fn map_relative_balances(block: eth::v2::Block) -> Result<BlockBalanceDeltas> {
+fn map_relative_balances(
+    block: eth::v2::Block,
+    components_store: StoreGetString,
+) -> Result<BlockBalanceDeltas> {
     let mut deltas: Vec<BalanceDelta> = block
         .transactions()
         .flat_map(|tx| {
-            let mut tx_balance_deltas = emit_balance_deltas_for_weeth(tx);
-            if block.number >= LIQUIDITY_POOL_CREATION_BLOCK {
+            let mut tx_balance_deltas = vec![];
+            if components_store
+                .get_last(format!("0x{}", hex::encode(WEETH_ADDRESS)))
+                .is_some()
+            {
+                tx_balance_deltas.extend(emit_balance_deltas_for_weeth(tx));
+            }
+            if components_store
+                .get_last(format!("0x{}", hex::encode(EETH_ADDRESS)))
+                .is_some()
+            {
                 tx_balance_deltas.extend(emit_balance_deltas_for_eeth(tx));
             }
             tx_balance_deltas
@@ -176,7 +202,6 @@ fn emit_balance_deltas_for_weeth(tx_trace: &TransactionTrace) -> Vec<BalanceDelt
                 token: EETH_ADDRESS.to_vec(),
                 delta: wrap.e_eth_amount.to_signed_bytes_be(),
                 component_id: WEETH_ADDRESS
-                    .to_vec()
                     .to_hex()
                     .as_bytes()
                     .to_vec(),
@@ -189,7 +214,6 @@ fn emit_balance_deltas_for_weeth(tx_trace: &TransactionTrace) -> Vec<BalanceDelt
                 token: EETH_ADDRESS.to_vec(),
                 delta: wrap.e_eth_amount.to_signed_bytes_be(),
                 component_id: WEETH_ADDRESS
-                    .to_vec()
                     .to_hex()
                     .as_bytes()
                     .to_vec(),
@@ -203,7 +227,6 @@ fn emit_balance_deltas_for_weeth(tx_trace: &TransactionTrace) -> Vec<BalanceDelt
                 token: EETH_ADDRESS.to_vec(),
                 delta: eeth_amount.neg().to_signed_bytes_be(),
                 component_id: WEETH_ADDRESS
-                    .to_vec()
                     .to_hex()
                     .as_bytes()
                     .to_vec(),
@@ -243,7 +266,6 @@ fn emit_balance_deltas_for_eeth(tx_trace: &TransactionTrace) -> Vec<BalanceDelta
                     token: ETH_ADDRESS.to_vec(),
                     delta: delta.to_signed_bytes_be(),
                     component_id: EETH_ADDRESS
-                        .to_vec()
                         .to_hex()
                         .as_bytes()
                         .to_vec(),
@@ -271,6 +293,7 @@ pub fn store_component_balances(deltas: BlockBalanceDeltas, store: StoreAddBigIn
 fn map_protocol_changes(
     block: eth::v2::Block,
     new_components: BlockChanges,
+    components_store: StoreGetString,
     deltas: BlockBalanceDeltas,
     balance_store: StoreDeltas,
 ) -> Result<BlockChanges, substreams::errors::Error> {
@@ -308,7 +331,15 @@ fn map_protocol_changes(
                 .values()
                 .for_each(|token_bc_map| {
                     token_bc_map.values().for_each(|bc| {
-                        if bc.component_id == EETH_ADDRESS {
+                        if bc.component_id ==
+                            EETH_ADDRESS
+                                .to_hex()
+                                .as_bytes()
+                                .to_vec() &&
+                            components_store
+                                .get_last(format!("0x{}", hex::encode(EETH_ADDRESS)))
+                                .is_some()
+                        {
                             builder.add_entity_change(&EntityChanges {
                                 component_id: format!("0x{}", hex::encode(EETH_ADDRESS)),
                                 attributes: vec![Attribute {
@@ -341,7 +372,7 @@ fn map_protocol_changes(
             .sorted_unstable_by_key(|(index, _)| *index)
             .filter_map(|(_, builder)| builder.build())
             .collect::<Vec<_>>(),
-        storage_changes: block_storage_changes,
+        storage_changes: vec![],
     })
 }
 
