@@ -66,7 +66,7 @@ impl From<&cowamm::CowProtocolComponent> for ProtocolComponent {
         ProtocolComponent {
             id: component.id.clone(),
             tokens: component.tokens.clone(),
-            contracts: component.contracts.clone(),
+            contracts: vec![],
             static_att: component
                 .static_att
                 .iter()
@@ -81,13 +81,13 @@ impl From<&cowamm::CowProtocolComponent> for ProtocolComponent {
                 name: "cowamm_pool".to_string(),
                 financial_type: FinancialType::Swap.into(),
                 attribute_schema: vec![],
-                implementation_type: ImplementationType::Vm.into(),
+                implementation_type: ImplementationType::Custom.into(),
             }),
         }
     }
 }
 
-//too many clones man
+
 impl From<&BalanceDelta> for cowamm::CowBalanceDelta {
     fn from(delta: &BalanceDelta) -> Self {
         cowamm::CowBalanceDelta {

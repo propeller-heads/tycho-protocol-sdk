@@ -54,7 +54,7 @@ pub fn parse_binds(bind_str: &str) -> Option<Vec<CowPoolBind>> {
                     hex::decode(&bind_json.ordinal)
                         .expect("Invalid hex for tx ordinal")
                         .try_into()
-                        .expect("tx index must be exactly 8 bytes"),
+                        .expect("ordinal must be exactly 8 bytes"),
                 ),
             };
             binds.push(cow_bind);
@@ -90,9 +90,6 @@ pub fn map_cowpools(
         };
         let bind1 = &parsed_binds[0];
         let bind2 = &parsed_binds[1];
-
-        substreams::log::info!("this is bind 1: {:?}", bind1);
-        substreams::log::info!("this is bind 2: {:?}", bind2);
 
         let (token_a, weight_a, token_b, weight_b) = if bind1.token < bind2.token {
             (&bind1.token, &bind1.weight, &bind2.token, &bind2.weight)

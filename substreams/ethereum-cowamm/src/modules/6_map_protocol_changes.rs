@@ -21,7 +21,7 @@ fn map_protocol_changes(
 ) -> Result<BlockChanges, substreams::errors::Error> {
     let protocol_components = block_pool_changes
         .tx_protocol_components
-        .expect("no tx components"); //change this to a return
+        .expect("no tx components"); 
     let balance_deltas = block_pool_changes
         .block_balance_deltas
         .expect("no block balance deltas")
@@ -43,15 +43,13 @@ fn map_protocol_changes(
 
             // iterate over individual components created within this tx
             tx_component
-                .components
-                .iter()
-                .for_each(|component| {
+            .components
+            .iter()
+            .for_each(|component| {
                     builder.add_protocol_component(&component.into());
                 });
         });
     // Register the Pool liquidities for token_a , token_b and lp_token_supply as Entity Changes
-    // so easy way out -> i have to find a way to add the entity changes of the previous txn to the
-    // current one just make the
     balance_store
         .clone()
         .deltas
@@ -99,6 +97,7 @@ fn map_protocol_changes(
             });
         });
 
+
     // Aggregate absolute balances per transaction.
 
     // We do not want to create balance changes (that is BalanceChange objects) for the changes in
@@ -116,9 +115,10 @@ fn map_protocol_changes(
         .deltas
         .into_iter()
         .filter(|store_delta| {
-            let component_id = key::segment_at(&store_delta.key, 0); //key is component_id/pool_address + token
+            let component_id = key::segment_at(&store_delta.key, 0).trim_start_matches("0x"); //key is component_id/pool_address + token
             let token_address = key::segment_at(&store_delta.key, 1);
             let formatted_token_address = token_address.to_string();
+
             component_id != formatted_token_address
         })
         .collect::<Vec<StoreDelta>>();

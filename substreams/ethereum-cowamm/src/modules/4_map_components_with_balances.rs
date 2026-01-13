@@ -26,6 +26,11 @@ fn create_component(pool: CowPool) -> Option<CowProtocolComponent> {
         contracts: vec![],
         static_att: vec![
             Attribute {
+                name: "address".to_string(),
+                value: pool.address.to_vec(),
+                change: ChangeType::Creation.into(),
+            },
+            Attribute {
                 name: "token_a".to_string(),
                 value: pool.token_a.to_vec(),
                 change: ChangeType::Creation.into(),
@@ -196,13 +201,15 @@ pub fn map_components_with_balances(
             }
         }
     }
-
+    
     //convert normal balance deltas to cow balance deltas
-    let final_deltas = tx_deltas
+    let mut final_deltas = tx_deltas
         .iter()
         .map(|delta| delta.into())
         .collect::<Vec<CowBalanceDelta>>();
-
+    //sort by increasing ordinal
+    final_deltas.sort_by_key(|d| d.ord);
+    
     Ok(BlockPoolChanges {
         tx_protocol_components: Some(BlockTransactionProtocolComponents {
             tx_components: tx_protocol_components,

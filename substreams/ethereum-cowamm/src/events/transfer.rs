@@ -49,40 +49,6 @@ impl BalanceEventTrait for Transfer {
                     .to_vec(),
             })
         }
-        //tracking arbitrary token transfers (edge case)
-        //when a user transfers token_a to the pool it should be a positive delta
-        else if event.address == pool.token_a && to == pool.address {
-            changed_balances.push(BalanceDelta {
-                ord: event.ordinal,
-                tx: Some(tx.clone()),
-                token: pool.token_a.clone(),
-                delta: self.value.to_signed_bytes_be(),
-                component_id: pool
-                    .address
-                    .clone()
-                    .to_hex()
-                    .as_bytes()
-                    .to_vec(),
-            })
-        }
-        //when a user transfers token_b to the pool it should be a positive delta
-        else if event.address == pool.token_b && to == pool.address {
-            changed_balances.push(BalanceDelta {
-                ord: event.ordinal,
-                tx: Some(tx.clone()),
-                token: pool.token_b.clone(),
-                delta: self.value.to_signed_bytes_be(),
-                component_id: pool
-                    .address
-                    .clone()
-                    .to_hex()
-                    .as_bytes()
-                    .to_vec(),
-            })
-        }
-        //no case for negative delta of normal token transfer because the only way to
-        //transfer tokens out of CowAMM pool is to make a Trade via cowprotocol or ExitPool,
-        //which are separate events whose cases have been covered
         changed_balances
     }
 }
