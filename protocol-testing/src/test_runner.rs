@@ -229,14 +229,10 @@ impl TestRunner {
         };
         let spkg_path =
             build_spkg(substreams_yaml_path, start_block).wrap_err("Failed to build spkg")?;
-        let initialized_accounts = config
-            .initialized_accounts
-            .clone()
-            .unwrap_or_default();
 
         // Use tycho-indexer's Index command which handles both continuous syncing and RPC server
         let tycho_runner = self
-            .tycho_runner(initialized_accounts)
+            .tycho_runner(&[])
             .await?;
 
         let spkg_path_for_index = spkg_path.clone();
@@ -484,18 +480,24 @@ impl TestRunner {
 
         for test in &tests {
             info!("TEST {}: {}", count, test.name);
-            let mut initialized_accounts = config
+            let mut raw_initialized_accounts = config
                 .initialized_accounts
                 .clone()
                 .unwrap_or_default();
-            initialized_accounts.extend(
+            raw_initialized_accounts.extend(
                 test.initialized_accounts
                     .clone()
                     .unwrap_or_default(),
             );
+            let initialized_accounts: Vec<Bytes> = raw_initialized_accounts
+                .iter()
+                .map(|account| {
+                    Bytes::from_str(account).expect("Invalid initialized_account address")
+                })
+                .collect();
             let tycho_runner = self
                 .runtime
-                .block_on(self.tycho_runner(initialized_accounts))?;
+                .block_on(self.tycho_runner(&raw_initialized_accounts))?;
             if self.reuse_last_sync {
                 info!("Skipping indexing and using existent DB")
             } else {
@@ -514,7 +516,7 @@ impl TestRunner {
                     .wrap_err("Failed to run Tycho")?;
             }
             let rpc_server = tycho_runner.start_rpc_server()?;
-            match self.run_test(test, &config, test.stop_block) {
+            match self.run_test(test, &config, test.stop_block, &initialized_accounts) {
                 Ok(_) => {
                     info!("✅ {} passed\n", test.name);
                 }
@@ -542,6 +544,7 @@ impl TestRunner {
         test: &IntegrationTest,
         config: &IntegrationTestsConfig,
         stop_block: u64,
+        initialized_accounts: &[Bytes],
     ) -> miette::Result<()> {
         // Fetch protocol data from Tycho RPC
         let expected_ids = test
@@ -559,8 +562,12 @@ impl TestRunner {
             )
             .wrap_err("Failed to get block header")?;
 
-        let (protocol_components, snapshot, all_tokens) =
-            self.fetch_from_tycho_rpc(&config.protocol_system, expected_ids, stop_block)?;
+        let (protocol_components, snapshot, all_tokens) = self.fetch_from_tycho_rpc(
+            &config.protocol_system,
+            expected_ids,
+            stop_block,
+            initialized_accounts,
+        )?;
 
         let response_protocol_states_by_id: HashMap<String, ResponseProtocolState> = snapshot
             .states
@@ -662,14 +669,14 @@ impl TestRunner {
         Ok(())
     }
 
-    async fn tycho_runner(&self, initialized_accounts: Vec<String>) -> miette::Result<TychoRunner> {
+    async fn tycho_runner(&self, initialized_accounts: &[String]) -> miette::Result<TychoRunner> {
         if !self.reuse_last_sync {
             self.empty_database()
                 .await
                 .into_diagnostic()
                 .wrap_err("Failed to empty the database")?;
         }
-        Ok(TychoRunner::new(self.chain, self.db_url.to_string(), initialized_accounts))
+        Ok(TychoRunner::new(self.chain, self.db_url.to_string(), initialized_accounts.to_vec()))
     }
 
     fn run_tvl_import(&self) -> miette::Result<()> {
@@ -763,6 +770,7 @@ impl TestRunner {
         protocol_system: &str,
         expected_component_ids: Vec<String>,
         stop_block: u64,
+        initialized_accounts: &[Bytes],
     ) -> miette::Result<(Vec<ProtocolComponent>, Snapshot, HashMap<Bytes, Token>)> {
         info!("Fetching protocol data from Tycho with stop block {}...", stop_block);
 
@@ -821,6 +829,7 @@ impl TestRunner {
                     .flatten()
                     .flat_map(|(_, results)| results.accessed_slots.keys().cloned()),
             )
+            .chain(initialized_accounts.iter().cloned())
             .collect();
 
         let snapshot = self
