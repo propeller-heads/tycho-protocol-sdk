@@ -2,8 +2,8 @@ use crate::{
     abi::weeth::functions::{Unwrap, Wrap, WrapWithPermit},
     consts::{
         EETH_ADDRESS, ETH_ADDRESS, LIQUIDITY_POOL_ADDRESS, LIQUIDITY_POOL_CREATION_BLOCK,
-        LIQUIDITY_POOL_CREATION_TX, REDEMPTION_MANAGER_ADDRESS, REDEMPTION_MANAGER_CREATION_BLOCK,
-        WEETH_ADDRESS, WEETH_CREATION_BLOCK, WEETH_CREATION_TX,
+        LIQUIDITY_POOL_CREATION_TX, REDEMPTION_MANAGER_ADDRESS, WEETH_ADDRESS,
+        WEETH_CREATION_BLOCK, WEETH_CREATION_TX,
     },
     storage::{get_changed_attributes, EETH_POOL_TRACKED_SLOTS, WEETH_POOL_TRACKED_SLOTS},
 };
@@ -357,9 +357,16 @@ fn map_protocol_changes(
 
     let block_storage_changes = get_block_storage_changes(&block);
 
-    weeth_entity_changes(&block_storage_changes, &mut transaction_changes)?;
-
-    if block.number >= REDEMPTION_MANAGER_CREATION_BLOCK {
+    if components_store
+        .get_last(format!("0x{}", hex::encode(WEETH_ADDRESS)))
+        .is_some()
+    {
+        weeth_entity_changes(&block_storage_changes, &mut transaction_changes)?;
+    }
+    if components_store
+        .get_last(format!("0x{}", hex::encode(EETH_ADDRESS)))
+        .is_some()
+    {
         eeth_entity_changes(&block_storage_changes, &mut transaction_changes)?;
     }
 

@@ -20,11 +20,11 @@ network: mainnet
 networks:
   mainnet:
     initialBlock:
-      map_protocol_components: 17664336
-      store_components: 17664336
-      map_relative_balances: 17664336
-      store_component_balances: 17664336
-      map_protocol_changes: 17664336
+      map_protocol_components: 17664317
+      store_components: 17664317
+      map_relative_balances: 17664317
+      store_component_balances: 17664317
+      map_protocol_changes: 17664317
 
 modules:
   - name: map_protocol_components
