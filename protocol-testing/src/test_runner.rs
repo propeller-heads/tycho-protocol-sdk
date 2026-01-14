@@ -96,7 +96,7 @@ pub struct TestRunner {
     runtime: Runtime,
     rpc_provider: RPCProvider,
     protocol_components: Arc<RwLock<HashMap<String, ProtocolComponentModel>>>,
-    clear_db: bool,
+    reuse_last_sync: bool,
 }
 
 impl TestRunner {
@@ -109,7 +109,7 @@ impl TestRunner {
         db_url: String,
         rpc_url: String,
         vm_simulation_traces: bool,
-        clear_db: bool,
+        reuse_last_sync: bool,
     ) -> miette::Result<Self> {
         let base_protocol = CLONE_TO_BASE_PROTOCOL
             .get(protocol.as_str())
@@ -149,7 +149,7 @@ impl TestRunner {
             adapter_contract_builder,
             runtime,
             rpc_provider,
-            clear_db,
+            reuse_last_sync,
             protocol_components: Arc::new(RwLock::new(HashMap::new())),
         })
     }
@@ -229,14 +229,10 @@ impl TestRunner {
         };
         let spkg_path =
             build_spkg(substreams_yaml_path, start_block).wrap_err("Failed to build spkg")?;
-        let initialized_accounts = config
-            .initialized_accounts
-            .clone()
-            .unwrap_or_default();
 
         // Use tycho-indexer's Index command which handles both continuous syncing and RPC server
         let tycho_runner = self
-            .tycho_runner(initialized_accounts)
+            .tycho_runner(&[])
             .await?;
 
         let spkg_path_for_index = spkg_path.clone();
@@ -295,8 +291,8 @@ impl TestRunner {
 
         let _ = tycho_simulation::evm::engine_db::SHARED_TYCHO_DB.clear();
 
-        let protocol_stream_builder = ProtocolStreamBuilder::new("localhost:4242/", chain)
-            .skip_state_decode_failures(true);
+        let protocol_stream_builder =
+            ProtocolStreamBuilder::new("localhost:4242/", chain).skip_state_decode_failures(true);
 
         let adapter_contract_path = self.get_adapter_contract_path(
             &config.adapter_contract,
@@ -482,19 +478,27 @@ impl TestRunner {
 
         for test in &tests {
             info!("TEST {}: {}", count, test.name);
-            let mut initialized_accounts = config
+            let mut raw_initialized_accounts = config
                 .initialized_accounts
                 .clone()
                 .unwrap_or_default();
-            initialized_accounts.extend(
+            raw_initialized_accounts.extend(
                 test.initialized_accounts
                     .clone()
                     .unwrap_or_default(),
             );
+            let initialized_accounts: Vec<Bytes> = raw_initialized_accounts
+                .iter()
+                .map(|account| {
+                    Bytes::from_str(account).expect("Invalid initialized_account address")
+                })
+                .collect();
             let tycho_runner = self
                 .runtime
-                .block_on(self.tycho_runner(initialized_accounts))?;
-            if self.clear_db {
+                .block_on(self.tycho_runner(&raw_initialized_accounts))?;
+            if self.reuse_last_sync {
+                info!("Skipping indexing and using existent DB")
+            } else {
                 let spkg_path = build_spkg(substreams_yaml_path, test.start_block)
                     .wrap_err("Failed to build spkg")?;
 
@@ -508,11 +512,9 @@ impl TestRunner {
                         config.module_name.clone(),
                     )
                     .wrap_err("Failed to run Tycho")?;
-            } else {
-                info!("Skipping indexing and using existent DB")
             }
             let rpc_server = tycho_runner.start_rpc_server()?;
-            match self.run_test(test, &config, test.stop_block) {
+            match self.run_test(test, &config, test.stop_block, &initialized_accounts) {
                 Ok(_) => {
                     info!("✅ {} passed\n", test.name);
                 }
@@ -540,6 +542,7 @@ impl TestRunner {
         test: &IntegrationTest,
         config: &IntegrationTestsConfig,
         stop_block: u64,
+        initialized_accounts: &[Bytes],
     ) -> miette::Result<()> {
         // Fetch protocol data from Tycho RPC
         let expected_ids = test
@@ -557,8 +560,12 @@ impl TestRunner {
             )
             .wrap_err("Failed to get block header")?;
 
-        let (protocol_components, snapshot, all_tokens) =
-            self.fetch_from_tycho_rpc(&config.protocol_system, expected_ids, stop_block)?;
+        let (protocol_components, snapshot, all_tokens) = self.fetch_from_tycho_rpc(
+            &config.protocol_system,
+            expected_ids,
+            stop_block,
+            initialized_accounts,
+        )?;
 
         let response_protocol_states_by_id: HashMap<String, ResponseProtocolState> = snapshot
             .states
@@ -660,15 +667,14 @@ impl TestRunner {
         Ok(())
     }
 
-    async fn tycho_runner(&self, initialized_accounts: Vec<String>) -> miette::Result<TychoRunner> {
-        // If we want to clear db, reuse current db state
-        if self.clear_db {
+    async fn tycho_runner(&self, initialized_accounts: &[String]) -> miette::Result<TychoRunner> {
+        if !self.reuse_last_sync {
             self.empty_database()
                 .await
                 .into_diagnostic()
                 .wrap_err("Failed to empty the database")?;
         }
-        Ok(TychoRunner::new(self.chain, self.db_url.to_string(), initialized_accounts))
+        Ok(TychoRunner::new(self.chain, self.db_url.to_string(), initialized_accounts.to_vec()))
     }
 
     fn run_tvl_import(&self) -> miette::Result<()> {
@@ -762,6 +768,7 @@ impl TestRunner {
         protocol_system: &str,
         expected_component_ids: Vec<String>,
         stop_block: u64,
+        initialized_accounts: &[Bytes],
     ) -> miette::Result<(Vec<ProtocolComponent>, Snapshot, HashMap<Bytes, Token>)> {
         info!("Fetching protocol data from Tycho with stop block {}...", stop_block);
 
@@ -820,6 +827,7 @@ impl TestRunner {
                     .flatten()
                     .flat_map(|(_, results)| results.accessed_slots.keys().cloned()),
             )
+            .chain(initialized_accounts.iter().cloned())
             .collect();
 
         let snapshot = self
@@ -1210,10 +1218,7 @@ impl TestRunner {
         let router_overwrites_data =
             Some(execution::create_router_overwrites_data(protocol_system)?);
 
-        info!(
-            "Executing {} simulations in batches ...",
-            filtered_execution_data.len()
-        );
+        info!("Executing {} simulations in batches ...", filtered_execution_data.len());
 
         // Split execution data into smaller batches to avoid RPC request size limits
         // This happens because our overwrites are colossal
