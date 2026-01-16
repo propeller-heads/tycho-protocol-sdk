@@ -154,9 +154,7 @@ fn map_protocol_changes(
         block: Some((&block).into()),
         changes: transaction_changes
             .drain()
-            .sorted_unstable_by_key(
-                |(index, _): &(u64, tycho_substreams::models::TransactionChangesBuilder)| *index,
-            )
+            .sorted_unstable_by_key(|(index, _): &(u64, TransactionChangesBuilder)| *index)
             .filter_map(|(_, builder)| builder.build())
             .collect::<Vec<_>>(),
     })
