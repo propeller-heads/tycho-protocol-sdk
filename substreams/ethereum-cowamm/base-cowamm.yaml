@@ -2,7 +2,7 @@ specVersion: v0.1.0
 network: mainnet
 package:
   name: base_cowamm
-  version: v0.1.0
+  version: v0.1.2
 protobuf:
   files:
   - tycho/evm/v1/common.proto
