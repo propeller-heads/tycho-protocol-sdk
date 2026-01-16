@@ -172,7 +172,7 @@ impl TychoClient {
                 .await
             {
                 Ok(components) => {
-                    info!("Found {} components for protocol {} they are : {:?}", components.len(), protocol_system, components);
+                    info!("Found {} components for protocol {}", components.len(), protocol_system);
                     if !components.is_empty() {
                         return Ok(());
                     }

@@ -19,7 +19,7 @@ pub fn store_cowpool_binds(binds: CowPoolBinds, store: StoreAppend<String>) {
             "to": hex::encode(&bind.tx.as_ref().unwrap().to),
             "hash": hex::encode(&bind.tx.as_ref().unwrap().hash),
             "index": hex::encode(bind.tx.clone().unwrap().index.to_le_bytes()),
-            "ordinal": hex::encode(bind.ordinal.to_le_bytes()), 
+            "ordinal": hex::encode(bind.ordinal.to_le_bytes()),
         })
         .to_string();
         store.append(0, pool_key, bind_string);

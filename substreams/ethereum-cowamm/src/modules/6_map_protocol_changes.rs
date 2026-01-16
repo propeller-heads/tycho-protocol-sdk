@@ -21,7 +21,7 @@ fn map_protocol_changes(
 ) -> Result<BlockChanges, substreams::errors::Error> {
     let protocol_components = block_pool_changes
         .tx_protocol_components
-        .expect("no tx components"); 
+        .expect("no tx components");
     let balance_deltas = block_pool_changes
         .block_balance_deltas
         .expect("no block balance deltas")
@@ -43,9 +43,9 @@ fn map_protocol_changes(
 
             // iterate over individual components created within this tx
             tx_component
-            .components
-            .iter()
-            .for_each(|component| {
+                .components
+                .iter()
+                .for_each(|component| {
                     builder.add_protocol_component(&component.into());
                 });
         });
@@ -96,7 +96,6 @@ fn map_protocol_changes(
                 attributes: attr_vec,
             });
         });
-
 
     // Aggregate absolute balances per transaction.
 

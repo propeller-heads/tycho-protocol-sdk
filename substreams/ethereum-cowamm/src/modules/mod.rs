@@ -87,7 +87,6 @@ impl From<&cowamm::CowProtocolComponent> for ProtocolComponent {
     }
 }
 
-
 impl From<&BalanceDelta> for cowamm::CowBalanceDelta {
     fn from(delta: &BalanceDelta) -> Self {
         cowamm::CowBalanceDelta {

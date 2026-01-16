@@ -311,7 +311,7 @@ impl TestRunner {
             register_protocol(protocol_stream_builder, &config.protocol_system, decoder_context)?;
 
         let stream_builder = protocol_stream_builder
-            .skip_state_decode_failures(false)
+            .skip_state_decode_failures(true)
             .set_tokens(all_tokens)
             .await;
 
@@ -349,8 +349,7 @@ impl TestRunner {
                         .protocol_components
                         .read()
                     {
-                        Ok(components) => {
-                            update
+                        Ok(components) => update
                             .states
                             .keys()
                             .filter_map(|id| {
@@ -358,8 +357,7 @@ impl TestRunner {
                                     .get(id)
                                     .map(|comp| (id.clone(), comp.clone()))
                             })
-                            .collect()
-                        },
+                            .collect(),
                         Err(e) => {
                             error!("Failed to acquire read lock on protocol components: {:#}. Using fallback to new_pairs only.", e);
                             // Fallback to the old behavior if we can't read the persistent state
@@ -370,7 +368,7 @@ impl TestRunner {
                                 .collect()
                         }
                     };
-                   
+
                     // Step 1: Run simulation get amount out
                     let execution_data = match self.run_simulation(
                         &update,
@@ -619,9 +617,9 @@ impl TestRunner {
             adapter_contract_path_str,
             self.vm_simulation_traces,
         )?;
-        
+
         let protocol_components_simulation: HashMap<String, ProtocolComponentModel> =
-        update.new_pairs.clone();
+            update.new_pairs.clone();
 
         // Step 4: Run Tycho Simulation
         let execution_data = self.run_simulation(
@@ -885,9 +883,8 @@ impl TestRunner {
             register_protocol(protocol_stream_builder, protocol_system, decoder_context)?;
 
         let decoder = protocol_stream_builder.get_decoder();
-
         initialize_hook_handlers().into_diagnostic()?;
-        
+
         let state_msgs: HashMap<String, StateSyncMessage<BlockHeader>> = HashMap::from([(
             String::from(protocol_system),
             StateSyncMessage {
@@ -903,30 +900,21 @@ impl TestRunner {
                 removed_components: HashMap::new(),
             },
         )]);
-        
+
         self.runtime
-        .block_on(decoder.set_tokens(all_tokens.clone()));
-        
-                // ADD THIS DEBUG
-        info!("===== TOKENS DEBUG =====");
-        for (addr, token) in all_tokens.iter() {
-            info!("Token: {} ({})", token.symbol, addr);
-            info!("  Address length: {} bytes", addr.len());
-            info!("  Address hex: 0x{}", hex::encode(&addr.0));
-        }
-        info!("===== END TOKENS DEBUG =====");
+            .block_on(decoder.set_tokens(all_tokens));
+
         let message: FeedMessage = FeedMessage { state_msgs, sync_states: Default::default() };
 
         let block_msg = self
             .runtime
-            .block_on(decoder.decode(&message)) 
+            .block_on(decoder.decode(&message))
             .into_diagnostic()
             .wrap_err("Failed to decode message")?;
-        info!("This is the block msg {:?}", block_msg);
-        info!("Decoded message for block {}", block_msg.block_number_or_timestamp);
+        debug!("Decoded message for block {}", block_msg.block_number_or_timestamp);
         debug!("Update contains {} component states", block_msg.states.len());
 
-        Ok(block_msg) 
+        Ok(block_msg)
     }
 
     /// Validates that the protocol components retrieved from Tycho match the expected

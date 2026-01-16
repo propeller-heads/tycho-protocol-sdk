@@ -8,9 +8,11 @@ glob = "0.3.0"
 miette = { version = "7.6.0", features = ["fancy"] }
 # Logging & Tracing
 tracing = "0.1.37"
-tycho-simulation = { git = "https://github.com/adpthegreat/tycho-simulation", branch = "add_cowamm_simulation", package = "tycho-simulation", default-features = false, features = ["evm"]}
-tycho-test = { git = "https://github.com/propeller-heads/tycho-simulation.git", tag = "0.226.1" }
-tycho-execution = ">=0.134.0"
+tycho-simulation = { git = "https://github.com/propeller-heads/tycho-simulation.git", tag = "0.227.0", features = [
+    "evm",
+] }
+tycho-test = { git = "https://github.com/propeller-heads/tycho-simulation.git", tag = "0.227.0" }
+tycho-execution = ">=0.151.0"
 num-bigint = "0.4"
 num-traits = "0.2"
 num-rational = "0.4.2"
@@ -37,7 +39,3 @@ itertools = "0.14.0"
 tokio-retry2 = { version = "0.6.0", features = ["jitter"] }
 regex = "1.11.1"
 tempfile = "3.8.1"
-
-[patch."https://github.com/propeller-heads/tycho-simulation.git"]
-tycho-simulation = { git = "https://github.com/adpthegreat/tycho-simulation", branch = "add_cowamm_simulation", package = "tycho-simulation" }
-tycho-test = { git = "https://github.com/adpthegreat/tycho-simulation", branch = "add_cowamm_simulation", package = "tycho-test" }

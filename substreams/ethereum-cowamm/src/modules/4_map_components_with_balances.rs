@@ -201,7 +201,7 @@ pub fn map_components_with_balances(
             }
         }
     }
-    
+
     //convert normal balance deltas to cow balance deltas
     let mut final_deltas = tx_deltas
         .iter()
@@ -209,7 +209,7 @@ pub fn map_components_with_balances(
         .collect::<Vec<CowBalanceDelta>>();
     //sort by increasing ordinal
     final_deltas.sort_by_key(|d| d.ord);
-    
+
     Ok(BlockPoolChanges {
         tx_protocol_components: Some(BlockTransactionProtocolComponents {
             tx_components: tx_protocol_components,
