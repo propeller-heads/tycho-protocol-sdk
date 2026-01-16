@@ -30,7 +30,7 @@ pub fn parse_binds(bind_str: &str) -> Option<Vec<CowPoolBind>> {
         let formatted_str = format!("[{}]", bind.replace("};", "},"));
 
         let parsed: Vec<CowPoolBindJson> =
-            serde_json::from_str(&formatted_str).expect("im panicking");
+            serde_json::from_str(&formatted_str).expect("should successfully parse binds string");
         for bind_json in parsed {
             let cow_bind = CowPoolBind {
                 address: hex::decode(&bind_json.address).expect("Invalid hex for address"),
@@ -118,7 +118,7 @@ mod tests {
 
     #[test]
     fn test_parse_binds_single_entry() {
-        let bind_str = r#"{\"address\":\"9bd702e05b9c97e4a4a3e47df1e0fe7a0c26d2f1\",\"token\":\"def1ca1fb7fbcdc777520aa7f396b4e015f497ab\",\"weight\":\"0000000000000000000000000000000000000000000000000de0b6b3a7640000\"#;
+        let bind_str = r#"{"address":"9bd702e05b9c97e4a4a3e47df1e0fe7a0c26d2f1","token":"def1ca1fb7fbcdc777520aa7f396b4e015f497ab","weight":"0000000000000000000000000000000000000000000000000de0b6b3a7640000","amount":"0000000000000000000000000000000000000000000000000000000000000001","from":"1234567890123456789012345678901234567890","to":"abcdefabcdefabcdefabcdefabcdefabcdefabcd","hash":"fedcbafedcbafedcbafedcbafedcbafedcbafedcbafedcbafedcbafedcbafedcba","index":"0100000000000000","ordinal":"0200000000000000"}"#;
         let result = parse_binds(bind_str);
 
         assert!(result.is_some());
@@ -135,8 +135,7 @@ mod tests {
 
     #[test]
     fn test_parse_binds_multiple_entries() {
-        // change to to an actual proper string lol
-        let bind_str = r#"{\"address\":\"9bd702e05b9c97e4a4a3e47df1e0fe7a0c26d2f1\",\"token\":\"def1ca1fb7fbcdc777520aa7f396b4e015f497ab\",\"weight\":\"0000000000000000000000000000000000000000000000000de0b6b3a7640000\",};{\"address\":\"9bd702e05b9c97e4a4a3e47df1e0fe7a0c26d2f1\",\"token\":\"7f39c581f595b53c5cb19bd0b3f8da6c935e2ca0\",\"weight\":\"0000000000000000000000000000000000000000000000000de0b6b3a7640000\;"  bind_last : "{\"address\":\"9bd702e05b9c97e4a4a3e47df1e0fe7a0c26d2f1\",\"token\":\"def1ca1fb7fbcdc777520aa7f396b4e015f497ab\",\"weight\":\"0000000000000000000000000000000000000000000000000de0b6b3a7640000\"};{\"address\":\"9bd702e05b9c97e4a4a3e47df1e0fe7a0c26d2f1\",\"token\":\"7f39c581f595b53c5cb19bd0b3f8da6c935e2ca0\",\"weight\":\"0000000000000000000000000000000000000000000000000de0b6b3a7640000\"};"#;
+        let bind_str = r#"{"address":"9bd702e05b9c97e4a4a3e47df1e0fe7a0c26d2f1","token":"def1ca1fb7fbcdc777520aa7f396b4e015f497ab","weight":"0000000000000000000000000000000000000000000000000de0b6b3a7640000","amount":"0000000000000000000000000000000000000000000000000000000000000001","from":"1234567890123456789012345678901234567890","to":"abcdefabcdefabcdefabcdefabcdefabcdefabcd","hash":"fedcbafedcbafedcbafedcbafedcbafedcbafedcbafedcbafedcbafedcbafedcba","index":"0100000000000000","ordinal":"0200000000000000"};{"address":"9bd702e05b9c97e4a4a3e47df1e0fe7a0c26d2f1","token":"7f39c581f595b53c5cb19bd0b3f8da6c935e2ca0","weight":"0000000000000000000000000000000000000000000000000de0b6b3a7640000","amount":"0000000000000000000000000000000000000000000000000000000000000002","from":"1234567890123456789012345678901234567890","to":"abcdefabcdefabcdefabcdefabcdefabcdefabcd","hash":"fedcbafedcbafedcbafedcbafedcbafedcbafedcbafedcbafedcbafedcbafedcba","index":"0100000000000000","ordinal":"0200000000000000"}"#;
         let result = parse_binds(bind_str);
         assert!(result.is_some());
         let binds = result.unwrap();
@@ -145,13 +144,13 @@ mod tests {
         assert_eq!(binds[0].token, hex!("def1ca1fb7fbcdc777520aa7f396b4e015f497ab"));
 
         assert_eq!(binds[1].address, hex!("9bd702e05b9c97e4a4a3e47df1e0fe7a0c26d2f1"));
-        assert_eq!(binds[1].token, hex!("def1ca1fb7fbcdc777520aa7f396b4e015f497ab"));
+        assert_eq!(binds[1].token, hex!("7f39c581f595b53c5cb19bd0b3f8da6c935e2ca0"));
     }
 
     #[test]
+    #[should_panic(expected = "should successfully parse binds string")]
     fn test_parse_binds_invalid_json() {
         let bind_str = r#"invalid_json"#;
-        let result = parse_binds(bind_str);
-        assert!(result.is_none());
+        let _result = parse_binds(bind_str);
     }
 }
