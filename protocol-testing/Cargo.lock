@@ -6756,9 +6756,9 @@ dependencies = [
 
 [[package]]
 name = "tycho-execution"
-version = "0.152.0"
+version = "0.154.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "55743fcf63cac18e24fd37e520e19a12ef1dff2b0f67e8db7ccb2a55e60be660"
+checksum = "525aa8c721bc6d6e4674d3f64263c3ba6c90b621b9db1d3a495495723dbec22b"
 dependencies = [
  "alloy",
  "chrono",
@@ -6779,8 +6779,8 @@ dependencies = [
 
 [[package]]
 name = "tycho-simulation"
-version = "0.227.0"
-source = "git+https://github.com/propeller-heads/tycho-simulation.git?tag=0.227.0#64e035dc397071db942e8e7c6285e2d500b1162b"
+version = "0.230.0"
+source = "git+https://github.com/propeller-heads/tycho-simulation.git?tag=0.230.0#4f043d5dc0259d94ce56e4090021ed4774e6c47c"
 dependencies = [
  "alloy",
  "alloy-chains",
@@ -6823,8 +6823,8 @@ dependencies = [
 
 [[package]]
 name = "tycho-test"
-version = "0.227.0"
-source = "git+https://github.com/propeller-heads/tycho-simulation.git?tag=0.227.0#64e035dc397071db942e8e7c6285e2d500b1162b"
+version = "0.230.0"
+source = "git+https://github.com/propeller-heads/tycho-simulation.git?tag=0.230.0#4f043d5dc0259d94ce56e4090021ed4774e6c47c"
 dependencies = [
  "alloy",
  "alloy-chains",
