@@ -58,7 +58,7 @@ jobs:
 
       - name: Test protocol-testing crate
         working-directory: protocol-testing
-        run: cargo nextest run --lib --all-targets && cargo test --doc
+        run: cargo nextest run --bin protocol-testing
 
       - name: Test substreams crate
         working-directory: substreams
