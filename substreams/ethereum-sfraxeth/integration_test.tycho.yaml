@@ -9,6 +9,7 @@ adapter_build_args: "0xbAFA44EFE7901E04E39Dad13167D089C559c1138,0xac3E018457B222
 # Whether or not the testing script should skip checking balances of the protocol components.
 # If set to `true` please always add a reason why it's skipped.
 skip_balance_check: true
+protocol_system: "sfraxeth"
 
 # A list of protocol types names created by your Substreams module.
 protocol_type_names:
