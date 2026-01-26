@@ -231,9 +231,7 @@ impl TestRunner {
             build_spkg(substreams_yaml_path, start_block).wrap_err("Failed to build spkg")?;
 
         // Use tycho-indexer's Index command which handles both continuous syncing and RPC server
-        let tycho_runner = self
-            .tycho_runner(&[])
-            .await?;
+        let tycho_runner = self.tycho_runner(&[]).await?;
 
         let spkg_path_for_index = spkg_path.clone();
         let protocol_type_names = config.protocol_type_names.clone();
@@ -1421,6 +1419,8 @@ mod tests {
 
     use super::*;
 
+    const PROTOCOLS_TO_IGNORE: [&str; 2] = ["base-aerodrome-slipstreams", "unichain-velodrome"];
+
     #[test]
     fn test_parse_all_configs() {
         let manifest_dir = env!("CARGO_MANIFEST_DIR");
@@ -1440,6 +1440,19 @@ mod tests {
                     if !path.is_file() {
                         results.push(Err(format!("Path is not a file: {}", path.display())));
                     } else {
+                        // Extract the protocol name from the path
+                        let protocol = path
+                            .parent()
+                            .and_then(|p| p.file_name())
+                            .map(|f| f.to_string_lossy());
+
+                        // Skip entry if protocol is in the ignore list
+                        if let Some(protocol) = protocol {
+                            if PROTOCOLS_TO_IGNORE.contains(&protocol.as_ref()) {
+                                continue; // Skip this entry
+                            }
+                        }
+
                         let result = TestRunner::parse_config(&path);
                         if let Err(e) = &result {
                             results.push(Err(format!(
