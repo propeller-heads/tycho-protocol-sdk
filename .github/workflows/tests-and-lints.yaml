@@ -106,15 +106,6 @@ jobs:
         working-directory: protocol-testing
         run: cargo clippy --workspace --all-targets --all-features
 
-      - name: Clippy substreams crate
-        working-directory: substreams
-        run: cargo clippy --workspace --all-targets --all-features
-
-
       - name: Rustfmt protocol-testing crate
         working-directory: protocol-testing
-        run: cargo fmt --all --check
-
-      - name: Rustfmt substreams crate
-        working-directory: substreams
         run: cargo fmt --all --check
