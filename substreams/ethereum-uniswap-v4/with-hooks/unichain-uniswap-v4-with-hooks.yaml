@@ -181,4 +181,4 @@ params:
   map_pools_created: "1F98400000000000000000000000000000000004"
   store_euler_hooks: "0x45b146BC07c9985589B52df651310e75C6BE066A"
   map_euler_enriched_protocol_changes: "0x45b146BC07c9985589B52df651310e75C6BE066A"
-  map_universal_enriched_protocol_changes: "hook_address=0xcdfCaB084b2d29025772141d3BF473bd9673aaA8&oracle_address=0x6bEce1A3D1ed2Da49c76105c6F874fE1608A8e14"
+  map_universal_enriched_protocol_changes: "hook_address=0xcdfcab084b2d29025772141d3bf473bd9673aaa8&oracle_address=0x6bEce1A3D1ed2Da49c76105c6F874fE1608A8e14"
