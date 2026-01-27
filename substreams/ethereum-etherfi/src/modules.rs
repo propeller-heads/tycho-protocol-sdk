@@ -181,7 +181,7 @@ fn map_relative_balances(
         .collect();
     // Keep it consistent with how it's inserted in the store. This step is important
     // because we use a zip on the store deltas and balance deltas later.
-    deltas.sort_unstable_by(|a, b| a.ord.cmp(&b.ord));
+    deltas.sort_unstable_by_key(|a| a.ord);
     Ok(BlockBalanceDeltas { balance_deltas: deltas })
 }
 
