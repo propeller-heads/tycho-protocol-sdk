@@ -1449,7 +1449,7 @@ mod tests {
                         // Skip entry if protocol is in the ignore list
                         if let Some(protocol) = protocol {
                             if PROTOCOLS_TO_IGNORE.contains(&protocol.as_ref()) {
-                                continue; // Skip this entry
+                                continue;
                             }
                         }
 
