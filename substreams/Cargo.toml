@@ -9,8 +9,6 @@ members = [
     "ethereum-uniswap-v2",
     "ethereum-uniswap-v3",
     "ethereum-pancakeswap-v3",
-    "ethereum-sfrax",
-    "ethereum-sfraxeth",
     "ethereum-uniswap-v3-logs-only",
     "ethereum-template-factory",
     "ethereum-template-singleton",
