@@ -2,6 +2,7 @@
 members = [
     "ethereum-balancer-v2",
     "ethereum-curve",
+    "ethereum-cowamm",
     "crates/tycho-substreams",
     "crates/substreams-helper",
     "ethereum-ambient",
