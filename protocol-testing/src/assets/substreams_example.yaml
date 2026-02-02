@@ -1,0 +1,15 @@
+modules:
+  - name: map_protocol_components
+    kind: map
+    initialBlock: 0
+    inputs:
+      - source: sf.ethereum.type.v2.Block
+
+  - name: store_storage_variables
+    kind: store
+    initialBlock: 0
+    updatePolicy: set
+    valueType: bigint
+    inputs:
+      - map: map_protocol_components
+      - source: sf.ethereum.type.v2.Block
