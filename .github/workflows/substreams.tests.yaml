@@ -8,6 +8,12 @@ env:
 
 on:
   workflow_dispatch:
+    inputs:
+      protocols:
+        description: 'Space-separated list of protocols to test (leave empty for all)'
+        required: false
+        default: ''
+        type: string
   pull_request:
 
 jobs:
@@ -18,6 +24,8 @@ jobs:
       substreams-changed: ${{ steps.substreams-files-changed.outputs.any_changed }}
       all-substreams: ${{ steps.all_substreams.outputs.all_substreams }}
       changed-substreams: ${{ steps.changes.outputs.changed_substreams }}
+      target-protocols: ${{ steps.target-protocols.outputs.protocols }}
+      protocols-matrix: ${{ steps.protocols-matrix.outputs.matrix }}
     steps:
       - uses: actions/checkout@v4
 
@@ -65,44 +73,137 @@ jobs:
           fi
           echo "changed_substreams=$CHANGED" >> $GITHUB_OUTPUT
 
-  test-changed:
-    runs-on: ubuntu-latest
-    needs: [detect-changes]
-    steps:
-      - name: Check if tests are needed
-        id: should-test
+      - name: Determine target protocols
+        id: target-protocols
         run: |
-          SUBSTREAMS_CHANGED="${{ needs.detect-changes.outputs.substreams-changed }}"
-          CHANGED_SUBSTREAMS="${{ needs.detect-changes.outputs.changed-substreams }}"
-
-          if [[ "$SUBSTREAMS_CHANGED" == "true" && -n "$CHANGED_SUBSTREAMS" ]]; then
-            echo "should_run=true" >> $GITHUB_OUTPUT
-            echo "protocols=$CHANGED_SUBSTREAMS" >> $GITHUB_OUTPUT
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            if [[ -n "${{ github.event.inputs.protocols }}" ]]; then
+              PROTOCOLS="${{ github.event.inputs.protocols }}"
+              echo "Using manually specified protocols: $PROTOCOLS"
+            else
+              PROTOCOLS="${{ steps.all_substreams.outputs.all_substreams }}"
+              echo "Using all protocols: $PROTOCOLS"
+            fi
+          elif [[ "${{ steps.substreams-files-changed.outputs.any_changed }}" == "true" ]]; then
+            PROTOCOLS="${{ steps.changes.outputs.changed_substreams }}"
+            echo "Using changed protocols: $PROTOCOLS"
           else
-            echo "should_run=false" >> $GITHUB_OUTPUT
-            echo "No substreams changes detected - skipping tests"
+            PROTOCOLS=""
+            echo "No protocols to test"
+          fi
+          echo "protocols=$PROTOCOLS" >> $GITHUB_OUTPUT
+
+      - name: Create protocols matrix
+        id: protocols-matrix
+        run: |
+          PROTOCOLS="${{ steps.target-protocols.outputs.protocols }}"
+          if [[ -z "$PROTOCOLS" ]]; then
+            echo "matrix={\"include\":[]}" >> $GITHUB_OUTPUT
+          else
+            MATRIX_JSON="{\"include\":["
+            FIRST=true
+            for protocol in $PROTOCOLS; do
+              if [[ "$FIRST" == "true" ]]; then
+                FIRST=false
+              else
+                MATRIX_JSON+=","
+              fi
+              MATRIX_JSON+="{\"protocol\":\"$protocol\"}"
+            done
+            MATRIX_JSON+="]}"
+            echo "matrix=$MATRIX_JSON" >> $GITHUB_OUTPUT
+            echo "Generated matrix: $MATRIX_JSON"
           fi
 
-      - uses: actions/checkout@v4
-        if: steps.should-test.outputs.should_run == 'true'
-
-      - name: Run tests for changed substreams
-        if: steps.should-test.outputs.should_run == 'true'
-        uses: ./.github/actions/substreams-docker
-        with:
-          protocols: ${{ steps.should-test.outputs.protocols }}
-
-      - name: Skip tests
-        if: steps.should-test.outputs.should_run != 'true'
-        run: echo "✓ No changes detected - skipping tests"
-
-  test-all:
+  # Build shared docker images once
+  build-images:
     runs-on: ubuntu-latest
-    needs: [detect-changes]
-    if: github.event_name == 'workflow_dispatch'
+    needs: [ detect-changes ]
+    if: needs.detect-changes.outputs.target-protocols != ''
+    outputs:
+      cache-key: ${{ steps.cache-key.outputs.key }}
     steps:
       - uses: actions/checkout@v4
-      - name: Run all protocol-testing tests
-        uses: ./.github/actions/substreams-docker
+
+      - name: Generate cache key
+        id: cache-key
+        run: |
+          KEY="docker-images-${{ hashFiles('protocol-testing/postgres.Dockerfile', 'protocol-testing/run.Dockerfile') }}-${{ github.sha }}"
+          echo "key=$KEY" >> $GITHUB_OUTPUT
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Cache Docker layers
+        uses: actions/cache@v4
         with:
-          protocols: ${{ needs.detect-changes.outputs.all-substreams }}
+          path: /tmp/.buildx-cache
+          key: ${{ runner.os }}-buildx-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-buildx-
+
+      - name: Build and cache DB image
+        run: |
+          docker buildx build \
+            --cache-from type=local,src=/tmp/.buildx-cache \
+            --cache-to type=local,dest=/tmp/.buildx-cache \
+            -f protocol-testing/postgres.Dockerfile \
+            -t protocol-testing-db:latest \
+            --load .
+          docker save protocol-testing-db:latest -o /tmp/db-image.tar
+
+      - name: Build and cache test-runner image
+        run: |
+          docker buildx build \
+            --cache-from type=local,src=/tmp/.buildx-cache \
+            --cache-to type=local,dest=/tmp/.buildx-cache \
+            --build-arg PROTOCOLS="${{ needs.detect-changes.outputs.target-protocols }}" \
+            -f protocol-testing/run.Dockerfile \
+            -t protocol-testing-test-runner:latest \
+            --load .
+          docker save protocol-testing-test-runner:latest -o /tmp/test-runner-image.tar
+
+      - name: Upload docker images
+        uses: actions/upload-artifact@v4
+        with:
+          name: docker-images-${{ steps.cache-key.outputs.key }}
+          path: |
+            /tmp/db-image.tar
+            /tmp/test-runner-image.tar
+          retention-days: 1
+
+  # Parallel execution for each protocol
+  test-protocols:
+    runs-on: ubuntu-latest
+    needs: [ detect-changes, build-images ]
+    if: needs.detect-changes.outputs.target-protocols != ''
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.detect-changes.outputs.protocols-matrix) }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download docker images
+        uses: actions/download-artifact@v4
+        with:
+          name: docker-images-${{ needs.build-images.outputs.cache-key }}
+          path: /tmp
+
+      - name: Load docker images
+        run: |
+          docker load -i /tmp/db-image.tar
+          docker load -i /tmp/test-runner-image.tar
+
+      - name: Run protocol test
+        uses: ./.github/actions/substreams-docker-single
+        with:
+          protocol: ${{ matrix.protocol }}
+
+  # Skip job when no protocols need testing
+  skip-tests:
+    runs-on: ubuntu-latest
+    needs: [ detect-changes ]
+    if: needs.detect-changes.outputs.target-protocols == ''
+    steps:
+      - name: Skip tests
+        run: echo "✓ No protocols to test - skipping"
