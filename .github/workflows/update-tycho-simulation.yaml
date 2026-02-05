@@ -1,0 +1,66 @@
+name: Update tycho-simulation dependency
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'tycho-simulation version to update to'
+        required: true
+        type: string
+  repository_dispatch:
+    types: [tycho-simulation-release]
+
+jobs:
+  check-and-update:
+    name: Check for new tycho-simulation release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup toolchain
+        uses: dtolnay/rust-toolchain@v1
+        with:
+          toolchain: stable
+
+      - name: Get tycho-simulation version
+        id: version
+        run: |
+          VERSION="${{ github.event.client_payload.version || inputs.version }}"
+          echo "Updating to version: $VERSION"
+          echo "tag=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Update Cargo.toml files
+        run: |
+          NEW_TAG="${{ steps.version.outputs.tag }}"
+
+          # Update protocol-testing/Cargo.toml - match any existing version
+          sed -i 's|tycho-simulation = { git = "https://github.com/propeller-heads/tycho-simulation.git", tag = "[^"]*"|tycho-simulation = { git = "https://github.com/propeller-heads/tycho-simulation.git", tag = "'"$NEW_TAG"'"|g' protocol-testing/Cargo.toml
+          sed -i 's|tycho-test = { git = "https://github.com/propeller-heads/tycho-simulation.git", tag = "[^"]*"|tycho-test = { git = "https://github.com/propeller-heads/tycho-simulation.git", tag = "'"$NEW_TAG"'"|g' protocol-testing/Cargo.toml
+
+      - name: Update Cargo.lock
+        working-directory: protocol-testing
+        run: cargo update tycho-simulation tycho-test
+
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "feat: Update tycho-simulation to ${{ steps.version.outputs.tag }}"
+          title: "feat: Update tycho-simulation to ${{ steps.version.outputs.tag }}"
+          body: |
+            ## Summary
+            Automated update of `tycho-simulation` dependency to `${{ steps.version.outputs.tag }}`.
+
+            ### Changes
+            - Updated `tycho-simulation` and `tycho-test` to tag `${{ steps.version.outputs.tag }}`
+            - Updated `Cargo.lock` accordingly
+
+            ### Test plan
+            - [ ] All CI tests pass
+            - [ ] Protocol tests run successfully
+
+            🤖 This PR was automatically created by the update-tycho-simulation workflow.
+          branch: auto-update-tycho-simulation-${{ steps.version.outputs.tag }}
+          delete-branch: true
