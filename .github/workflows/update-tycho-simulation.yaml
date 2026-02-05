@@ -19,6 +19,7 @@ jobs:
         with:
           token: ${{ secrets.WORKFLOW_TOKEN }}
 
+      # Necessary to update Cargo.lock and run cargo update
       - name: Setup toolchain
         uses: dtolnay/rust-toolchain@v1
         with:
