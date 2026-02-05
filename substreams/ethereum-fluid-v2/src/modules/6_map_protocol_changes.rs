@@ -106,7 +106,8 @@ pub fn map_protocol_changes(
                 // The liquidity contract stores exchange prices per token
                 // (borrow_exchange_price/supply_exchange_price). These prices can
                 // be actively updated by admins (LogUpdateExchangePrices event), or
-                // passively affected by other operations through MoneyMarket Contract (LogOperate event).
+                // passively affected by other operations through MoneyMarket Contract (LogOperate
+                // event).
                 if let Some(update_exchange_prices) = LogUpdateExchangePrices::match_and_decode(log)
                 {
                     let changes = exchange_price_changes(
