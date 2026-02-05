@@ -17,7 +17,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.WORKFLOW_TOKEN }}
 
       - name: Setup toolchain
         uses: dtolnay/rust-toolchain@v1
@@ -46,7 +46,7 @@ jobs:
       - name: Create Pull Request
         uses: peter-evans/create-pull-request@v6
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.WORKFLOW_TOKEN }}
           commit-message: "feat: Update tycho-simulation to ${{ steps.version.outputs.tag }}"
           title: "feat: Update tycho-simulation to ${{ steps.version.outputs.tag }}"
           body: |
