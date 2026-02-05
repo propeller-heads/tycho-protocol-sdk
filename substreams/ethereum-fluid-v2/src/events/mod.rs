@@ -1,10 +1,14 @@
-use crate::abi::{
-    d3_admin_module_idx_1::events::{
-        LogStopPerPoolAccounting, LogUpdateProtocolCutFee, LogUpdateProtocolFee,
+use crate::{
+    abi::{
+        d3_admin_module_idx_1::events::{
+            LogStopPerPoolAccounting, LogUpdateProtocolCutFee, LogUpdateProtocolFee,
+        },
+        d3_swap_module::events::{LogSwapIn, LogSwapOut},
+        d3_user_module::events::{LogDeposit, LogWithdraw},
     },
-    d3_swap_module::events::{LogSwapIn, LogSwapOut},
-    d3_user_module::events::{LogDeposit, LogWithdraw},
+    pb::tycho::evm::fluid_v2::Pool,
 };
+use substreams::store::StoreGetProto;
 use substreams_ethereum::{
     pb::eth::v2::{Log, StorageChange},
     Event,
@@ -39,7 +43,13 @@ pub trait EventTrait {
     ///
     /// * `tx` - Reference to the `Transaction`.
     /// * `ordinal` - The ordinal number of the event.
-    fn get_balance_delta(&self, tx: &Transaction, ordinal: u64) -> Vec<BalanceDelta>;
+    /// * `pools_store` - Store to lookup pools by dex id.
+    fn get_balance_delta(
+        &self,
+        tx: &Transaction,
+        ordinal: u64,
+        pools_store: &StoreGetProto<Pool>,
+    ) -> Vec<BalanceDelta>;
 }
 
 /// Represent every events of a DEX V2 pool.
@@ -109,6 +119,7 @@ pub fn get_log_changed_balances(
     tx: &Transaction,
     event: &Log,
     dex_v2_address: &[u8],
+    pools_store: &StoreGetProto<Pool>,
 ) -> Vec<BalanceDelta> {
     if event.address != dex_v2_address {
         return vec![];
@@ -116,7 +127,7 @@ pub fn get_log_changed_balances(
     decode_event(event)
         .map(|e| {
             e.as_event_trait()
-                .get_balance_delta(tx, event.ordinal)
+                .get_balance_delta(tx, event.ordinal, pools_store)
         })
         .unwrap_or_default()
 }

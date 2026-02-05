@@ -80,16 +80,7 @@ pub fn map_protocol_changes(
         });
 
     for trx in block.transactions() {
-        let tx = Transaction {
-            to: trx.to.clone(),
-            from: trx.from.clone(),
-            hash: trx.hash.clone(),
-            index: trx.index.into(),
-        };
-        let builder = transaction_changes
-            .entry(tx.index)
-            .or_insert_with(|| TransactionChangesBuilder::new(&tx));
-
+        let tx_index: u64 = trx.index.into();
         for (log, call_view) in trx.logs_with_calls() {
             if log.address == dex_v2_address {
                 if let Some((component_id, attrs)) = events::get_log_changed_attributes(
@@ -97,10 +88,25 @@ pub fn map_protocol_changes(
                     &call_view.call.storage_changes,
                     &dex_v2_address,
                 ) {
+                    let builder = transaction_changes
+                        .entry(tx_index)
+                        .or_insert_with(|| {
+                            let tx = Transaction {
+                                to: trx.to.clone(),
+                                from: trx.from.clone(),
+                                hash: trx.hash.clone(),
+                                index: tx_index,
+                            };
+                            TransactionChangesBuilder::new(&tx)
+                        });
                     builder.add_entity_change(&EntityChanges { component_id, attributes: attrs });
                 }
             }
             if log.address == liquidity_address {
+                // The liquidity contract stores exchange prices per token
+                // (borrow_exchange_price/supply_exchange_price). These prices can
+                // be actively updated by admins (LogUpdateExchangePrices event), or
+                // passively affected by other operations through MoneyMarket Contract (LogOperate event).
                 if let Some(update_exchange_prices) = LogUpdateExchangePrices::match_and_decode(log)
                 {
                     let changes = exchange_price_changes(
@@ -110,6 +116,17 @@ pub fn map_protocol_changes(
                         &pools_store,
                         &token_to_pools_store,
                     );
+                    let builder = transaction_changes
+                        .entry(tx_index)
+                        .or_insert_with(|| {
+                            let tx = Transaction {
+                                to: trx.to.clone(),
+                                from: trx.from.clone(),
+                                hash: trx.hash.clone(),
+                                index: tx_index,
+                            };
+                            TransactionChangesBuilder::new(&tx)
+                        });
                     for change in changes {
                         builder.add_entity_change(&change);
                     }
@@ -125,6 +142,17 @@ pub fn map_protocol_changes(
                         &pools_store,
                         &token_to_pools_store,
                     );
+                    let builder = transaction_changes
+                        .entry(tx_index)
+                        .or_insert_with(|| {
+                            let tx = Transaction {
+                                to: trx.to.clone(),
+                                from: trx.from.clone(),
+                                hash: trx.hash.clone(),
+                                index: tx_index,
+                            };
+                            TransactionChangesBuilder::new(&tx)
+                        });
                     for change in changes {
                         builder.add_entity_change(&change);
                     }
@@ -198,6 +226,8 @@ fn exchange_price_changes(
     changes
 }
 
+// This implementation is based on the Solidity library LiquidityCalcs and mirrors its
+// calcExchangePrices logic.
 fn calc_exchange_prices(exchange_prices_and_config: &BigInt, now_ts: u64) -> (BigInt, BigInt) {
     const SECONDS_PER_YEAR: u64 = 365 * 24 * 60 * 60;
     const FOUR_DECIMALS: u64 = 10_000;

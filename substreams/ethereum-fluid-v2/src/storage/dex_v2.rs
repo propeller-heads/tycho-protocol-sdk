@@ -4,10 +4,21 @@ use crate::storage::{
         DEX_V2_VARIABLES_SLOT,
     },
     storage_view::{StorageChangesView, StorageLocation},
-    utils::{double_mapping_slot, triple_mapping_slot, u256_be32_from_u64},
+    utils::{
+        double_mapping_slot, int256_be32_from_bigint, triple_mapping_slot, u256_be32_from_u64,
+    },
 };
 use substreams::scalar::BigInt;
 use tycho_substreams::prelude::Attribute;
+
+pub fn dex_variables_attributes(
+    storage_view: &StorageChangesView,
+    dex_id: &[u8; 32],
+    dex_type: u64,
+) -> Vec<Attribute> {
+    let locations = dex_variables_locations(dex_id, dex_type);
+    storage_view.get_changed_attributes(&locations)
+}
 
 fn dex_variables_locations(dex_id: &[u8; 32], dex_type: u64) -> Vec<StorageLocation> {
     let dex_type_be32 = u256_be32_from_u64(dex_type);
@@ -32,15 +43,6 @@ fn dex_variables_locations(dex_id: &[u8; 32], dex_type: u64) -> Vec<StorageLocat
     ]
 }
 
-pub fn dex_variables_attributes(
-    storage_view: &StorageChangesView,
-    dex_id: &[u8; 32],
-    dex_type: u64,
-) -> Vec<Attribute> {
-    let locations = dex_variables_locations(dex_id, dex_type);
-    storage_view.get_changed_attributes(&locations)
-}
-
 pub fn dex_variables2_attributes(
     storage_view: &StorageChangesView,
     dex_id: &[u8; 32],
@@ -55,6 +57,16 @@ pub fn dex_variables2_attributes(
         number_of_bytes: 32,
         signed: false,
     }];
+    storage_view.get_changed_attributes(&locations)
+}
+
+pub fn tick_data_attributes(
+    storage_view: &StorageChangesView,
+    dex_id: &[u8; 32],
+    dex_type: u64,
+    ticks_idx: Vec<&BigInt>,
+) -> Vec<Attribute> {
+    let locations = tick_data_locations(dex_id, dex_type, ticks_idx);
     storage_view.get_changed_attributes(&locations)
 }
 
@@ -88,13 +100,12 @@ fn tick_data_locations(
     locations
 }
 
-pub fn tick_data_attributes(
+pub fn token_reserves_attributes(
     storage_view: &StorageChangesView,
     dex_id: &[u8; 32],
     dex_type: u64,
-    ticks_idx: Vec<&BigInt>,
 ) -> Vec<Attribute> {
-    let locations = tick_data_locations(dex_id, dex_type, ticks_idx);
+    let locations = token_reserves_locations(dex_id, dex_type);
     storage_view.get_changed_attributes(&locations)
 }
 
@@ -118,13 +129,4 @@ fn token_reserves_locations(dex_id: &[u8; 32], dex_type: u64) -> Vec<StorageLoca
             signed: false,
         },
     ]
-}
-
-pub fn token_reserves_attributes(
-    storage_view: &StorageChangesView,
-    dex_id: &[u8; 32],
-    dex_type: u64,
-) -> Vec<Attribute> {
-    let locations = token_reserves_locations(dex_id, dex_type);
-    storage_view.get_changed_attributes(&locations)
 }

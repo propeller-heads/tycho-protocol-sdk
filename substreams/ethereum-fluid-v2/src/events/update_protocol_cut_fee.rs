@@ -1,8 +1,10 @@
 use crate::{
     abi::d3_admin_module_idx_1::events::LogUpdateProtocolCutFee,
     events::EventTrait,
+    pb::tycho::evm::fluid_v2::Pool,
     storage::{dex_v2, storage_view::StorageChangesView},
 };
+use substreams::store::StoreGetProto;
 use substreams_ethereum::pb::eth::v2::StorageChange;
 use tycho_substreams::prelude::*;
 
@@ -18,7 +20,12 @@ impl EventTrait for LogUpdateProtocolCutFee {
         (hex::encode(self.dex_id), attrs)
     }
 
-    fn get_balance_delta(&self, _tx: &Transaction, _ordinal: u64) -> Vec<BalanceDelta> {
+    fn get_balance_delta(
+        &self,
+        _tx: &Transaction,
+        _ordinal: u64,
+        _pools_store: &StoreGetProto<Pool>,
+    ) -> Vec<BalanceDelta> {
         vec![]
     }
 }
