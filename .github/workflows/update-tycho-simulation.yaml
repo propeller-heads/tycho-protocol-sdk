@@ -31,7 +31,34 @@ jobs:
           echo "Updating to version: $VERSION"
           echo "tag=$VERSION" >> $GITHUB_OUTPUT
 
+      - name: Check if minor version changed
+        id: check_version
+        run: |
+          NEW_VERSION="${{ steps.version.outputs.tag }}"
+
+          # Extract current version from Cargo.toml
+          CURRENT_VERSION=$(grep 'tycho-simulation = { git = "https://github.com/propeller-heads/tycho-simulation.git", tag =' protocol-testing/Cargo.toml | head -n1 | sed -n 's/.*tag = "\([^"]*\)".*/\1/p')
+
+          echo "Current version: $CURRENT_VERSION"
+          echo "New version: $NEW_VERSION"
+
+          # Extract minor version (second number) from both versions
+          CURRENT_MINOR=$(echo "$CURRENT_VERSION" | cut -d. -f2)
+          NEW_MINOR=$(echo "$NEW_VERSION" | cut -d. -f2)
+
+          echo "Current minor: $CURRENT_MINOR"
+          echo "New minor: $NEW_MINOR"
+
+          if [ "$CURRENT_MINOR" = "$NEW_MINOR" ]; then
+            echo "Only patch version changed, skipping update"
+            echo "should_update=false" >> $GITHUB_OUTPUT
+          else
+            echo "Minor version changed, proceeding with update"
+            echo "should_update=true" >> $GITHUB_OUTPUT
+          fi
+
       - name: Update Cargo.toml files
+        if: steps.check_version.outputs.should_update == 'true'
         run: |
           NEW_TAG="${{ steps.version.outputs.tag }}"
 
@@ -40,10 +67,12 @@ jobs:
           sed -i 's|tycho-test = { git = "https://github.com/propeller-heads/tycho-simulation.git", tag = "[^"]*"|tycho-test = { git = "https://github.com/propeller-heads/tycho-simulation.git", tag = "'"$NEW_TAG"'"|g' protocol-testing/Cargo.toml
 
       - name: Update Cargo.lock
+        if: steps.check_version.outputs.should_update == 'true'
         working-directory: protocol-testing
         run: cargo update tycho-simulation tycho-test
 
       - name: Create Pull Request
+        if: steps.check_version.outputs.should_update == 'true'
         uses: peter-evans/create-pull-request@v6
         with:
           token: ${{ secrets.WORKFLOW_TOKEN }}
