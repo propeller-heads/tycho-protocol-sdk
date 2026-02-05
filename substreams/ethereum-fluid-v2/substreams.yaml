@@ -22,18 +22,18 @@ network: polygon
 networks:
   polygon:
     initialBlock:
-      map_pools_created: 79889908
-      store_pools: 79889908
-      map_balance_changes: 79889908
-      store_pools_balances: 79889908
-      map_protocol_changes: 79889908
+      map_pools_created: 79801933
+      store_pools: 79801933
+      map_balance_changes: 79801933
+      store_pools_balances: 79801933
+      map_protocol_changes: 79801933
     params:
       map_pools_created: "dex_v2_address=7822B3944B1a68B231a6e7F55B57967F28BB369e&liquidity_address=52Aa899454998Be5b000Ad077a46Bbe360F4e497"
       map_protocol_changes: "dex_v2_address=7822B3944B1a68B231a6e7F55B57967F28BB369e&liquidity_address=52Aa899454998Be5b000Ad077a46Bbe360F4e497"
 
 params:
-  map_pools_created: "dex_v2_address=0x7822B3944B1a68B231a6e7F55B57967F28BB369e"
-  map_protocol_changes: "dex_v2_address=0x7822B3944B1a68B231a6e7F55B57967F28BB369e"
+  map_pools_created: "dex_v2_address=7822B3944B1a68B231a6e7F55B57967F28BB369e&liquidity_address=52Aa899454998Be5b000Ad077a46Bbe360F4e497"
+  map_protocol_changes: "dex_v2_address=7822B3944B1a68B231a6e7F55B57967F28BB369e&liquidity_address=52Aa899454998Be5b000Ad077a46Bbe360F4e497"
 
 modules:
   - name: map_pools_created

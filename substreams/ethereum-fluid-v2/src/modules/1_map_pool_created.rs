@@ -18,9 +18,7 @@ pub fn map_pools_created(
     let mut new_pools: Vec<TransactionChanges> = vec![];
     let params = Params::parse_from_query(&params)?;
     let dex_v2_address = Address::from_str(&params.dex_v2_address).expect("Invalid dex_v2_address");
-    let liquidity_address =
-        Address::from_str(&params.liquidity_address).expect("Invalid liquidity_address");
-    get_new_pools(&block, &mut new_pools, dex_v2_address, liquidity_address);
+    get_new_pools(&block, &mut new_pools, dex_v2_address);
     Ok(BlockChanges { block: Some((&block).into()), changes: new_pools, ..Default::default() })
 }
 
@@ -28,7 +26,6 @@ fn get_new_pools(
     block: &eth::Block,
     new_pools: &mut Vec<TransactionChanges>,
     dex_v2_address: Address,
-    liquidity_address: Address,
 ) {
     let mut on_pool_initialize =
         |event: LogInitialize, _tx: &eth::TransactionTrace, _log: &eth::Log| {
@@ -83,7 +80,7 @@ fn get_new_pools(
                 component_changes: vec![ProtocolComponent {
                     id: event.dex_id.to_hex(),
                     tokens: vec![event.dex_key.0, event.dex_key.1],
-                    contracts: vec![liquidity_address.as_bytes().to_vec()],
+                    contracts: vec![],
                     static_att: vec![
                         Attribute {
                             name: "dex_type".to_string(),

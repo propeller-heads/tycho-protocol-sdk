@@ -1,9 +1,12 @@
 use crate::{
     abi::d3_user_module::events::LogWithdraw,
     events::EventTrait,
+    pb::tycho::evm::fluid_v2::Pool,
     storage::{dex_v2, storage_view::StorageChangesView},
 };
+use substreams::store::{StoreGet, StoreGetProto};
 use substreams_ethereum::pb::eth::v2::StorageChange;
+use substreams_helper::hex::Hexable;
 use tycho_substreams::prelude::*;
 
 impl EventTrait for LogWithdraw {
@@ -25,7 +28,51 @@ impl EventTrait for LogWithdraw {
         (hex::encode(self.dex_id), attrs)
     }
 
-    fn get_balance_delta(&self, _tx: &Transaction, _ordinal: u64) -> Vec<BalanceDelta> {
-        vec![]
+    fn get_balance_delta(
+        &self,
+        tx: &Transaction,
+        ordinal: u64,
+        pools_store: &StoreGetProto<Pool>,
+    ) -> Vec<BalanceDelta> {
+        let pool_key = format!("Pool:{}", hex::encode(self.dex_id).to_hex());
+        let pool = match pools_store.get_last(pool_key) {
+            Some(pool) => pool,
+            None => return vec![],
+        };
+
+        vec![
+            BalanceDelta {
+                ord: ordinal,
+                tx: Some(tx.clone()),
+                token: pool.token0.clone(),
+                delta: self
+                    .amount0
+                    .neg()
+                    .clone()
+                    .to_signed_bytes_be(),
+                component_id: self
+                    .dex_id
+                    .clone()
+                    .to_hex()
+                    .as_bytes()
+                    .to_vec(),
+            },
+            BalanceDelta {
+                ord: ordinal,
+                tx: Some(tx.clone()),
+                token: pool.token1.clone(),
+                delta: self
+                    .amount1
+                    .neg()
+                    .clone()
+                    .to_signed_bytes_be(),
+                component_id: self
+                    .dex_id
+                    .clone()
+                    .to_hex()
+                    .as_bytes()
+                    .to_vec(),
+            },
+        ]
     }
 }

@@ -1,8 +1,9 @@
-use crate::{events::get_log_changed_balances, pb::tycho::evm::fluid_v2::Pool};
+use crate::{
+    events::get_log_changed_balances, modules::utils::Params, pb::tycho::evm::fluid_v2::Pool,
+};
 use anyhow::Ok;
 use substreams::store::{StoreGet, StoreGetProto};
 use substreams_ethereum::pb::eth::v2::{self as eth};
-use substreams_helper::hex::Hexable;
 use tycho_substreams::models::{BlockBalanceDeltas, Transaction};
 
 #[substreams::handlers::map]
@@ -29,7 +30,7 @@ pub fn map_balance_changes(
             .filter(|call| !call.state_reverted)
             .flat_map(|call| &call.logs)
         {
-            tx_deltas = get_log_changed_balances(&tx, log, &dex_v2_address);
+            tx_deltas = get_log_changed_balances(&tx, log, &dex_v2_address, &pools_store);
         }
         if !tx_deltas.is_empty() {
             balance_deltas.extend(tx_deltas);
