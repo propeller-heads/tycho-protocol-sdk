@@ -1,18 +1,18 @@
-name: Update tycho-simulation dependency
+name: Update tycho-execution dependency
 
 on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'tycho-simulation version to update to'
+        description: 'tycho-execution version to update to'
         required: true
         type: string
   repository_dispatch:
-    types: [tycho-simulation-release]
+    types: [tycho-execution-release]
 
 jobs:
   check-and-update:
-    name: Check for new tycho-simulation release
+    name: Check for new tycho-execution release
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -25,7 +25,7 @@ jobs:
         with:
           toolchain: stable
 
-      - name: Get tycho-simulation version
+      - name: Get tycho-execution version
         id: version
         run: |
           VERSION="${{ github.event.client_payload.version || inputs.version }}"
@@ -38,7 +38,7 @@ jobs:
           NEW_VERSION="${{ steps.version.outputs.tag }}"
 
           # Extract current version from Cargo.toml
-          CURRENT_VERSION=$(grep 'tycho-simulation = { git = "https://github.com/propeller-heads/tycho-simulation.git", tag =' protocol-testing/Cargo.toml | head -n1 | sed -n 's/.*tag = "\([^"]*\)".*/\1/p')
+          CURRENT_VERSION=$(grep 'tycho-execution = ' protocol-testing/Cargo.toml | sed -n 's/.*tycho-execution = "\([^"]*\)".*/\1/p')
 
           echo "Current version: $CURRENT_VERSION"
           echo "New version: $NEW_VERSION"
@@ -58,26 +58,25 @@ jobs:
             echo "should_update=true" >> $GITHUB_OUTPUT
           fi
 
-      - name: Update Cargo.toml files
+      - name: Update Cargo.toml
         if: steps.check_version.outputs.should_update == 'true'
         run: |
           NEW_TAG="${{ steps.version.outputs.tag }}"
 
-          # Update protocol-testing/Cargo.toml - match any existing version
-          sed -i 's|tycho-simulation = { git = "https://github.com/propeller-heads/tycho-simulation.git", tag = "[^"]*"|tycho-simulation = { git = "https://github.com/propeller-heads/tycho-simulation.git", tag = "'"$NEW_TAG"'"|g' protocol-testing/Cargo.toml
-          sed -i 's|tycho-test = { git = "https://github.com/propeller-heads/tycho-simulation.git", tag = "[^"]*"|tycho-test = { git = "https://github.com/propeller-heads/tycho-simulation.git", tag = "'"$NEW_TAG"'"|g' protocol-testing/Cargo.toml
+          # Update protocol-testing/Cargo.toml - replace the version string
+          sed -i 's/tycho-execution = "[^"]*"/tycho-execution = "'"$NEW_TAG"'"/' protocol-testing/Cargo.toml
 
       - name: Update Cargo.lock
         if: steps.check_version.outputs.should_update == 'true'
         working-directory: protocol-testing
-        run: cargo update tycho-simulation tycho-test
+        run: cargo update tycho-execution
 
       - name: Create Pull Request
         if: steps.check_version.outputs.should_update == 'true'
         uses: peter-evans/create-pull-request@v6
         with:
           token: ${{ secrets.WORKFLOW_TOKEN }}
-          commit-message: "Update tycho-simulation to ${{ steps.version.outputs.tag }}"
+          commit-message: "Update tycho-execution to ${{ steps.version.outputs.tag }}"
           title: "feat: Update tycho dependencies"
           body: |
             ## Summary

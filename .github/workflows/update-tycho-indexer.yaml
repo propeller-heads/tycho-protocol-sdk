@@ -1,31 +1,25 @@
-name: Update tycho-simulation dependency
+name: Update tycho-indexer dependency
 
 on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'tycho-simulation version to update to'
+        description: 'tycho-indexer version to update to'
         required: true
         type: string
   repository_dispatch:
-    types: [tycho-simulation-release]
+    types: [tycho-indexer-release]
 
 jobs:
   check-and-update:
-    name: Check for new tycho-simulation release
+    name: Check for new tycho-indexer release
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           token: ${{ secrets.WORKFLOW_TOKEN }}
 
-      # Necessary to update Cargo.lock and run cargo update
-      - name: Setup toolchain
-        uses: dtolnay/rust-toolchain@v1
-        with:
-          toolchain: stable
-
-      - name: Get tycho-simulation version
+      - name: Get tycho-indexer version
         id: version
         run: |
           VERSION="${{ github.event.client_payload.version || inputs.version }}"
@@ -37,8 +31,8 @@ jobs:
         run: |
           NEW_VERSION="${{ steps.version.outputs.tag }}"
 
-          # Extract current version from Cargo.toml
-          CURRENT_VERSION=$(grep 'tycho-simulation = { git = "https://github.com/propeller-heads/tycho-simulation.git", tag =' protocol-testing/Cargo.toml | head -n1 | sed -n 's/.*tag = "\([^"]*\)".*/\1/p')
+          # Extract current version from Dockerfile
+          CURRENT_VERSION=$(grep 'git clone --depth 1 --branch' protocol-testing/run.Dockerfile | sed -n 's/.*--branch "\([^"]*\)".*/\1/p')
 
           echo "Current version: $CURRENT_VERSION"
           echo "New version: $NEW_VERSION"
@@ -58,26 +52,20 @@ jobs:
             echo "should_update=true" >> $GITHUB_OUTPUT
           fi
 
-      - name: Update Cargo.toml files
+      - name: Update Dockerfile
         if: steps.check_version.outputs.should_update == 'true'
         run: |
           NEW_TAG="${{ steps.version.outputs.tag }}"
 
-          # Update protocol-testing/Cargo.toml - match any existing version
-          sed -i 's|tycho-simulation = { git = "https://github.com/propeller-heads/tycho-simulation.git", tag = "[^"]*"|tycho-simulation = { git = "https://github.com/propeller-heads/tycho-simulation.git", tag = "'"$NEW_TAG"'"|g' protocol-testing/Cargo.toml
-          sed -i 's|tycho-test = { git = "https://github.com/propeller-heads/tycho-simulation.git", tag = "[^"]*"|tycho-test = { git = "https://github.com/propeller-heads/tycho-simulation.git", tag = "'"$NEW_TAG"'"|g' protocol-testing/Cargo.toml
-
-      - name: Update Cargo.lock
-        if: steps.check_version.outputs.should_update == 'true'
-        working-directory: protocol-testing
-        run: cargo update tycho-simulation tycho-test
+          # Update protocol-testing/run.Dockerfile - replace the version in the git clone command
+          sed -i 's/--branch "[^"]*"/--branch "'"$NEW_TAG"'"/' protocol-testing/run.Dockerfile
 
       - name: Create Pull Request
         if: steps.check_version.outputs.should_update == 'true'
         uses: peter-evans/create-pull-request@v6
         with:
           token: ${{ secrets.WORKFLOW_TOKEN }}
-          commit-message: "Update tycho-simulation to ${{ steps.version.outputs.tag }}"
+          commit-message: "Update tycho-indexer to ${{ steps.version.outputs.tag }}"
           title: "feat: Update tycho dependencies"
           body: |
             ## Summary
@@ -89,7 +77,7 @@ jobs:
 
             ### Test plan
             - [ ] All CI tests pass
-            - [ ] Protocol tests run successfully
+            - [ ] Protocol tests run successfully with new indexer version
 
             🤖 This PR was automatically created by dependency update workflows.
           branch: auto-update-dependencies

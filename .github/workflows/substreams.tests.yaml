@@ -41,6 +41,18 @@ jobs:
         with:
           files: substreams/**
 
+      - name: Check if Dockerfile changed
+        id: dockerfile-changed
+        uses: tj-actions/changed-files@v35
+        with:
+          files: protocol-testing/run.Dockerfile
+
+      - name: Check if Cargo.toml changed
+        id: cargo-toml-changed
+        uses: tj-actions/changed-files@v35
+        with:
+          files: protocol-testing/Cargo.toml
+
       - name: Get all substreams folders
         id: all_substreams
         run: |
@@ -84,6 +96,12 @@ jobs:
               PROTOCOLS="${{ steps.all_substreams.outputs.all_substreams }}"
               echo "Using all protocols: $PROTOCOLS"
             fi
+          elif [[ "${{ steps.dockerfile-changed.outputs.any_changed }}" == "true" ]]; then
+            PROTOCOLS="${{ steps.all_substreams.outputs.all_substreams }}"
+            echo "Dockerfile changed, testing all protocols: $PROTOCOLS"
+          elif [[ "${{ steps.cargo-toml-changed.outputs.any_changed }}" == "true" ]]; then
+            PROTOCOLS="${{ steps.all_substreams.outputs.all_substreams }}"
+            echo "Cargo.toml changed, testing all protocols: $PROTOCOLS"
           elif [[ "${{ steps.substreams-files-changed.outputs.any_changed }}" == "true" ]]; then
             PROTOCOLS="${{ steps.changes.outputs.changed_substreams }}"
             echo "Using changed protocols: $PROTOCOLS"
