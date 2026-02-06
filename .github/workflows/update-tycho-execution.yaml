@@ -76,20 +76,20 @@ jobs:
         uses: peter-evans/create-pull-request@v6
         with:
           token: ${{ secrets.WORKFLOW_TOKEN }}
-          commit-message: "feat: Update tycho-execution to ${{ steps.version.outputs.tag }}"
-          title: "feat: Update tycho-execution to ${{ steps.version.outputs.tag }}"
+          commit-message: "Update tycho-execution to ${{ steps.version.outputs.tag }}"
+          title: "feat: Update tycho dependencies"
           body: |
             ## Summary
-            Automated update of `tycho-execution` dependency to `${{ steps.version.outputs.tag }}`.
+            Automated dependency updates.
 
             ### Changes
-            - Updated `tycho-execution` to version `${{ steps.version.outputs.tag }}`
-            - Updated `Cargo.lock` accordingly
+            This PR includes automated updates for the following dependencies:
+            - See individual commits for details
 
             ### Test plan
             - [ ] All CI tests pass
             - [ ] Protocol tests run successfully
 
-            🤖 This PR was automatically created by the update-tycho-execution workflow.
-          branch: auto-update-tycho-execution-${{ steps.version.outputs.tag }}
+            🤖 This PR was automatically created by dependency update workflows.
+          branch: auto-update-dependencies
           delete-branch: true
