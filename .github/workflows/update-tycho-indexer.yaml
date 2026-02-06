@@ -19,6 +19,14 @@ jobs:
         with:
           token: ${{ secrets.WORKFLOW_TOKEN }}
 
+      - name: Fetch and checkout existing branch if it exists
+        run: |
+          git fetch origin auto-update-dependencies || true
+          if git rev-parse --verify origin/auto-update-dependencies >/dev/null 2>&1; then
+            git checkout -b auto-update-dependencies origin/auto-update-dependencies
+            git pull origin auto-update-dependencies
+          fi
+
       - name: Get tycho-indexer version
         id: version
         run: |
