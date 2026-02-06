@@ -19,12 +19,11 @@ jobs:
         with:
           token: ${{ secrets.WORKFLOW_TOKEN }}
 
-      - name: Fetch and checkout existing branch if it exists
+      - name: Merge existing branch changes if it exists
         run: |
           git fetch origin auto-update-dependencies || true
           if git rev-parse --verify origin/auto-update-dependencies >/dev/null 2>&1; then
-            git checkout -b auto-update-dependencies origin/auto-update-dependencies
-            git pull origin auto-update-dependencies
+            git merge origin/auto-update-dependencies --no-edit --allow-unrelated-histories
           fi
 
       # Necessary to update Cargo.lock and run cargo update
