@@ -1,0 +1,92 @@
+name: Update tycho-indexer dependency
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'tycho-indexer version to update to'
+        required: true
+        type: string
+  repository_dispatch:
+    types: [tycho-indexer-release]
+
+jobs:
+  check-and-update:
+    name: Check for new tycho-indexer release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.WORKFLOW_TOKEN }}
+
+      - name: Fetch and checkout existing branch if it exists
+        run: |
+          git fetch origin auto-update-dependencies || true
+          if git rev-parse --verify origin/auto-update-dependencies >/dev/null 2>&1; then
+            git checkout -b auto-update-dependencies origin/auto-update-dependencies
+            git pull origin auto-update-dependencies
+          fi
+
+      - name: Get tycho-indexer version
+        id: version
+        run: |
+          VERSION="${{ github.event.client_payload.version || inputs.version }}"
+          echo "Updating to version: $VERSION"
+          echo "tag=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Check if minor version changed
+        id: check_version
+        run: |
+          NEW_VERSION="${{ steps.version.outputs.tag }}"
+
+          # Extract current version from Dockerfile
+          CURRENT_VERSION=$(grep 'git clone --depth 1 --branch' protocol-testing/run.Dockerfile | sed -n 's/.*--branch "\([^"]*\)".*/\1/p')
+
+          echo "Current version: $CURRENT_VERSION"
+          echo "New version: $NEW_VERSION"
+
+          # Extract minor version (second number) from both versions
+          CURRENT_MINOR=$(echo "$CURRENT_VERSION" | cut -d. -f2)
+          NEW_MINOR=$(echo "$NEW_VERSION" | cut -d. -f2)
+
+          echo "Current minor: $CURRENT_MINOR"
+          echo "New minor: $NEW_MINOR"
+
+          if [ "$CURRENT_MINOR" = "$NEW_MINOR" ]; then
+            echo "Only patch version changed, skipping update"
+            echo "should_update=false" >> $GITHUB_OUTPUT
+          else
+            echo "Minor version changed, proceeding with update"
+            echo "should_update=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Update Dockerfile
+        if: steps.check_version.outputs.should_update == 'true'
+        run: |
+          NEW_TAG="${{ steps.version.outputs.tag }}"
+
+          # Update protocol-testing/run.Dockerfile - replace the version in the git clone command
+          sed -i 's/--branch "[^"]*"/--branch "'"$NEW_TAG"'"/' protocol-testing/run.Dockerfile
+
+      - name: Create Pull Request
+        if: steps.check_version.outputs.should_update == 'true'
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.WORKFLOW_TOKEN }}
+          commit-message: "Update tycho-indexer to ${{ steps.version.outputs.tag }}"
+          title: "feat: Update tycho dependencies"
+          body: |
+            ## Summary
+            Automated dependency updates.
+
+            ### Changes
+            This PR includes automated updates for the following dependencies:
+            - See individual commits for details
+
+            ### Test plan
+            - [ ] All CI tests pass
+            - [ ] Protocol tests run successfully with new indexer version
+
+            🤖 This PR was automatically created by dependency update workflows.
+          branch: auto-update-dependencies
+          delete-branch: true
