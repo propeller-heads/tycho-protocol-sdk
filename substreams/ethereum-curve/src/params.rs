@@ -57,12 +57,12 @@ impl CurveParams {
         .collect()
     }
 
-    fn pools_by_address(&self) -> HashMap<String, &PoolQueryParams> {
+    fn pools_by_tx_hash(&self) -> HashMap<String, &PoolQueryParams> {
         self.pool_params
             .as_ref()
             .into_iter()
             .flatten()
-            .map(|pool| (pool.address.clone(), pool))
+            .map(|pool| (pool.tx_hash.clone(), pool))
             .collect()
     }
 }
@@ -154,7 +154,7 @@ pub fn emit_specific_pools(
     tx: &TransactionTrace,
 ) -> Result<Option<(ProtocolComponent, Vec<EntityChanges>)>> {
     let curve_params = parse_curve_params(params)?;
-    create_component(tx, curve_params.pools_by_address())
+    create_component(tx, curve_params.pools_by_tx_hash())
 }
 
 fn create_component(
