@@ -22,13 +22,9 @@ pub fn map_pools_created(
     block: eth::Block,
 ) -> Result<BlockChanges, substreams::errors::Error> {
     let mut new_pools: Vec<TransactionChanges> = vec![];
-
     let params: Params = serde_qs::from_str(params.as_str()).expect("Unable to deserialize params");
-
     get_pools(&block, &mut new_pools, &params);
-
     let tycho_block: Block = (&block).into();
-
     Ok(BlockChanges { block: Some(tycho_block), changes: new_pools })
 }
 
