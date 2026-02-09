@@ -6,47 +6,50 @@ module_name: "map_protocol_changes"
 skip_balance_check: true
 initialized_accounts:
 tests:
-  - name: test_spUSDC
-    start_block: 23484422
-    stop_block: 23544422
-    expected_components:
-      - id: "0x28b3a8fb53b741a8fd78c0fb9a6b2393d896a43d"
-        tokens:
-          - "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48"
-          - "0x28b3a8fb53b741a8fd78c0fb9a6b2393d896a43d"
-        static_attributes:
-           name: "0x737055534443"
-        creation_tx: "0xebbeb171c33498b2ad47af8bb8bfcc17990db86dd0444b8e64754c250ae1a0b2"
-        skip_simulation: false
-        skip_execution: true
+  # This test is commented out because it needs to index more than 60k blocks
+  #  - name: test_spUSDC
+  #    start_block: 23484422
+  #    stop_block: 23544422
+  #    expected_components:
+  #      - id: "0x28b3a8fb53b741a8fd78c0fb9a6b2393d896a43d"
+  #        tokens:
+  #          - "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48"
+  #          - "0x28b3a8fb53b741a8fd78c0fb9a6b2393d896a43d"
+  #        static_attributes:
+  #           name: "0x737055534443"
+  #        creation_tx: "0xebbeb171c33498b2ad47af8bb8bfcc17990db86dd0444b8e64754c250ae1a0b2"
+  #        skip_simulation: false
+  #        skip_execution: true
 
-  - name: test_spUSDT
-    start_block: 23484439
-    stop_block: 23544422
-    expected_components:
-      - id: "0xe2e7a17dff93280dec073c995595155283e3c372"
-        tokens:
-          - "0xdac17f958d2ee523a2206206994597c13d831ec7"
-          - "0xe2e7a17dff93280dec073c995595155283e3c372"
-        static_attributes:
-          name: "0x737055534454"
-        creation_tx: "0x4fe047d7749d8c1fbfcad10ebd54dd34adeb296356d9c5d8a77f0a60e4c8bab2"
-        skip_simulation: false
-        skip_execution: true
+  #  This test is commented out because it needs to index almost 60k blocks
+  #  - name: test_spUSDT
+  #    start_block: 23484439
+  #    stop_block: 23544422
+  #    expected_components:
+  #      - id: "0xe2e7a17dff93280dec073c995595155283e3c372"
+  #        tokens:
+  #          - "0xdac17f958d2ee523a2206206994597c13d831ec7"
+  #          - "0xe2e7a17dff93280dec073c995595155283e3c372"
+  #        static_attributes:
+  #          name: "0x737055534454"
+  #        creation_tx: "0x4fe047d7749d8c1fbfcad10ebd54dd34adeb296356d9c5d8a77f0a60e4c8bab2"
+  #        skip_simulation: false
+  #        skip_execution: true
 
-  - name: test_spETH
-    start_block: 23484474
-    stop_block: 23544422
-    expected_components:
-      - id: "0xfe6eb3b609a7c8352a241f7f3a21cea4e9209b8f"
-        tokens:
-          - "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2"
-          - "0xfe6eb3b609a7c8352a241f7f3a21cea4e9209b8f"
-        static_attributes:
-          name: "0x7370455448"
-        creation_tx: "0xe8e324769d1e79969eb2febc30dc3371a96cb428094782a8488dbeb6541dfe7f"
-        skip_simulation: false
-        skip_execution: true
+  #  This test is commented out because it needs to index almost 60k blocks
+  #  - name: test_spETH
+  #    start_block: 23484474
+  #    stop_block: 23544422
+  #    expected_components:
+  #      - id: "0xfe6eb3b609a7c8352a241f7f3a21cea4e9209b8f"
+  #        tokens:
+  #          - "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2"
+  #          - "0xfe6eb3b609a7c8352a241f7f3a21cea4e9209b8f"
+  #        static_attributes:
+  #          name: "0x7370455448"
+  #        creation_tx: "0xe8e324769d1e79969eb2febc30dc3371a96cb428094782a8488dbeb6541dfe7f"
+  #        skip_simulation: false
+  #        skip_execution: true
 
   - name: test_sUSDS
     start_block: 20677434
@@ -62,19 +65,20 @@ tests:
         skip_simulation: false
         skip_execution: true
 
-  - name: test_sUSDC
-    start_block: 21969024
-    stop_block: 22019024
-    expected_components:
-      - id: "0xbc65ad17c5c0a2a4d159fa5a503f4992c7b545fe"
-        tokens:
-          - "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48"
-          - "0xbc65ad17c5c0a2a4d159fa5a503f4992c7b545fe"
-        static_attributes:
-          name: "0x7355534443"
-        creation_tx: "0x549d8f23f755f10ac453949f7ce76f19cfd3007ca8402588fe66b0e54ada627c"
-        skip_simulation: false
-        skip_execution: true
+  #  This test is commented out because it needs to index more than 50k blocks
+  #  - name: test_sUSDC
+  #    start_block: 21969024
+  #    stop_block: 22019024
+  #    expected_components:
+  #      - id: "0xbc65ad17c5c0a2a4d159fa5a503f4992c7b545fe"
+  #        tokens:
+  #          - "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48"
+  #          - "0xbc65ad17c5c0a2a4d159fa5a503f4992c7b545fe"
+  #        static_attributes:
+  #          name: "0x7355534443"
+  #        creation_tx: "0x549d8f23f755f10ac453949f7ce76f19cfd3007ca8402588fe66b0e54ada627c"
+  #        skip_simulation: false
+  #        skip_execution: true
 
   # - name: test_sDAI
   #   start_block: 16428133

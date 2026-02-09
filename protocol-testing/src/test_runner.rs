@@ -640,6 +640,12 @@ impl TestRunner {
     }
 
     async fn empty_database(&self) -> Result<(), tokio_postgres::Error> {
+        // Extract database name from the URL
+        let db_name = match self.db_url.rfind('/') {
+            Some(pos) => &self.db_url[pos + 1..],
+            None => "tycho_indexer_0", // fallback to default
+        };
+
         // Remove db name from URL. This is required because we cannot drop a database that we are
         // currently connected to.
         let base_url = match self.db_url.rfind('/') {
@@ -655,11 +661,13 @@ impl TestRunner {
             }
         });
 
+        // Use the extracted database name for both drop and create operations
+        let drop_query = format!("DROP DATABASE IF EXISTS \"{}\" WITH (FORCE)", db_name);
+        let create_query = format!("CREATE DATABASE \"{}\"", db_name);
+
+        client.execute(&drop_query, &[]).await?;
         client
-            .execute("DROP DATABASE IF EXISTS \"tycho_indexer_0\" WITH (FORCE)", &[])
-            .await?;
-        client
-            .execute("CREATE DATABASE \"tycho_indexer_0\"", &[])
+            .execute(&create_query, &[])
             .await?;
 
         Ok(())
