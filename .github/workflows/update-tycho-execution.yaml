@@ -19,6 +19,11 @@ jobs:
         with:
           token: ${{ secrets.WORKFLOW_TOKEN }}
 
+      - name: Configure Git
+        run: |
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git config --global user.name "github-actions[bot]"
+
       - name: Merge existing branch changes if it exists
         run: |
           git fetch origin auto-update-dependencies || true
