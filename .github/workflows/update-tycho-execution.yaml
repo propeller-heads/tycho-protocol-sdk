@@ -54,6 +54,7 @@ jobs:
 
           echo "Current version: $CURRENT_VERSION"
           echo "New version: $NEW_VERSION"
+          echo "current_version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
 
           # Extract minor version (second number) from both versions
           CURRENT_MINOR=$(echo "$CURRENT_VERSION" | cut -d. -f2)
@@ -81,7 +82,7 @@ jobs:
       - name: Update Cargo.lock
         if: steps.check_version.outputs.should_update == 'true'
         working-directory: protocol-testing
-        run: cargo update tycho-execution
+        run: cargo update -p tycho-execution@${{ steps.check_version.outputs.current_version }}
 
       - name: Create Pull Request
         if: steps.check_version.outputs.should_update == 'true'
