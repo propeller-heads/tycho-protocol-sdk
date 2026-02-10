@@ -20,7 +20,7 @@ impl EventTrait for LogSwapOut {
         let mut attrs = Vec::new();
         attrs.extend(dex_v2::dex_variables_attributes(&storage_view, &self.dex_id, dex_type));
         attrs.extend(dex_v2::token_reserves_attributes(&storage_view, &self.dex_id, dex_type));
-        (hex::encode(self.dex_id), attrs)
+        (self.dex_id.to_hex(), attrs)
     }
 
     fn get_balance_delta(

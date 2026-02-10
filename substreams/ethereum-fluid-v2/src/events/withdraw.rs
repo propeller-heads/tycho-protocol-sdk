@@ -25,7 +25,7 @@ impl EventTrait for LogWithdraw {
             vec![&self.tick_lower, &self.tick_upper],
         ));
         attrs.extend(dex_v2::token_reserves_attributes(&storage_view, &self.dex_id, dex_type));
-        (hex::encode(self.dex_id), attrs)
+        (self.dex_id.to_hex(), attrs)
     }
 
     fn get_balance_delta(

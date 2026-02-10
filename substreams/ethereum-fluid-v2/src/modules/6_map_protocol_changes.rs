@@ -204,7 +204,7 @@ fn exchange_price_changes(
             ("token1/borrow_exchange_price", "token1/supply_exchange_price")
         };
 
-        let component_id = hex::encode(&pool_address);
+        let component_id = pool_address.to_hex();
 
         changes.push(EntityChanges {
             component_id: component_id.clone(),
