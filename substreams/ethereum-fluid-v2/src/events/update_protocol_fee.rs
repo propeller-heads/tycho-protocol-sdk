@@ -6,6 +6,7 @@ use crate::{
 };
 use substreams::store::StoreGetProto;
 use substreams_ethereum::pb::eth::v2::StorageChange;
+use substreams_helper::hex::Hexable;
 use tycho_substreams::prelude::*;
 
 impl EventTrait for LogUpdateProtocolFee {
@@ -17,7 +18,7 @@ impl EventTrait for LogUpdateProtocolFee {
         let storage_view = StorageChangesView::new_filtered(dex_v2_address, storage_changes);
         let dex_type = self.dex_type.to_u64();
         let attrs = dex_v2::dex_variables2_attributes(&storage_view, &self.dex_id, dex_type);
-        (hex::encode(self.dex_id), attrs)
+        (self.dex_id.to_hex(), attrs)
     }
 
     fn get_balance_delta(
