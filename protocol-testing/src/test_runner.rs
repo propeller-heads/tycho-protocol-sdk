@@ -900,6 +900,7 @@ impl TestRunner {
                     parent_hash: Bytes::default(),
                     revert: false,
                     timestamp: block.header.timestamp,
+                    partial_block_index: None,
                 },
                 snapshots: snapshot,
                 deltas: None,
