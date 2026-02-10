@@ -12,7 +12,7 @@ tycho-simulation = { git = "https://github.com/propeller-heads/tycho-simulation.
     "evm",
 ] }
 tycho-test = { git = "https://github.com/propeller-heads/tycho-simulation.git", tag = "0.240.0" }
-tycho-execution = "0.157.0"
+tycho-execution = "0.158.0"
 num-bigint = "0.4"
 num-traits = "0.2"
 num-rational = "0.4.2"
