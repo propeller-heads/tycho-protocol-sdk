@@ -2594,7 +2594,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "39cab71617ae0d63f51a36d69f866391735b51691dbda63cf6f96d042b63efeb"
 dependencies = [
  "libc",
- "windows-sys 0.61.2",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -3944,7 +3944,7 @@ version = "0.50.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7957b9740744892f114936ab4a57b3f487491bbeafaf8083688b16841a4240e5"
 dependencies = [
- "windows-sys 0.61.2",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -4712,7 +4712,7 @@ dependencies = [
  "tokio-retry2",
  "tracing",
  "tracing-subscriber 0.3.22",
- "tycho-execution 0.154.0",
+ "tycho-execution",
  "tycho-simulation",
  "tycho-test",
 ]
@@ -4786,7 +4786,7 @@ dependencies = [
  "once_cell",
  "socket2 0.6.1",
  "tracing",
- "windows-sys 0.60.2",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -5375,7 +5375,7 @@ dependencies = [
  "errno",
  "libc",
  "linux-raw-sys",
- "windows-sys 0.61.2",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -6137,7 +6137,7 @@ dependencies = [
  "getrandom 0.3.4",
  "once_cell",
  "rustix",
- "windows-sys 0.61.2",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -6763,35 +6763,9 @@ dependencies = [
  "tracing",
  "tracing-appender",
  "tracing-subscriber 0.3.22",
- "tycho-common 0.138.0",
+ "tycho-common",
  "uuid",
  "zstd",
-]
-
-[[package]]
-name = "tycho-common"
-version = "0.125.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7345ccd2bc5c7107aac0356526ef362364865fe5b1c36c440ee1c26d1f30ac9e"
-dependencies = [
- "anyhow",
- "async-trait",
- "bytes",
- "chrono",
- "deepsize",
- "hex",
- "num-bigint",
- "rand 0.8.5",
- "serde",
- "serde_json",
- "strum 0.25.0",
- "strum_macros 0.25.3",
- "thiserror 1.0.69",
- "tiny-keccak",
- "tracing",
- "typetag",
- "utoipa",
- "uuid",
 ]
 
 [[package]]
@@ -6839,31 +6813,8 @@ dependencies = [
  "thiserror 1.0.69",
  "tokio",
  "tracing",
- "tycho-common 0.138.0",
+ "tycho-common",
  "unicode-segmentation",
-]
-
-[[package]]
-name = "tycho-execution"
-version = "0.154.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "525aa8c721bc6d6e4674d3f64263c3ba6c90b621b9db1d3a495495723dbec22b"
-dependencies = [
- "alloy",
- "chrono",
- "clap",
- "dotenv",
- "hex",
- "lazy_static",
- "num-bigint",
- "num-traits",
- "once_cell",
- "reqwest",
- "serde",
- "serde_json",
- "thiserror 1.0.69",
- "tokio",
- "tycho-common 0.125.1",
 ]
 
 [[package]]
@@ -6886,7 +6837,7 @@ dependencies = [
  "serde_json",
  "thiserror 1.0.69",
  "tokio",
- "tycho-common 0.125.1",
+ "tycho-common",
 ]
 
 [[package]]
@@ -6929,7 +6880,7 @@ dependencies = [
  "tokio-tungstenite 0.28.0",
  "tracing",
  "tycho-client",
- "tycho-common 0.138.0",
+ "tycho-common",
  "tycho-ethereum",
  "typetag",
  "uuid",
@@ -6962,9 +6913,9 @@ dependencies = [
  "tracing",
  "tracing-subscriber 0.3.22",
  "tycho-client",
- "tycho-common 0.138.0",
+ "tycho-common",
  "tycho-ethereum",
- "tycho-execution 0.157.0",
+ "tycho-execution",
  "tycho-simulation",
  "urlencoding",
 ]
@@ -7430,7 +7381,7 @@ version = "0.1.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c2a7b1c03c876122aa43f3020e6c3c3ee5c05081c9a00739faf7503aeba10d22"
 dependencies = [
- "windows-sys 0.61.2",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
