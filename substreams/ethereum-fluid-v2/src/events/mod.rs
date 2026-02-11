@@ -1,10 +1,13 @@
 use crate::{
     abi::{
+        controller_module::events::{
+            LogUpdateFeeVersion0, LogUpdateFeeVersion1, LogUpdateFetchDynamicFeeFlag,
+        },
         d3_admin_module_idx_1::events::{
             LogStopPerPoolAccounting, LogUpdateProtocolCutFee, LogUpdateProtocolFee,
         },
         d3_swap_module::events::{LogSwapIn, LogSwapOut},
-        d3_user_module::events::{LogDeposit, LogWithdraw},
+        d3_user_module::events::{LogDeposit, LogInitialize, LogWithdraw},
     },
     pb::tycho::evm::fluid_v2::Pool,
 };
@@ -16,9 +19,13 @@ use substreams_ethereum::{
 use tycho_substreams::prelude::*;
 
 pub mod deposit;
+pub mod fetch_dynamic_fee_flag;
+pub mod initialize;
 pub mod stop_per_pool_accounting;
 pub mod swap_in;
 pub mod swap_out;
+pub mod update_fee_version_0;
+pub mod update_fee_version_1;
 pub mod update_protocol_cut_fee;
 pub mod update_protocol_fee;
 pub mod withdraw;
@@ -54,6 +61,7 @@ pub trait EventTrait {
 
 /// Represent every events of a DEX V2 pool.
 pub enum EventType {
+    Initialize(LogInitialize),
     SwapIn(LogSwapIn),
     SwapOut(LogSwapOut),
     Deposit(LogDeposit),
@@ -61,11 +69,15 @@ pub enum EventType {
     StopPerPoolAccounting(LogStopPerPoolAccounting),
     UpdateProtocolFee(LogUpdateProtocolFee),
     UpdateProtocolCutFee(LogUpdateProtocolCutFee),
+    UpdateFeeVersion0(LogUpdateFeeVersion0),
+    UpdateFeeVersion1(LogUpdateFeeVersion1),
+    UpdateFetchDynamicFeeFlag(LogUpdateFetchDynamicFeeFlag),
 }
 
 impl EventType {
     fn as_event_trait(&self) -> &dyn EventTrait {
         match self {
+            EventType::Initialize(e) => e,
             EventType::SwapIn(e) => e,
             EventType::SwapOut(e) => e,
             EventType::Deposit(e) => e,
@@ -73,6 +85,9 @@ impl EventType {
             EventType::StopPerPoolAccounting(e) => e,
             EventType::UpdateProtocolFee(e) => e,
             EventType::UpdateProtocolCutFee(e) => e,
+            EventType::UpdateFeeVersion0(e) => e,
+            EventType::UpdateFeeVersion1(e) => e,
+            EventType::UpdateFetchDynamicFeeFlag(e) => e,
         }
     }
 }
@@ -80,6 +95,7 @@ impl EventType {
 /// Decodes a given log into an `EventType`.
 pub fn decode_event(event: &Log) -> Option<EventType> {
     [
+        LogInitialize::match_and_decode(event).map(EventType::Initialize),
         LogSwapIn::match_and_decode(event).map(EventType::SwapIn),
         LogSwapOut::match_and_decode(event).map(EventType::SwapOut),
         LogDeposit::match_and_decode(event).map(EventType::Deposit),
@@ -87,6 +103,10 @@ pub fn decode_event(event: &Log) -> Option<EventType> {
         LogStopPerPoolAccounting::match_and_decode(event).map(EventType::StopPerPoolAccounting),
         LogUpdateProtocolFee::match_and_decode(event).map(EventType::UpdateProtocolFee),
         LogUpdateProtocolCutFee::match_and_decode(event).map(EventType::UpdateProtocolCutFee),
+        LogUpdateFeeVersion0::match_and_decode(event).map(EventType::UpdateFeeVersion0),
+        LogUpdateFeeVersion1::match_and_decode(event).map(EventType::UpdateFeeVersion1),
+        LogUpdateFetchDynamicFeeFlag::match_and_decode(event)
+            .map(EventType::UpdateFetchDynamicFeeFlag),
     ]
     .into_iter()
     .find_map(std::convert::identity)
