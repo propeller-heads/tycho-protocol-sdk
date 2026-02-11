@@ -1,4 +1,5 @@
 #![allow(clippy::all)]
+pub mod controller_module;
 pub mod d3_admin_module_idx_1;
 pub mod d3_swap_module;
 pub mod d3_user_module;

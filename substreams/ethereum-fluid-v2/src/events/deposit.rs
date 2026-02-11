@@ -24,6 +24,7 @@ impl EventTrait for LogDeposit {
             dex_type,
             vec![&self.tick_lower, &self.tick_upper],
         ));
+        attrs.extend(dex_v2::dex_variables2_attributes(&storage_view, &self.dex_id, dex_type));
         attrs.extend(dex_v2::token_reserves_attributes(&storage_view, &self.dex_id, dex_type));
         (self.dex_id.to_hex(), attrs)
     }
