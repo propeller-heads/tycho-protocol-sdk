@@ -13,7 +13,7 @@ RUN /root/.foundry/bin/foundryup
 FROM rust:1.89-bookworm AS tycho-indexer-builder
 WORKDIR /build
 RUN apt-get update && apt-get install -y git
-RUN git clone --depth 1 --branch "0.83.4" https://github.com/propeller-heads/tycho-indexer.git
+RUN git clone --depth 1 --branch "0.139.0" https://github.com/propeller-heads/tycho-indexer.git
 WORKDIR /build/tycho-indexer
 RUN cargo build --release --bin tycho-indexer
 
@@ -97,18 +97,22 @@ COPY --from=protocol-sdk-builder /build/tycho-protocol-sdk/proto /app/proto
 # Copy EVM directory
 COPY --from=protocol-sdk-builder /build/tycho-protocol-sdk/evm/out /app/evm/out
 COPY --from=protocol-sdk-builder /build/tycho-protocol-sdk/evm/scripts /app/evm/scripts
+COPY --from=protocol-sdk-builder /build/tycho-protocol-sdk/evm/lib /app/evm/lib
+COPY --from=protocol-sdk-builder /build/tycho-protocol-sdk/evm/src /app/evm/src
+COPY --from=protocol-sdk-builder /build/tycho-protocol-sdk/evm/foundry.toml /app/evm/foundry.toml
 # Remove unnecessary EVM build artifacts
 RUN find /app/evm/out -name "*.json" ! -name "*.runtime.json" -delete && \
     find /app/evm/out -type d -empty -delete 2>/dev/null || true
 
+
 # Copy filtered substreams from filter stage
 COPY --from=substreams-filter /filtered /app/substreams
 
-# Clean up unnecessary files to reduce size
+# Clean up unnecessary files to reduce size (exclude EVM directories)
 RUN find /app -name "*.rs" -delete && \
     find /app -name "Cargo.toml" -delete && \
     find /app -name "Cargo.lock" -delete && \
-    find /app -name "src" -type d -exec rm -rf {} + 2>/dev/null || true && \
+    find /app -name "src" -type d -not -path "/app/evm/*" -exec rm -rf {} + 2>/dev/null || true && \
     find /app -name "*.d" -delete && \
     find /app -name "*.rlib" -delete && \
     find /app -name "*.rmeta" -delete && \

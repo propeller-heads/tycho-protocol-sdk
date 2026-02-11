@@ -13,8 +13,8 @@ services:
     environment:
       POSTGRES_PASSWORD: mypassword
       POSTGRES_USER: postgres
-      POSTGRES_DB: tycho_indexer_0
-    command: postgres -c shared_preload_libraries=pg_partman_bgw,pg_cron -c cron.database_name=tycho_indexer_0
+      POSTGRES_DB: ${DB_NAME:-tycho_indexer_0}
+    command: postgres -c shared_preload_libraries=pg_partman_bgw,pg_cron -c cron.database_name=${DB_NAME:-tycho_indexer_0}
     ports:
       - "5431:5432"
     shm_size: "1gb"
@@ -27,13 +27,13 @@ services:
       db:
         condition: service_healthy
     environment:
-      RUST_LOG: "${RUST_LOG:-protocol_testing=info}"
-      DATABASE_URL: postgres://postgres:mypassword@db:5432/tycho_indexer_0
+      RUST_LOG: "${RUST_LOG:-error,protocol_testing=info,tycho_indexer=info,tycho_client=info}"
+      DATABASE_URL: postgres://postgres:mypassword@db:5432/${DB_NAME:-tycho_indexer_0}
       RPC_URL: "${RPC_URL}"
       SUBSTREAMS_API_TOKEN: "${SUBSTREAMS_API_TOKEN}"
     # PROTOCOLS to test separated by space and with optional filter
     # e.g. "ethereum-balancer-v2=weighted_legacy_creation ethereum-ekubo-v2"
-    entrypoint: [ "/entrypoint.sh", "${PROTOCOLS}" ]
+    entrypoint: [ "/entrypoint.sh", "${PROTOCOL:-${PROTOCOLS}}" ]
 
 volumes:
   postgres_data:

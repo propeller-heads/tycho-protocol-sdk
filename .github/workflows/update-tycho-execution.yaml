@@ -1,0 +1,108 @@
+name: Update tycho-execution dependency
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'tycho-execution version to update to'
+        required: true
+        type: string
+  repository_dispatch:
+    types: [tycho-execution-release]
+
+jobs:
+  check-and-update:
+    name: Check for new tycho-execution release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.WORKFLOW_TOKEN }}
+
+      - name: Configure Git
+        run: |
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git config --global user.name "github-actions[bot]"
+
+      - name: Merge existing branch changes if it exists
+        run: |
+          git fetch origin auto-update-dependencies || true
+          if git rev-parse --verify origin/auto-update-dependencies >/dev/null 2>&1; then
+            git merge origin/auto-update-dependencies --no-edit --allow-unrelated-histories
+          fi
+
+      # Necessary to update Cargo.lock and run cargo update
+      - name: Setup toolchain
+        uses: dtolnay/rust-toolchain@v1
+        with:
+          toolchain: stable
+
+      - name: Get tycho-execution version
+        id: version
+        run: |
+          VERSION="${{ github.event.client_payload.version || inputs.version }}"
+          echo "Updating to version: $VERSION"
+          echo "tag=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Check if minor version changed
+        id: check_version
+        run: |
+          NEW_VERSION="${{ steps.version.outputs.tag }}"
+
+          # Extract current version from Cargo.toml
+          CURRENT_VERSION=$(grep 'tycho-execution = ' protocol-testing/Cargo.toml | sed -n 's/.*tycho-execution = "\([^"]*\)".*/\1/p')
+
+          echo "Current version: $CURRENT_VERSION"
+          echo "New version: $NEW_VERSION"
+          echo "current_version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
+
+          # Extract minor version (second number) from both versions
+          CURRENT_MINOR=$(echo "$CURRENT_VERSION" | cut -d. -f2)
+          NEW_MINOR=$(echo "$NEW_VERSION" | cut -d. -f2)
+
+          echo "Current minor: $CURRENT_MINOR"
+          echo "New minor: $NEW_MINOR"
+
+          if [ "$CURRENT_MINOR" = "$NEW_MINOR" ]; then
+            echo "Only patch version changed, skipping update"
+            echo "should_update=false" >> $GITHUB_OUTPUT
+          else
+            echo "Minor version changed, proceeding with update"
+            echo "should_update=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Update Cargo.toml
+        if: steps.check_version.outputs.should_update == 'true'
+        run: |
+          NEW_TAG="${{ steps.version.outputs.tag }}"
+
+          # Update protocol-testing/Cargo.toml - replace the version string
+          sed -i 's/tycho-execution = "[^"]*"/tycho-execution = "'"$NEW_TAG"'"/' protocol-testing/Cargo.toml
+
+      - name: Update Cargo.lock
+        if: steps.check_version.outputs.should_update == 'true'
+        working-directory: protocol-testing
+        run: cargo update -p tycho-execution@${{ steps.check_version.outputs.current_version }}
+
+      - name: Create Pull Request
+        if: steps.check_version.outputs.should_update == 'true'
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.WORKFLOW_TOKEN }}
+          commit-message: "Update tycho-execution to ${{ steps.version.outputs.tag }}"
+          title: "feat: Update tycho dependencies"
+          body: |
+            ## Summary
+            Automated dependency updates.
+
+            ### Changes
+            This PR includes automated updates for the following dependencies:
+            - See individual commits for details
+
+            ### Test plan
+            - [ ] All CI tests pass
+            - [ ] Protocol tests run successfully
+
+            🤖 This PR was automatically created by dependency update workflows.
+          branch: auto-update-dependencies
+          delete-branch: true

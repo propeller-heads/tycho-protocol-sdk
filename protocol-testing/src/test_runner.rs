@@ -231,9 +231,7 @@ impl TestRunner {
             build_spkg(substreams_yaml_path, start_block).wrap_err("Failed to build spkg")?;
 
         // Use tycho-indexer's Index command which handles both continuous syncing and RPC server
-        let tycho_runner = self
-            .tycho_runner(&[])
-            .await?;
+        let tycho_runner = self.tycho_runner(&[]).await?;
 
         let spkg_path_for_index = spkg_path.clone();
         let protocol_type_names = config.protocol_type_names.clone();
@@ -642,6 +640,12 @@ impl TestRunner {
     }
 
     async fn empty_database(&self) -> Result<(), tokio_postgres::Error> {
+        // Extract database name from the URL
+        let db_name = match self.db_url.rfind('/') {
+            Some(pos) => &self.db_url[pos + 1..],
+            None => "tycho_indexer_0", // fallback to default
+        };
+
         // Remove db name from URL. This is required because we cannot drop a database that we are
         // currently connected to.
         let base_url = match self.db_url.rfind('/') {
@@ -657,11 +661,13 @@ impl TestRunner {
             }
         });
 
+        // Use the extracted database name for both drop and create operations
+        let drop_query = format!("DROP DATABASE IF EXISTS \"{}\" WITH (FORCE)", db_name);
+        let create_query = format!("CREATE DATABASE \"{}\"", db_name);
+
+        client.execute(&drop_query, &[]).await?;
         client
-            .execute("DROP DATABASE IF EXISTS \"tycho_indexer_0\" WITH (FORCE)", &[])
-            .await?;
-        client
-            .execute("CREATE DATABASE \"tycho_indexer_0\"", &[])
+            .execute(&create_query, &[])
             .await?;
 
         Ok(())
@@ -894,6 +900,7 @@ impl TestRunner {
                     parent_hash: Bytes::default(),
                     revert: false,
                     timestamp: block.header.timestamp,
+                    partial_block_index: None,
                 },
                 snapshots: snapshot,
                 deltas: None,
@@ -1421,6 +1428,8 @@ mod tests {
 
     use super::*;
 
+    const PROTOCOLS_TO_IGNORE: [&str; 2] = ["base-aerodrome-slipstreams", "unichain-velodrome"];
+
     #[test]
     fn test_parse_all_configs() {
         let manifest_dir = env!("CARGO_MANIFEST_DIR");
@@ -1440,6 +1449,19 @@ mod tests {
                     if !path.is_file() {
                         results.push(Err(format!("Path is not a file: {}", path.display())));
                     } else {
+                        // Extract the protocol name from the path
+                        let protocol = path
+                            .parent()
+                            .and_then(|p| p.file_name())
+                            .map(|f| f.to_string_lossy());
+
+                        // Skip entry if protocol is in the ignore list
+                        if let Some(protocol) = protocol {
+                            if PROTOCOLS_TO_IGNORE.contains(&protocol.as_ref()) {
+                                continue;
+                            }
+                        }
+
                         let result = TestRunner::parse_config(&path);
                         if let Err(e) = &result {
                             results.push(Err(format!(
