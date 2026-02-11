@@ -127,20 +127,14 @@ pub fn map_components_with_balances(
                 };
 
                 for bind in parsed_binds.iter() {
-                    //HACK - we'll make the txn hash of the balance delta to be the tx hash of the 
-                    //pool creation, also the index too, so that it gets emitted in the same transaction
-                    //and not as txns from previous block (Block N) emitted in Block N + X... the decision 
-                    // to come to this was deliberated and this was the conclusion:
-
-                    //we assign the index and the hash of the current balance delta to make it seem
-                    //like the component change actually happened in the same transaction in the same
-                    // block, and not from a previous txn from a previous block, doing this before caused 
-                    //write conflicts during syncing with the tycho indexer 
-
-                    //always emit transaction together with the block that produced them, just emit old
-                    // component balances together with the component creation in the same transaction 
-                    //(it’s not 100% accurate but from a Tycho perspective it doesn’t break anything 
-                    // so it’s acceptable) 
+                // HACK: We assign the balance delta’s tx hash and index to the pool-creation transaction.
+                // This forces the component creation and its initial balances to be emitted in the same
+                // block and transaction, instead of being attributed to earlier blocks.
+                //
+                // We only have the full deployment context once all binds are completed, so we emit the
+                // component at that point using the tx of the final balance delta. While not perfectly
+                // accurate, this avoids write conflicts during Tycho indexing and preserves consistency
+                // from the indexer’s perspective.
                     let bind_tx = bind.tx.as_ref().unwrap();
                     let delta = BalanceDelta {
                         ord: bind.ordinal,
