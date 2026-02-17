@@ -1330,6 +1330,14 @@ impl TestRunner {
 
         info!("Batch execution complete: {} successes, {} failures", success_count, failure_count);
 
+        if failure_count > 0 {
+            return Err(miette::miette!(
+                "Execution failed: {} out of {} executions failed",
+                failure_count,
+                success_count + failure_count
+            ));
+        }
+
         Ok(())
     }
 
