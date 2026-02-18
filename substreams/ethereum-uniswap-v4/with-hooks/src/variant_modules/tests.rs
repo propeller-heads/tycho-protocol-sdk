@@ -86,9 +86,9 @@ mod hooks_tests {
         }
     }
 
-    // Helper function to create mock BlockEntityChanges with UniswapV4 pool creation
-    fn create_mock_pools_created() -> BlockEntityChanges {
-        let mut tx_changes = TransactionEntityChanges::default();
+    // Helper function to create mock BlockChanges with UniswapV4 pool creation
+    fn create_mock_pools_created() -> BlockChanges {
+        let mut tx_changes = TransactionChanges::default();
 
         let mut component_change = ProtocolComponent {
             id: "0x85405f10672f18aa00705afe87ec937d4eadcfc2652f223591b17040ea1d39d4".to_string(),
@@ -107,12 +107,12 @@ mod hooks_tests {
 
         tx_changes.component_changes = vec![component_change];
 
-        BlockEntityChanges { block: None, changes: vec![tx_changes] }
+        BlockChanges { block: None, changes: vec![tx_changes], storage_changes: vec![] }
     }
 
     #[test]
     fn test_track_uniswap_pools_by_hook() {
-        // Given: BlockEntityChanges with a pool creation that has a hook
+        // Given: BlockChanges with a pool creation that has a hook
         let pools_created = create_mock_pools_created();
 
         // Setup mock Euler store with the hook address
@@ -221,9 +221,9 @@ mod hooks_tests {
         block
     }
 
-    // Helper to create BlockEntityChanges that corresponds to the real transaction
-    fn create_real_pools_created_23120299() -> BlockEntityChanges {
-        let mut tx_changes = TransactionEntityChanges::default();
+    // Helper to create BlockChanges that corresponds to the real transaction
+    fn create_real_pools_created_23120299() -> BlockChanges {
+        let mut tx_changes = TransactionChanges::default();
 
         let mut component_change = ProtocolComponent {
             id: "real_pool_id_from_tx".to_string(), /* This would be the actual pool ID from the
@@ -243,7 +243,7 @@ mod hooks_tests {
 
         tx_changes.component_changes = vec![component_change];
 
-        BlockEntityChanges { block: None, changes: vec![tx_changes] }
+        BlockChanges { block: None, changes: vec![tx_changes], storage_changes: vec![] }
     }
 
     #[test]
