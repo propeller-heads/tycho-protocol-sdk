@@ -6763,7 +6763,7 @@ dependencies = [
  "tracing",
  "tracing-appender",
  "tracing-subscriber 0.3.22",
- "tycho-common",
+ "tycho-common 0.138.0",
  "uuid",
  "zstd",
 ]
@@ -6773,6 +6773,32 @@ name = "tycho-common"
 version = "0.138.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "759c669a4e3e9d9bfdb970e22141c42931bdd31271498c5fe547622479007670"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "bytes",
+ "chrono",
+ "deepsize",
+ "hex",
+ "num-bigint",
+ "rand 0.8.5",
+ "serde",
+ "serde_json",
+ "strum 0.25.0",
+ "strum_macros 0.25.3",
+ "thiserror 1.0.69",
+ "tiny-keccak",
+ "tracing",
+ "typetag",
+ "utoipa",
+ "uuid",
+]
+
+[[package]]
+name = "tycho-common"
+version = "0.143.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7948e4b81ea62272f8667d416f9a2dcac1a91f5c340f78812842528867b8963e"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -6813,15 +6839,15 @@ dependencies = [
  "thiserror 1.0.69",
  "tokio",
  "tracing",
- "tycho-common",
+ "tycho-common 0.138.0",
  "unicode-segmentation",
 ]
 
 [[package]]
 name = "tycho-execution"
-version = "0.159.0"
+version = "0.160.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ecf63423b4b64b2cbaaf5f92f91e3a264b9fa3c260235ae897f9bfe70c4fda49"
+checksum = "45694f91323ec97a2dafc200b34f9286988fa704b0fa3cef71254e2e314028e9"
 dependencies = [
  "alloy",
  "chrono",
@@ -6837,7 +6863,7 @@ dependencies = [
  "serde_json",
  "thiserror 1.0.69",
  "tokio",
- "tycho-common",
+ "tycho-common 0.143.0",
 ]
 
 [[package]]
@@ -6880,7 +6906,7 @@ dependencies = [
  "tokio-tungstenite 0.28.0",
  "tracing",
  "tycho-client",
- "tycho-common",
+ "tycho-common 0.138.0",
  "tycho-ethereum",
  "typetag",
  "uuid",
@@ -6913,7 +6939,7 @@ dependencies = [
  "tracing",
  "tracing-subscriber 0.3.22",
  "tycho-client",
- "tycho-common",
+ "tycho-common 0.138.0",
  "tycho-ethereum",
  "tycho-execution",
  "tycho-simulation",
