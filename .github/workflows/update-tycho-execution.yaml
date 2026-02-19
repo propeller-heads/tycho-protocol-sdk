@@ -90,7 +90,7 @@ jobs:
         with:
           token: ${{ secrets.WORKFLOW_TOKEN }}
           commit-message: "Update tycho-execution to ${{ steps.version.outputs.tag }}"
-          title: "feat: Update tycho dependencies"
+          title: "feat: Update tycho dependencies 🤖"
           body: |
             ## Summary
             Automated dependency updates.
