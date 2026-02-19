@@ -1,3 +1,5 @@
+# Alien Base V3 on Base (stock Uniswap V3 fork)
+# Factory: 0x0Fd83557b2be93617c9C1C1B6fd549401C74558C (deployed block 7150708)
 specVersion: v0.1.0
 package:
   name: "base_alienbase_v3_logs_only"
