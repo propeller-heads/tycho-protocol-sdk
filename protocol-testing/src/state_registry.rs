@@ -35,7 +35,7 @@ pub fn register_protocol(
             None,
             decoder_context,
         ),
-        "uniswap_v3" | "pancakeswap_v3" => stream_builder
+        "uniswap_v3" | "pancakeswap_v3" | "alienbase_v3" => stream_builder
             .exchange_with_decoder_context::<UniswapV3State>(
                 protocol_system,
                 tvl_filter,

@@ -69,6 +69,7 @@ static CLONE_TO_BASE_PROTOCOL: LazyLock<HashMap<&str, &str>> = LazyLock::new(|| 
     HashMap::from([
         ("ethereum-sushiswap-v2", "ethereum-uniswap-v2"),
         ("ethereum-pancakeswap-v2", "ethereum-uniswap-v2"),
+        ("base-alienbase-v3", "ethereum-uniswap-v3-logs-only"),
     ])
 });
 
@@ -1124,12 +1125,13 @@ impl TestRunner {
                         continue;
                     }
 
+                    let chain_model = ChainModel::from(self.chain);
+                    let chain_key = self.chain.to_string().to_lowercase();
                     let executors_json = json!({
-                        "ethereum": {
+                        (chain_key): {
                             (protocol_system): EXECUTOR_ADDRESS
                         }
                     });
-                    let chain_model = ChainModel::from(self.chain);
                     let (solution, calldata) = encode_swap(
                         component,
                         None,
