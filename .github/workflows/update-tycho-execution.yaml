@@ -85,6 +85,7 @@ jobs:
         run: cargo update -p tycho-execution@${{ steps.check_version.outputs.current_version }}
 
       - name: Create Pull Request
+        id: create-pr
         if: steps.check_version.outputs.should_update == 'true'
         uses: peter-evans/create-pull-request@v6
         with:
@@ -106,3 +107,14 @@ jobs:
             🤖 This PR was automatically created by dependency update workflows.
           branch: auto-update-dependencies
           delete-branch: true
+
+      - name: Notify Slack
+        if: steps.create-pr.outputs.pull-request-url
+        uses: slackapi/slack-github-action@v2.0.0
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
+          webhook-type: incoming-webhook
+          payload: |
+            {
+              "text": "🤖 *tycho-execution* updated to `${{ steps.version.outputs.tag }}` in tycho-protocol-sdk\n<${{ steps.create-pr.outputs.pull-request-url }}|View PR>"
+            }
