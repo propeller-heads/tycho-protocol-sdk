@@ -16,3 +16,4 @@ breaking:
   except:
     - EXTENSION_NO_DELETE
     - FIELD_SAME_DEFAULT
+    - MESSAGE_NO_DELETE

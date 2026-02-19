@@ -2,7 +2,5 @@ syntax = "proto3";
 
 package tycho.evm.v1;
 
-import "tycho/evm/v1/common.proto";
-
 // DEPRECATED: All types have been moved to common.proto.
 // This file is kept as a stub because it is referenced in substreams.yaml protobuf.files sections.
