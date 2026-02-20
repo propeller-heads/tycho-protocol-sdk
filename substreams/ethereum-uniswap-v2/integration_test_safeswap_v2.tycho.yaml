@@ -1,0 +1,20 @@
+substreams_yaml_path: ./ethereum-safeswap-v2.yaml
+protocol_system: "safeswap_v2"
+protocol_type_names:
+  - "safeswap_v2_pool"
+module_name: "map_pool_events"
+skip_balance_check: true
+initialized_accounts:
+tests:
+  - name: test_first_pool
+    start_block: 14467729
+    stop_block: 14467730
+    expected_components:
+      - id: "0xce71b8023c01f05f4458eb66c8e68d3cab0d5d64"
+        tokens:
+          - "0x514910771af9ca656af840dff83e8264ecf986ca"
+          - "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2"
+        static_attributes:
+          fee: "0x1e"
+        creation_tx: "0x6cf8c12b8c54dcd859cc27b2383f6a4105ea83d88a18d6fa70c4263dfaa282be"
+        skip_simulation: true

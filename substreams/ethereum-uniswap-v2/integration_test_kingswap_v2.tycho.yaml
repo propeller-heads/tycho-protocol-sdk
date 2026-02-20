@@ -1,0 +1,20 @@
+substreams_yaml_path: ./ethereum-kingswap-v2.yaml
+protocol_system: "kingswap_v2"
+protocol_type_names:
+  - "kingswap_v2_pool"
+module_name: "map_pool_events"
+skip_balance_check: true
+initialized_accounts:
+tests:
+  - name: test_first_pool
+    start_block: 11303278
+    stop_block: 11303279
+    expected_components:
+      - id: "0x5e81b946b61f3c7f73bf84dd961de3a0a78e8c33"
+        tokens:
+          - "0x5a731151d6510eb475cc7a0072200cffc9a3bfe5"
+          - "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2"
+        static_attributes:
+          fee: "0x1e"
+        creation_tx: "0xc9be0ee022d86c4e88a0190908723da121bfe746d7d1eaa7c248dd9d91d810af"
+        skip_simulation: true

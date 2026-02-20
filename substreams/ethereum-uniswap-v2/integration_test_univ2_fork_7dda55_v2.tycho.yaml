@@ -1,0 +1,20 @@
+substreams_yaml_path: ./ethereum-univ2-fork-7dda55-v2.yaml
+protocol_system: "univ2_fork_7dda55_v2"
+protocol_type_names:
+  - "univ2_fork_7dda55_v2_pool"
+module_name: "map_pool_events"
+skip_balance_check: true
+initialized_accounts:
+tests:
+  - name: test_first_pool
+    start_block: 11250984
+    stop_block: 11250985
+    expected_components:
+      - id: "0x22fd3d4101cb03a0756d7d55c6149d9d7fc4e8ac"
+        tokens:
+          - "0x0ab3135cc9f186f1d13c73466971cf928d761ffa"
+          - "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2"
+        static_attributes:
+          fee: "0x1e"
+        creation_tx: "0x08fb99728b6f22108efe2643e1cae171e3a988a3536fbc36cd6d6bdfc0da7ffd"
+        skip_simulation: true

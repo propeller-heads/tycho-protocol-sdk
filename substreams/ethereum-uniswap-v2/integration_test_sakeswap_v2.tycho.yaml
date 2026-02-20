@@ -1,0 +1,20 @@
+substreams_yaml_path: ./ethereum-sakeswap-v2.yaml
+protocol_system: "sakeswap_v2"
+protocol_type_names:
+  - "sakeswap_v2_pool"
+module_name: "map_pool_events"
+skip_balance_check: true
+initialized_accounts:
+tests:
+  - name: test_first_pool
+    start_block: 10939197
+    stop_block: 10939198
+    expected_components:
+      - id: "0x83970b5570e4cb5fc5e21ef9b9f3c4f8a129c2f2"
+        tokens:
+          - "0x066798d9ef0833ccc719076dab77199ecbd178b0"
+          - "0x1f9840a85d5af5bf1d1762f925bdaddc4201f984"
+        static_attributes:
+          fee: "0x1e"
+        creation_tx: "0xaa6dffac0fbe2fc148a3cdbda2e8726583bb796ff637587fc3e4885a373ec276"
+        skip_simulation: true

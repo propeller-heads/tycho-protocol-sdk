@@ -1,0 +1,20 @@
+substreams_yaml_path: ./ethereum-saitaswap-v2.yaml
+protocol_system: "saitaswap_v2"
+protocol_type_names:
+  - "saitaswap_v2_pool"
+module_name: "map_pool_events"
+skip_balance_check: true
+initialized_accounts:
+tests:
+  - name: test_first_pool
+    start_block: 17785023
+    stop_block: 17785024
+    expected_components:
+      - id: "0x9c864a0ec8ca474d7bc21104b86905a0af0239b4"
+        tokens:
+          - "0xae36155a55f04a696b8362777620027882b31db5"
+          - "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2"
+        static_attributes:
+          fee: "0x1e"
+        creation_tx: "0xe9b71722b5bd7446f03cbff0a9d36a3594188b7e9fe8bd415e77ba22efaad2ea"
+        skip_simulation: true

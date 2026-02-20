@@ -1,0 +1,20 @@
+substreams_yaml_path: ./ethereum-jmswap-v2.yaml
+protocol_system: "jmswap_v2"
+protocol_type_names:
+  - "jmswap_v2_pool"
+module_name: "map_pool_events"
+skip_balance_check: true
+initialized_accounts:
+tests:
+  - name: test_first_pool
+    start_block: 13422066
+    stop_block: 13422067
+    expected_components:
+      - id: "0x87f006e8356ea8214896a41b829b72169f1723d9"
+        tokens:
+          - "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2"
+          - "0xdac17f958d2ee523a2206206994597c13d831ec7"
+        static_attributes:
+          fee: "0x1e"
+        creation_tx: "0x9574ce93c1fa1033e52211bb381897fc8e67b67ace0a044c63711f290aa1318a"
+        skip_simulation: true

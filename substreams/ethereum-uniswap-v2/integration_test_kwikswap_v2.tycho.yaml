@@ -1,0 +1,20 @@
+substreams_yaml_path: ./ethereum-kwikswap-v2.yaml
+protocol_system: "kwikswap_v2"
+protocol_type_names:
+  - "kwikswap_v2_pool"
+module_name: "map_pool_events"
+skip_balance_check: true
+initialized_accounts:
+tests:
+  - name: test_first_pool
+    start_block: 11918641
+    stop_block: 11918642
+    expected_components:
+      - id: "0xae933d0a8d630e30a2e035284e35f232f4590e33"
+        tokens:
+          - "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2"
+          - "0xdac17f958d2ee523a2206206994597c13d831ec7"
+        static_attributes:
+          fee: "0x1e"
+        creation_tx: "0x6ca8e929fb0d7d8f3a58d57dc69fade240ca7360fcc9919460c65399f31b0eb2"
+        skip_simulation: true

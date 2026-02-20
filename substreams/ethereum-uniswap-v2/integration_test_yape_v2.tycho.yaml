@@ -1,0 +1,20 @@
+substreams_yaml_path: ./ethereum-yape-v2.yaml
+protocol_system: "yape_v2"
+protocol_type_names:
+  - "yape_v2_pool"
+module_name: "map_pool_events"
+skip_balance_check: true
+initialized_accounts:
+tests:
+  - name: test_first_pool
+    start_block: 12791283
+    stop_block: 12791284
+    expected_components:
+      - id: "0x23c1653e9e13eefe2e1b5954bfef00a2db0483b6"
+        tokens:
+          - "0x6b175474e89094c44da98b954eedeac495271d0f"
+          - "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48"
+        static_attributes:
+          fee: "0x1e"
+        creation_tx: "0x7ca4b887dcd1c815009acade825ac0dcb21c30b86bfda5480cd7a6556d45e889"
+        skip_simulation: true

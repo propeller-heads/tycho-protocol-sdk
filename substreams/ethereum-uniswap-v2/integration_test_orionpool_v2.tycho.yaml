@@ -1,0 +1,20 @@
+substreams_yaml_path: ./ethereum-orionpool-v2.yaml
+protocol_system: "orionpool_v2"
+protocol_type_names:
+  - "orionpool_v2_pool"
+module_name: "map_pool_events"
+skip_balance_check: true
+initialized_accounts:
+tests:
+  - name: test_first_pool
+    start_block: 12630156
+    stop_block: 12630157
+    expected_components:
+      - id: "0xbd402a0cf18148389c6f10b6e67aea915c3960ec"
+        tokens:
+          - "0x0258f474786ddfd37abce6df6bbb1dd5dfc4434a"
+          - "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2"
+        static_attributes:
+          fee: "0x1e"
+        creation_tx: "0x5d7c29e3ce467a5a8f6ea3016c92b8271efa0dbebd0e37235a75763c0409f382"
+        skip_simulation: true

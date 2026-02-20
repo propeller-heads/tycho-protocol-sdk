@@ -1,0 +1,20 @@
+substreams_yaml_path: ./ethereum-univ2-proxy-8ff485-v2.yaml
+protocol_system: "univ2_proxy_8ff485_v2"
+protocol_type_names:
+  - "univ2_proxy_8ff485_v2_pool"
+module_name: "map_pool_events"
+skip_balance_check: true
+initialized_accounts:
+tests:
+  - name: test_first_pool
+    start_block: 16926847
+    stop_block: 16926848
+    expected_components:
+      - id: "0xd1639a4084188dd9335243f45051aa6592983cdf"
+        tokens:
+          - "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48"
+          - "0xbe0d3526fc797583dada3f30bc390013062a048b"
+        static_attributes:
+          fee: "0x1e"
+        creation_tx: "0x97b83c8333ab440c9acd8664f74d42a28f8a8cbeac8210cac7de49f542df76ec"
+        skip_simulation: true

@@ -1,0 +1,20 @@
+substreams_yaml_path: ./ethereum-crodefi-swap-v2.yaml
+protocol_system: "crodefi_swap_v2"
+protocol_type_names:
+  - "crodefi_swap_v2_pool"
+module_name: "map_pool_events"
+skip_balance_check: true
+initialized_accounts:
+tests:
+  - name: test_first_pool
+    start_block: 10828523
+    stop_block: 10828524
+    expected_components:
+      - id: "0x35e8777ec43cb99e935588dcd0305268f06c1274"
+        tokens:
+          - "0xa0b73e1ff0b80914ab6fe0444e65848c4c34450b"
+          - "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48"
+        static_attributes:
+          fee: "0x1e"
+        creation_tx: "0xd64952e99c894edb3216e98c82aefcb351cb1589fabf893ebc3dcbae6bcad0b2"
+        skip_simulation: true

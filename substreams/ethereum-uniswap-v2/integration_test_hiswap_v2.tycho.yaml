@@ -1,0 +1,20 @@
+substreams_yaml_path: ./ethereum-hiswap-v2.yaml
+protocol_system: "hiswap_v2"
+protocol_type_names:
+  - "hiswap_v2_pool"
+module_name: "map_pool_events"
+skip_balance_check: true
+initialized_accounts:
+tests:
+  - name: test_first_pool
+    start_block: 10717843
+    stop_block: 10717844
+    expected_components:
+      - id: "0xa3a990b0897e6bf30aabe8078e392078a4b45cc8"
+        tokens:
+          - "0xa42d502ba320fb91d1b92b07a1f5883b5945967d"
+          - "0xf5ccd3a44e3e3a5b86533646471caf3a04c6c40a"
+        static_attributes:
+          fee: "0x1e"
+        creation_tx: "0x4cdd5f6560c4673c34e81eb5201a541983823197467037b742db1ad9e676ece9"
+        skip_simulation: true
