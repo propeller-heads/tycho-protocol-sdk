@@ -1,7 +1,7 @@
 substreams_yaml_path: ./ethereum-mintyswap-v2.yaml
-protocol_system: "mintyswap_v2"
+protocol_system: "uniswap_v2"
 protocol_type_names:
-  - "mintyswap_v2_pool"
+  - "uniswap_v2_pool"
 module_name: "map_pool_events"
 skip_balance_check: true
 initialized_accounts:

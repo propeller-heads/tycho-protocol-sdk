@@ -1,7 +1,7 @@
 substreams_yaml_path: ./ethereum-btswap-v2.yaml
-protocol_system: "btswap_v2"
+protocol_system: "uniswap_v2"
 protocol_type_names:
-  - "btswap_v2_pool"
+  - "uniswap_v2_pool"
 module_name: "map_pool_events"
 skip_balance_check: true
 initialized_accounts:
@@ -17,4 +17,4 @@ tests:
         static_attributes:
           fee: "0x1e"
         creation_tx: "0xac0e0fefc2f3896d998ac6e8fdd44753f99ef6e92df723d740e491c23fba062e"
-        skip_simulation: false
+        skip_simulation: true

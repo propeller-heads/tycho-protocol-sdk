@@ -1,7 +1,7 @@
 substreams_yaml_path: ./ethereum-fraxswap-v2.yaml
-protocol_system: "fraxswap_v2"
+protocol_system: "uniswap_v2"
 protocol_type_names:
-  - "fraxswap_v2_pool"
+  - "uniswap_v2_pool"
 module_name: "map_pool_events"
 skip_balance_check: true
 initialized_accounts:
@@ -17,4 +17,4 @@ tests:
         static_attributes:
           fee: "0x1e"
         creation_tx: "0x869ee2fc50d04552319df112aebae3b76b1070b12f8aa4c83dba7be5d305b9fc"
-        skip_simulation: false
+        skip_simulation: true

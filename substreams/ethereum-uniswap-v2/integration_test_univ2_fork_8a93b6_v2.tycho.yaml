@@ -1,7 +1,7 @@
 substreams_yaml_path: ./ethereum-univ2-fork-8a93b6-v2.yaml
-protocol_system: "univ2_fork_8a93b6_v2"
+protocol_system: "uniswap_v2"
 protocol_type_names:
-  - "univ2_fork_8a93b6_v2_pool"
+  - "uniswap_v2_pool"
 module_name: "map_pool_events"
 skip_balance_check: true
 initialized_accounts:

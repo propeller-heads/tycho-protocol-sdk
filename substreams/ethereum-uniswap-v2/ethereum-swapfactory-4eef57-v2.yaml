@@ -46,4 +46,4 @@ modules:
       type: proto:tycho.evm.v1.BlockChanges
 
 params:
-  map_pools_created: factory_address=4eef5746ed22a2fd368629c1852365bf5dcb79f1&protocol_type_name=swapfactory_4eef57_v2_pool
+  map_pools_created: factory_address=4eef5746ed22a2fd368629c1852365bf5dcb79f1&protocol_type_name=uniswap_v2_pool
