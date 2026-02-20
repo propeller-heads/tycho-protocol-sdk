@@ -115,7 +115,6 @@ static CLONE_TO_BASE_PROTOCOL: LazyLock<HashMap<&str, &str>> = LazyLock::new(|| 
         ("ethereum-univ2-fork-e81357-v2", "ethereum-uniswap-v2"),
         ("ethereum-btswap-v2", "ethereum-uniswap-v2"),
         // UniV3 fork factories
-        ("ethereum-univ3-fork-baceb8-v3", "ethereum-uniswap-v3"),
         ("ethereum-shibaswap-v3", "ethereum-uniswap-v3"),
         ("ethereum-mintyswap-v3", "ethereum-uniswap-v3"),
         ("ethereum-blueprint-v3", "ethereum-uniswap-v3"),
