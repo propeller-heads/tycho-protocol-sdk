@@ -392,34 +392,6 @@ impl ImplementationType {
         }
     }
 }
-// WARNING: DEPRECATED. Please use common.proto's TransactionChanges and BlockChanges instead.
-// This file contains the definition for the native integration of Substreams.
-
-#[allow(clippy::derive_partial_eq_without_eq)]
-#[derive(Clone, PartialEq, ::prost::Message)]
-pub struct TransactionEntityChanges {
-    #[prost(message, optional, tag="1")]
-    pub tx: ::core::option::Option<Transaction>,
-    #[prost(message, repeated, tag="2")]
-    pub entity_changes: ::prost::alloc::vec::Vec<EntityChanges>,
-    /// An array of newly added components.
-    #[prost(message, repeated, tag="3")]
-    pub component_changes: ::prost::alloc::vec::Vec<ProtocolComponent>,
-    /// An array of balance changes to components.
-    #[prost(message, repeated, tag="4")]
-    pub balance_changes: ::prost::alloc::vec::Vec<BalanceChange>,
-}
-/// A set of transaction changes within a single block.
-#[allow(clippy::derive_partial_eq_without_eq)]
-#[derive(Clone, PartialEq, ::prost::Message)]
-pub struct BlockEntityChanges {
-    /// The block for which these changes are collectively computed.
-    #[prost(message, optional, tag="1")]
-    pub block: ::core::option::Option<Block>,
-    /// The set of transaction changes observed in the specified block.
-    #[prost(message, repeated, tag="2")]
-    pub changes: ::prost::alloc::vec::Vec<TransactionEntityChanges>,
-}
 /// A message containing relative balance changes.
 ///
 /// Used to track token balances of protocol components in case they are only
