@@ -8,7 +8,7 @@ initialized_accounts:
 tests:
   - name: test_first_pool
     start_block: 16984102
-    stop_block: 16984103
+    stop_block: 16984110
     expected_components:
       - id: "0x35644fb61afbc458bf92b15add6abc1996be5014"
         tokens:
@@ -17,4 +17,4 @@ tests:
         static_attributes:
           fee: "0x1f4"
         creation_tx: "0x0e71aa8adc6245df558c9b350e8ca29f270c88d1706049df9ab9cf9d3ea1f59d"
-        skip_simulation: true
+        skip_simulation: true  # Pool reverts on swap; may have modified swap logic

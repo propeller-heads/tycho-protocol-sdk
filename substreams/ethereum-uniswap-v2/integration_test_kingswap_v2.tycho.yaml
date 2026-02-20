@@ -17,4 +17,4 @@ tests:
         static_attributes:
           fee: "0x1e"
         creation_tx: "0xc9be0ee022d86c4e88a0190908723da121bfe746d7d1eaa7c248dd9d91d810af"
-        skip_simulation: true
+        skip_simulation: false
