@@ -1,0 +1,20 @@
+substreams_yaml_path: ./ethereum-mintyswap-v3.yaml
+protocol_system: "uniswap_v3"
+protocol_type_names:
+  - "uniswap_v3_pool"
+module_name: "map_pool_events"
+skip_balance_check: true
+initialized_accounts:
+tests:
+  - name: test_first_pool
+    start_block: 13321146
+    stop_block: 13321147
+    expected_components:
+      - id: "0x20eff6c6ac3a7a6116fe35a5409979cfb96d38e7"
+        tokens:
+          - "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48"
+          - "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2"
+        static_attributes:
+          fee: "0x12c"
+        creation_tx: "0x167f7f441a92e4f1a135dc5c49632a3129491bffeeb39f8ea29de88e4eb10877"
+        skip_simulation: true
