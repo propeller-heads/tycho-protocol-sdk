@@ -31,6 +31,12 @@ pub fn map_pools_created(
 
     let params: Params = serde_qs::from_str(params.as_str()).expect("Unable to deserialize params");
 
+    assert!(
+        params.fee <= 10000,
+        "fee must be <= 10000 bps, got {}",
+        params.fee
+    );
+
     get_pools(&block, &mut new_pools, &params);
 
     let tycho_block: Block = (&block).into();
