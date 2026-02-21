@@ -18,4 +18,4 @@ tests:
           fee: "0x2ee"
         creation_tx: "0xdf7f71583729b10becac1eab8264f97c360c80009e9add80e18e7845e1aaf061"
         skip_simulation: false
-        skip_execution: true
+        skip_execution: false

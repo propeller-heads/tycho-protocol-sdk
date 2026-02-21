@@ -29,6 +29,8 @@ const MAVERICK_V2_BYTECODE_JSON: &str =
     include_str!("../../evm/test/executors/MaverickV2.runtime.json");
 const EKUBO_BYTECODE_JSON: &str = include_str!("../../evm/test/executors/Ekubo.runtime.json");
 const LIDO_BYTECODE_JSON: &str = include_str!("../../evm/test/executors/Lido.runtime.json");
+const ALIENBASE_V3_BYTECODE_JSON: &str =
+    include_str!("../../evm/test/executors/AlienbaseV3.runtime.json");
 
 /// Mapping from protocol component patterns to executor bytecode JSON strings
 static EXECUTOR_MAPPING: LazyLock<HashMap<&'static str, &'static str>> = LazyLock::new(|| {
@@ -38,7 +40,7 @@ static EXECUTOR_MAPPING: LazyLock<HashMap<&'static str, &'static str>> = LazyLoc
     map.insert("pancakeswap_v2", UNISWAP_V2_BYTECODE_JSON);
     map.insert("uniswap_v3", UNISWAP_V3_BYTECODE_JSON);
     map.insert("pancakeswap_v3", UNISWAP_V3_BYTECODE_JSON);
-    map.insert("alienbase_v3", UNISWAP_V3_BYTECODE_JSON);
+    map.insert("alienbase_v3", ALIENBASE_V3_BYTECODE_JSON);
     map.insert("uniswap_v4", UNISWAP_V4_BYTECODE_JSON);
     // If you would like to test any other hook, replace this bytecode with the
     // desired hook bytecode
