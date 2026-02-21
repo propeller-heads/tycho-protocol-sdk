@@ -1,0 +1,21 @@
+substreams_yaml_path: ./base-alienbase-v3.yaml
+protocol_system: "alienbase_v3"
+protocol_type_names:
+  - "uniswap_v3_pool"
+module_name: "map_protocol_changes"
+skip_balance_check: false
+initialized_accounts:
+tests:
+  - name: test_weth_usdc_pool_750
+    start_block: 19168888
+    stop_block: 19168920
+    expected_components:
+      - id: "0xb27f110571c96b8271d91ad42d33a391a75e6030"
+        tokens:
+          - "0x4200000000000000000000000000000000000006"
+          - "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913"
+        static_attributes:
+          fee: "0x2ee"
+        creation_tx: "0xdf7f71583729b10becac1eab8264f97c360c80009e9add80e18e7845e1aaf061"
+        skip_simulation: false
+        skip_execution: false
