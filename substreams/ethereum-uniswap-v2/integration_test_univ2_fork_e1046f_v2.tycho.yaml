@@ -15,6 +15,6 @@ tests:
           - "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48"
           - "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2"
         static_attributes:
-          fee: "0x1e"
+          fee: "0x14"
         creation_tx: "0x7309d964dbcd64ee8614676a2aeddee75e92e85fcbf702ee2ad45c1b550147b1"
         skip_simulation: true

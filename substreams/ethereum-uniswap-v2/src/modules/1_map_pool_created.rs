@@ -10,10 +10,16 @@ use crate::abi::factory::events::PairCreated;
 
 use tycho_substreams::prelude::*;
 
+fn default_fee() -> u32 {
+    30
+}
+
 #[derive(Debug, Deserialize)]
 struct Params {
     factory_address: String,
     protocol_type_name: String,
+    #[serde(default = "default_fee")]
+    fee: u32,
 }
 
 #[substreams::handlers::map]
@@ -60,10 +66,10 @@ fn get_pools(block: &eth::Block, new_pools: &mut Vec<TransactionChanges>, params
                 tokens: vec![event.token0.clone(), event.token1.clone()],
                 contracts: vec![],
                 static_att: vec![
-                    // Trading Fee is hardcoded to 0.3%, saved as int in bps (basis points)
+                    // Trading fee in bps (basis points), configurable per factory
                     Attribute {
                         name: "fee".to_string(),
-                        value: BigInt::from(30).to_signed_bytes_be(),
+                        value: BigInt::from(params.fee).to_signed_bytes_be(),
                         change: ChangeType::Creation.into(),
                     },
                     Attribute {
