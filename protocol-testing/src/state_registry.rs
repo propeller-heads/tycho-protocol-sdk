@@ -2,7 +2,7 @@ use tycho_simulation::{
     evm::{
         engine_db::tycho_db::PreCachedDB,
         protocol::{
-            ekubo::state::EkuboState, lido::state::LidoState,
+            ekubo::state::EkuboState, ekubo_v3::state::EkuboV3State, lido::state::LidoState,
             pancakeswap_v2::state::PancakeswapV2State, rocketpool::state::RocketpoolState,
             uniswap_v2::state::UniswapV2State, uniswap_v3::state::UniswapV3State,
             uniswap_v4::state::UniswapV4State, vm::state::EVMPoolState,
@@ -62,6 +62,12 @@ pub fn register_protocol(
             decoder_context,
         ),
         "lido" => stream_builder.exchange_with_decoder_context::<LidoState>(
+            protocol_system,
+            tvl_filter,
+            None,
+            decoder_context,
+        ),
+        "ekubo_v3" => stream_builder.exchange_with_decoder_context::<EkuboV3State>(
             protocol_system,
             tvl_filter,
             None,
