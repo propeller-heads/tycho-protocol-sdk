@@ -15,7 +15,7 @@ type PoolAddress = Vec<u8>;
 #[substreams::handlers::map]
 pub fn map_protocol_changes(
     block: eth::Block,
-    created_pools: BlockEntityChanges,
+    created_pools: BlockChanges,
     events: Events,
     balances_map_deltas: BlockBalanceDeltas,
     balances_store_deltas: StoreDeltas,

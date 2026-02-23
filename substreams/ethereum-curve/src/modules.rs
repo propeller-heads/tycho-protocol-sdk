@@ -233,7 +233,7 @@ pub fn store_balances(deltas: BlockBalanceDeltas, store: StoreAddBigInt) {
 ///  map. Each block of code will extend the `TransactionChanges` struct with the
 ///  cooresponding changes (balance, component, contract), inserting a new one if it doesn't exist.
 ///  At the very end, the map can easily be sorted by index to ensure the final
-/// `BlockContractChanges` is ordered by transactions properly.
+/// `BlockChanges` is ordered by transactions properly.
 #[substreams::handlers::map]
 pub fn map_protocol_changes(
     params: String,
@@ -660,7 +660,7 @@ pub fn map_protocol_changes(
 
     let block_storage_changes = get_block_storage_changes(&block);
 
-    // Process all `transaction_changes` for final output in the `BlockContractChanges`,
+    // Process all `transaction_changes` for final output in the `BlockChanges`,
     //  sorted by transaction index (the key).
     Ok(BlockChanges {
         block: Some(Block {
