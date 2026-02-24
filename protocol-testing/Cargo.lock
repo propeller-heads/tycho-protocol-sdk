@@ -6885,8 +6885,8 @@ dependencies = [
 
 [[package]]
 name = "tycho-simulation"
-version = "0.244.0"
-source = "git+https://github.com/propeller-heads/tycho-simulation.git?tag=0.244.0#b7af0afe0ae230af876ecff4f89ef425b0f3fb12"
+version = "0.245.0"
+source = "git+https://github.com/propeller-heads/tycho-simulation.git?tag=0.245.0#34bbc9f6caefec264da82e82f537a2b39756b6b6"
 dependencies = [
  "alloy",
  "alloy-chains",
@@ -6931,8 +6931,8 @@ dependencies = [
 
 [[package]]
 name = "tycho-test"
-version = "0.244.0"
-source = "git+https://github.com/propeller-heads/tycho-simulation.git?tag=0.244.0#b7af0afe0ae230af876ecff4f89ef425b0f3fb12"
+version = "0.245.0"
+source = "git+https://github.com/propeller-heads/tycho-simulation.git?tag=0.245.0#34bbc9f6caefec264da82e82f537a2b39756b6b6"
 dependencies = [
  "alloy",
  "alloy-chains",
