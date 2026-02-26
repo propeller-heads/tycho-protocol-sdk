@@ -1,4 +1,4 @@
-substreams_yaml_path: ./ethereum-shibaswap-v3.yaml
+substreams_yaml_path: ./ethereum-univ3-forks.yaml
 protocol_system: "uniswap_v3"
 protocol_type_names:
   - "uniswap_v3_pool"
