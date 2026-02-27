@@ -64,18 +64,11 @@ jobs:
             exit 1
           fi
 
-      - name: Check unused dependencies
-        run: |
-          set -euo pipefail
-          FAILED=0
-
-          for dir in substreams protocol-testing; do
-            echo "--- Checking unused deps in $dir ---"
-            if ! cargo machete "$dir"; then
-              FAILED=1
-            fi
-          done
-
-          if [ "$FAILED" -ne 0 ]; then
-            exit 1
-          fi
+  detect-unused-dependencies:
+    name: Cargo machete
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Machete
+        uses: bnjbvr/cargo-machete@main
