@@ -75,10 +75,11 @@ jobs:
         id: changes
         if: steps.substreams-files-changed.outputs.any_changed == 'true'
         run: |
-          CHANGED=$(git diff --name-status origin/main ${{ github.sha }} | \
-            awk '$1 != "D" {print $2}' | \
+          VALID="${{ steps.all_substreams.outputs.all_substreams }}"
+          CHANGED=$(git diff --name-only --diff-filter=d origin/main ${{ github.sha }} | \
             grep '^substreams/' | awk -F'/' '{print $2}' | sort -u | \
-            grep -v -E "^(${EXCLUDED_SUBSTREAMS})$" | grep "-"| tr '\n' ' ' | sed 's/ *$//')
+            grep -Fx "$(printf '%s\n' ${VALID})" | \
+            tr '\n' ' ' | sed 's/ *$//')
           if [ -z "$CHANGED" ]; then
               echo "No changed substreams"
           else
