@@ -112,9 +112,10 @@ jobs:
         if: steps.create-pr.outputs.pull-request-url
         uses: slackapi/slack-github-action@v2.0.0
         with:
-          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
-          webhook-type: incoming-webhook
+          method: chat.postMessage
+          token: ${{ secrets.SLACK_BOT_TOKEN }}
           payload: |
             {
+              "channel": "${{ secrets.SLACK_CHANNEL_ID }}",
               "text": "🤖 *tycho-execution* updated to `${{ steps.version.outputs.tag }}` in tycho-protocol-sdk\n<${{ steps.create-pr.outputs.pull-request-url }}|View PR>"
             }
