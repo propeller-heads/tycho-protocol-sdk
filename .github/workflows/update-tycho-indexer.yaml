@@ -116,5 +116,5 @@ jobs:
           payload: |
             {
               "channel": "${{ secrets.SLACK_CHANNEL_ID }}",
-              "text": "🤖 *tycho-indexer* updated to `${{ steps.version.outputs.tag }}` in tycho-protocol-sdk\n<${{ steps.create-pr.outputs.pull-request-url }}|View PR>${{ steps.slack_user.outputs.mention }}"
+              "text": "🤖 *tycho-indexer* updated to `${{ steps.version.outputs.tag }}` in tycho-protocol-sdk\n<${{ steps.create-pr.outputs.pull-request-url }}|Please merge this PR.>${{ steps.slack_user.outputs.mention }}"
             }
