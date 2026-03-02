@@ -112,12 +112,10 @@ jobs:
         id: slack_user
         run: |
           GITHUB_USER="${{ github.event.client_payload.release_author || '' }}"
+          SLACK_ID=$(jq -r --arg user "$GITHUB_USER" '.[$user] // empty' .github/github-to-slack.json)
           SLACK_MENTION=""
-          if [ -n "$GITHUB_USER" ]; then
-            SLACK_ID=$(jq -r --arg user "$GITHUB_USER" '.[$user] // empty' .github/github-to-slack.json)
-            if [ -n "$SLACK_ID" ]; then
-              SLACK_MENTION=" (cc <@${SLACK_ID}>)"
-            fi
+          if [ -n "$SLACK_ID" ]; then
+            SLACK_MENTION=" (cc <@${SLACK_ID}>)"
           fi
           echo "mention=$SLACK_MENTION" >> $GITHUB_OUTPUT
 
