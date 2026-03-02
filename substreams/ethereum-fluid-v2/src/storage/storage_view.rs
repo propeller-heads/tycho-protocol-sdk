@@ -45,14 +45,14 @@ impl StorageChangesView {
                     );
 
                     if old_data != new_data {
-                        let value = if storage_location.signed {
-                            BigInt::from_signed_bytes_be(new_data)
+                        let value_bytes = if storage_location.signed {
+                            BigInt::from_signed_bytes_be(new_data).to_signed_bytes_be()
                         } else {
-                            BigInt::from_unsigned_bytes_be(new_data)
+                            new_data.to_vec()
                         };
                         attributes.push(Attribute {
                             name: storage_location.name.clone(),
-                            value: value.to_signed_bytes_be(),
+                            value: value_bytes,
                             change: ChangeType::Update.into(),
                         });
                     }
