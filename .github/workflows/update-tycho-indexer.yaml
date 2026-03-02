@@ -73,6 +73,7 @@ jobs:
           sed -i 's/--branch "[^"]*"/--branch "'"$NEW_TAG"'"/' protocol-testing/run.Dockerfile
 
       - name: Create Pull Request
+        id: create-pr
         if: steps.check_version.outputs.should_update == 'true'
         uses: peter-evans/create-pull-request@v6
         with:
@@ -94,3 +95,15 @@ jobs:
             🤖 This PR was automatically created by dependency update workflows.
           branch: auto-update-dependencies
           delete-branch: true
+
+      - name: Notify Slack
+        if: steps.create-pr.outputs.pull-request-url
+        uses: slackapi/slack-github-action@v2.0.0
+        with:
+          method: chat.postMessage
+          token: ${{ secrets.SLACK_BOT_TOKEN }}
+          payload: |
+            {
+              "channel": "${{ secrets.SLACK_CHANNEL_ID }}",
+              "text": "🤖 *tycho-indexer* updated to `${{ steps.version.outputs.tag }}` in tycho-protocol-sdk\n<${{ steps.create-pr.outputs.pull-request-url }}|View PR>"
+            }
