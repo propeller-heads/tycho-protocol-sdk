@@ -96,6 +96,19 @@ jobs:
           branch: auto-update-dependencies
           delete-branch: true
 
+      - name: Resolve Slack user
+        id: slack_user
+        run: |
+          GITHUB_USER="${{ github.event.client_payload.release_author || '' }}"
+          SLACK_MENTION=""
+          if [ -n "$GITHUB_USER" ]; then
+            SLACK_ID=$(jq -r --arg user "$GITHUB_USER" '.[$user] // empty' .github/github-to-slack.json)
+            if [ -n "$SLACK_ID" ]; then
+              SLACK_MENTION=" (cc <@${SLACK_ID}>)"
+            fi
+          fi
+          echo "mention=$SLACK_MENTION" >> $GITHUB_OUTPUT
+
       - name: Notify Slack
         if: steps.create-pr.outputs.pull-request-url
         uses: slackapi/slack-github-action@v2.0.0
@@ -105,5 +118,5 @@ jobs:
           payload: |
             {
               "channel": "${{ secrets.SLACK_CHANNEL_ID }}",
-              "text": "🤖 *tycho-indexer* updated to `${{ steps.version.outputs.tag }}` in tycho-protocol-sdk\n<${{ steps.create-pr.outputs.pull-request-url }}|View PR>"
+              "text": "🤖 *tycho-indexer* updated to `${{ steps.version.outputs.tag }}` in tycho-protocol-sdk\n<${{ steps.create-pr.outputs.pull-request-url }}|View PR>${{ steps.slack_user.outputs.mention }}"
             }
