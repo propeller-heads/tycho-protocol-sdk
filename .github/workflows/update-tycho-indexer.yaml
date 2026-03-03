@@ -103,7 +103,7 @@ jobs:
           SLACK_ID=$(jq -r --arg user "$GITHUB_USER" '.[$user] // empty' .github/github-to-slack.json)
           SLACK_MENTION=""
           if [ -n "$SLACK_ID" ]; then
-            SLACK_MENTION="\ncc <@${SLACK_ID}>"
+            SLACK_MENTION="\n<@${SLACK_ID}>"
           fi
           echo "mention=$SLACK_MENTION" >> $GITHUB_OUTPUT
 
