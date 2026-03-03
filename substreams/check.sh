@@ -7,7 +7,6 @@ PACKAGES=(
   ethereum-cowamm
   ethereum-curve
   ethereum-erc4626
-  ethereum-lido
   ethereum-maverick-v2
   ethereum-pancakeswap-v3
   ethereum-rocketpool

@@ -1,14 +1,28 @@
 [
   {
+    "anonymous": false,
     "inputs": [
       {
-        "internalType": "contract RocketStorageInterface",
-        "name": "_rocketStorageAddress",
+        "indexed": true,
+        "internalType": "address",
+        "name": "from",
         "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "time",
+        "type": "uint256"
       }
     ],
-    "stateMutability": "nonpayable",
-    "type": "constructor"
+    "name": "DepositReceived",
+    "type": "event"
   },
   {
     "anonymous": false,
@@ -33,31 +47,6 @@
       }
     ],
     "name": "DepositAssigned",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "from",
-        "type": "address"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "amount",
-        "type": "uint256"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "time",
-        "type": "uint256"
-      }
-    ],
-    "name": "DepositReceived",
     "type": "event"
   },
   {
@@ -111,175 +100,84 @@
     "type": "event"
   },
   {
-    "inputs": [],
-    "name": "assignDeposits",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "deposit",
-    "outputs": [],
-    "stateMutability": "payable",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "getBalance",
-    "outputs": [
+    "anonymous": false,
+    "inputs": [
       {
+        "indexed": true,
+        "internalType": "address",
+        "name": "receiver",
+        "type": "address"
+      },
+      {
+        "indexed": false,
         "internalType": "uint256",
-        "name": "",
+        "name": "validatorId",
         "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "getExcessBalance",
-    "outputs": [
+      },
       {
+        "indexed": false,
         "internalType": "uint256",
-        "name": "",
+        "name": "amount",
         "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "getMaximumDepositAmount",
-    "outputs": [
+      },
       {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "getNodeBalance",
-    "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "getUserBalance",
-    "outputs": [
-      {
-        "internalType": "int256",
-        "name": "",
-        "type": "int256"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "maybeAssignDeposits",
-    "outputs": [
-      {
+        "indexed": false,
         "internalType": "bool",
-        "name": "",
+        "name": "expressQueue",
         "type": "bool"
-      }
-    ],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
+      },
       {
+        "indexed": false,
         "internalType": "uint256",
-        "name": "_amount",
+        "name": "time",
         "type": "uint256"
       }
     ],
-    "name": "nodeCreditWithdrawal",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
+    "name": "FundsRequested",
+    "type": "event"
   },
   {
+    "anonymous": false,
     "inputs": [
       {
+        "indexed": true,
+        "internalType": "address",
+        "name": "receiver",
+        "type": "address"
+      },
+      {
+        "indexed": false,
         "internalType": "uint256",
-        "name": "_totalAmount",
+        "name": "amount",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "time",
         "type": "uint256"
       }
     ],
-    "name": "nodeDeposit",
-    "outputs": [],
-    "stateMutability": "payable",
-    "type": "function"
+    "name": "FundsAssigned",
+    "type": "event"
   },
   {
-    "inputs": [],
-    "name": "receiveVaultWithdrawalETH",
-    "outputs": [],
-    "stateMutability": "payable",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "recycleDissolvedDeposit",
-    "outputs": [],
-    "stateMutability": "payable",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "recycleExcessCollateral",
-    "outputs": [],
-    "stateMutability": "payable",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "recycleLiquidatedStake",
-    "outputs": [],
-    "stateMutability": "payable",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "version",
-    "outputs": [
-      {
-        "internalType": "uint8",
-        "name": "",
-        "type": "uint8"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
+    "anonymous": false,
     "inputs": [
       {
+        "indexed": true,
+        "internalType": "address",
+        "name": "nodeAddress",
+        "type": "address"
+      },
+      {
+        "indexed": false,
         "internalType": "uint256",
-        "name": "_amount",
+        "name": "time",
         "type": "uint256"
       }
     ],
-    "name": "withdrawExcessBalance",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
+    "name": "QueueExited",
+    "type": "event"
   }
 ]
