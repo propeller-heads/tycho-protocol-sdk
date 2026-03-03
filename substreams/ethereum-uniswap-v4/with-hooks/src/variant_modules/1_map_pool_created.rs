@@ -14,20 +14,20 @@ use tycho_substreams::prelude::*;
 pub fn map_pools_created(
     params: String,
     block: eth::Block,
-) -> Result<BlockEntityChanges, substreams::errors::Error> {
-    let mut new_pools: Vec<TransactionEntityChanges> = vec![];
+) -> Result<BlockChanges, substreams::errors::Error> {
+    let mut new_pools: Vec<TransactionChanges> = vec![];
     let pool_manager = params.as_str();
 
     get_new_pools(&block, &mut new_pools, pool_manager);
 
-    Ok(BlockEntityChanges { block: None, changes: new_pools })
+    Ok(BlockChanges { block: None, changes: new_pools, storage_changes: vec![] })
 }
 
 // Extract new pools initialized on the pool manager contract
 // Only includes pools WITH swap hooks
 fn get_new_pools(
     block: &eth::Block,
-    new_pools: &mut Vec<TransactionEntityChanges>,
+    new_pools: &mut Vec<TransactionChanges>,
     pool_manager_address: &str,
 ) {
     // Extract new pools from Initialize events
@@ -38,7 +38,7 @@ fn get_new_pools(
             return; // Skip pools without swap hooks
         }
 
-        new_pools.push(TransactionEntityChanges {
+        new_pools.push(TransactionChanges {
             tx: Some(tx.into()),
             entity_changes: vec![EntityChanges {
                 component_id: event.id.to_vec().to_hex(),
@@ -140,6 +140,9 @@ fn get_new_pools(
                         .to_vec(),
                 },
             ],
+            contract_changes: vec![],
+            entrypoints: vec![],
+            entrypoint_params: vec![],
         })
     };
 

@@ -150,7 +150,7 @@ pub fn aggregate_balances_changes(
                 },
             )
         })
-        // We need to group the balance changes by tx hash for the `TransactionContractChanges` agg
+        // Group balance changes by tx hash so callers can merge them into `TransactionChanges`
         .group_by(|(tx, _)| tx.hash.clone())
         .into_iter()
         .map(|(txh, group)| {

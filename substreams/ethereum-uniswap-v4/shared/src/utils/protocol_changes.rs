@@ -14,7 +14,7 @@ type PoolAddress = Vec<u8>;
 /// Returns the sorted transaction changes ready to be used in BlockChanges.
 #[allow(clippy::too_many_arguments)]
 pub fn collect_transaction_changes(
-    created_pools: BlockEntityChanges,
+    created_pools: BlockChanges,
     events: Events,
     balances_map_deltas: BlockBalanceDeltas,
     balances_store_deltas: StoreDeltas,
