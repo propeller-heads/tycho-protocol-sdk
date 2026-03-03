@@ -6862,18 +6862,16 @@ dependencies = [
 
 [[package]]
 name = "tycho-execution"
-version = "0.160.0"
+version = "0.163.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "45694f91323ec97a2dafc200b34f9286988fa704b0fa3cef71254e2e314028e9"
+checksum = "ada69f952ecf6a88144bc3d99c890b36d268091cd6df17abe75a5db4fc29080b"
 dependencies = [
  "alloy",
  "chrono",
  "clap",
  "dotenv",
  "hex",
- "lazy_static",
  "num-bigint",
- "num-traits",
  "once_cell",
  "reqwest",
  "serde",
