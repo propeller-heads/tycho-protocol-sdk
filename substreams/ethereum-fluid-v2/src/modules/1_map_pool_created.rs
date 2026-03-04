@@ -36,6 +36,26 @@ fn get_new_pools(
                     component_id: event.dex_id.to_hex(),
                     attributes: vec![
                         Attribute {
+                            name: "dex_type".to_string(),
+                            value: event.dex_type.to_signed_bytes_be(),
+                            change: ChangeType::Creation.into(),
+                        },
+                        Attribute {
+                            name: "fee".to_string(),
+                            value: event.dex_key.2.to_signed_bytes_be(),
+                            change: ChangeType::Creation.into(),
+                        },
+                        Attribute {
+                            name: "tick_spacing".to_string(),
+                            value: event.dex_key.3.to_signed_bytes_be(),
+                            change: ChangeType::Creation.into(),
+                        },
+                        Attribute {
+                            name: "controller".to_string(),
+                            value: event.dex_key.4,
+                            change: ChangeType::Creation.into(),
+                        },
+                        Attribute {
                             name: "dex_variables".to_string(),
                             value: vec![0u8; 32],
                             change: ChangeType::Creation.into(),
@@ -81,28 +101,7 @@ fn get_new_pools(
                     id: event.dex_id.to_hex(),
                     tokens: vec![event.dex_key.0, event.dex_key.1],
                     contracts: vec![],
-                    static_att: vec![
-                        Attribute {
-                            name: "dex_type".to_string(),
-                            value: event.dex_type.to_signed_bytes_be(),
-                            change: ChangeType::Creation.into(),
-                        },
-                        Attribute {
-                            name: "fee".to_string(),
-                            value: event.dex_key.2.to_signed_bytes_be(),
-                            change: ChangeType::Creation.into(),
-                        },
-                        Attribute {
-                            name: "tick_spacing".to_string(),
-                            value: event.dex_key.3.to_signed_bytes_be(),
-                            change: ChangeType::Creation.into(),
-                        },
-                        Attribute {
-                            name: "controller".to_string(),
-                            value: event.dex_key.4,
-                            change: ChangeType::Creation.into(),
-                        },
-                    ],
+                    static_att: vec![],
                     change: i32::from(ChangeType::Creation),
                     protocol_type: Option::from(ProtocolType {
                         name: "fluid_v2_pool".to_string(),

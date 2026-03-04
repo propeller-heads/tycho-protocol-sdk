@@ -55,7 +55,14 @@ pub fn map_protocol_changes(
             .component_changes
             .iter()
             .for_each(|c| {
-                builder.add_protocol_component(c);
+                let component_change = c.clone();
+                let pool_key = format!("{}:{}", "Pool", component_change.id);
+
+                if let Some(pool) = pools_store.get_last(pool_key) {
+                    if pool.created_tx_hash == tx.hash {
+                        builder.add_protocol_component(&component_change);
+                    }
+                }
             });
         change
             .entity_changes
