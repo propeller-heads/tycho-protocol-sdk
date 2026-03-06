@@ -13,7 +13,6 @@ pub fn map_tick_deltas(block_tx_events: BlockTransactionEvents) -> TickDeltas {
             .into_iter()
             .flat_map(|tx_events| {
                 let tx = tx_events.transaction;
-
                 tx_events
                     .pool_logs
                     .into_iter()
@@ -40,24 +39,21 @@ struct PartialTickDelta {
     liquidity_net_delta: Vec<u8>,
 }
 
-fn tick_deltas(ev: Event) -> Vec<PartialTickDelta> {
-    match ev {
-        Event::PositionUpdated(position_updated) => {
-            vec![
-                PartialTickDelta {
-                    tick_index: position_updated.lower,
-                    liquidity_net_delta: position_updated.liquidity_delta.clone(),
-                },
-                PartialTickDelta {
-                    tick_index: position_updated.upper,
-                    liquidity_net_delta: BigInt::from_signed_bytes_be(
-                        &position_updated.liquidity_delta,
-                    )
-                    .neg()
-                    .to_signed_bytes_be(),
-                },
-            ]
-        }
-        _ => vec![],
-    }
+fn tick_deltas(event: Event) -> Vec<PartialTickDelta> {
+    let Event::PositionUpdated(position_updated) = event else {
+        return vec![];
+    };
+
+    vec![
+        PartialTickDelta {
+            tick_index: position_updated.lower,
+            liquidity_net_delta: position_updated.liquidity_delta.clone(),
+        },
+        PartialTickDelta {
+            tick_index: position_updated.upper,
+            liquidity_net_delta: BigInt::from_signed_bytes_be(&position_updated.liquidity_delta)
+                .neg()
+                .to_signed_bytes_be(),
+        },
+    ]
 }
