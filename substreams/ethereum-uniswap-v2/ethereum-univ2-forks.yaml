@@ -1,0 +1,49 @@
+specVersion: v0.1.0
+package:
+  name: "ethereum_univ2_forks"
+  version: v0.3.2
+  url: "https://github.com/propeller-heads/tycho-protocol-sdk/tree/main/substreams/ethereum-uniswap-v2"
+
+protobuf:
+  files:
+    - tycho/evm/v1/common.proto
+    - uniswap.proto
+  importPaths:
+    - ./proto/v1
+    - ../../proto/
+
+binaries:
+  default:
+    type: wasm/rust-v1
+    file: ../target/wasm32-unknown-unknown/release/ethereum_uniswap_v2.wasm
+
+modules:
+  - name: map_pools_created
+    kind: map
+    initialBlock: 10717658
+    inputs:
+      - params: string
+      - source: sf.ethereum.type.v2.Block
+    output:
+      type: proto:tycho.evm.v1.BlockChanges
+
+  - name: store_pools
+    kind: store
+    initialBlock: 10717658
+    updatePolicy: set_if_not_exists
+    valueType: proto:tycho.evm.uniswap.v2.Pool
+    inputs:
+      - map: map_pools_created
+
+  - name: map_pool_events
+    kind: map
+    initialBlock: 10717658
+    inputs:
+      - source: sf.ethereum.type.v2.Block
+      - map: map_pools_created
+      - store: store_pools
+    output:
+      type: proto:tycho.evm.v1.BlockChanges
+
+params:
+  map_pools_created: factory_address=3d5ffe355fed263884bdd8dbfa57a931fd288752,2294577031f113df4782b881cf0b140e94209a6f,1fed2e360a5afb2ac4b047102a7012a57f3c8cab,9deb29c9a4c7a88a3c0257393b7f3335338d9a9d,75e48c954594d64ef9613aeef97ad85370f13807,1e2c2102cf8efcaaaf20ffe926469ec7cd0d0f6e,2f3db9ba0fe94a92d706633abc1c3131fe25d03c,644b3950b04738a9b3a5fbd11ff9644a79e4a5ed,41060a0d3b9a15a4d01343f4e07360505912dbe8,0388c1e0f210abae597b7de712b9510c6c36c857,a40ec8a93293a3179d4b544239916c1b68cb47b6,7dda55bb4403aa2aa810d1ed49efa614878e353b,696708db871b77355d6c2be7290b27cf0bb9b24b:25,8f9f4ca1290076c0f63edbf0390d7e69f07aec93,dd9efcbdf9f422e2fc159efe77add3730d48056d,880ae0a0af8ff8f31f51599891baa8a65db5e152,5bddc63f23c0386fb817959773c32b736744c899,3823ac41b77e51bf0e6536ce465479cbdedcaea9,5d8d3bbe66076e844c82b989f8430fa92cf67dba,8a93b6865c4492ff17252219b87ea6920848edc0,96ff042f8c6757fce515d171f194b5816cafee11,a7028337d3da1f04d638cc3b4dd09411486b49ea,4eef5746ed22a2fd368629c1852365bf5dcb79f1,e813574889f310878082195b49021bd0442b28b3,5fa0060fcfea35b31f7a5f6025f0ff399b98edf1,bc67c8618c1d5094e40019e12d50e49d03dc932f,115934131916c8b277dd010ee02de363c09d037c,46adc1c052fafd590f56c42e379d7d16622835a2,a206f6274b178b5090f64f39ca49878955d93756,d36aba9ec96523b0a89886c76065852adfe2eb39,a3bcedadb23cfaa592ac42f5a18c98f98a37da77,6c3d18b868ec870dfd6470a2684319c26591321e,e71ec95e61f76e7dd86bba1c78a85f5e4b062e77,ee3e9e46e34a27dc755a63e2849c9913ee1a06e2,460b2005b3318982feada99f7ebf13e1d6f6effe:25,25393bb68c89a894b5e20fa3fc3b3b34f843c672,cbae5c3f8259181eb7e2309bc4c72fdf02dd56d8,e1046fcb1057ef82b68f3a6b8ebb0e411cf334e0:20,7386f6f2375a38fbd1f4da1d3eb39cd8dd8d1b40&protocol_type_name=uniswap_v2_pool

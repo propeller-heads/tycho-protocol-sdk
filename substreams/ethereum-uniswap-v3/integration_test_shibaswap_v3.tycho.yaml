@@ -1,0 +1,20 @@
+substreams_yaml_path: ./ethereum-univ3-forks.yaml
+protocol_system: "uniswap_v3"
+protocol_type_names:
+  - "uniswap_v3_pool"
+module_name: "map_pool_events"
+skip_balance_check: true
+initialized_accounts:
+tests:
+  - name: test_first_pool
+    start_block: 21036508
+    stop_block: 21036509
+    expected_components:
+      - id: "0x70e813a5789c30d2f3714726cac874526965fc4f"
+        tokens:
+          - "0x9813037ee2218799597d83d4a5b6f3b6778218d9"
+          - "0xdac17f958d2ee523a2206206994597c13d831ec7"
+        static_attributes:
+          fee: "0x1f4"
+        creation_tx: "0xc50ad50d5629e59a40587ef0a02c4d682bc42d3de0dc5edfdd8d5d86e9afe58a"
+        skip_simulation: true
