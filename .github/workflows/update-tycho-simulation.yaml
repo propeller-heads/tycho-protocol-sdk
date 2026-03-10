@@ -108,8 +108,31 @@ jobs:
           branch: auto-update-dependencies
           delete-branch: true
 
+      - name: Wait for CI checks
+        if: steps.create-pr.outputs.pull-request-url
+        uses: lewagon/wait-on-check-action@v1.5.0
+        with:
+          ref: auto-update-dependencies
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          running-workflow-name: "Check for new tycho-simulation release"
+          allowed-conclusions: success,skipped,failure,timed_out,cancelled
+
+      - name: Get CI result
+        id: ci_result
+        if: steps.create-pr.outputs.pull-request-url
+        run: |
+          CONCLUSION=$(gh pr checks "${{ steps.create-pr.outputs.pull-request-number }}" --json name,state --jq '[.[] | select(.state != "SUCCESS" and .state != "SKIPPED")] | length')
+          if [ "$CONCLUSION" -eq 0 ]; then
+            echo "status=✅ CI passed" >> $GITHUB_OUTPUT
+          else
+            echo "status=❌ CI failed" >> $GITHUB_OUTPUT
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Resolve Slack user
         id: slack_user
+        if: steps.create-pr.outputs.pull-request-url
         run: |
           GITHUB_USER="${{ github.event.client_payload.release_author || '' }}"
           SLACK_ID=$(jq -r --arg user "$GITHUB_USER" '.[$user] // empty' .github/github-to-slack.json)
@@ -128,5 +151,5 @@ jobs:
           payload: |
             {
               "channel": "${{ secrets.SLACK_CHANNEL_ID }}",
-              "text": "🤖 *tycho-simulation* updated to `${{ steps.version.outputs.tag }}` in tycho-protocol-sdk\n<${{ steps.create-pr.outputs.pull-request-url }}|Please merge this PR.>${{ steps.slack_user.outputs.mention }}"
+              "text": "🤖 *tycho-simulation* updated to `${{ steps.version.outputs.tag }}` in tycho-protocol-sdk\n<${{ steps.create-pr.outputs.pull-request-url }}|Please merge this PR.> CI status: ${{ steps.ci_result.outputs.status }}${{ steps.slack_user.outputs.mention }}"
             }
