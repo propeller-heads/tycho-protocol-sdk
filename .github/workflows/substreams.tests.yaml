@@ -14,7 +14,10 @@ on:
         required: false
         default: ''
         type: string
-  pull_request:
+  pull_request_target:
+
+permissions:
+  contents: read
 
 jobs:
   detect-changes:
@@ -28,6 +31,8 @@ jobs:
       protocols-matrix: ${{ steps.protocols-matrix.outputs.matrix }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
       - name: Check if any files changed under protocol-testing
         id: protocol-testing-files-changed
@@ -76,7 +81,7 @@ jobs:
         if: steps.substreams-files-changed.outputs.any_changed == 'true'
         run: |
           VALID="${{ steps.all_substreams.outputs.all_substreams }}"
-          CHANGED=$(git diff --name-only --diff-filter=d origin/main ${{ github.sha }} | \
+          CHANGED=$(git diff --name-only --diff-filter=d origin/main ${{ github.event.pull_request.head.sha || github.sha }} | \
             grep '^substreams/' | awk -F'/' '{print $2}' | sort -u | \
             grep -Fx "$(printf '%s\n' ${VALID})" | \
             tr '\n' ' ' | sed 's/ *$//')
@@ -144,6 +149,8 @@ jobs:
       cache-key: ${{ steps.cache-key.outputs.key }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
       - name: Generate cache key
         id: cache-key
@@ -202,6 +209,8 @@ jobs:
       matrix: ${{ fromJson(needs.detect-changes.outputs.protocols-matrix) }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
       - name: Download docker images
         uses: actions/download-artifact@v4
