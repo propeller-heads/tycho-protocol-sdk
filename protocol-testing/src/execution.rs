@@ -10,6 +10,8 @@ use miette::{miette, IntoDiagnostic, WrapErr};
 use tycho_test::execution::models::RouterOverwritesData;
 pub const ROUTER_BYTECODE_JSON: &str =
     include_str!("../../evm/test/router/TychoRouter.runtime.json");
+const FEE_CALCULATOR_BYTECODE_JSON: &str =
+    include_str!("../../evm/test/router/FeeCalculator.runtime.json");
 
 // Include all executor bytecode files at compile time
 const UNISWAP_V2_BYTECODE_JSON: &str =
@@ -18,8 +20,6 @@ const UNISWAP_V3_BYTECODE_JSON: &str =
     include_str!("../../evm/test/executors/UniswapV3.runtime.json");
 const UNISWAP_V4_BYTECODE_JSON: &str =
     include_str!("../../evm/test/executors/UniswapV4.runtime.json");
-const UNISWAP_V4_ANGSTROM_BYTECODE_JSON: &str =
-    include_str!("../../evm/test/executors/UniswapV4Angstrom.runtime.json");
 const BALANCER_V2_BYTECODE_JSON: &str =
     include_str!("../../evm/test/executors/BalancerV2.runtime.json");
 const BALANCER_V3_BYTECODE_JSON: &str =
@@ -40,9 +40,7 @@ static EXECUTOR_MAPPING: LazyLock<HashMap<&'static str, &'static str>> = LazyLoc
     map.insert("uniswap_v3", UNISWAP_V3_BYTECODE_JSON);
     map.insert("pancakeswap_v3", UNISWAP_V3_BYTECODE_JSON);
     map.insert("uniswap_v4", UNISWAP_V4_BYTECODE_JSON);
-    // If you would like to test any other hook, replace this bytecode with the
-    // desired hook bytecode
-    map.insert("uniswap_v4_hooks", UNISWAP_V4_ANGSTROM_BYTECODE_JSON);
+    map.insert("uniswap_v4_hooks", UNISWAP_V4_BYTECODE_JSON);
     map.insert("vm:balancer_v2", BALANCER_V2_BYTECODE_JSON);
     map.insert("vm:balancer_v3", BALANCER_V3_BYTECODE_JSON);
     map.insert("vm:curve", CURVE_BYTECODE_JSON);
@@ -122,5 +120,20 @@ pub fn create_router_overwrites_data(
 
     let executor_bytecode = load_executor_bytecode(protocol_system)?;
 
-    Ok(RouterOverwritesData { router_bytecode, executor_bytecode })
+    let fee_calculator_bytecode = {
+        let json_value: serde_json::Value = serde_json::from_str(FEE_CALCULATOR_BYTECODE_JSON)
+            .into_diagnostic()
+            .wrap_err("Failed to parse FeeCalculator JSON")?;
+        let bytecode_str = json_value["runtimeBytecode"]
+            .as_str()
+            .ok_or_else(|| miette::miette!("No runtimeBytecode field in FeeCalculator JSON"))?;
+        let hex = bytecode_str
+            .strip_prefix("0x")
+            .unwrap_or(bytecode_str);
+        hex::decode(hex)
+            .into_diagnostic()
+            .wrap_err("Failed to decode FeeCalculator bytecode")?
+    };
+
+    Ok(RouterOverwritesData { router_bytecode, executor_bytecode, fee_calculator_bytecode })
 }
