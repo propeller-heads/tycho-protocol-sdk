@@ -302,6 +302,99 @@ mod hooks_tests {
         println!("Single pool uninstall test passed");
     }
 
+    // ==================== Alphix Hook Tests ====================
+
+    fn create_mock_alphix_pool(hook_address: &str) -> BlockChanges {
+        let mut tx_changes = TransactionChanges::default();
+
+        let mut component_change = ProtocolComponent {
+            id: "0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890".to_string(),
+            ..Default::default()
+        };
+        component_change.change = i32::from(ChangeType::Creation);
+
+        component_change
+            .static_att
+            .push(Attribute {
+                name: "hooks".to_string(),
+                value: hex::decode(hook_address).unwrap(),
+                change: ChangeType::Creation.into(),
+            });
+
+        tx_changes.component_changes = vec![component_change];
+
+        BlockChanges { block: None, changes: vec![tx_changes], storage_changes: vec![] }
+    }
+
+    #[test]
+    fn test_alphix_enrich_block_changes_matches_known_hook() {
+        // Given: A pool created with an Alphix hook address
+        let block_changes = create_mock_alphix_pool("831CfDf7c0E194f5369f204b3DD2481B843d60c0");
+
+        // Setup mock store with the Alphix hook (0x-prefixed, matching to_hex() output)
+        let mut mock_store = MockStore::new_with_data();
+        mock_store
+            .insert("0x831cfdf7c0e194f5369f204b3dd2481b843d60c0".to_string(), "1".to_string());
+
+        // When: Enriching
+        let enriched =
+            crate::variant_modules::map_alphix_enriched_block_changes::enrich_block_changes(
+                block_changes,
+                &mock_store,
+            );
+
+        // Then: Should have hook_identifier attribute
+        let component = &enriched.changes[0].component_changes[0];
+        let hook_id_attr = component
+            .static_att
+            .iter()
+            .find(|a| a.name == "hook_identifier");
+
+        assert!(hook_id_attr.is_some());
+        assert_eq!(hook_id_attr.unwrap().value, "alphix_v1".as_bytes().to_vec());
+    }
+
+    #[test]
+    fn test_alphix_enrich_block_changes_ignores_unknown_hook() {
+        // Given: A pool created with a non-Alphix hook address
+        let block_changes = create_mock_alphix_pool("1111111111111111111111111111111111111111");
+
+        // Setup mock store with only the Alphix hook (0x-prefixed)
+        let mut mock_store = MockStore::new_with_data();
+        mock_store
+            .insert("0x831cfdf7c0e194f5369f204b3dd2481b843d60c0".to_string(), "1".to_string());
+
+        // When: Enriching
+        let enriched =
+            crate::variant_modules::map_alphix_enriched_block_changes::enrich_block_changes(
+                block_changes,
+                &mock_store,
+            );
+
+        // Then: Should NOT have hook_identifier attribute
+        let component = &enriched.changes[0].component_changes[0];
+        let hook_id_attr = component
+            .static_att
+            .iter()
+            .find(|a| a.name == "hook_identifier");
+
+        assert!(hook_id_attr.is_none());
+    }
+
+    #[test]
+    fn test_alphix_multiple_hooks() {
+        // Test that the params-based approach supports multiple hook addresses
+        let addresses = crate::variant_modules::store_alphix_hooks::parse_hook_addresses(
+            "0x831CfDf7c0E194f5369f204b3DD2481B843d60c0,0x0e4b892Df7C5Bcf5010FAF4AA106074e555660C0,0x5e645C3D580976Ca9e3fe77525D954E73a0Ce0C0",
+        );
+        assert_eq!(addresses.len(), 3);
+        assert_eq!(addresses[0], "0x831cfdf7c0e194f5369f204b3dd2481b843d60c0");
+        assert_eq!(addresses[1], "0x0e4b892df7c5bcf5010faf4aa106074e555660c0");
+        assert_eq!(addresses[2], "0x5e645c3d580976ca9e3fe77525d954e73a0ce0c0");
+    }
+
+    // ==================== Euler Uninstall Tests ====================
+
     #[test]
     fn test_handle_pool_uninstalled_no_pool() {
         // Create mock store without any pool for the hook
