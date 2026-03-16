@@ -6783,11 +6783,10 @@ dependencies = [
 
 [[package]]
 name = "tycho-client"
-version = "0.143.0"
+version = "0.147.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "98701bab59c206feb7653d9fef2695391df037d7dbd16c6f8ce1fd6c75348e92"
+checksum = "6d358f468c9e0e802511195a165107c2668b1c01d9ae96f7558712003ef5e7a4"
 dependencies = [
- "anyhow",
  "async-trait",
  "backoff",
  "chrono",
@@ -6806,7 +6805,7 @@ dependencies = [
  "tracing",
  "tracing-appender",
  "tracing-subscriber 0.3.22",
- "tycho-common",
+ "tycho-common 0.147.2",
  "uuid",
  "zstd",
 ]
@@ -6838,10 +6837,64 @@ dependencies = [
 ]
 
 [[package]]
-name = "tycho-ethereum"
-version = "0.143.0"
+name = "tycho-common"
+version = "0.147.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3f7606590076f3e3865c2bb556ef9c093e8b00ae2ac9db5ce32f848f63ec2b2b"
+checksum = "e3839272b501ab4e5e645c4b4eeb3f6db7797b4f1da3d0a095dcc69e0eea2b9d"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "bytes",
+ "chrono",
+ "deepsize",
+ "hex",
+ "itertools 0.10.5",
+ "num-bigint",
+ "rand 0.8.5",
+ "serde",
+ "serde_json",
+ "strum 0.25.0",
+ "strum_macros 0.25.3",
+ "thiserror 1.0.69",
+ "tiny-keccak",
+ "tracing",
+ "typetag",
+ "utoipa",
+ "uuid",
+]
+
+[[package]]
+name = "tycho-common"
+version = "0.148.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4f161f591edcd2f5b4442ee363120b2039d0e25570c6959133b692efd61a393f"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "bytes",
+ "chrono",
+ "deepsize",
+ "hex",
+ "itertools 0.10.5",
+ "num-bigint",
+ "rand 0.8.5",
+ "serde",
+ "serde_json",
+ "strum 0.25.0",
+ "strum_macros 0.25.3",
+ "thiserror 1.0.69",
+ "tiny-keccak",
+ "tracing",
+ "typetag",
+ "utoipa",
+ "uuid",
+]
+
+[[package]]
+name = "tycho-ethereum"
+version = "0.148.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7c24e37acd1cd65d58efeb08fa2ce2bd8f11628dece6579b4d7c3e822dc72fb5"
 dependencies = [
  "alloy",
  "async-trait",
@@ -6849,14 +6902,13 @@ dependencies = [
  "chrono",
  "futures 0.3.31",
  "num-bigint",
- "rand 0.8.5",
  "serde",
  "serde_json",
  "serde_with",
  "thiserror 1.0.69",
  "tokio",
  "tracing",
- "tycho-common",
+ "tycho-common 0.148.0",
  "unicode-segmentation",
 ]
 
@@ -6878,13 +6930,13 @@ dependencies = [
  "serde_json",
  "thiserror 1.0.69",
  "tokio",
- "tycho-common",
+ "tycho-common 0.143.0",
 ]
 
 [[package]]
 name = "tycho-simulation"
-version = "0.248.0"
-source = "git+https://github.com/propeller-heads/tycho-simulation.git?tag=0.248.0#046af4976615a6999d1abd2c295a306a58320779"
+version = "0.249.0"
+source = "git+https://github.com/propeller-heads/tycho-simulation.git?tag=0.249.0#b9d5d40d2643fc31c1f583cc0ea6fd3731410668"
 dependencies = [
  "alloy",
  "alloy-chains",
@@ -6921,7 +6973,7 @@ dependencies = [
  "tokio-tungstenite 0.28.0",
  "tracing",
  "tycho-client",
- "tycho-common",
+ "tycho-common 0.148.0",
  "tycho-ethereum",
  "typetag",
  "uuid",
@@ -6929,8 +6981,8 @@ dependencies = [
 
 [[package]]
 name = "tycho-test"
-version = "0.248.0"
-source = "git+https://github.com/propeller-heads/tycho-simulation.git?tag=0.248.0#046af4976615a6999d1abd2c295a306a58320779"
+version = "0.249.0"
+source = "git+https://github.com/propeller-heads/tycho-simulation.git?tag=0.249.0#b9d5d40d2643fc31c1f583cc0ea6fd3731410668"
 dependencies = [
  "alloy",
  "alloy-chains",
@@ -6954,7 +7006,7 @@ dependencies = [
  "tracing",
  "tracing-subscriber 0.3.22",
  "tycho-client",
- "tycho-common",
+ "tycho-common 0.148.0",
  "tycho-ethereum",
  "tycho-execution",
  "tycho-simulation",
