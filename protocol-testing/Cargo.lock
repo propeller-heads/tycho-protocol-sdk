@@ -3787,15 +3787,6 @@ checksum = "5e5032e24019045c762d3c0f28f5b6b8bbf38563a65908389bf7978758920897"
 
 [[package]]
 name = "lru"
-version = "0.12.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "234cf4f4a04dc1f57e24b96cc0cd600cf2af460d4161ac5ecdd0af8e1f3b2a38"
-dependencies = [
- "hashbrown 0.15.5",
-]
-
-[[package]]
-name = "lru"
 version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "227748d55f2f0ab4735d87fd623798cb6b664512fe979705f829c9f81c934465"
@@ -3805,9 +3796,9 @@ dependencies = [
 
 [[package]]
 name = "lru"
-version = "0.16.2"
+version = "0.16.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "96051b46fc183dc9cd4a223960ef37b9af631b55191852a8274bfef064cda20f"
+checksum = "a1dc47f592c06f33f8e3aea9591776ec7c9f9e4124778ff8a3c3b87159f7e593"
 dependencies = [
  "hashbrown 0.16.1",
 ]
@@ -6783,11 +6774,10 @@ dependencies = [
 
 [[package]]
 name = "tycho-client"
-version = "0.143.0"
+version = "0.149.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "98701bab59c206feb7653d9fef2695391df037d7dbd16c6f8ce1fd6c75348e92"
+checksum = "0d95b2e9b5fa5524bcb8e4edddd57896a8ac26a91fba9ba116a5afab1474ae19"
 dependencies = [
- "anyhow",
  "async-trait",
  "backoff",
  "chrono",
@@ -6795,7 +6785,7 @@ dependencies = [
  "futures 0.3.31",
  "hex",
  "hyper 0.14.32",
- "lru 0.12.5",
+ "lru 0.16.3",
  "reqwest",
  "serde",
  "serde_json",
@@ -6813,9 +6803,9 @@ dependencies = [
 
 [[package]]
 name = "tycho-common"
-version = "0.143.0"
+version = "0.149.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7948e4b81ea62272f8667d416f9a2dcac1a91f5c340f78812842528867b8963e"
+checksum = "0ad9dccc88f2add1d0f18fe565f9cc02dcdf62624cbd3dfc50221e42098bf756"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -6823,6 +6813,7 @@ dependencies = [
  "chrono",
  "deepsize",
  "hex",
+ "itertools 0.10.5",
  "num-bigint",
  "rand 0.8.5",
  "serde",
@@ -6839,9 +6830,9 @@ dependencies = [
 
 [[package]]
 name = "tycho-ethereum"
-version = "0.143.0"
+version = "0.149.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3f7606590076f3e3865c2bb556ef9c093e8b00ae2ac9db5ce32f848f63ec2b2b"
+checksum = "88debbd05b68617ed04ff856eb4660846b9eeefbe68c4947ad453128afb2604e"
 dependencies = [
  "alloy",
  "async-trait",
@@ -6849,7 +6840,6 @@ dependencies = [
  "chrono",
  "futures 0.3.31",
  "num-bigint",
- "rand 0.8.5",
  "serde",
  "serde_json",
  "serde_with",
@@ -6883,8 +6873,8 @@ dependencies = [
 
 [[package]]
 name = "tycho-simulation"
-version = "0.248.0"
-source = "git+https://github.com/propeller-heads/tycho-simulation.git?tag=0.248.0#046af4976615a6999d1abd2c295a306a58320779"
+version = "0.250.0"
+source = "git+https://github.com/propeller-heads/tycho-simulation.git?tag=0.250.0#1b6d015f28249aa8c2a43647cb28a902bf9e4b5a"
 dependencies = [
  "alloy",
  "alloy-chains",
@@ -6929,8 +6919,8 @@ dependencies = [
 
 [[package]]
 name = "tycho-test"
-version = "0.248.0"
-source = "git+https://github.com/propeller-heads/tycho-simulation.git?tag=0.248.0#046af4976615a6999d1abd2c295a306a58320779"
+version = "0.250.0"
+source = "git+https://github.com/propeller-heads/tycho-simulation.git?tag=0.250.0#1b6d015f28249aa8c2a43647cb28a902bf9e4b5a"
 dependencies = [
  "alloy",
  "alloy-chains",
@@ -6941,7 +6931,7 @@ dependencies = [
  "futures 0.3.31",
  "hex",
  "itertools 0.10.5",
- "lru 0.16.2",
+ "lru 0.16.3",
  "miette",
  "num-bigint",
  "num-traits",
