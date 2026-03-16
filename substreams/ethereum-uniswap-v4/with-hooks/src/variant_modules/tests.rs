@@ -331,16 +331,15 @@ mod hooks_tests {
         // Given: A pool created with an Alphix hook address
         let block_changes = create_mock_alphix_pool("831CfDf7c0E194f5369f204b3DD2481B843d60c0");
 
-        // Setup mock store with the Alphix hook (0x-prefixed, matching to_hex() output)
-        let mut mock_store = MockStore::new_with_data();
-        mock_store
-            .insert("0x831cfdf7c0e194f5369f204b3dd2481b843d60c0".to_string(), "1".to_string());
+        let hook_addresses = vec![
+            "0x831cfdf7c0e194f5369f204b3dd2481b843d60c0".to_string(),
+        ];
 
-        // When: Enriching
+        // When: Enriching directly against known addresses (no store needed)
         let enriched =
             crate::variant_modules::map_alphix_enriched_block_changes::enrich_block_changes(
                 block_changes,
-                &mock_store,
+                &hook_addresses,
             );
 
         // Then: Should have hook_identifier attribute
@@ -359,16 +358,15 @@ mod hooks_tests {
         // Given: A pool created with a non-Alphix hook address
         let block_changes = create_mock_alphix_pool("1111111111111111111111111111111111111111");
 
-        // Setup mock store with only the Alphix hook (0x-prefixed)
-        let mut mock_store = MockStore::new_with_data();
-        mock_store
-            .insert("0x831cfdf7c0e194f5369f204b3dd2481b843d60c0".to_string(), "1".to_string());
+        let hook_addresses = vec![
+            "0x831cfdf7c0e194f5369f204b3dd2481b843d60c0".to_string(),
+        ];
 
         // When: Enriching
         let enriched =
             crate::variant_modules::map_alphix_enriched_block_changes::enrich_block_changes(
                 block_changes,
-                &mock_store,
+                &hook_addresses,
             );
 
         // Then: Should NOT have hook_identifier attribute
@@ -384,7 +382,7 @@ mod hooks_tests {
     #[test]
     fn test_alphix_multiple_hooks() {
         // Test that the params-based approach supports multiple hook addresses
-        let addresses = crate::variant_modules::store_alphix_hooks::parse_hook_addresses(
+        let addresses = crate::variant_modules::map_alphix_enriched_block_changes::parse_hook_addresses(
             "0x831CfDf7c0E194f5369f204b3DD2481B843d60c0,0x0e4b892Df7C5Bcf5010FAF4AA106074e555660C0,0x5e645C3D580976Ca9e3fe77525D954E73a0Ce0C0",
         );
         assert_eq!(addresses.len(), 3);

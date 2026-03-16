@@ -4,9 +4,6 @@ pub mod map_pool_created;
 #[path = "2_store_euler_hooks.rs"]
 pub mod store_euler_hooks;
 
-#[path = "2_store_alphix_hooks.rs"]
-pub mod store_alphix_hooks;
-
 #[path = "2_store_tokens_to_pool_id_angstrom.rs"]
 pub mod store_tokens_to_pool_id_angstrom;
 

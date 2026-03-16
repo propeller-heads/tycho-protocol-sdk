@@ -117,16 +117,6 @@ modules:
     inputs:
       - map: map_liquidity_changes
 
-  # Alphix hook modules
-  - name: store_alphix_hooks
-    kind: store
-    initialBlock: 428862000
-    updatePolicy: set_if_not_exists
-    valueType: int64
-    inputs:
-      - params: string
-      - map: map_pools_created
-
   - name: map_protocol_changes
     kind: map
     initialBlock: 428862000
@@ -150,13 +140,12 @@ modules:
     kind: map
     initialBlock: 428862000
     inputs:
+      - params: string
       - map: map_protocol_changes
-      - store: store_alphix_hooks
-        mode: get
     output:
       type: proto:tycho.evm.v1.BlockChanges
 
 params:
   map_pools_created: "360e68faccca8ca495c1b759fd9eee466db9fb32"
   # Alphix hooks on Arbitrum: USDC/USDT (comma-separated, add new hooks here)
-  store_alphix_hooks: "5e645C3D580976Ca9e3fe77525D954E73a0Ce0C0"
+  map_alphix_enriched_block_changes: "5e645C3D580976Ca9e3fe77525D954E73a0Ce0C0"

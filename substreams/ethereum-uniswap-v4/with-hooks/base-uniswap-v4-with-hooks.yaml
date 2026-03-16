@@ -117,16 +117,6 @@ modules:
     inputs:
       - map: map_liquidity_changes
 
-  # Alphix hook modules
-  - name: store_alphix_hooks
-    kind: store
-    initialBlock: 25350988
-    updatePolicy: set_if_not_exists
-    valueType: int64
-    inputs:
-      - params: string
-      - map: map_pools_created
-
   - name: map_protocol_changes
     kind: map
     initialBlock: 25350988
@@ -150,13 +140,12 @@ modules:
     kind: map
     initialBlock: 25350988
     inputs:
+      - params: string
       - map: map_protocol_changes
-      - store: store_alphix_hooks
-        mode: get
     output:
       type: proto:tycho.evm.v1.BlockChanges
 
 params:
   map_pools_created: "498581ff718922c3f8e6a244956af099b2652b2b"
   # Alphix hooks on Base: ETH/USDC and USDS/USDC (comma-separated, add new hooks here)
-  store_alphix_hooks: "831CfDf7c0E194f5369f204b3DD2481B843d60c0,0e4b892Df7C5Bcf5010FAF4AA106074e555660C0"
+  map_alphix_enriched_block_changes: "831CfDf7c0E194f5369f204b3DD2481B843d60c0,0e4b892Df7C5Bcf5010FAF4AA106074e555660C0"
