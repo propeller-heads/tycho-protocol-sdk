@@ -2,8 +2,7 @@ use tycho_simulation::{
     evm::{
         engine_db::tycho_db::PreCachedDB,
         protocol::{
-            ekubo::state::EkuboState, fluid::FluidV1,
-            pancakeswap_v2::state::PancakeswapV2State,
+            ekubo::state::EkuboState, fluid::FluidV1, pancakeswap_v2::state::PancakeswapV2State,
             rocketpool::state::RocketpoolState, uniswap_v2::state::UniswapV2State,
             uniswap_v3::state::UniswapV3State, uniswap_v4::state::UniswapV4State,
             vm::state::EVMPoolState,
