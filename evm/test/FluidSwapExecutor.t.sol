@@ -58,8 +58,11 @@ contract TestFluidSwapExecutor is Test, Constants {
         bool swap0to1 = false;
         bytes memory protocolData = abi.encode(swap0to1, DEX_POOL);
 
-        // Fund the User
-        deal(USDT_ADDR, bob, expectedSellAmount);
+        // Fund the User (deal fails on USDT due to non-standard storage layout;
+        // USDT transfer() has no return value so must use safeTransfer)
+        address usdt_whale = 0xF977814e90dA44bFA03b6295A0616a897441aceC;
+        vm.prank(usdt_whale);
+        USDT.safeTransfer(bob, expectedSellAmount);
 
         vm.prank(bob);
         USDT.forceApprove(address(fluid), expectedSellAmount); // using
