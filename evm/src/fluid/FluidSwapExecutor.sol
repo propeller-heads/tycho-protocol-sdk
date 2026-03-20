@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.28;
+pragma solidity ^0.8.27;
 
 import "../interfaces/ISwapExecutor.sol";
 import {IFluidDexT1} from "./Interfaces/iDexT1.sol";

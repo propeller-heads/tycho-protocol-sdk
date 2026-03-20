@@ -495,7 +495,8 @@ fn query_and_emit_balances(
     transaction_changes: &mut HashMap<u64, TransactionChangesBuilder>,
 ) {
     if let Some(tx) = block.transactions().last() {
-        let reserves_call = crate::abi::reserves_resolver::functions::GetAllPoolsReservesAdjusted {};
+        let reserves_call =
+            crate::abi::reserves_resolver::functions::GetAllPoolsReservesAdjusted {};
         if let Some(reserves) = reserves_call.call(resolver_address.as_bytes().to_vec()) {
             for pool_with_reserves in reserves {
                 let pool_hex_address = pool_with_reserves.0.to_hex();
@@ -532,20 +533,20 @@ fn query_and_emit_balances(
                     builder.add_balance_change(&BalanceChange {
                         token: coerce_native_address(pool_with_reserves.1.clone()),
                         balance: from_adjusted_amount(
-                            pool_with_reserves.5.0 + pool_with_reserves.6.0,
+                            pool_with_reserves.5 .0 + pool_with_reserves.6 .0,
                             t0_decimals as i32,
                         )
-                            .to_signed_bytes_be(),
+                        .to_signed_bytes_be(),
                         component_id: pool_hex_address.clone().into(),
                     });
 
                     builder.add_balance_change(&BalanceChange {
                         token: coerce_native_address(pool_with_reserves.2.clone()),
                         balance: from_adjusted_amount(
-                            pool_with_reserves.5.1 + pool_with_reserves.6.1,
+                            pool_with_reserves.5 .1 + pool_with_reserves.6 .1,
                             t1_decimals as i32,
                         )
-                            .to_signed_bytes_be(),
+                        .to_signed_bytes_be(),
                         component_id: pool_hex_address.clone().into(),
                     })
                 } else {
