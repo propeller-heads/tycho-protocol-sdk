@@ -46,7 +46,8 @@ impl DeploymentParameters {
     }
 
     fn should_query_tvl(&self, block_number: u64) -> bool {
-        block_number >= self.tvl_query_start_block && block_number % self.tvl_query_frequency == 0
+        block_number >= self.tvl_query_start_block
+            && block_number.is_multiple_of(self.tvl_query_frequency)
     }
 
     fn should_track(&self, address: &[u8]) -> bool {

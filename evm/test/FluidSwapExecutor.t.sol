@@ -4,7 +4,9 @@ pragma solidity ^0.8.13;
 import "forge-std/Test.sol";
 import "openzeppelin-contracts/contracts/interfaces/IERC20.sol";
 import "../src/fluid/FluidSwapExecutor.sol";
-import {SafeERC20} from "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
+import {
+    SafeERC20
+} from "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 import "./Constants.sol";
 
 contract TestFluidSwapExecutor is Test, Constants {
@@ -14,8 +16,10 @@ contract TestFluidSwapExecutor is Test, Constants {
     IERC20 USDC = IERC20(USDC_ADDR);
     IERC20 USDT = IERC20(USDT_ADDR);
 
-    address constant FLUID_LIQUIDITY = 0x52Aa899454998Be5b000Ad077a46Bbe360F4e497;
-    address constant DEX_POOL = 0x667701e51B4D1Ca244F17C78F7aB8744B4C99F9B; // USDC-USDT pool
+    address constant FLUID_LIQUIDITY =
+        0x52Aa899454998Be5b000Ad077a46Bbe360F4e497;
+    address constant DEX_POOL = 0x667701e51B4D1Ca244F17C78F7aB8744B4C99F9B; // USDC-USDT
+    // pool
 
     function setUp() public {
         // Fork mainnet at a specific block
@@ -48,7 +52,8 @@ contract TestFluidSwapExecutor is Test, Constants {
     function testFluidSwapExactOut() public {
         // USDT-USDC Swap BUY
         uint256 buyAmount = 1000 * 10 ** 6; // 1000 USDC
-        uint256 expectedSellAmount = 1002 * 10 ** 6; // Expected to sell 1002 USDT
+        uint256 expectedSellAmount = 1002 * 10 ** 6; // Expected to sell 1002
+        // USDT
 
         bool swap0to1 = false;
         bytes memory protocolData = abi.encode(swap0to1, DEX_POOL);
@@ -57,7 +62,8 @@ contract TestFluidSwapExecutor is Test, Constants {
         deal(USDT_ADDR, bob, expectedSellAmount);
 
         vm.prank(bob);
-        USDT.forceApprove(address(fluid), expectedSellAmount); // using forceApprove from SafeERC20
+        USDT.forceApprove(address(fluid), expectedSellAmount); // using
+        // forceApprove from SafeERC20
 
         vm.prank(bob);
         fluid.swap(buyAmount, protocolData);
