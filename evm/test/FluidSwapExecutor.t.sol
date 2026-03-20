@@ -1,11 +1,13 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.13;
 
-import "./SwapExecutor.t.sol";
+import "forge-std/Test.sol";
+import "openzeppelin-contracts/contracts/interfaces/IERC20.sol";
 import "../src/fluid/FluidSwapExecutor.sol";
 import {SafeERC20} from "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
+import "./Constants.sol";
 
-contract TestFluidSwapExecutor is SwapExecutorTest {
+contract TestFluidSwapExecutor is Test, Constants {
     using SafeERC20 for IERC20;
 
     FluidSwapExecutor fluid;
