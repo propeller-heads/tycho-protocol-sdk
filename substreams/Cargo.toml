@@ -19,6 +19,7 @@ members = [
     "ethereum-ekubo-v3",
     "ethereum-maverick-v2",
     "ethereum-balancer-v3",
+    "ethereum-fluid",
     "base-aerodrome-slipstreams",
     "ethereum-rocketpool",
     "ethereum-erc4626",
