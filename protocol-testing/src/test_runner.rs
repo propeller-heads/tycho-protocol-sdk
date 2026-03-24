@@ -25,7 +25,7 @@ use regex::Regex;
 use serde_json::json;
 use tokio::runtime::Runtime;
 use tracing::{debug, error, info, warn};
-use tycho_contracts::encoding::evm::utils::bytes_to_address;
+use tycho_execution::encoding::evm::utils::bytes_to_address;
 use tycho_simulation::{
     evm::{
         protocol::{

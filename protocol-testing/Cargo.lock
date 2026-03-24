@@ -3811,9 +3811,9 @@ dependencies = [
 
 [[package]]
 name = "lru"
-version = "0.16.2"
+version = "0.16.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "96051b46fc183dc9cd4a223960ef37b9af631b55191852a8274bfef064cda20f"
+checksum = "a1dc47f592c06f33f8e3aea9591776ec7c9f9e4124778ff8a3c3b87159f7e593"
 dependencies = [
  "hashbrown 0.16.1",
 ]
@@ -4761,7 +4761,7 @@ dependencies = [
  "tokio-retry2",
  "tracing",
  "tracing-subscriber 0.3.22",
- "tycho-contracts",
+ "tycho-execution",
  "tycho-simulation",
  "tycho-test",
 ]
@@ -5332,9 +5332,9 @@ dependencies = [
 
 [[package]]
 name = "ruint"
-version = "1.17.0"
+version = "1.17.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a68df0380e5c9d20ce49534f292a36a7514ae21350726efe1865bdb1fa91d278"
+checksum = "c141e807189ad38a07276942c6623032d3753c8859c146104ac2e4d68865945a"
 dependencies = [
  "alloy-rlp",
  "arbitrary",
@@ -6844,25 +6844,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "tycho-contracts"
-version = "0.39.1"
-dependencies = [
- "alloy",
- "chrono",
- "clap",
- "dotenvy",
- "hex",
- "num-bigint",
- "once_cell",
- "reqwest",
- "serde",
- "serde_json",
- "thiserror 1.0.69",
- "tokio",
- "tycho-common",
-]
-
-[[package]]
 name = "tycho-ethereum"
 version = "0.147.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6885,8 +6866,30 @@ dependencies = [
 ]
 
 [[package]]
+name = "tycho-execution"
+version = "0.166.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "14430868857578c48a3d579e8a8210ac3075b405454b72b1ae200c62710e4c4d"
+dependencies = [
+ "alloy",
+ "chrono",
+ "clap",
+ "dotenvy",
+ "hex",
+ "num-bigint",
+ "once_cell",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "thiserror 1.0.69",
+ "tokio",
+ "tycho-common",
+]
+
+[[package]]
 name = "tycho-simulation"
-version = "0.248.1"
+version = "0.250.0"
+source = "git+https://github.com/propeller-heads/tycho-simulation.git?rev=820133189419592c0b2e8e8e79b93db4b6a78463#820133189419592c0b2e8e8e79b93db4b6a78463"
 dependencies = [
  "alloy",
  "alloy-chains",
@@ -6931,7 +6934,8 @@ dependencies = [
 
 [[package]]
 name = "tycho-test"
-version = "0.248.1"
+version = "0.250.0"
+source = "git+https://github.com/propeller-heads/tycho-simulation.git?rev=820133189419592c0b2e8e8e79b93db4b6a78463#820133189419592c0b2e8e8e79b93db4b6a78463"
 dependencies = [
  "alloy",
  "alloy-chains",
@@ -6942,7 +6946,7 @@ dependencies = [
  "futures 0.3.31",
  "hex",
  "itertools 0.10.5",
- "lru 0.16.2",
+ "lru 0.16.3",
  "miette",
  "num-bigint",
  "num-traits",
@@ -6956,8 +6960,8 @@ dependencies = [
  "tracing-subscriber 0.3.22",
  "tycho-client",
  "tycho-common",
- "tycho-contracts",
  "tycho-ethereum",
+ "tycho-execution",
  "tycho-simulation",
  "urlencoding",
 ]
