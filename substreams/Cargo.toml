@@ -23,6 +23,7 @@ members = [
     "ethereum-rocketpool",
     "ethereum-erc4626",
     "unichain-velodrome",
+    "base-aerodrome-v1",
 ]
 resolver = "2"
 
