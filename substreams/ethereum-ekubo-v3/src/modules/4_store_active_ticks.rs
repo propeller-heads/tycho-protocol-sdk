@@ -1,6 +1,4 @@
-use substreams::store::{StoreSet, StoreSetInt64};
-
-use substreams::store::StoreNew;
+use substreams::store::{StoreNew, StoreSet, StoreSetInt64};
 use substreams_helper::hex::Hexable;
 
 use crate::pb::ekubo::{
@@ -8,7 +6,7 @@ use crate::pb::ekubo::{
 };
 
 #[substreams::handlers::store]
-pub fn store_active_ticks(block_tx_events: BlockTransactionEvents, store: StoreSetInt64) {
+pub fn store_active_ticks(block_tx_events: BlockTransactionEvents, tick_store: StoreSetInt64) {
     block_tx_events
         .block_transaction_events
         .into_iter()
@@ -17,7 +15,7 @@ pub fn store_active_ticks(block_tx_events: BlockTransactionEvents, store: StoreS
             maybe_tick(log.event.unwrap()).map(|tick| (log.pool_id.to_hex(), log.ordinal, tick))
         })
         .for_each(|(pool, ordinal, new_tick_index)| {
-            store.set(ordinal, format!("pool:{pool}"), &new_tick_index.into())
+            tick_store.set(ordinal, pool, &new_tick_index.into())
         });
 }
 
