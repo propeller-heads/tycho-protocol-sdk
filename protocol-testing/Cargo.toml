@@ -10,9 +10,9 @@ miette = { version = "7.6.0", features = ["fancy"] }
 tracing = "0.1.37"
 tycho-simulation = { git = "https://github.com/propeller-heads/tycho-simulation.git", features = [
     "evm",
-], rev = "820133189419592c0b2e8e8e79b93db4b6a78463" }
-tycho-test = { git = "https://github.com/propeller-heads/tycho-simulation.git", rev = "820133189419592c0b2e8e8e79b93db4b6a78463" }
-tycho-execution = ">=0.166.0"
+], rev = "1d57d897d6fcfebd8a3499ba97819f904d75304b" }
+tycho-test = { git = "https://github.com/propeller-heads/tycho-simulation.git", rev = "1d57d897d6fcfebd8a3499ba97819f904d75304b" }
+tycho-execution = ">=0.167.0"
 num-bigint = "0.4"
 num-traits = "0.2"
 num-rational = "0.4.2"
