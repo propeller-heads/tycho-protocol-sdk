@@ -1138,7 +1138,6 @@ impl TestRunner {
                         amount_in.clone(),
                         chain_model,
                         Some(executors_json.to_string()),
-                        true,
                     )?;
 
                     // Create unique simulation ID
@@ -1279,7 +1278,7 @@ impl TestRunner {
                     info!(
                         "[{}] Execution passed: {} {} -> {} {}",
                         expected_input.component_id,
-                        expected_input.solution.given_amount,
+                        expected_input.solution.amount_in(),
                         expected_input.token_in,
                         amount_out,
                         expected_input.token_out
