@@ -1236,15 +1236,28 @@ pub fn address_map(
                 if let Some(deploy_pool) =
                     abi::twocrypto_factory::functions::DeployPool::match_and_decode(call)
                 {
-                    if deploy_pool.implementation_id == BigInt::from_str("110827960954786879070795645317684308345156454977361180728234664032152099907574").unwrap(){
+                    let is_custom = curve_params
+                        .protocol_params
+                        .twocrypto_custom_implementation_ids
+                        .iter()
+                        .any(|id| deploy_pool.implementation_id == BigInt::from_str(id).unwrap());
+                    if is_custom {
                         attributes.push(Attribute {
                             name: "stateless_contract_addr_2".into(),
-                            value: address_to_bytes_with_0x(&curve_params.protocol_params.twocrypto_custom_view),
+                            value: address_to_bytes_with_0x(
+                                &curve_params
+                                    .protocol_params
+                                    .twocrypto_custom_view,
+                            ),
                             change: ChangeType::Creation.into(),
                         });
                         attributes.push(Attribute {
                             name: "stateless_contract_addr_3".into(),
-                            value: address_to_bytes_with_0x(&curve_params.protocol_params.twocrypto_custom_math),
+                            value: address_to_bytes_with_0x(
+                                &curve_params
+                                    .protocol_params
+                                    .twocrypto_custom_math,
+                            ),
                             change: ChangeType::Creation.into(),
                         });
                     }
