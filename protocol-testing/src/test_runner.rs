@@ -1278,7 +1278,7 @@ impl TestRunner {
                     info!(
                         "[{}] Execution passed: {} {} -> {} {}",
                         expected_input.component_id,
-                        expected_input.solution.token_in(),
+                        expected_input.solution.amount_in(),
                         expected_input.token_in,
                         amount_out,
                         expected_input.token_out
