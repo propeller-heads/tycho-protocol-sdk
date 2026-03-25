@@ -526,6 +526,30 @@ tests:
         skip_simulation: false
         skip_execution: false
 
+  # Twocrypto factory 0x98ee851a00abee0d95d08cf4ca2bdce32aeaaf7f
+  - name: test_twocrypto_custom_view
+    start_block: 23588550
+    stop_block: 23598550
+    initialized_accounts:
+      - "0x0c0e5f2ff0ff18a3be9b835635039256dc4b4963"
+      - "0x98ee851a00abee0d95d08cf4ca2bdce32aeaaf7f" # Factory, needed for implementations contracts queries
+      - "0xc4ad29ba4b3c580e6d59105fff484999997675ff" # Needed by another component that is created within this block range
+      - "0x6a8cbed756804b16e05e741edabd5cb544ae21bf" # Factory, needed for implementations contrats queries
+    expected_components:
+      - id: "0x027b40f5917fcd0eac57d7015e120096a5f92ca9"
+        tokens:
+          - "0xb58e61c3098d85632df34eecfb899a1ed80921cb"
+          - "0xf939e0a03fb07f59a73314e73794be0e57ac1b4e"
+        static_attributes:
+          factory: "0x307839386565383531613030616265653064393564303863663463613262646365333261656161663766" # 0x98ee851a00abee0d95d08cf4ca2bdce32aea7f7f
+          pool_type: "0x74776f63727970746f" # twocrypto
+          factory_name: "0x74776f63727970746f5f666163746f7279" # twocrypto_factory
+          name: "0x5a4348462f435256555344" # ZCHF/CRVUSD
+          coins: "0x5b22307866393339653061303366623037663539613733333134653733373934626530653537616331623465222c22307862353865363163333039386438353633326466333465656366623839396131656438303932316362225d"
+        creation_tx: "0x9140c12c7b56988275e4c837d4661b8783e4cd16340dba40d6d1a5dd2d1d4f78"
+        skip_simulation: false
+        skip_execution: false
+
   # StableSwap factory 0x4F8846Ae9380B90d2E71D5e3D042dff3E7ebb40d - PlainPool
   - name: test_stableswap_factory_plain_pool
     start_block: 17258004
