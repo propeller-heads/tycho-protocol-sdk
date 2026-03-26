@@ -139,52 +139,49 @@ pub fn map_twocrypto_custom_impls(
         });
     }
 
-    for tx in block.transactions() {
-        for (log, call) in tx
-            .logs_with_calls()
-            .filter(|(_, call)| !call.call.state_reverted)
-        {
-            let call_address: [u8; 20] = match call.call.address.as_slice().try_into() {
-                Ok(addr) => addr,
-                Err(_) => continue,
-            };
-            if call_address !=
-                curve_params
-                    .protocol_params
-                    .twocrypto_factory
-            {
-                continue;
-            }
+    let factory_addr = curve_params
+        .protocol_params
+        .twocrypto_factory;
+    let has_factory_log = block
+        .logs()
+        .any(|log| log.address() == factory_addr);
 
-            if let Some(pool_added) =
-                abi::twocrypto_factory::events::TwocryptoPoolDeployed::match_and_decode(log)
+    if has_factory_log {
+        for tx in block.transactions() {
+            for (log, call) in tx
+                .logs_with_calls()
+                .filter(|(_, call)| !call.call.state_reverted)
             {
-                if let Some(deploy_pool) =
-                    abi::twocrypto_factory::functions::DeployPool::match_and_decode(call.call)
+                if let Some(pool_added) =
+                    abi::twocrypto_factory::events::TwocryptoPoolDeployed::match_and_decode(log)
                 {
-                    let impl_id = deploy_pool
-                        .implementation_id
-                        .to_string();
-
-                    // Skip if already in config (emitted above) or already discovered this block.
-                    if discoveries
-                        .iter()
-                        .any(|d| d.implementation_id == impl_id)
+                    if let Some(deploy_pool) =
+                        abi::twocrypto_factory::functions::DeployPool::match_and_decode(call.call)
                     {
-                        continue;
-                    }
+                        let impl_id = deploy_pool
+                            .implementation_id
+                            .to_string();
 
-                    let view_addr =
-                        (abi::twocrypto_pool::functions::View {}).call(pool_added.pool.clone());
-                    let math_addr =
-                        (abi::twocrypto_pool::functions::Math {}).call(pool_added.pool.clone());
+                        // Skip if already in config or already discovered this block.
+                        if discoveries
+                            .iter()
+                            .any(|d| d.implementation_id == impl_id)
+                        {
+                            continue;
+                        }
 
-                    if let (Some(view), Some(math)) = (view_addr, math_addr) {
-                        discoveries.push(TwocryptoCustomImpl {
-                            implementation_id: impl_id,
-                            view_address: hex::encode(&view),
-                            math_address: hex::encode(&math),
-                        });
+                        let view_addr =
+                            (abi::twocrypto_pool::functions::View {}).call(pool_added.pool.clone());
+                        let math_addr =
+                            (abi::twocrypto_pool::functions::Math {}).call(pool_added.pool.clone());
+
+                        if let (Some(view), Some(math)) = (view_addr, math_addr) {
+                            discoveries.push(TwocryptoCustomImpl {
+                                implementation_id: impl_id,
+                                view_address: hex::encode(&view),
+                                math_address: hex::encode(&math),
+                            });
+                        }
                     }
                 }
             }
