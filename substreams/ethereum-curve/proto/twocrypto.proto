@@ -1,0 +1,13 @@
+syntax = "proto3";
+
+package curve.twocrypto.v1;
+
+message TwocryptoCustomImpl {
+  string implementation_id = 1;
+  string view_address = 2;
+  string math_address = 3;
+}
+
+message TwocryptoCustomImpls {
+  repeated TwocryptoCustomImpl impls = 1;
+}

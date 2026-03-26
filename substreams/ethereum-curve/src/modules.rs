@@ -6,17 +6,18 @@ use substreams::{
     pb::substreams::StoreDeltas,
     scalar::BigInt,
     store::{
-        StoreAddBigInt, StoreGet, StoreGetInt64, StoreGetString, StoreNew, StoreSet, StoreSetInt64,
-        StoreSetString,
+        StoreAddBigInt, StoreGet, StoreGetInt64, StoreGetString, StoreNew, StoreSet,
+        StoreSetIfNotExists, StoreSetIfNotExistsString, StoreSetInt64, StoreSetString,
     },
 };
-use substreams_ethereum::{pb::eth, Function};
+use substreams_ethereum::{pb::eth, Event, Function};
 
 use crate::{
     abi,
     abi::set_oracle_implementation::functions::SetOracle,
     consts::ZERO_ADDRESS,
     params::{emit_specific_pools, parse_curve_params},
+    pb::{TwocryptoCustomImpl, TwocryptoCustomImpls},
     pool_changes::emit_eth_deltas,
     pool_factories,
 };
@@ -42,7 +43,11 @@ impl PartialEq for TransactionWrapper {
 
 #[substreams::handlers::map]
 // Map all created components and their related entity changes.
-pub fn map_components(params: String, block: eth::v2::Block) -> Result<BlockChanges> {
+pub fn map_components(
+    params: String,
+    block: eth::v2::Block,
+    twocrypto_custom_impls_store: StoreGetString,
+) -> Result<BlockChanges> {
     let curve_params = parse_curve_params(&params)?;
     let changes = block
         .transactions()
@@ -64,6 +69,7 @@ pub fn map_components(params: String, block: eth::v2::Block) -> Result<BlockChan
                     log,
                     call.call,
                     tx,
+                    &twocrypto_custom_impls_store,
                 ) {
                     entity_changes.append(&mut state);
                     components.push(component);
@@ -99,6 +105,110 @@ pub fn map_components(params: String, block: eth::v2::Block) -> Result<BlockChan
         .collect::<Vec<_>>();
 
     Ok(BlockChanges { block: None, changes, storage_changes: vec![] })
+}
+
+/// Scans the block for new twocrypto pool deployments and discovers custom VIEW/MATH contracts.
+/// Emits configured IDs with their configured addresses every block (store.set is idempotent).
+/// For unknown IDs, calls VIEW()/MATH() on the pool contract via ethcall.
+#[substreams::handlers::map]
+pub fn map_twocrypto_custom_impls(
+    params: String,
+    block: eth::v2::Block,
+) -> Result<TwocryptoCustomImpls> {
+    let curve_params = parse_curve_params(&params)?;
+    let mut discoveries = vec![];
+
+    let view_hex = hex::encode(
+        curve_params
+            .protocol_params
+            .twocrypto_custom_view,
+    );
+    let math_hex = hex::encode(
+        curve_params
+            .protocol_params
+            .twocrypto_custom_math,
+    );
+    for id in &curve_params
+        .protocol_params
+        .twocrypto_custom_implementation_ids
+    {
+        discoveries.push(TwocryptoCustomImpl {
+            implementation_id: id.clone(),
+            view_address: view_hex.clone(),
+            math_address: math_hex.clone(),
+        });
+    }
+
+    for tx in block.transactions() {
+        for (log, call) in tx
+            .logs_with_calls()
+            .filter(|(_, call)| !call.call.state_reverted)
+        {
+            let call_address: [u8; 20] = match call.call.address.as_slice().try_into() {
+                Ok(addr) => addr,
+                Err(_) => continue,
+            };
+            if call_address !=
+                curve_params
+                    .protocol_params
+                    .twocrypto_factory
+            {
+                continue;
+            }
+
+            if let Some(pool_added) =
+                abi::twocrypto_factory::events::TwocryptoPoolDeployed::match_and_decode(log)
+            {
+                if let Some(deploy_pool) =
+                    abi::twocrypto_factory::functions::DeployPool::match_and_decode(call.call)
+                {
+                    let impl_id = deploy_pool
+                        .implementation_id
+                        .to_string();
+
+                    // Skip if already in config (emitted above) or already discovered this block.
+                    if discoveries
+                        .iter()
+                        .any(|d| d.implementation_id == impl_id)
+                    {
+                        continue;
+                    }
+
+                    let view_addr =
+                        (abi::twocrypto_pool::functions::View {}).call(pool_added.pool.clone());
+                    let math_addr =
+                        (abi::twocrypto_pool::functions::Math {}).call(pool_added.pool.clone());
+
+                    if let (Some(view), Some(math)) = (view_addr, math_addr) {
+                        discoveries.push(TwocryptoCustomImpl {
+                            implementation_id: impl_id,
+                            view_address: hex::encode(&view),
+                            math_address: hex::encode(&math),
+                        });
+                    }
+                }
+            }
+        }
+    }
+
+    Ok(TwocryptoCustomImpls { impls: discoveries })
+}
+
+/// Stores known twocrypto custom implementation IDs mapped to their view:math addresses.
+/// All seeding (from config) and discovery (from ethcall) is done in map_twocrypto_custom_impls;
+/// this handler just persists the results.
+#[substreams::handlers::store]
+pub fn store_twocrypto_custom_impls(
+    discoveries: TwocryptoCustomImpls,
+    store: StoreSetIfNotExistsString,
+) {
+    for discovery in discoveries.impls {
+        store.set_if_not_exists(
+            0,
+            format!("twocrypto_impl:{}", discovery.implementation_id),
+            &format!("{}:{}", discovery.view_address, discovery.math_address),
+        );
+    }
 }
 
 /// Get result `map_components` and stores the created `ProtocolComponent`s with the pool id as the

@@ -1,4 +1,4 @@
-use std::str::FromStr;
+use substreams::store::{StoreGet, StoreGetString};
 use substreams_ethereum::{
     pb::eth::v2::{Call, Log, TransactionTrace},
     Event, Function,
@@ -86,6 +86,7 @@ pub fn address_map(
     log: &Log,
     call: &Call,
     tx: &TransactionTrace,
+    twocrypto_custom_impls_store: &StoreGetString,
 ) -> Option<(ProtocolComponent, Vec<EntityChanges>)> {
     if *call_address == ZERO_ADDRESS {
         return None;
@@ -1236,32 +1237,36 @@ pub fn address_map(
                 if let Some(deploy_pool) =
                     abi::twocrypto_factory::functions::DeployPool::match_and_decode(call)
                 {
-                    let is_custom = curve_params
-                        .protocol_params
-                        .twocrypto_custom_implementation_ids
-                        .iter()
-                        .any(|id| deploy_pool.implementation_id == BigInt::from_str(id).unwrap());
-                    if is_custom {
-                        attributes.push(Attribute {
-                            name: "stateless_contract_addr_2".into(),
-                            value: address_to_bytes_with_0x(
-                                &curve_params
-                                    .protocol_params
-                                    .twocrypto_custom_view,
-                            ),
-                            change: ChangeType::Creation.into(),
-                        });
-                        attributes.push(Attribute {
-                            name: "stateless_contract_addr_3".into(),
-                            value: address_to_bytes_with_0x(
-                                &curve_params
-                                    .protocol_params
-                                    .twocrypto_custom_math,
-                            ),
-                            change: ChangeType::Creation.into(),
-                        });
+                    let impl_id = deploy_pool
+                        .implementation_id
+                        .to_string();
+                    let store_key = format!("twocrypto_impl:{}", impl_id);
+                    if let Some(stored_addrs) = twocrypto_custom_impls_store.get_last(&store_key) {
+                        let parts: Vec<&str> = stored_addrs.split(':').collect();
+                        if parts.len() == 2 {
+                            if let (Ok(view_bytes), Ok(math_bytes)) =
+                                (hex::decode(parts[0]), hex::decode(parts[1]))
+                            {
+                                let view: [u8; 20] = view_bytes
+                                    .try_into()
+                                    .unwrap_or([1u8; 20]);
+                                let math: [u8; 20] = math_bytes
+                                    .try_into()
+                                    .unwrap_or([1u8; 20]);
+                                attributes.push(Attribute {
+                                    name: "stateless_contract_addr_2".into(),
+                                    value: address_to_bytes_with_0x(&view),
+                                    change: ChangeType::Creation.into(),
+                                });
+                                attributes.push(Attribute {
+                                    name: "stateless_contract_addr_3".into(),
+                                    value: address_to_bytes_with_0x(&math),
+                                    change: ChangeType::Creation.into(),
+                                });
+                            }
+                        }
                     }
-                };
+                }
                 let id = hex::encode(&pool_added.pool);
 
                 Some((
