@@ -1,4 +1,3 @@
-use substreams::store::{StoreGet, StoreGetString};
 use substreams_ethereum::{
     pb::eth::v2::{Call, Log, TransactionTrace},
     Event, Function,
@@ -86,7 +85,6 @@ pub fn address_map(
     log: &Log,
     call: &Call,
     tx: &TransactionTrace,
-    twocrypto_custom_impls_store: &StoreGetString,
 ) -> Option<(ProtocolComponent, Vec<EntityChanges>)> {
     if *call_address == ZERO_ADDRESS {
         return None;
@@ -1240,30 +1238,47 @@ pub fn address_map(
                     let impl_id = deploy_pool
                         .implementation_id
                         .to_string();
-                    let store_key = format!("twocrypto_impl:{}", impl_id);
-                    if let Some(stored_addrs) = twocrypto_custom_impls_store.get_last(&store_key) {
-                        let parts: Vec<&str> = stored_addrs.split(':').collect();
-                        if parts.len() == 2 {
-                            if let (Ok(view_bytes), Ok(math_bytes)) =
-                                (hex::decode(parts[0]), hex::decode(parts[1]))
-                            {
-                                let view: [u8; 20] = view_bytes
-                                    .try_into()
-                                    .unwrap_or([1u8; 20]);
-                                let math: [u8; 20] = math_bytes
-                                    .try_into()
-                                    .unwrap_or([1u8; 20]);
-                                attributes.push(Attribute {
-                                    name: "stateless_contract_addr_2".into(),
-                                    value: address_to_bytes_with_0x(&view),
-                                    change: ChangeType::Creation.into(),
-                                });
-                                attributes.push(Attribute {
-                                    name: "stateless_contract_addr_3".into(),
-                                    value: address_to_bytes_with_0x(&math),
-                                    change: ChangeType::Creation.into(),
-                                });
-                            }
+                    if curve_params
+                        .protocol_params
+                        .twocrypto_custom_implementation_ids
+                        .contains(&impl_id)
+                    {
+                        attributes.push(Attribute {
+                            name: "stateless_contract_addr_2".into(),
+                            value: address_to_bytes_with_0x(
+                                &curve_params
+                                    .protocol_params
+                                    .twocrypto_custom_view,
+                            ),
+                            change: ChangeType::Creation.into(),
+                        });
+                        attributes.push(Attribute {
+                            name: "stateless_contract_addr_3".into(),
+                            value: address_to_bytes_with_0x(
+                                &curve_params
+                                    .protocol_params
+                                    .twocrypto_custom_math,
+                            ),
+                            change: ChangeType::Creation.into(),
+                        });
+                    } else {
+                        let view_addr =
+                            (abi::twocrypto_pool::functions::View {}).call(pool_added.pool.clone());
+                        let math_addr =
+                            (abi::twocrypto_pool::functions::Math {}).call(pool_added.pool.clone());
+                        if let (Some(view), Some(math)) = (view_addr, math_addr) {
+                            let view: [u8; 20] = view.try_into().unwrap_or([1u8; 20]);
+                            let math: [u8; 20] = math.try_into().unwrap_or([1u8; 20]);
+                            attributes.push(Attribute {
+                                name: "stateless_contract_addr_2".into(),
+                                value: address_to_bytes_with_0x(&view),
+                                change: ChangeType::Creation.into(),
+                            });
+                            attributes.push(Attribute {
+                                name: "stateless_contract_addr_3".into(),
+                                value: address_to_bytes_with_0x(&math),
+                                change: ChangeType::Creation.into(),
+                            });
                         }
                     }
                 }

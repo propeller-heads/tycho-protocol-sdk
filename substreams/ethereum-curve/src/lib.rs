@@ -3,6 +3,5 @@ mod abi;
 mod consts;
 pub mod modules;
 mod params;
-pub mod pb;
 mod pool_changes;
 mod pool_factories;
