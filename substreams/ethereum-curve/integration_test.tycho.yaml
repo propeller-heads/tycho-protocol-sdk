@@ -529,7 +529,7 @@ tests:
   # Twocrypto factory 0x98ee851a00abee0d95d08cf4ca2bdce32aeaaf7f
   - name: test_twocrypto_custom_view
     start_block: 23588550
-    stop_block: 23598550
+    stop_block: 23638550
     initialized_accounts:
       - "0x0c0e5f2ff0ff18a3be9b835635039256dc4b4963"
       - "0x98ee851a00abee0d95d08cf4ca2bdce32aeaaf7f" # Factory, needed for implementations contracts queries
