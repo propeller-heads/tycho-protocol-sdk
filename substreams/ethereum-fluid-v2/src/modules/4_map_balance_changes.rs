@@ -30,7 +30,7 @@ pub fn map_balance_changes(
             .filter(|call| !call.state_reverted)
             .flat_map(|call| &call.logs)
         {
-            tx_deltas = get_log_changed_balances(&tx, log, &dex_v2_address, &pools_store);
+            tx_deltas.extend(get_log_changed_balances(&tx, log, &dex_v2_address, &pools_store));
         }
         if !tx_deltas.is_empty() {
             balance_deltas.extend(tx_deltas);

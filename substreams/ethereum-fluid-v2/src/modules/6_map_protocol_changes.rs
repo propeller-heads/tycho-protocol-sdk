@@ -142,7 +142,16 @@ pub fn map_protocol_changes(
 
                 if let Some(operate) = LogOperate::match_and_decode(log) {
                     let (supply_exchange_price, borrow_exchange_price) =
-                        calc_exchange_prices(&operate.exchange_prices_and_config, block_ts);
+                        match calc_exchange_prices(&operate.exchange_prices_and_config, block_ts) {
+                            Ok(prices) => prices,
+                            Err(e) => {
+                                substreams::log::info!(
+                                    "Skipping LogOperate exchange price update: {}",
+                                    e
+                                );
+                                continue;
+                            }
+                        };
                     let changes = exchange_price_changes(
                         &operate.token,
                         &supply_exchange_price,
@@ -236,7 +245,10 @@ fn exchange_price_changes(
 
 // This implementation is based on the Solidity library LiquidityCalcs and mirrors its
 // calcExchangePrices logic.
-fn calc_exchange_prices(exchange_prices_and_config: &BigInt, now_ts: u64) -> (BigInt, BigInt) {
+fn calc_exchange_prices(
+    exchange_prices_and_config: &BigInt,
+    now_ts: u64,
+) -> Result<(BigInt, BigInt), anyhow::Error> {
     const SECONDS_PER_YEAR: u64 = 365 * 24 * 60 * 60;
     const FOUR_DECIMALS: u64 = 10_000;
 
@@ -256,7 +268,7 @@ fn calc_exchange_prices(exchange_prices_and_config: &BigInt, now_ts: u64) -> (Bi
 
     let (sign, bytes) = exchange_prices_and_config.to_bytes_be();
     if sign == Sign::Minus {
-        panic!("exchange_prices_and_config must be unsigned");
+        anyhow::bail!("exchange_prices_and_config must be unsigned");
     }
 
     let value = BigUint::from_bytes_be(&bytes);
@@ -271,7 +283,7 @@ fn calc_exchange_prices(exchange_prices_and_config: &BigInt, now_ts: u64) -> (Bi
     let mut borrow_exchange_price = (&value >> BITS_EXCHANGE_PRICES_BORROW_EXCHANGE_PRICE) & &x64;
 
     if supply_exchange_price.is_zero() || borrow_exchange_price.is_zero() {
-        panic!("exchange price is zero");
+        anyhow::bail!("exchange price is zero");
     }
 
     let borrow_rate = &value & &x16;
@@ -284,10 +296,10 @@ fn calc_exchange_prices(exchange_prices_and_config: &BigInt, now_ts: u64) -> (Bi
 
     if seconds_since_last_update == 0 || borrow_rate.is_zero() || borrow_ratio == BigUint::from(1u8)
     {
-        return (
+        return Ok((
             BigInt::from_unsigned_bytes_be(&supply_exchange_price.to_bytes_be()),
             BigInt::from_unsigned_bytes_be(&borrow_exchange_price.to_bytes_be()),
-        );
+        ));
     }
 
     let seconds_since = BigUint::from(seconds_since_last_update);
@@ -299,10 +311,10 @@ fn calc_exchange_prices(exchange_prices_and_config: &BigInt, now_ts: u64) -> (Bi
 
     let mut temp = (&value >> BITS_EXCHANGE_PRICES_SUPPLY_RATIO) & &x15;
     if temp == BigUint::from(1u8) {
-        return (
+        return Ok((
             BigInt::from_unsigned_bytes_be(&supply_exchange_price.to_bytes_be()),
             BigInt::from_unsigned_bytes_be(&borrow_exchange_price.to_bytes_be()),
-        );
+        ));
     }
 
     let utilization = (&value >> BITS_EXCHANGE_PRICES_UTILIZATION) & &x14;
@@ -335,10 +347,10 @@ fn calc_exchange_prices(exchange_prices_and_config: &BigInt, now_ts: u64) -> (Bi
     let denom = &seconds_per_year * &four_decimals * &four_decimals * &four_decimals;
     supply_exchange_price += (&supply_exchange_price * temp * &seconds_since) / denom;
 
-    (
+    Ok((
         BigInt::from_unsigned_bytes_be(&supply_exchange_price.to_bytes_be()),
         BigInt::from_unsigned_bytes_be(&borrow_exchange_price.to_bytes_be()),
-    )
+    ))
 }
 
 #[cfg(test)]
@@ -362,7 +374,7 @@ mod tests {
         let packed =
             BigInt::from_str("46464094416348171314390299771166327281840865656352815973125")
                 .unwrap();
-        let (supply_out, borrow_out) = calc_exchange_prices(&packed, 1764889531);
+        let (supply_out, borrow_out) = calc_exchange_prices(&packed, 1764889531).unwrap();
         assert_eq!(supply_out.to_u64(), 1_010_498_400_696u64);
         assert_eq!(borrow_out.to_u64(), 1_017_362_263_006u64);
     }
@@ -373,7 +385,7 @@ mod tests {
         let borrow = u64::MAX - 1;
         let packed = pack_exchange_prices(supply, borrow);
 
-        let (supply_out, borrow_out) = calc_exchange_prices(&packed, 1764889531);
+        let (supply_out, borrow_out) = calc_exchange_prices(&packed, 1764889531).unwrap();
         assert_eq!(supply_out.to_u64(), supply);
         assert_eq!(borrow_out.to_u64(), borrow);
     }
