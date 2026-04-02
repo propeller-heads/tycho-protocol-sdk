@@ -23,6 +23,7 @@ members = [
     "base-aerodrome-slipstreams",
     "ethereum-erc4626",
     "unichain-velodrome",
+    "supernova-v3",
 ]
 resolver = "2"
 

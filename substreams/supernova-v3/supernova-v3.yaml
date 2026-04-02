@@ -7,6 +7,7 @@ protobuf:
   files:
     - tycho/evm/v1/common.proto
     - tycho/evm/v1/entity.proto
+    - tycho/evm/v1/utils.proto
     - supernova.proto
   importPaths:
     - ./proto/v1
@@ -15,12 +16,12 @@ protobuf:
 binaries:
   default:
     type: wasm/rust-v1
-    file: ../target/wasm32-unknown-unknown/release/substreams_supernova_v3.wasm
+    file: ../target/wasm32-unknown-unknown/release/supernova_v3.wasm
 
 modules:
   - name: map_pools_created
     kind: map
-    initialBlock: 1
+    initialBlock: 24468499
     inputs:
       - params: string
       - source: sf.ethereum.type.v2.Block
@@ -29,23 +30,44 @@ modules:
 
   - name: store_pools
     kind: store
-    initialBlock: 1
+    initialBlock: 24468499
     updatePolicy: set_if_not_exists
     valueType: proto:tycho.evm.v1.ProtocolComponent
     inputs:
       - map: map_pools_created
 
+  - name: map_balance_changes
+    kind: map
+    initialBlock: 24468499
+    inputs:
+      - source: sf.ethereum.type.v2.Block
+      - store: store_pools
+      - map: map_pools_created
+    output:
+      type: proto:tycho.evm.v1.BlockBalanceDeltas
+
+  - name: store_pools_balances
+    kind: store
+    initialBlock: 24468499
+    updatePolicy: add
+    valueType: bigint
+    inputs:
+      - map: map_balance_changes
+
   - name: map_pool_events
     kind: map
-    initialBlock: 1
+    initialBlock: 24468499
     inputs:
       - source: sf.ethereum.type.v2.Block
       - map: map_pools_created
       - store: store_pools
+      - map: map_balance_changes
+      - store: store_pools_balances
+        mode: deltas
     output:
       type: proto:tycho.evm.v1.BlockChanges
 
 network: mainnet
 
 params:
-  map_pools_created: factory_address=512eb749541B7cf294be882D636218c84a5e9E5F
+  map_pools_created: factory_address=44B7fBd4D87149eFa5347c451E74B9FD18E89c55

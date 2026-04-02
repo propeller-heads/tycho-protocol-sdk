@@ -1,0 +1,35 @@
+# Supernova V3 (Algebra CL) Simulation Manifest
+author:
+  name: PropellerHeads
+  email: engineering@propellerheads.xyz
+
+# Protocol Constants
+constants:
+  protocol_gas: 120000
+  capabilities:
+    - SellSide
+    - BuySide
+    - PriceFunction
+
+# The file containing the adapter contract
+contract: SupernovaV3Adapter.sol
+
+# Deployment instances
+instances:
+  - chain:
+      name: ethereum
+      id: 1
+    arguments:
+      - "0x44B7fBd4D87149eFa5347c451E74B9FD18E89c55"
+
+# Test instances for verification
+# Example pool on Avalanche (from substreams config)
+tests:
+  instances:
+    - pool_id: "0x2beb35e78C9427899353c41C96bCc96C5647ec63"
+      sell_token: "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48" # USDC
+      buy_token: "0xdac17f958d2ee523a2206206994597c13d831ec7" # USDT
+      block: 24747824
+      chain:
+        name: ethereum
+        id: 1

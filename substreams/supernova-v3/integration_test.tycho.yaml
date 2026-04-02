@@ -1,20 +1,34 @@
 substreams_yaml_path: ./supernova-v3.yaml
-protocol_system: "supernova"
+protocol_system: "supernova-v3"
+adapter_contract: "SupernovaV3Adapter"
+adapter_build_signature: "constructor(address)"
+adapter_build_args: "0x44B7fBd4D87149eFa5347c451E74B9FD18E89c55"
 protocol_type_names:
   - "supernova_algebra_pool"
 module_name: "map_pool_events"
-skip_balance_check: false
+skip_balance_check: true
 initialized_accounts:
+  - "0x44B7fBd4D87149eFa5347c451E74B9FD18E89c55" # Factory
 tests:
-  - name: test_wolf_weth_pool
-    start_block: 19701395
-    stop_block: 19701397
+  - name: test_first_10k_blocks
+    start_block: 24468499
+    stop_block: 9999999999
     expected_components:
-      - id: "0x67324985b5014b36b960273353deb3d96f2f18c2"
+      - id: "0x2beb35e78c9427899353c41c96bcc96c5647ec63"
         tokens:
-          - "0x67466BE17df832165F8C80a5A120CCc652bD7E69"
-          - "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2"
+          - "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48" # USDC
+          - "0xdac17f958d2ee523a2206206994597c13d831ec7" # USDT
         static_attributes:
-          fee: "0x1e"
-        creation_tx: "0x5e01ae1522722340871708a3c55e1395dda647a57767781230317319fa36ea7b"
+          fee: "0x64"
+        creation_tx: "0xe338522c5aa8cb953b36f70a5d12fe74c260f3847bfae18765dc67f0fba115a1"
         skip_simulation: false
+
+  - name: test_100_usdt_swap_at_head
+    start_block: 24768374
+    stop_block: 24768374
+    expected_components:
+      - id: "0x2beb35e78c9427899353c41c96bcc96c5647ec63"
+        tokens:
+          - "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48" # USDC
+          - "0xdac17f958d2ee523a2206206994597c13d831ec7" # USDT
+        creation_tx: "0xe338522c5aa8cb953b36f70a5d12fe74c260f3847bfae18765dc67f0fba115a1"

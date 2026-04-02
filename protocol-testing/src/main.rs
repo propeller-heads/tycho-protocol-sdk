@@ -16,7 +16,7 @@ use miette::{miette, IntoDiagnostic, WrapErr};
 use tracing_subscriber::EnvFilter;
 use tycho_simulation::tycho_common::dto::Chain;
 
-use crate::test_runner::{TestRunner, TestType, TestTypeFull, TestTypeRange};
+use crate::test_runner::{TestRunner, TestType, TestTypeFull, TestTypeRange, TestTypeInteractive};
 
 #[derive(Parser)]
 #[command(version, long_version = Version::clap_long(), subcommand_required = false, arg_required_else_help = true)]
@@ -29,6 +29,7 @@ struct TestsCli {
 enum TestSubcommand {
     Full(FullTestCommand),
     Range(RangeTestCommand),
+    Interactive(InteractiveCommand),
 }
 
 /// Run continuous sync test from a specific initial block
@@ -77,6 +78,51 @@ impl RangeTestCommand {
         let args = self.common_args;
         TestRunner::new(
             TestType::Range(TestTypeRange { match_test: self.match_test.clone() }),
+            args.root_path()?,
+            args.chain,
+            args.package,
+            args.db_url,
+            args.rpc_url,
+            args.vm_simulation_traces,
+            args.reuse_last_sync,
+        )?
+        .run()
+    }
+}
+
+/// Run a one-off interactive simulation for a specific pool and amount
+#[derive(Args)]
+pub struct InteractiveCommand {
+    #[command(flatten)]
+    common_args: CommonArgs,
+
+    /// Address of the pool to simulate against
+    #[arg(long)]
+    pool: String,
+
+    /// Address of the input token
+    #[arg(long)]
+    token_in: String,
+
+    /// Address of the output token
+    #[arg(long)]
+    token_out: String,
+
+    /// The input amount to swap (in raw unit scaled by decimals)
+    #[arg(long)]
+    amount: String,
+}
+
+impl InteractiveCommand {
+    fn run(self) -> miette::Result<()> {
+        let args = self.common_args;
+        TestRunner::new(
+            TestType::Interactive(TestTypeInteractive {
+                pool: self.pool.clone(),
+                token_in: self.token_in.clone(),
+                token_out: self.token_out.clone(),
+                amount: self.amount.clone(),
+            }),
             args.root_path()?,
             args.chain,
             args.package,
@@ -199,6 +245,7 @@ fn main() -> miette::Result<()> {
     match cli.subcommand {
         Some(TestSubcommand::Full(cmd)) => cmd.run(),
         Some(TestSubcommand::Range(cmd)) => cmd.run(),
+        Some(TestSubcommand::Interactive(cmd)) => cmd.run(),
         None => Err(miette!("No subcommand provided. Use --help for more information.")),
     }
 }

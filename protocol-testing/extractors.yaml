@@ -1,0 +1,15 @@
+extractors:
+  supernova-v3:
+    name: supernova-v3
+    chain: ethereum
+    implementation_type: Custom
+    sync_batch_size: 1
+    min_confirmations: 0
+    protocol_types:
+      - name: "supernova_algebra_pool"
+        financial_type: Swap
+    repository: local
+    spkg: /app/substreams/supernova-v3/supernova-v3-v0.1.0.spkg
+    start_block: 24468499
+    protocol_system: "supernova-v3"
+    module_name: "map_pool_events"

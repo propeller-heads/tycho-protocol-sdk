@@ -16,10 +16,11 @@ services:
       POSTGRES_DB: ${DB_NAME:-tycho_indexer_0}
     command: postgres -c shared_preload_libraries=pg_partman_bgw,pg_cron -c cron.database_name=${DB_NAME:-tycho_indexer_0}
     ports:
-      - "5431:5432"
+      - "5433:5432"
     shm_size: "1gb"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./init_historical_partitions.sql:/docker-entrypoint-initdb.d/01_init_historical_partitions.sql:ro
 
   test-runner:
     image: protocol-testing-test-runner:latest
@@ -29,11 +30,41 @@ services:
     environment:
       RUST_LOG: "${RUST_LOG:-error,protocol_testing=info,tycho_indexer=info,tycho_client=info}"
       DATABASE_URL: postgres://postgres:mypassword@db:5432/${DB_NAME:-tycho_indexer_0}
-      RPC_URL: "${RPC_URL}"
+      RPC_URL: "${RPC_URL:-https://lb.drpc.live/ethereum/AhWtsxH3UU0ouxmDERKpMgZ_Cc_4paER8IKjwg8TMB_n}"
       SUBSTREAMS_API_TOKEN: "${SUBSTREAMS_API_TOKEN}"
+      TYCHO_URL: http://indexer:4242
+      AUTH_API_KEY: dummy
     # PROTOCOLS to test separated by space and with optional filter
     # e.g. "ethereum-balancer-v2=weighted_legacy_creation ethereum-ekubo-v2"
     entrypoint: [ "/entrypoint.sh", "${PROTOCOL:-${PROTOCOLS}}" ]
+    volumes:
+      - ../substreams:/app/substreams
+
+  indexer:
+    image: protocol-testing-test-runner:latest
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      RUST_LOG: "${RUST_LOG:-error,protocol_testing=info,tycho_indexer=trace,tycho_client=info}"
+      DATABASE_URL: postgres://postgres:mypassword@db:5432/${DB_NAME:-tycho_indexer_0}
+      RPC_URL: "${RPC_URL:-https://lb.drpc.live/ethereum/AhWtsxH3UU0ouxmDERKpMgZ_Cc_4paER8IKjwg8TMB_n}"
+      SUBSTREAMS_API_TOKEN: "${SUBSTREAMS_API_TOKEN}"
+      # Definitive Tycho Repository configuration (v0.141.0)
+      TYCHO_EXTRACTOR_REPOS: '{"repo.propellerheads-propellerheads": "file:///app/substreams", "local": "file:///app/substreams"}'
+      TYCHO_EXTRACTOR_REPO_TYPE: local
+      TYCHO_EXTRACTOR_REPO_PATH: /app/substreams
+      EXTRACTOR_REPOS: '{"repo.propellerheads-propellerheads": "file:///app/substreams", "local": "file:///app/substreams"}'
+      EXTRACTOR_REPO_TYPE: local
+      EXTRACTOR_REPO_PATH: /app/substreams
+      AUTH_API_KEY: dummy
+    ports:
+      - "4242:4242"
+    volumes:
+      - ../substreams:/app/substreams
+      - ./extractors.yaml:/app/extractors.yaml
+    entrypoint: [ "tycho-indexer", "--database-url", "postgres://postgres:mypassword@db:5432/tycho_indexer_0", "--rpc-url", "https://lb.drpc.live/ethereum/AhWtsxH3UU0ouxmDERKpMgZ_Cc_4paER8IKjwg8TMB_n", "index", "--extractors-config", "/app/extractors.yaml" ]
+
 
 volumes:
   postgres_data:

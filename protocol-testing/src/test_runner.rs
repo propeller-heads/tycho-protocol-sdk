@@ -75,6 +75,14 @@ static CLONE_TO_BASE_PROTOCOL: LazyLock<HashMap<&str, &str>> = LazyLock::new(|| 
 pub enum TestType {
     Full(TestTypeFull),
     Range(TestTypeRange),
+    Interactive(TestTypeInteractive),
+}
+
+pub struct TestTypeInteractive {
+    pub pool: String,
+    pub token_in: String,
+    pub token_out: String,
+    pub amount: String,
 }
 
 pub struct TestTypeFull {
@@ -156,7 +164,7 @@ impl TestRunner {
 
     pub fn run(&self) -> miette::Result<()> {
         let terminal_width = termsize::get()
-            .map(|size| size.cols as usize - 35) // Remove length of log prefix (35)
+            .map(|size| (size.cols as usize).saturating_sub(35)) // Remove length of log prefix (35)
             .unwrap_or(80);
         info!("{}\n", "-".repeat(terminal_width));
 
@@ -191,6 +199,9 @@ impl TestRunner {
             }
             TestType::Range(test_type) => {
                 self.run_tests_in_range(config, &substreams_yaml_path, test_type, terminal_width)?;
+            }
+            TestType::Interactive(test_type) => {
+                self.run_interactive_simulation(config, test_type)?;
             }
         }
 
@@ -639,6 +650,120 @@ impl TestRunner {
         Ok(())
     }
 
+    fn run_interactive_simulation(
+        &self,
+        config: IntegrationTestsConfig,
+        test_type: &TestTypeInteractive,
+    ) -> miette::Result<()> {
+        info!("Running Interactive Simulation...");
+
+        // Get the latest block the Tycho indexer has actually committed to Postgres.
+        // We must NOT use the RPC chain tip — the indexer may be behind, and querying
+        // a block it hasn't seen yet returns "Could not find Version".
+        let indexer_block = self.runtime.block_on(async {
+            let (client, conn) = tokio_postgres::connect(&self.db_url, tokio_postgres::NoTls)
+                .await
+                .map_err(|e| miette::miette!("DB connect failed: {e}"))?;
+            tokio::spawn(async move { let _ = conn.await; });
+            let row = client
+                .query_one("SELECT MAX(number) FROM block", &[])
+                .await
+                .map_err(|e| miette::miette!("DB query failed: {e}"))?;
+            let block_num: i64 = row.get(0);
+            Ok::<u64, miette::Error>(block_num as u64)
+        });
+
+        let stop_block = match indexer_block {
+            Ok(n) => {
+                info!("Indexer latest committed block: {n}");
+                n
+            }
+            Err(e) => {
+                warn!("Could not read indexer block from DB ({e}), falling back to RPC latest");
+                let block = self.runtime.block_on(
+                    self.rpc_provider.get_block(BlockNumberOrTag::Latest)
+                ).wrap_err("Failed to get latest block from RPC")?;
+                block.header.number
+            }
+        };
+
+        // We still need a full Block struct for context — fetch it from RPC at the indexer block.
+        let block = self.runtime.block_on(
+            self.rpc_provider.get_block(BlockNumberOrTag::Number(stop_block))
+        ).wrap_err("Failed to get block from RPC")?;
+
+        info!("Connecting to persistent Tycho Indexer at http://indexer:4242 to fetch state at block {stop_block}...");
+
+        self.execute_interactive_simulation(&config, test_type, &block, stop_block)
+    }
+
+    fn execute_interactive_simulation(
+        &self,
+        config: &IntegrationTestsConfig,
+        test_type: &TestTypeInteractive,
+        block: &Block,
+        stop_block: u64,
+    ) -> miette::Result<()> {
+        let protocol_system = config.protocol_system.clone();
+        let pool_id = test_type.pool.to_lowercase();
+
+        let (protocol_components, snapshot, all_tokens) = self.fetch_from_tycho_rpc(
+            &protocol_system,
+            vec![pool_id.clone()],
+            stop_block,
+            &[],
+        )?;
+
+        if protocol_components.is_empty() {
+            return Err(miette!("Pool not found in database: {}", pool_id));
+        }
+
+        let adapter_contract_path_str = self.get_adapter_contract_path(
+            &config.adapter_contract,
+            &config.adapter_build_signature,
+            &config.adapter_build_args,
+        )?;
+
+        let update = self.decode_snapshot(
+            &protocol_system,
+            block,
+            snapshot,
+            all_tokens.clone(),
+            adapter_contract_path_str,
+            self.vm_simulation_traces,
+        )?;
+
+        let state = update.states.get(&pool_id)
+            .ok_or_else(|| miette!("Failed to decode state for pool"))?;
+
+        let token_in_addr = Bytes::from_str(&test_type.token_in).unwrap_or_default();
+        let token_out_addr = Bytes::from_str(&test_type.token_out).unwrap_or_default();
+
+        let component = protocol_components.first().unwrap();
+        
+        let Some(token_in) = all_tokens.get(&token_in_addr) else {
+            return Err(miette!("Token in not found in pool. Available tokens: {:?}", component.tokens.iter().filter_map(|t| all_tokens.get(t)).map(|t| &t.symbol).collect::<Vec<_>>()));
+        };
+            
+        let Some(token_out) = all_tokens.get(&token_out_addr) else {
+            return Err(miette!("Token out not found in pool. Available tokens: {:?}", component.tokens.iter().filter_map(|t| all_tokens.get(t)).map(|t| &t.symbol).collect::<Vec<_>>()));
+        };
+
+        let amount_in = BigUint::from_str(&test_type.amount).unwrap_or_default();
+
+        info!("Calculated Request -> SWAP {} {} to {}", amount_in, token_in.symbol, token_out.symbol);
+
+        let amount_out_result = state.get_amount_out(amount_in.clone(), token_in, token_out)
+            .into_diagnostic().wrap_err("Error calculating amount out")?;
+
+        info!("====================================");
+        info!("Result ➔ {} {}", amount_out_result.amount, token_out.symbol);
+        info!("Gas Used: {}", amount_out_result.gas);
+        info!("====================================");
+
+        Ok(())
+    }
+
     async fn empty_database(&self) -> Result<(), tokio_postgres::Error> {
         // Extract database name from the URL
         let db_name = match self.db_url.rfind('/') {
@@ -779,7 +904,9 @@ impl TestRunner {
         info!("Fetching protocol data from Tycho with stop block {}...", stop_block);
 
         // Create Tycho client for the RPC server
-        let tycho_client = TychoClient::new("http://localhost:4242", None)
+        let tycho_url = std::env::var("TYCHO_URL")
+            .unwrap_or_else(|_| "http://indexer:4242".to_string());
+        let tycho_client = TychoClient::new(&tycho_url, None)
             .into_diagnostic()
             .wrap_err("Failed to create Tycho client")?;
 
@@ -1086,6 +1213,7 @@ impl TestRunner {
                     id, token_in.symbol, token_out.symbol
                 );
 
+                let mut amounts_to_test = Vec::new();
                 for percentage in percentages.iter() {
                     // For precision, multiply by 1000 then divide by 1000
                     let percentage_biguint = BigUint::from((percentage * 1000.0) as u32);
@@ -1093,31 +1221,38 @@ impl TestRunner {
                     let amount_in = (&max_input * &percentage_biguint) / &thousand;
 
                     // Skip if amount is zero
-                    if amount_in.is_zero() {
-                        return Err(miette!(
-                                "Amount in multiplied by percentage {percentage} is zero for pool {id}."
-                            ));
+                    if !amount_in.is_zero() {
+                        amounts_to_test.push((amount_in, format!("{:.1}%", percentage * 100.0)));
                     }
+                }
 
+                // Special case: Add 100 USDT simulation if within limits
+                if token_in.symbol == "USDT" && token_in.decimals == 6 {
+                    let hundred_usdt = BigUint::from(100_000_000u64);
+                    if hundred_usdt <= max_input {
+                        amounts_to_test.push((hundred_usdt, "Fixed 100 USDT".to_string()));
+                    }
+                }
+
+                for (amount_in, label) in amounts_to_test {
                     let amount_out_result = state
-                            .get_amount_out(amount_in.clone(), token_in, token_out)
-                            .into_diagnostic()
-                            .wrap_err(format!(
-                                "Error calculating amount out for Pool {id:?} at {:.1}% with input of {amount_in} {}.",
-                                percentage * 100.0,
-                                token_in.symbol,
-                            ))?;
+                        .get_amount_out(amount_in.clone(), token_in, token_out)
+                        .into_diagnostic()
+                        .wrap_err(format!(
+                            "Error calculating amount out for Pool {id:?} at {label} with input of {amount_in} {}.",
+                            token_in.symbol,
+                        ))?;
 
                     info!(
-                            "[{}] Simulated amount out for trading {:.1}% of max: ({} {} -> {} {}) (gas: {})",
-                            id,
-                            percentage * 100.0,
-                            amount_in,
-                            token_in.symbol,
-                            amount_out_result.amount,
-                            token_out.symbol,
-                            amount_out_result.gas
-                        );
+                        "[{}] Simulated amount out for trading {}: ({} {} -> {} {}) (gas: {})",
+                        id,
+                        label,
+                        amount_in,
+                        token_in.symbol,
+                        amount_out_result.amount,
+                        token_out.symbol,
+                        amount_out_result.gas
+                    );
 
                     if skip_execution.contains(id) {
                         info!("Skipping execution for component {id}");

@@ -268,6 +268,12 @@ impl TychoRunner {
             )
         };
 
+        let local_spkg_path = if spkg_path.starts_with("/app/substreams/") {
+            spkg_path[16..].to_string()
+        } else {
+            spkg_path.to_string()
+        };
+
         let config = format!(
             "extractors:\n  {}:\n    name: \"{}\"\n    chain: {}\n    implementation_type: Vm\n    sync_batch_size: 1\n    start_block: {}\n    stop_block: null\n    protocol_types:\n{}\n    spkg: \"{}\"\n    module_name: \"{}\"\n{}\n    dci_plugin:\n      type: rpc\n",
             protocol_system,
@@ -275,7 +281,7 @@ impl TychoRunner {
             self.chain.to_string().to_lowercase(),
             start_block,
             protocol_types,
-            spkg_path,
+            local_spkg_path,
             module_name
                 .as_deref()
                 .unwrap_or("map_protocol_changes"),
