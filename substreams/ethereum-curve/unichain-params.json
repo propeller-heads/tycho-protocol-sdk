@@ -17,7 +17,8 @@
     "tricrypto_2_lp": "",
     "tricrypto_2_math": "",
     "twocrypto_custom_view": "",
-    "twocrypto_custom_math": ""
+    "twocrypto_custom_math": "",
+    "twocrypto_custom_implementation_ids": []
   },
   "pools": []
 }
