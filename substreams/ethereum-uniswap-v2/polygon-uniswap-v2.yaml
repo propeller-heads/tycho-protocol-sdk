@@ -18,7 +18,7 @@ binaries:
 modules:
   - name: map_pools_created
     kind: map
-    initialBlock: 57036835
+    initialBlock: 49948178
     inputs:
       - params: string
       - source: sf.ethereum.type.v2.Block
@@ -27,7 +27,7 @@ modules:
 
   - name: store_pools
     kind: store
-    initialBlock: 57036835
+    initialBlock: 49948178
     updatePolicy: set_if_not_exists
     valueType: proto:tycho.evm.uniswap.v2.Pool
     inputs:
@@ -35,7 +35,7 @@ modules:
 
   - name: map_pool_events
     kind: map
-    initialBlock: 57036835
+    initialBlock: 49948178
     inputs:
       - source: sf.ethereum.type.v2.Block
       - map: map_pools_created
