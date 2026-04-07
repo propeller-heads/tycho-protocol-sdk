@@ -57,23 +57,27 @@ contract SupernovaV3Adapter is ISwapAdapter {
 
         // For non-zero amounts, simulate the swap to find the marginal price after the trade.
         uint160 limitSqrtPrice = zeroToOne ? 4295128739 + 1 : 1461446703485210103287273052203988822378723970341 - 1;
-        
-        try pool.swap(
+
+        // IMPORTANT: pass the original caller as the payer in the swap callback data.
+        // tycho-simulation pre-funds `msg.sender` (its EXTERNAL_ACCOUNT) with the sell
+        // token AND sets an allowance for this adapter via TokenProxy storage overwrites.
+        // The pool's swap will invoke our `algebraSwapCallback` with this `data` blob;
+        // the callback decodes `payer` and runs `transferFrom(payer, pool, amount)`.
+        // Passing empty `""` here breaks `abi.decode(data, (address))` and the callback
+        // reverts out-of-gas, which surfaces upstream as "Denominator is zero".
+        pool.swap(
             address(this),
             zeroToOne,
             int256(sellAmount),
             limitSqrtPrice,
-            ""
-        ) returns (int256, int256) {
-            (uint160 sqrtPriceX96After,,,,,) = pool.globalState();
-            uint256 priceX192 = uint256(sqrtPriceX96After) * sqrtPriceX96After;
-            if (zeroToOne) {
-                return Fraction(priceX192, 1 << 192);
-            } else {
-                return Fraction(1 << 192, priceX192);
-            }
-        } catch {
-            return Fraction(0, 0);
+            abi.encode(msg.sender)
+        );
+        (uint160 sqrtPriceX96After,,,,,) = pool.globalState();
+        uint256 priceX192 = uint256(sqrtPriceX96After) * sqrtPriceX96After;
+        if (zeroToOne) {
+            return Fraction(priceX192, 1 << 192);
+        } else {
+            return Fraction(1 << 192, priceX192);
         }
     }
 

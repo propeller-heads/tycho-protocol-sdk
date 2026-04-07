@@ -70,4 +70,6 @@ modules:
 network: mainnet
 
 params:
+  # Index every pool created by this Algebra factory. Drop `pool_address=` if you want
+  # to filter to a specific pool again — `1_map_pool_created.rs` honors that param when set.
   map_pools_created: factory_address=44B7fBd4D87149eFa5347c451E74B9FD18E89c55

@@ -1,45 +1,12 @@
-use itertools::Itertools;
 use std::collections::{HashMap, HashSet};
 use substreams::pb::substreams::StoreDeltas;
 use substreams::store::{StoreGet, StoreGetProto};
 use substreams_ethereum::pb::eth::v2::{self as eth};
-use substreams_ethereum::Event;
 
-use crate::abi;
+use crate::events::get_log_changed_attributes;
 use crate::store_key::StoreKey;
 use tycho_substreams::prelude::*;
-
-// Auxiliary struct to serve as a key for the HashMaps.
-#[derive(Clone, Hash, Eq, PartialEq)]
-struct ComponentKey<T> {
-    component_id: String,
-    name: T,
-}
-
-impl<T> ComponentKey<T> {
-    fn new(component_id: String, name: T) -> Self {
-        ComponentKey { component_id, name }
-    }
-}
-
-#[derive(Clone)]
-struct PartialChanges {
-    transaction: Transaction,
-    entity_changes: HashMap<ComponentKey<String>, Attribute>,
-    balance_changes: HashMap<ComponentKey<Vec<u8>>, BalanceChange>,
-}
-
-impl PartialChanges {
-    fn consolidate_entity_changes(self) -> Vec<EntityChanges> {
-        self.entity_changes
-            .into_iter()
-            .map(|(key, attribute)| (key.component_id, attribute))
-            .into_group_map()
-            .into_iter()
-            .map(|(component_id, attributes)| EntityChanges { component_id, attributes })
-            .collect()
-    }
-}
+use tycho_substreams::contract::extract_contract_changes_builder;
 
 #[substreams::handlers::map]
 pub fn map_pool_events(
@@ -49,389 +16,137 @@ pub fn map_pool_events(
     balances_deltas: BlockBalanceDeltas,
     balance_store: StoreDeltas,
 ) -> Result<BlockChanges, substreams::errors::Error> {
-    let mut block_entity_changes = block_entity_changes;
-    let mut tx_changes: HashMap<Vec<u8>, PartialChanges> = HashMap::new();
+    let mut builders: HashMap<u64, TransactionChangesBuilder> = HashMap::new();
+    let mut created_pools: HashSet<String> = HashSet::new();
 
-    let created_pools: HashSet<String> = block_entity_changes
-        .changes
-        .iter()
-        .flat_map(|c| {
-            c.component_changes
-                .iter()
-                .map(|pc| pc.id.to_lowercase())
-        })
-        .collect();
+    // 1. Initialise builders from existing block_entity_changes (e.g. from pool creation module)
+    for change in block_entity_changes.changes {
+        let tx = change.tx.as_ref().expect("Transaction missing in BlockChanges");
+        let builder = builders.entry(tx.index)
+            .or_insert_with(|| TransactionChangesBuilder::new(tx));
+        
+        for pc in &change.component_changes {
+            builder.add_protocol_component(pc);
+            created_pools.insert(pc.id.to_lowercase());
+            // Also register every contract this component owns (e.g. plugin),
+            // so pool_check matches plugin storage changes in this same block.
+            for contract_addr in &pc.contracts {
+                created_pools.insert(format!("0x{}", hex::encode(contract_addr)).to_lowercase());
+            }
+        }
+        for bc in &change.balance_changes {
+            builder.add_balance_change(bc);
+        }
+        for ec in &change.entity_changes {
+            builder.add_entity_change(ec);
+        }
+        for cc in &change.contract_changes {
+            let mut interim = InterimContractChange::new(&cc.address, cc.change == i32::from(ChangeType::Creation));
+            if !cc.code.is_empty() { interim.set_code(&cc.code); }
+            if !cc.balance.is_empty() { interim.set_balance(&cc.balance); }
+            for slot in &cc.slots {
+                interim.upsert_slot(&eth::StorageChange {
+                    address: cc.address.clone(),
+                    key: slot.slot.clone(),
+                    new_value: slot.value.clone(),
+                    old_value: slot.previous_value.clone(),
+                    ordinal: 0,
+                });
+            }
+            builder.add_contract_changes(&interim);
+        }
+    }
 
-    handle_events(&block, &mut tx_changes, &pools_store, &created_pools);
-    merge_block(&mut tx_changes, &mut block_entity_changes);
+    // 2. Identify all pools (Store + new)
+    let pool_check = |address: &[u8]| {
+        let addr_hex = format!("0x{}", hex::encode(address)).to_lowercase();
+        created_pools.contains(&addr_hex) || 
+        pools_store.get_last(StoreKey::Pool.get_unique_pool_key(&addr_hex)).is_some()
+    };
 
+    // 3. Extract raw EVM storage and code changes for all pools
+    // This helper automatically populates the builders map
+    extract_contract_changes_builder(&block, pool_check, &mut builders);
+
+    // 3b. Decode known pool events into semantic Attributes (entity_changes).
+    //     Walk every (log, call) pair in the block, and for each log emitted by
+    //     a tracked pool address, decode it into Initialize/Swap/Mint/Burn and
+    //     produce decoded attributes (price, tick, liquidity, ticks/{idx}/net-liquidity, ...)
+    //     using the per-call storage_changes so each event sees only its own diffs.
+    //     This runs side-by-side with raw slot capture: raw slots stay in
+    //     contract_changes, decoded attributes go in entity_changes.
+    let is_tracked_pool = |address: &[u8]| -> bool {
+        let addr_hex = format!("0x{}", hex::encode(address)).to_lowercase();
+        created_pools.contains(&addr_hex)
+            || pools_store
+                .get_last(StoreKey::Pool.get_unique_pool_key(&addr_hex))
+                .is_some()
+    };
+
+    for trx in block.transactions() {
+        let mut tx_attrs_by_pool: HashMap<Vec<u8>, Vec<Attribute>> = HashMap::new();
+
+        for (log, call_view) in trx.logs_with_calls() {
+            if !is_tracked_pool(&log.address) {
+                continue;
+            }
+            let pool_addr_arr: [u8; 20] = match log.address.as_slice().try_into() {
+                Ok(a) => a,
+                Err(_) => continue,
+            };
+            let attrs = get_log_changed_attributes(
+                log,
+                &call_view.call.storage_changes,
+                &pool_addr_arr,
+            );
+            if attrs.is_empty() {
+                continue;
+            }
+            tx_attrs_by_pool
+                .entry(log.address.clone())
+                .or_default()
+                .extend(attrs);
+        }
+
+        if tx_attrs_by_pool.is_empty() {
+            continue;
+        }
+
+        let tycho_tx: Transaction = trx.into();
+        let builder = builders
+            .entry(tycho_tx.index)
+            .or_insert_with(|| TransactionChangesBuilder::new(&tycho_tx));
+
+        for (pool_addr, attributes) in tx_attrs_by_pool {
+            let component_id = format!("0x{}", hex::encode(&pool_addr)).to_lowercase();
+            builder.add_entity_change(&EntityChanges { component_id, attributes });
+        }
+    }
+
+    // 4. Aggregate balance changes and add them to the builders
     tycho_substreams::balances::aggregate_balances_changes(balance_store, balances_deltas)
         .into_iter()
         .for_each(|(_, (tx, balances))| {
-            if let Some(change) = block_entity_changes
-                .changes
-                .iter_mut()
-                .find(|c| c.tx.as_ref().unwrap().hash == tx.hash)
-            {
-                balances
-                    .values()
-                    .for_each(|token_bc_map| {
-                        token_bc_map
-                            .values()
-                            .for_each(|bc| change.balance_changes.push(bc.clone()))
-                    });
-            } else {
-                let mut new_change =
-                    TransactionChanges { tx: Some(tx.clone()), ..Default::default() };
-                balances
-                    .values()
-                    .for_each(|token_bc_map| {
-                        token_bc_map.values().for_each(|bc| {
-                            new_change
-                                .balance_changes
-                                .push(bc.clone())
-                        })
-                    });
-                block_entity_changes
-                    .changes
-                    .push(new_change);
+            let builder = builders.entry(tx.index)
+                .or_insert_with(|| TransactionChangesBuilder::new(&tx));
+            
+            for bc_map in balances.values() {
+                for bc in bc_map.values() {
+                    builder.add_balance_change(bc);
+                }
             }
         });
 
-    // Final Stage: Universal Block-Level Deduplicator (Atomic Consolidation)
-    // Consolidate all state updates (Attributes & Balances) to ensure ONLY ONE entry per component per block.
-    // We attach all final changes for a pool to the LATEST transaction that touched it.
-    let mut pool_to_latest_tx: HashMap<String, usize> = HashMap::new();
-    let mut final_balances: HashMap<(String, Vec<u8>), BalanceChange> = HashMap::new();
-    let mut final_attributes: HashMap<(String, String), Attribute> = HashMap::new();
-    let mut pool_created: HashMap<String, ProtocolComponent> = HashMap::new();
+    // 5. Final consolidation: Build TransactionChanges from builders
+    let mut final_changes: Vec<TransactionChanges> = builders.into_values()
+        .filter_map(|b| b.build())
+        .collect();
 
-    for (tx_idx, change) in block_entity_changes
-        .changes
-        .iter_mut()
-        .enumerate()
-    {
-        // 1. Scan for Creations (DO NOT DRAIN static_att here, keep the creation record)
-        for pc in change.component_changes.drain(..) {
-            let id = pc.id.to_lowercase();
-            pool_created.insert(id.clone(), pc);
+    final_changes.sort_by_key(|a| a.tx.as_ref().map(|t| t.index).unwrap_or(0));
 
-            let current_latest = pool_to_latest_tx.entry(id).or_insert(0);
-            if tx_idx > *current_latest {
-                *current_latest = tx_idx;
-            }
-        }
-
-        // 2. Aggregate Balances
-        for bc in change.balance_changes.drain(..) {
-            let pool_id = String::from_utf8_lossy(&bc.component_id).to_string().to_lowercase();
-            let token_id = bc.token.clone();
-            let key = (pool_id.clone(), token_id);
-
-            // Update latest tx index for this pool
-            let current_latest = pool_to_latest_tx.entry(pool_id.clone()).or_insert(0);
-            if tx_idx > *current_latest { *current_latest = tx_idx; }
-
-            // Aggregate delta using big-integer math
-            if let Some(existing) = final_balances.get_mut(&key) {
-                let mut sum = substreams::scalar::BigInt::from_signed_bytes_be(&existing.balance);
-                let delta = substreams::scalar::BigInt::from_signed_bytes_be(&bc.balance);
-                sum = sum + delta;
-                existing.balance = sum.to_signed_bytes_be();
-            } else {
-                final_balances.insert(key, bc);
-            }
-        }
-
-        // 3. Scan and Drain Attributes from entity_changes
-        for ec in change.entity_changes.drain(..) {
-            let pool_id = ec.component_id.to_lowercase();
-            for attr in ec.attributes {
-                final_attributes.insert((pool_id.clone(), attr.name.clone()), attr);
-            }
-            let current_latest = pool_to_latest_tx
-                .entry(pool_id)
-                .or_insert(0);
-            if tx_idx > *current_latest {
-                *current_latest = tx_idx;
-            }
-        }
-    }
-
-    // 4. Re-insert Consolidated Creations
-    for (pool_id, pc) in pool_created {
-        let tx_idx = pool_to_latest_tx[&pool_id];
-        block_entity_changes.changes[tx_idx]
-            .component_changes
-            .push(pc);
-    }
-
-    // 5. Re-insert Consolidated Balances
-    for ((pool_id, _token_id), mut bc) in final_balances {
-        let tx_idx = pool_to_latest_tx[&pool_id];
-        bc.component_id = pool_id.clone().into_bytes();
-        block_entity_changes.changes[tx_idx]
-            .balance_changes
-            .push(bc);
-    }
-
-    // 6. Re-insert Consolidated Attributes
-    for ((pool_id, _attr_name), mut attr) in final_attributes {
-        let tx_idx = pool_to_latest_tx[&pool_id];
-        // If a pool was created in this block, any additional state updates are handled by Tycho correctly.
-        // We mark them as Updates to avoid conflict with the creation's static_att.
-        attr.change = ChangeType::Update.into();
-
-        let change = &mut block_entity_changes.changes[tx_idx];
-        if let Some(ec) = change
-            .entity_changes
-            .iter_mut()
-            .find(|ec| ec.component_id.to_lowercase() == pool_id)
-        {
-            ec.attributes.push(attr);
-        } else {
-            change
-                .entity_changes
-                .push(EntityChanges { component_id: pool_id.clone(), attributes: vec![attr] });
-        }
-    }
-
-    block_entity_changes
-        .changes
-        .sort_by_key(|a| a.tx.as_ref().unwrap().index);
-
-    Ok(block_entity_changes)
-}
-
-fn handle_events(
-    block: &eth::Block,
-    tx_changes: &mut HashMap<Vec<u8>, PartialChanges>,
-    store: &StoreGetProto<ProtocolComponent>,
-    created_pools: &HashSet<String>,
-) {
-    for trx in block.transactions() {
-        if trx.status != 1 {
-            continue;
-        }
-        let hash = trx.hash.clone();
-        if let Some(receipt) = trx.receipt.as_ref() {
-            for log in &receipt.logs {
-                let pool_address_hex = format!("{}", substreams::Hex(&log.address)).to_lowercase();
-
-                // Is this log's address a known pool or just created?
-                if store
-                    .get_last(StoreKey::Pool.get_unique_pool_key(&pool_address_hex))
-                    .is_none()
-                    && !created_pools.contains(&pool_address_hex)
-                {
-                    continue;
-                }
-
-                if let Some(event) = abi::algebrapool::events::Swap::match_and_decode(log) {
-                    substreams::log::info!(
-                        "Event (Swap): pool={} liquidity={}",
-                        pool_address_hex,
-                        event.liquidity
-                    );
-                    let tx_change = tx_changes
-                        .entry(hash.clone())
-                        .or_insert_with(|| PartialChanges {
-                            transaction: trx.into(),
-                            entity_changes: HashMap::new(),
-                            balance_changes: HashMap::new(),
-                        });
-
-                    tx_change.entity_changes.insert(
-                        ComponentKey::new(pool_address_hex.clone(), "liquidity".to_string()),
-                        Attribute {
-                            name: "liquidity".to_string(),
-                            value: substreams::scalar::BigInt::from(event.liquidity)
-                                .to_signed_bytes_be(),
-                            change: ChangeType::Update.into(),
-                        },
-                    );
-                    tx_change.entity_changes.insert(
-                        ComponentKey::new(pool_address_hex.clone(), "tick".to_string()),
-                        Attribute {
-                            name: "tick".to_string(),
-                            value: substreams::scalar::BigInt::from(event.tick)
-                                .to_signed_bytes_be(),
-                            change: ChangeType::Update.into(),
-                        },
-                    );
-                } else if let Some(event) = abi::algebrapool::events::Burn::match_and_decode(log) {
-                    substreams::log::info!(
-                        "Event (Burn): pool={} liquidity={}",
-                        pool_address_hex,
-                        event.liquidity_amount
-                    );
-                    let tx_change = tx_changes
-                        .entry(hash.clone())
-                        .or_insert_with(|| PartialChanges {
-                            transaction: trx.into(),
-                            entity_changes: HashMap::new(),
-                            balance_changes: HashMap::new(),
-                        });
-
-                    tx_change.entity_changes.insert(
-                        ComponentKey::new(pool_address_hex.clone(), "liquidity".to_string()),
-                        Attribute {
-                            name: "liquidity".to_string(),
-                            value: substreams::scalar::BigInt::from(event.liquidity_amount.clone())
-                                .to_signed_bytes_be(),
-                            change: ChangeType::Update.into(),
-                        },
-                    );
-                } else if let Some(event) = abi::algebrapool::events::Mint::match_and_decode(log) {
-                    substreams::log::info!(
-                        "Event (Mint): pool={} liquidity={}",
-                        pool_address_hex,
-                        event.liquidity_amount
-                    );
-                    let tx_change = tx_changes
-                        .entry(hash.clone())
-                        .or_insert_with(|| PartialChanges {
-                            transaction: trx.into(),
-                            entity_changes: HashMap::new(),
-                            balance_changes: HashMap::new(),
-                        });
-
-                    tx_change.entity_changes.insert(
-                        ComponentKey::new(pool_address_hex.clone(), "liquidity".to_string()),
-                        Attribute {
-                            name: "liquidity".to_string(),
-                            value: substreams::scalar::BigInt::from(event.liquidity_amount.clone())
-                                .to_signed_bytes_be(),
-                            change: ChangeType::Update.into(),
-                        },
-                    );
-
-                    // Add tick liquidity changes
-                    tx_change.entity_changes.insert(
-                        ComponentKey::new(
-                            pool_address_hex.clone(),
-                            format!("tick_{}_liquidity_net", event.bottom_tick),
-                        ),
-                        Attribute {
-                            name: format!("tick_{}_liquidity_net", event.bottom_tick),
-                            value: substreams::scalar::BigInt::from(event.liquidity_amount.clone())
-                                .to_signed_bytes_be(),
-                            change: ChangeType::Update.into(),
-                        },
-                    );
-                    tx_change.entity_changes.insert(
-                        ComponentKey::new(
-                            pool_address_hex.clone(),
-                            format!("tick_{}_liquidity_net", event.top_tick),
-                        ),
-                        Attribute {
-                            name: format!("tick_{}_liquidity_net", event.top_tick),
-                            value: substreams::scalar::BigInt::from(event.liquidity_amount.clone())
-                                .to_signed_bytes_be(),
-                            change: ChangeType::Update.into(),
-                        },
-                    );
-                } else if let Some(event) = abi::algebrapool::events::Fee::match_and_decode(log) {
-                    substreams::log::info!(
-                        "Event (Fee): pool={} new_fee={}",
-                        pool_address_hex,
-                        event.fee
-                    );
-                    let tx_change = tx_changes
-                        .entry(hash.clone())
-                        .or_insert_with(|| PartialChanges {
-                            transaction: trx.into(),
-                            entity_changes: HashMap::new(),
-                            balance_changes: HashMap::new(),
-                        });
-
-                    tx_change.entity_changes.insert(
-                        ComponentKey::new(pool_address_hex.clone(), "fee".to_string()),
-                        Attribute {
-                            name: "fee".to_string(),
-                            value: substreams::scalar::BigInt::from(event.fee).to_signed_bytes_be(),
-                            change: ChangeType::Update.into(),
-                        },
-                    );
-                } else if let Some(event) =
-                    abi::algebrapool::events::TickSpacing::match_and_decode(log)
-                {
-                    substreams::log::info!(
-                        "Event (TickSpacing): pool={} new_spacing={}",
-                        pool_address_hex,
-                        event.new_tick_spacing
-                    );
-                    let tx_change = tx_changes
-                        .entry(hash.clone())
-                        .or_insert_with(|| PartialChanges {
-                            transaction: trx.into(),
-                            entity_changes: HashMap::new(),
-                            balance_changes: HashMap::new(),
-                        });
-
-                    tx_change.entity_changes.insert(
-                        ComponentKey::new(pool_address_hex.clone(), "tick_spacing".to_string()),
-                        Attribute {
-                            name: "tick_spacing".to_string(),
-                            value: substreams::scalar::BigInt::from(event.new_tick_spacing)
-                                .to_signed_bytes_be(),
-                            change: ChangeType::Update.into(),
-                        },
-                    );
-                }
-            }
-        }
-    }
-}
-
-fn merge_block(
-    tx_changes: &mut HashMap<Vec<u8>, PartialChanges>,
-    block_entity_changes: &mut BlockChanges,
-) {
-    let mut tx_to_changes: HashMap<Vec<u8>, TransactionChanges> = HashMap::new();
-
-    // 1. Unify transactions from previous module
-    for change in block_entity_changes.changes.drain(..) {
-        let hash = change.tx.as_ref().unwrap().hash.clone();
-        tx_to_changes
-            .entry(hash)
-            .or_insert(change);
-    }
-
-    // 2. Merge local events
-    for (hash, partial) in tx_changes.drain() {
-        let tx_change = tx_to_changes
-            .entry(hash)
-            .or_insert_with(|| TransactionChanges {
-                tx: Some(partial.transaction.clone()),
-                ..Default::default()
-            });
-
-        for partial_ec in partial
-            .clone()
-            .consolidate_entity_changes()
-        {
-            let pool_id = partial_ec.component_id.to_lowercase();
-            if let Some(existing_ec) = tx_change
-                .entity_changes
-                .iter_mut()
-                .find(|ec| ec.component_id.to_lowercase() == pool_id)
-            {
-                existing_ec
-                    .attributes
-                    .extend(partial_ec.attributes);
-            } else {
-                tx_change
-                    .entity_changes
-                    .push(partial_ec);
-            }
-        }
-
-        // Balances
-        tx_change
-            .balance_changes
-            .extend(partial.balance_changes.into_values());
-    }
-
-    block_entity_changes.changes = tx_to_changes.into_values().collect();
+    Ok(BlockChanges {
+        block: Some((&block).into()),
+        changes: final_changes,
+        storage_changes: Vec::new(),
+    })
 }

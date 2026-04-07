@@ -93,6 +93,24 @@ impl RPCProvider {
             .wrap_err(format!("Failed to fetch block {:?}", block_number))
             .and_then(|block_opt| block_opt.ok_or_else(|| miette::miette!("Block not found")))
     }
+
+    /// Fetch the runtime bytecode of an account at a specific block.
+    /// Returns an empty Vec for EOAs / non-deployed addresses (no error).
+    pub async fn get_code(
+        &self,
+        address: Address,
+        block_number: u64,
+    ) -> miette::Result<Vec<u8>> {
+        let provider = ProviderBuilder::new().connect_http(self.url.clone());
+        let block_id: BlockId = BlockId::from(block_number);
+        let bytes = provider
+            .get_code_at(address)
+            .block_id(block_id)
+            .await
+            .into_diagnostic()
+            .wrap_err(format!("Failed to fetch code for {address}"))?;
+        Ok(bytes.to_vec())
+    }
 }
 
 #[cfg(test)]

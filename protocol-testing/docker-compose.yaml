@@ -27,6 +27,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      indexer:
+        condition: service_healthy
     environment:
       RUST_LOG: "${RUST_LOG:-error,protocol_testing=info,tycho_indexer=info,tycho_client=info}"
       DATABASE_URL: postgres://postgres:mypassword@db:5432/${DB_NAME:-tycho_indexer_0}
@@ -46,24 +48,18 @@ services:
       db:
         condition: service_healthy
     environment:
-      RUST_LOG: "${RUST_LOG:-error,protocol_testing=info,tycho_indexer=trace,tycho_client=info}"
+      RUST_LOG: "${RUST_LOG:-error,protocol_testing=info,tycho_indexer=info,tycho_client=info}"
       DATABASE_URL: postgres://postgres:mypassword@db:5432/${DB_NAME:-tycho_indexer_0}
-      RPC_URL: "${RPC_URL:-https://lb.drpc.live/ethereum/AhWtsxH3UU0ouxmDERKpMgZ_Cc_4paER8IKjwg8TMB_n}"
-      SUBSTREAMS_API_TOKEN: "${SUBSTREAMS_API_TOKEN}"
-      # Definitive Tycho Repository configuration (v0.141.0)
-      TYCHO_EXTRACTOR_REPOS: '{"repo.propellerheads-propellerheads": "file:///app/substreams", "local": "file:///app/substreams"}'
-      TYCHO_EXTRACTOR_REPO_TYPE: local
-      TYCHO_EXTRACTOR_REPO_PATH: /app/substreams
-      EXTRACTOR_REPOS: '{"repo.propellerheads-propellerheads": "file:///app/substreams", "local": "file:///app/substreams"}'
-      EXTRACTOR_REPO_TYPE: local
-      EXTRACTOR_REPO_PATH: /app/substreams
       AUTH_API_KEY: dummy
+    healthcheck:
+      test: [ "CMD-SHELL", "bash -c 'echo > /dev/tcp/localhost/4242' 2>/dev/null && exit 0 || exit 1" ]
+      interval: 2s
+      timeout: 5s
+      retries: 10
+      start_period: 5s
     ports:
       - "4242:4242"
-    volumes:
-      - ../substreams:/app/substreams
-      - ./extractors.yaml:/app/extractors.yaml
-    entrypoint: [ "tycho-indexer", "--database-url", "postgres://postgres:mypassword@db:5432/tycho_indexer_0", "--rpc-url", "https://lb.drpc.live/ethereum/AhWtsxH3UU0ouxmDERKpMgZ_Cc_4paER8IKjwg8TMB_n", "index", "--extractors-config", "/app/extractors.yaml" ]
+    entrypoint: [ "tycho-indexer", "--database-url", "postgres://postgres:mypassword@db:5432/tycho_indexer_0", "--rpc-url", "${RPC_URL:-https://lb.drpc.live/ethereum/AhWtsxH3UU0ouxmDERKpMgZ_Cc_4paER8IKjwg8TMB_n}", "rpc" ]
 
 
 volumes:

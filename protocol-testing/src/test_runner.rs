@@ -241,8 +241,27 @@ impl TestRunner {
         let spkg_path =
             build_spkg(substreams_yaml_path, start_block).wrap_err("Failed to build spkg")?;
 
+        // Pass `initialized_accounts` from the integration_test.tycho.yaml down to the
+        // TychoRunner so the indexer's startup `initialize_accounts` step can RPC-fetch
+        // any contracts the simulator needs but the substream cannot capture (e.g. the
+        // SecurityRegistry that the Algebra plugin's beforeSwap reads).
+        // Without this, the `full` command silently passed an empty list and DCI never
+        // discovered downstream dependencies.
+        let raw_initialized_accounts: Vec<String> = config
+            .initialized_accounts
+            .clone()
+            .unwrap_or_default();
+        if !raw_initialized_accounts.is_empty() {
+            info!(
+                "Forwarding {} initialized_accounts from integration test config to indexer",
+                raw_initialized_accounts.len()
+            );
+        }
+
         // Use tycho-indexer's Index command which handles both continuous syncing and RPC server
-        let tycho_runner = self.tycho_runner(&[]).await?;
+        let tycho_runner = self
+            .tycho_runner(&raw_initialized_accounts)
+            .await?;
 
         let spkg_path_for_index = spkg_path.clone();
         let protocol_type_names = config.protocol_type_names.clone();
@@ -272,7 +291,13 @@ impl TestRunner {
             .into_diagnostic()
             .wrap_err("Failed to wait for protocol sync")?;
 
-        self.run_tvl_import()?;
+        // TVL import is best-effort: it downloads a CSV from a public S3 bucket and is
+        // only used to populate component_tvl rows for analytics. Failure (network, region,
+        // SSL) must NOT kill the full test, otherwise the child tycho-indexer process is
+        // also torn down and the interactive command can no longer reach the RPC server.
+        if let Err(e) = self.run_tvl_import() {
+            warn!("TVL import failed (non-fatal, continuing): {e}");
+        }
 
         // Start live testing with streaming (updates will come as indexer catches up)
         self.run_live_testing(&config).await
@@ -569,11 +594,13 @@ impl TestRunner {
             )
             .wrap_err("Failed to get block header")?;
 
+        let block_ts: Option<u32> = u32::try_from(block.header.inner.timestamp).ok();
         let (protocol_components, snapshot, all_tokens) = self.fetch_from_tycho_rpc(
             &config.protocol_system,
             expected_ids,
             stop_block,
             initialized_accounts,
+            block_ts,
         )?;
 
         let response_protocol_states_by_id: HashMap<String, ResponseProtocolState> = snapshot
@@ -692,7 +719,7 @@ impl TestRunner {
             self.rpc_provider.get_block(BlockNumberOrTag::Number(stop_block))
         ).wrap_err("Failed to get block from RPC")?;
 
-        info!("Connecting to persistent Tycho Indexer at http://indexer:4242 to fetch state at block {stop_block}...");
+        info!("Fetching state at block {stop_block} from persistent Tycho Indexer...");
 
         self.execute_interactive_simulation(&config, test_type, &block, stop_block)
     }
@@ -707,16 +734,45 @@ impl TestRunner {
         let protocol_system = config.protocol_system.clone();
         let pool_id = test_type.pool.to_lowercase();
 
-        let (protocol_components, snapshot, all_tokens) = self.fetch_from_tycho_rpc(
+        let initialized_accounts: Vec<Bytes> = config
+            .initialized_accounts
+            .as_deref()
+            .unwrap_or(&[])
+            .iter()
+            .filter_map(|addr| Bytes::from_str(addr).ok())
+            .collect();
+
+        let block_ts: Option<u32> = u32::try_from(block.header.timestamp).ok();
+        let (protocol_components, mut snapshot, all_tokens) = self.fetch_from_tycho_rpc(
             &protocol_system,
             vec![pool_id.clone()],
             stop_block,
-            &[],
+            &initialized_accounts,
+            block_ts,
         )?;
 
         if protocol_components.is_empty() {
             return Err(miette!("Pool not found in database: {}", pool_id));
         }
+
+        // Per-pool plugin dependency discovery.
+        //
+        // Each Algebra pool has its own plugin instance with its own storage. The plugin
+        // calls into several external contracts (SecurityRegistry, FeeDiscountRegistry,
+        // incentive/farming, reflexRouter, etc.) whose addresses live in the plugin's
+        // storage and DIFFER per pool. The substream captures pool + plugin bytecode +
+        // storage, but NOT the plugin's downstream dependencies — they need to be
+        // injected into the simulator's vm_storage at simulation time.
+        //
+        // We scan only the QUERIED pool's plugin storage (not every contract in
+        // vm_storage), apply a strict address heuristic to keep candidates small,
+        // and fetch missing bytecode in parallel via the user's RPC_URL.
+        self.discover_and_inject_plugin_dependencies(
+            &pool_id,
+            &protocol_components,
+            &mut snapshot,
+            stop_block,
+        )?;
 
         let adapter_contract_path_str = self.get_adapter_contract_path(
             &config.adapter_contract,
@@ -834,8 +890,10 @@ impl TestRunner {
         if !import_output.status.success() {
             let stderr = String::from_utf8_lossy(&import_output.stderr);
             let stdout = String::from_utf8_lossy(&import_output.stdout);
-            error!("Token price import failed: {}, {}", stderr, stdout);
-            return Err(miette::miette!("Token price import failed: {}, {}", stderr, stdout));
+            warn!("Token price import failed (non-fatal): {} {}", stderr.trim(), stdout.trim());
+            // Don't try to update component TVL if the price import failed —
+            // there's nothing to update from. Return Ok so the caller continues.
+            return Ok(());
         }
 
         let stdout = String::from_utf8_lossy(&import_output.stdout);
@@ -872,6 +930,195 @@ impl TestRunner {
         Ok(())
     }
 
+    /// Per-pool plugin dependency discovery.
+    ///
+    /// Strategy:
+    ///   1. Identify the plugin contract for the QUERIED pool only — not every contract
+    ///      in `vm_storage`. Plugins have thousands of slots and most are timepoints/
+    ///      tick data, not addresses; scanning all of them is prohibitively slow.
+    ///   2. Apply a strict address heuristic: upper 12 bytes EXACTLY zero, lower 20
+    ///      bytes non-zero, magnitude ≥ 2^96 (filters out small uints / packed enums).
+    ///   3. Fetch bytecode in parallel (bounded concurrency) via `tokio::spawn` and
+    ///      `try_join_all` so we don't pay the round-trip latency serially.
+    ///   4. Inject any contract whose `eth_getCode` returned non-empty bytes into
+    ///      `vm_storage` as a mocked `ResponseAccount`. Empty results = EOA, skip.
+    fn discover_and_inject_plugin_dependencies(
+        &self,
+        pool_id: &str,
+        protocol_components: &[ProtocolComponent],
+        snapshot: &mut Snapshot,
+        block_number: u64,
+    ) -> miette::Result<()> {
+        // 1. Find the queried pool's component and pluck its plugin address from the
+        //    component's `contract_ids` list. The substream's `1_map_pool_created.rs`
+        //    appends the plugin address as the SECOND entry of `contracts_list`.
+        let pool_id_lc = pool_id.to_lowercase();
+        let component = protocol_components
+            .iter()
+            .find(|c| c.id.to_lowercase() == pool_id_lc);
+        let Some(component) = component else {
+            warn!(pool = %pool_id, "discovery: queried pool not in components, skipping");
+            return Ok(());
+        };
+        let plugin_addr = component
+            .contract_ids
+            .iter()
+            .find(|a| {
+                let a_hex = format!("0x{}", hex::encode(a));
+                !a_hex.eq_ignore_ascii_case(&pool_id_lc)
+            })
+            .cloned();
+        let Some(plugin_addr) = plugin_addr else {
+            debug!(pool = %pool_id, "discovery: no plugin contract id, skipping");
+            return Ok(());
+        };
+
+        // 2. Pull the plugin's slots from vm_storage (already overlaid via
+        //    `tycho_rpc.rs::get_snapshots`).
+        let Some(plugin_account) = snapshot.vm_storage.get(&plugin_addr).cloned() else {
+            warn!(
+                plugin = %format!("0x{}", hex::encode(&plugin_addr)),
+                "discovery: plugin not in vm_storage, skipping"
+            );
+            return Ok(());
+        };
+
+        // 3. Build candidate set with a STRICT heuristic.
+        let already_present: HashSet<Bytes> = snapshot
+            .vm_storage
+            .keys()
+            .cloned()
+            .collect();
+        let token_addrs: HashSet<Bytes> = protocol_components
+            .iter()
+            .flat_map(|c| c.tokens.iter().cloned())
+            .collect();
+        let zero_addr = Bytes::from(vec![0u8; 20]);
+        let ee_addr = Bytes::from(vec![0xee; 20]);
+
+        let mut candidates: HashSet<Bytes> = HashSet::new();
+        for (_slot, value) in plugin_account.slots.iter() {
+            if value.len() != 32 {
+                continue;
+            }
+            let bytes = value.as_ref();
+            let upper = &bytes[..12];
+            let lower = &bytes[12..32];
+
+            // Strict: upper 12 bytes must be EXACTLY zero. (Packed flags surface as
+            // false positives at scale; better to miss a few than scan thousands.)
+            if upper.iter().any(|b| *b != 0) {
+                continue;
+            }
+            // Non-degenerate lower 20 bytes
+            if lower.iter().all(|b| *b == 0) || lower.iter().all(|b| *b == 0xff) {
+                continue;
+            }
+            // Magnitude check: real EVM addresses are ~uniform in [0, 2^160).
+            // Anything with all zeros in the top 12 bytes (already true) AND most
+            // of the upper part of the lower 20 bytes also zero is more likely a
+            // small uint (fee, count, timestamp). Require at least one non-zero
+            // byte in the upper half of the lower 20 bytes (slot bytes 12..22).
+            if lower[..8].iter().all(|b| *b == 0) {
+                continue;
+            }
+
+            let candidate = Bytes::from(lower.to_vec());
+            if candidate == zero_addr
+                || candidate == ee_addr
+                || already_present.contains(&candidate)
+                || token_addrs.contains(&candidate)
+            {
+                continue;
+            }
+            candidates.insert(candidate);
+        }
+
+        if candidates.is_empty() {
+            info!(
+                plugin = %format!("0x{}", hex::encode(&plugin_addr)),
+                "Plugin dependency discovery: no new candidates from plugin storage"
+            );
+            return Ok(());
+        }
+
+        info!(
+            plugin = %format!("0x{}", hex::encode(&plugin_addr)),
+            count = candidates.len(),
+            "Plugin dependency discovery: fetching candidate bytecode in parallel"
+        );
+
+        // 4. Fetch bytecode for all candidates concurrently (capped concurrency).
+        let candidates_vec: Vec<Bytes> = candidates.into_iter().collect();
+        let rpc_url = self.rpc_provider.url.clone();
+        let block = block_number;
+
+        let fetched: Vec<(Bytes, Vec<u8>)> = self.runtime.block_on(async move {
+            use futures::stream::{self, StreamExt};
+            stream::iter(candidates_vec.into_iter().map(|addr_bytes| {
+                let url = rpc_url.clone();
+                async move {
+                    let addr_arr: [u8; 20] = match addr_bytes.as_ref().try_into() {
+                        Ok(a) => a,
+                        Err(_) => return (addr_bytes, Vec::new()),
+                    };
+                    let alloy_addr = Address::from(addr_arr);
+                    let provider = alloy::providers::ProviderBuilder::new()
+                        .connect_http(url);
+                    let block_id = alloy::eips::eip1898::BlockId::from(block);
+                    use alloy::providers::Provider;
+                    let res = provider
+                        .get_code_at(alloy_addr)
+                        .block_id(block_id)
+                        .await;
+                    match res {
+                        Ok(b) => (addr_bytes, b.to_vec()),
+                        Err(_) => (addr_bytes, Vec::new()),
+                    }
+                }
+            }))
+            .buffer_unordered(16) // up to 16 RPC calls in flight at once
+            .collect()
+            .await
+        });
+
+        let mut injected = 0usize;
+        // tycho-simulation parses these fields into FixedBytes<32> — they MUST be
+        // exactly 32 bytes. native_balance is a uint256 (also 32 B). Use zeros for
+        // tx-hash placeholders and a real keccak256 for `code_hash` so REVM accepts.
+        let zero32 = Bytes::from(vec![0u8; 32]);
+        for (addr_bytes, code) in fetched {
+            if code.is_empty() {
+                continue;
+            }
+            let code_hash_bytes = alloy::primitives::keccak256(&code);
+            let account = tycho_simulation::tycho_common::dto::ResponseAccount {
+                chain: self.chain,
+                address: addr_bytes.clone(),
+                title: format!("0x{}", hex::encode(&addr_bytes)),
+                slots: HashMap::new(),
+                native_balance: zero32.clone(),
+                token_balances: HashMap::new(),
+                code: Bytes::from(code.clone()),
+                code_hash: Bytes::from(code_hash_bytes.to_vec()),
+                balance_modify_tx: zero32.clone(),
+                code_modify_tx: zero32.clone(),
+                creation_tx: None,
+            };
+            snapshot
+                .vm_storage
+                .insert(addr_bytes.clone(), account);
+            injected += 1;
+            info!(
+                addr = %format!("0x{}", hex::encode(&addr_bytes)),
+                code_bytes = code.len(),
+                "Plugin dependency discovery: injected mocked account"
+            );
+        }
+        info!(injected, "Plugin dependency discovery: complete");
+        Ok(())
+    }
+
     /// Fetches protocol data from the Tycho RPC server and prepares it for validation and
     /// simulation.
     ///
@@ -900,12 +1147,17 @@ impl TestRunner {
         expected_component_ids: Vec<String>,
         stop_block: u64,
         initialized_accounts: &[Bytes],
+        block_timestamp_secs: Option<u32>,
     ) -> miette::Result<(Vec<ProtocolComponent>, Snapshot, HashMap<Bytes, Token>)> {
         info!("Fetching protocol data from Tycho with stop block {}...", stop_block);
 
         // Create Tycho client for the RPC server
+        // Default to localhost so this works for host-native runs without any env var.
+        // Override with TYCHO_URL when running inside docker-compose where the indexer
+        // is reachable as `http://indexer:4242`.
         let tycho_url = std::env::var("TYCHO_URL")
-            .unwrap_or_else(|_| "http://indexer:4242".to_string());
+            .unwrap_or_else(|_| "http://localhost:4242".to_string());
+        info!("Using Tycho RPC at {tycho_url}");
         let tycho_client = TychoClient::new(&tycho_url, None)
             .into_diagnostic()
             .wrap_err("Failed to create Tycho client")?;
@@ -972,6 +1224,7 @@ impl TestRunner {
                 &components_by_id,
                 &contract_ids,
                 &traced_entry_points,
+                block_timestamp_secs,
             ))
             .into_diagnostic()
             .wrap_err("Failed to get snapshot")?;
@@ -986,6 +1239,10 @@ impl TestRunner {
             .into_diagnostic()
             .wrap_err("Failed to get tokens")?;
         debug!("Loaded {} tokens", all_tokens.len());
+
+        // Note: dto::ProtocolComponent in tycho-common 0.138 no longer has an
+        // `implementation` field — VM vs Native is derived from the protocol_system name
+        // by downstream consumers, so we don't need to override anything here.
 
         Ok((protocol_components, snapshot, all_tokens))
     }
@@ -1004,7 +1261,7 @@ impl TestRunner {
         let _ = tycho_simulation::evm::engine_db::SHARED_TYCHO_DB.clear();
 
         let protocol_stream_builder =
-            ProtocolStreamBuilder::new("", self.chain.into()).skip_state_decode_failures(true);
+            ProtocolStreamBuilder::new("", self.chain.into()).skip_state_decode_failures(false);
 
         let mut decoder_context = DecoderContext::new().vm_traces(vm_simulation_traces);
         if let Some(vm_adapter_path) = adapter_contract_path.as_ref() {

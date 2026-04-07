@@ -38,8 +38,15 @@ pub fn map_balance_changes(
                     let token_address = log.address.clone();
                     let amount_bigint = substreams::scalar::BigInt::from_unsigned_bytes_be(&log.data);
                     
-                    let from_hex = format!("{}", substreams::Hex(from)).to_lowercase();
-                    let to_hex = format!("{}", substreams::Hex(to)).to_lowercase();
+                    // IMPORTANT: pool component ids are stored as `0x{hex}` (lowercased)
+                    // in `1_map_pool_created.rs` and the store in `2_store_pools.rs`.
+                    // `substreams::Hex` produces UNPREFIXED hex, so we must add the `0x`
+                    // prefix here to match. Without this prefix, every lookup misses and
+                    // no balance deltas are ever emitted -> component_balance stays empty
+                    // -> tycho-simulation's token mocks return 0 for balanceOf(pool)
+                    // -> swap simulation fails.
+                    let from_hex = format!("0x{}", substreams::Hex(from)).to_lowercase();
+                    let to_hex = format!("0x{}", substreams::Hex(to)).to_lowercase();
 
                     // Is the `from` address a pool?
                     let pool_match_from = pools_store.get_last(StoreKey::Pool.get_unique_pool_key(&from_hex));

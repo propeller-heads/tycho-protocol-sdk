@@ -99,7 +99,8 @@ contract SupernovaV3AdapterTest is Test {
         uint256 amountIn = 100 * 1e6; // 100 USDT (6 decimals)
         
         deal(usdt, address(this), amountIn);
-        IERC20(usdt).approve(address(adapter), amountIn);
+        (bool s,) = usdt.call(abi.encodeWithSignature("approve(address,uint256)", address(adapter), amountIn));
+        require(s, "USDT approve failed");
         
         ISwapAdapterTypes.Trade memory trade = adapter.swap(
             poolId,

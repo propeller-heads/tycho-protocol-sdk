@@ -1,15 +1,18 @@
 extractors:
-  supernova-v3:
-    name: supernova-v3
+  supernova-v3-vm:
+    name: supernova-v3-vm
     chain: ethereum
-    implementation_type: Custom
+    implementation_type: Vm
     sync_batch_size: 1
     min_confirmations: 0
     protocol_types:
-      - name: "supernova_algebra_pool"
+      - name: "supernova_algebra_pool_vm"
         financial_type: Swap
     repository: local
     spkg: /app/substreams/supernova-v3/supernova-v3-v0.1.0.spkg
     start_block: 24468499
-    protocol_system: "supernova-v3"
+    protocol_system: "supernova-v3-vm"
     module_name: "map_pool_events"
+    adapter_contract: "SupernovaV3Adapter"
+    adapter_build_signature: "constructor(address)"
+    adapter_build_args: "0x44B7fBd4D87149eFa5347c451E74B9FD18E89c55"

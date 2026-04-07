@@ -1,14 +1,29 @@
 substreams_yaml_path: ./supernova-v3.yaml
-protocol_system: "supernova-v3"
+protocol_system: "supernova-v3-vm"
 adapter_contract: "SupernovaV3Adapter"
 adapter_build_signature: "constructor(address)"
 adapter_build_args: "0x44B7fBd4D87149eFa5347c451E74B9FD18E89c55"
 protocol_type_names:
-  - "supernova_algebra_pool"
+  - "supernova_algebra_pool_vm"
 module_name: "map_pool_events"
 skip_balance_check: true
 initialized_accounts:
-  - "0x44B7fBd4D87149eFa5347c451E74B9FD18E89c55" # Factory
+  # Plugin is captured by the substream (1_map_pool_created.rs) at pool-creation time,
+  # so it's already in the indexer's account table — no need to RPC-prefetch it.
+  # Factory and CommunityVault are NOT needed for swap simulation:
+  #   - Factory is only read in pool constructor (already initialized).
+  #   - CommunityVault is only a recipient of ERC20 transfers, never called as a contract.
+  #
+  # All other addresses below are external contracts the Algebra plugin reaches into during
+  # its hooks. Discovered by scanning plugin storage for address-shaped values via the Tycho
+  # contract_state RPC. Tycho's `initialize_accounts` calls EthereumRpcClient at indexer
+  # startup to fetch code+storage at the configured block, then inserts the accounts so the
+  # simulator's REVM has them available.
+  - "0x454e62e725ad5a47931043f7e6369cfbb879bdfd"  # SecurityRegistry (plugin.beforeSwap → getPoolStatus)
+  - "0x27bb6d0c21a057b2ca52e3fcda2f801d17d5428c"  # plugin slot 1 (likely incentive/farming, used in afterSwap)
+  - "0x428ea5b4ac84ab687851e6a2688411bdbd6c91af"  # plugin slot 2 (likely reflexRouter or feeDiscountRegistry)
+  - "0x6e9965973aebd5e3853255fcd84640b2b4c5a3f8"  # plugin slot 0x10004 (read in beforeSwap before crash)
+  - "0x31eda5529b8f219243e8248eff368bc36a3f5975"  # plugin slot 0x10006 (current MissingAccount blocker; flag=enabled)
 tests:
   - name: test_first_10k_blocks
     start_block: 24468499
@@ -24,8 +39,8 @@ tests:
         skip_simulation: false
 
   - name: test_100_usdt_swap_at_head
-    start_block: 24768374
-    stop_block: 24768374
+    start_block: 24468499
+    stop_block: 24468499
     expected_components:
       - id: "0x2beb35e78c9427899353c41c96bcc96c5647ec63"
         tokens:

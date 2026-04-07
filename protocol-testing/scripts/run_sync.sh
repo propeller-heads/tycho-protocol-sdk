@@ -59,12 +59,16 @@ BEGIN
             'CREATE TABLE IF NOT EXISTS component_balance_p%s PARTITION OF component_balance FOR VALUES FROM (%L) TO (%L)',
             to_char(d, 'YYYYMMDD'), d::timestamptz, (d + 1)::timestamptz
         );
+        EXECUTE format(
+            'CREATE TABLE IF NOT EXISTS contract_storage_p%s PARTITION OF contract_storage FOR VALUES FROM (%L) TO (%L)',
+            to_char(d, 'YYYYMMDD'), d::timestamptz, (d + 1)::timestamptz
+        );
         created := created + 1;
         d := d + 1;
     END LOOP;
-    RAISE NOTICE 'Created % daily partition pairs (protocol_state + component_balance)', created;
+    RAISE NOTICE 'Created % daily partition pairs (protocol_state + component_balance + contract_storage)', created;
 END $$;
-SELECT COUNT(*) AS feb_partitions_ready FROM pg_tables WHERE tablename LIKE 'protocol_state_p202602%';
+SELECT COUNT(*) AS feb_partitions_ready FROM pg_tables WHERE tablename LIKE 'contract_storage_p202602%';
 EOSQL
 echo "      Partitions created."
 

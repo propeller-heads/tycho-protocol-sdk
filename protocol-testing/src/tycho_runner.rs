@@ -211,6 +211,11 @@ impl TychoRunner {
             temp_path,
             "--chains",
             &self.chain.to_string(),
+            // Retention horizon: tycho-indexer 0.141.0 uses this as a "delete-after"
+            // threshold and crashes on duplicate-key violations if set to a past date,
+            // because the codepath for moving stale rows out of the default partition is
+            // not actually wired up. Keep it in the future so the indexer's prune-on-write
+            // path is taken (no historical rows are kept; only current state survives).
             "--retention-horizon",
             "2028-01-01T00:00:00",
         ]);
