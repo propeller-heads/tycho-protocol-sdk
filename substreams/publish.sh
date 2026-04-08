@@ -2,15 +2,16 @@
 
 # Manual publish script for substream packages.
 # Builds, packs, and publishes a substream package to the public S3 repository.
-# Usage: ./publish.sh <package-name> <yaml-name>
-#   package-name: The name of the package to build
+# Usage: ./publish.sh <package-dir> <yaml-name>
+#   package-dir: Path to the package directory relative to this script
+#                For nested packages use the subdirectory path (e.g. ethereum-uniswap-v4/no-hooks)
 #   yaml-name: The name of the YAML file (without .yaml extension)
-# The version will be automatically fetched from the package's Cargo.toml
+# The package name and version will be automatically fetched from the package's Cargo.toml
 
 # Check if required arguments are provided
 if [ -z "$1" ] || [ -z "$2" ]; then
-    echo "Error: package name and yaml name are required!"
-    echo "Usage: $0 <package-name> <yaml-name>"
+    echo "Error: package directory and yaml name are required!"
+    echo "Usage: $0 <package-dir> <yaml-name>"
     exit 1
 fi
 
@@ -62,7 +63,7 @@ fi
 
 # Determine the version prefix based on the YAML file name
 if [ "$yaml_name" = "substreams" ]; then
-    version_prefix="$package"
+    version_prefix="$cargo_package_name"
 else
     version_prefix="${yaml_name}"
 fi
@@ -70,7 +71,7 @@ fi
 set -e  # Exit the script if any command fails
 
 echo ""
-echo "Substreams package: $package"
+echo "Substreams package: $cargo_package_name"
 echo "YAML config: $yaml_file"
 echo "Version: $version"
 echo ""
@@ -93,7 +94,7 @@ mkdir -p ./target/spkg/
 
 # Pack and upload the substreams package
 REPOSITORY=${REPOSITORY:-"s3://repo.propellerheads-propellerheads/substreams"}
-repository_path="$REPOSITORY/$package/$version_prefix-$version.spkg"
+repository_path="$REPOSITORY/$version_prefix/$version_prefix-$version.spkg"
 output_file="./target/spkg/$version_prefix-$version.spkg"
 
 substreams pack "$yaml_file" -o "$output_file"
@@ -115,4 +116,3 @@ aws s3 cp "$output_file" "$repository_path"
 echo "------------------------------------------------------"
 echo "PUBLISHED SUBSTREAMS PACKAGE: '$repository_path'"
 echo "------------------------------------------------------"
-
