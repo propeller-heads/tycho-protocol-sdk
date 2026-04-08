@@ -260,9 +260,16 @@ impl TychoClient {
         // the source of truth for both `_updateReserves()` and the swap math; aligning
         // the simulator's TokenProxy balance with this value guarantees consistency.
         //
-        // Slot 12 layout (Algebra `ReservesManager`):
-        //   bytes 16..31 (offset 0,  16 B) → reserve0  (uint128)
-        //   bytes  0..15 (offset 16, 16 B) → reserve1  (uint128)
+        // SOURCE OF TRUTH for the slot 12 byte layout:
+        //   substreams/supernova-v3/src/storage/pool_storage.rs::decode_slot12_reserves
+        //   …and the pinned unit test
+        //   `decode_slot12_reserves_unpacks_lsb_first` in the same file.
+        // If Algebra ever reorders `reserve0`/`reserve1`, that test will fail and
+        // BOTH copies (substream + this overlay) must be updated together.
+        //
+        // Slot 12 layout (Algebra `ReservesManager`, MSB-first byte indices):
+        //   bytes 16..31 (lower 128 bits) → reserve0  (uint128)
+        //   bytes  0..15 (upper 128 bits) → reserve1  (uint128)
         for (cid, cws) in response.states.iter_mut() {
             // The component id is the pool address; vm_storage is keyed by Bytes(address).
             let pool_addr = match Bytes::from_str(cid) {

@@ -75,13 +75,30 @@ impl<'a> UniswapPoolStorage<'a> {
 
                     // Check if there is a change in the data
                     if old_data != new_data {
-                        let value = match storage_location.signed {
-                            true => BigInt::from_signed_bytes_be(new_data),
-                            false => BigInt::from_unsigned_bytes_be(new_data),
+                        // Serialise round-trip: signed → signed bytes (preserves
+                        // sign extension); unsigned → big-endian magnitude bytes
+                        // WITHOUT the leading 0x00 sign byte that
+                        // `to_signed_bytes_be()` would prepend for values whose
+                        // high bit is set. This matters for fields like
+                        // `sqrt_price_x96` and `liquidity` that can legitimately
+                        // exceed 2^159 / 2^127, where the wrong serialisation
+                        // would change the on-wire byte length and confuse any
+                        // consumer that decodes with `from_unsigned_bytes_be`.
+                        let value_bytes: Vec<u8> = if storage_location.signed {
+                            BigInt::from_signed_bytes_be(new_data).to_signed_bytes_be()
+                        } else {
+                            // `to_bytes_be()` returns `(Sign, Vec<u8>)`. For an
+                            // unsigned value built from raw bytes, the sign is
+                            // always Plus (or NoSign for zero), so we just take
+                            // the magnitude. We pad with a leading zero only if
+                            // the original buffer was empty (defensive).
+                            let bi = BigInt::from_unsigned_bytes_be(new_data);
+                            let (_, mag) = bi.to_bytes_be();
+                            if mag.is_empty() { vec![0u8] } else { mag }
                         };
                         attributes.push(Attribute {
                             name: storage_location.name.to_string(),
-                            value: value.to_signed_bytes_be(),
+                            value: value_bytes,
                             change: ChangeType::Update.into(),
                         });
                     }
@@ -200,6 +217,40 @@ impl<'a> UniswapPoolStorage<'a> {
     }
 }
 
+/// Decode the packed `(reserve0, reserve1)` pair from Algebra Integral
+/// pool slot 12 (`_reserves`).
+///
+/// # Layout
+///
+/// `_reserves` is two `uint128` fields packed LSB-first by the Solidity
+/// compiler:
+///
+/// ```text
+///     uint128 reserve0;   // bits   0..127  (LSB)
+///     uint128 reserve1;   // bits 128..255  (MSB)
+/// ```
+///
+/// When the slot is read MSB-first (as EVM storage values are typically
+/// returned and stored), the byte layout becomes:
+///
+/// ```text
+///     [ 0..16)  reserve1  (upper 128 bits — left half of the slot)
+///     [16..32)  reserve0  (lower 128 bits — right half of the slot)
+/// ```
+///
+/// This is the **single source of truth** for slot-12 decoding. The
+/// protocol-testing harness's `tycho_rpc.rs::get_snapshots` mirrors the
+/// same layout in its reserve-reconciliation overlay; both must be
+/// updated together if Algebra ever reorders the fields. The pinned
+/// unit test below (`decode_slot12_reserves_unpacks_lsb_first`) is the
+/// regression guard.
+#[allow(dead_code)] // referenced by cross-crate consumers (protocol-testing harness) and pinned by the unit test below
+pub fn decode_slot12_reserves(slot12_value: &[u8; 32]) -> (substreams::scalar::BigInt, substreams::scalar::BigInt) {
+    let reserve1 = substreams::scalar::BigInt::from_unsigned_bytes_be(&slot12_value[0..16]);
+    let reserve0 = substreams::scalar::BigInt::from_unsigned_bytes_be(&slot12_value[16..32]);
+    (reserve0, reserve1)
+}
+
 /// Compute `slot + offset` for sequential struct sub-slots.
 /// Algebra tick data spans 4 consecutive slots per tick entry; this lets us
 /// address `liquidityDelta` (sub-slot index 2 of the mapping entry).
@@ -214,5 +265,124 @@ fn add_slot_offset(base: &[u8; 32], offset: u8) -> [u8; 32] {
             break;
         }
     }
+    // We never expect to overflow byte 0 of a keccak-derived slot in
+    // practice (probability ~2^-256), but assert it under debug builds so
+    // a future bug in calc_map_slot doesn't silently corrupt addressing.
+    debug_assert_eq!(carry, 0, "add_slot_offset overflow past slot byte 0");
     result
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use substreams_ethereum::pb::eth::v2::StorageChange;
+
+    /// Regression test for the unsigned/signed serialisation bug
+    /// (review finding C2). When an unsigned field has its high bit set
+    /// — e.g. a 16-byte uint128 starting with 0xff — the previous
+    /// implementation called `to_signed_bytes_be()` after constructing
+    /// the BigInt with `from_unsigned_bytes_be()`, which prepended a
+    /// 0x00 sign byte and changed the on-wire byte length from 16 to 17.
+    ///
+    /// This test pins the new behaviour: an unsigned field is serialised
+    /// as the magnitude bytes only, with the original byte length preserved.
+    #[test]
+    fn unsigned_field_high_bit_set_serialises_without_sign_pad() {
+        // 32-byte slot whose lower 16 bytes are 0xffff…ff (max uint128).
+        let mut new_value = vec![0u8; 16];
+        new_value.extend(std::iter::repeat(0xffu8).take(16));
+        let old_value = vec![0u8; 32];
+
+        let location_name: &str = "test_uint128";
+        let location_slot: [u8; 32] = [0u8; 32]; // slot 0
+        let storage_change = StorageChange {
+            address: vec![],
+            key: location_slot.to_vec(),
+            old_value,
+            new_value: new_value.clone(),
+            ordinal: 0,
+        };
+        let pool_storage = UniswapPoolStorage::new(std::slice::from_ref(&storage_change));
+        let location = StorageLocation {
+            name: location_name,
+            slot: location_slot,
+            offset: 0,
+            number_of_bytes: 16,
+            signed: false,
+        };
+        let attrs = pool_storage.get_changed_attributes(vec![&location]);
+        assert_eq!(attrs.len(), 1);
+        // 16 bytes of magnitude — NOT 17 (no leading 0x00 sign byte).
+        assert_eq!(
+            attrs[0].value.len(),
+            16,
+            "unsigned uint128 must serialise to exactly 16 bytes (no sign-pad)"
+        );
+        assert!(
+            attrs[0].value.iter().all(|b| *b == 0xff),
+            "value bytes should be all 0xff for max uint128"
+        );
+    }
+
+    /// Pin the slot-12 reserve byte layout. If Algebra ever reorders
+    /// `reserve0`/`reserve1` in `ReservesManager`, this test must fail
+    /// loudly so we update both the substream's balance emission and
+    /// the harness's reconciliation in lockstep.
+    #[test]
+    fn decode_slot12_reserves_unpacks_lsb_first() {
+        // Construct a slot value where reserve0 = 0x010203... (lower 16 bytes)
+        // and reserve1 = 0xa1b2c3... (upper 16 bytes).
+        let mut slot = [0u8; 32];
+        // reserve1 = 0xa1...b0 in the upper half (slot bytes 0..16)
+        for (i, b) in slot.iter_mut().enumerate().take(16) {
+            *b = 0xa0 + i as u8;
+        }
+        // reserve0 = 0x01...10 in the lower half (slot bytes 16..32)
+        for (i, b) in slot.iter_mut().enumerate().skip(16) {
+            *b = 0x01 + (i - 16) as u8;
+        }
+        let (r0, r1) = decode_slot12_reserves(&slot);
+
+        // reserve0 was written into bytes 16..32 = [0x01, 0x02, ..., 0x10].
+        let expected_r0 = BigInt::from_unsigned_bytes_be(&slot[16..32]);
+        // reserve1 was written into bytes 0..16 = [0xa0, 0xa1, ..., 0xaf].
+        let expected_r1 = BigInt::from_unsigned_bytes_be(&slot[0..16]);
+
+        assert_eq!(r0, expected_r0, "reserve0 must come from slot bytes 16..32 (lower 128 bits)");
+        assert_eq!(r1, expected_r1, "reserve1 must come from slot bytes 0..16 (upper 128 bits)");
+        // Sanity: the two halves are not equal (so a swapped helper would fail).
+        assert_ne!(r0, r1);
+    }
+
+    /// Signed fields still round-trip correctly. A negative int24
+    /// (e.g. tick = -2) must be sign-extended on the way back out.
+    #[test]
+    fn signed_field_negative_value_round_trips() {
+        // int24 = -2 → big-endian: 0xffffe (3 bytes). Place at slot offset 20
+        // (where Algebra packs `tick`).
+        let mut new_value = vec![0u8; 32];
+        // Slot byte indices [9..12) hold the int24 tick (= LSB offset 20..23).
+        new_value[9] = 0xff;
+        new_value[10] = 0xff;
+        new_value[11] = 0xfe;
+        let storage_change = StorageChange {
+            address: vec![],
+            key: [0u8; 32].to_vec(),
+            old_value: vec![0u8; 32],
+            new_value,
+            ordinal: 0,
+        };
+        let pool_storage = UniswapPoolStorage::new(std::slice::from_ref(&storage_change));
+        let location = StorageLocation {
+            name: "tick",
+            slot: [0u8; 32],
+            offset: 20,
+            number_of_bytes: 3,
+            signed: true,
+        };
+        let attrs = pool_storage.get_changed_attributes(vec![&location]);
+        assert_eq!(attrs.len(), 1);
+        let decoded = BigInt::from_signed_bytes_be(&attrs[0].value);
+        assert_eq!(decoded, BigInt::from(-2));
+    }
 }

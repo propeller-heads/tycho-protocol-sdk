@@ -10,6 +10,40 @@ use crate::abi::algebrapool::events::Plugin as PluginEvent;
 
 use tycho_substreams::prelude::*;
 
+/// Collect every storage write inside `trx` whose target is `target_addr`.
+/// Returns them as `ContractSlot` records, ready to attach to a
+/// `ContractChange`. This walks the FULL transaction call tree (not just
+/// the call that emitted the Pool event) so a constructor that writes its
+/// storage from a delegatecalled library is still captured.
+///
+/// Why we do this even though `extract_contract_changes_builder` in
+/// module 3 already collects the same writes: keeping the slot data
+/// attached to module 1's `ContractChange` makes the data-flow contract
+/// of "module 1 emits a fully-self-describing pool creation" explicit.
+/// If `extract_contract_changes_builder` ever tightens its filtering or
+/// changes its semantics, the substream output remains complete.
+fn collect_storage_writes_for(
+    trx: &eth::TransactionTrace,
+    target_addr: &[u8],
+) -> Vec<ContractSlot> {
+    let mut out: Vec<ContractSlot> = Vec::new();
+    for call in &trx.calls {
+        if call.state_reverted {
+            continue;
+        }
+        for sc in &call.storage_changes {
+            if sc.address == target_addr {
+                out.push(ContractSlot {
+                    slot: sc.key.clone(),
+                    value: sc.new_value.clone(),
+                    previous_value: sc.old_value.clone(),
+                });
+            }
+        }
+    }
+    out
+}
+
 #[derive(Debug, Deserialize)]
 struct Params {
     factory_address: String,
@@ -92,6 +126,17 @@ fn get_pools(block: &eth::Block, new_pools: &mut Vec<TransactionChanges>, query_
                     }
                 }
 
+                // 1b. Capture every storage write the pool's constructor (and
+                //     any same-tx initialisation calls) made to its own address.
+                //     This includes slot 2 (globalState), slot 6 (plugin), slot
+                //     7 (communityVault), and the rest of the swap-critical
+                //     slots — all of which are written exactly once at creation
+                //     time and (because the indexer doesn't version slots
+                //     historically) need to be present in the substream output
+                //     so the simulator can rebuild the pool's state at any
+                //     query block.
+                pool_change.slots = collect_storage_writes_for(trx, &pool_address);
+
                 // 2. Find the plugin contract address by scanning this tx's logs for the
                 //    Plugin(address) event emitted by the new pool during construction
                 //    (AlgebraPoolBase._setPlugin → emit Plugin(_plugin)).
@@ -126,6 +171,12 @@ fn get_pools(block: &eth::Block, new_pools: &mut Vec<TransactionChanges>, query_
                             plugin_change.code = code_change.new_code.clone();
                         }
                     }
+                    // Same belt-and-suspenders capture as the pool: pull every
+                    // constructor storage write that targets the plugin so its
+                    // initial state (including dependency addresses we discover
+                    // at simulation time via the harness's plugin scan) is in
+                    // the substream output from block 0.
+                    plugin_change.slots = collect_storage_writes_for(trx, plugin_addr);
                     contracts_list.push(plugin_addr.clone());
                     contract_changes.push(plugin_change);
                     substreams::log::info!(
@@ -146,8 +197,19 @@ fn get_pools(block: &eth::Block, new_pools: &mut Vec<TransactionChanges>, query_
                         value: token1.clone(),
                         change: ChangeType::Creation.into(),
                     },
+                    // Algebra Integral pools are CREATE2'd by `AlgebraPoolDeployer`,
+                    // NOT by the factory directly. The factory CREATE2 prefix is
+                    //   keccak256(0xff || poolDeployer || keccak256(token0,token1) || INIT_CODE_HASH)
+                    // (see Algebra/src/core/contracts/AlgebraFactory.sol#L91).
+                    //
+                    // We expose the factory address here under the name `factory`
+                    // (NOT `deployer`) so downstream consumers don't accidentally
+                    // recompute pool addresses against the wrong contract. The
+                    // actual pool deployer is `IAlgebraFactory(factory).poolDeployer()`
+                    // — substreams can't issue eth_calls cheaply, so consumers that
+                    // need it should resolve it once via RPC.
                     Attribute {
-                        name: "deployer".to_string(),
+                        name: "factory".to_string(),
                         value: factory_addr.as_bytes().to_vec(),
                         change: ChangeType::Creation.into(),
                     },

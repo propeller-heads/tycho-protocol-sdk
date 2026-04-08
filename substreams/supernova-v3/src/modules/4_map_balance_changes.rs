@@ -2,7 +2,7 @@ use substreams::store::{StoreGet, StoreGetProto};
 use substreams_ethereum::pb::eth::v2::{self as eth};
 use tycho_substreams::prelude::*;
 use tycho_substreams::models::{BalanceDelta, BlockBalanceDeltas, Transaction};
-use std::collections::{HashSet, HashMap};
+use std::collections::HashMap;
 use crate::store_key::StoreKey;
 
 const TRANSFER_TOPIC: [u8; 32] = hex_literal::hex!("ddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef");
@@ -15,9 +15,11 @@ pub fn map_balance_changes(
 ) -> Result<BlockBalanceDeltas, substreams::errors::Error> {
     let mut balance_aggregates: HashMap<(String, Vec<u8>), (substreams::scalar::BigInt, u64, Option<Transaction>)> = HashMap::new();
 
-    let created_pools: HashSet<String> = new_pools.changes.iter()
-        .flat_map(|c| c.component_changes.iter().map(|pc| pc.id.clone()))
-        .collect();
+    // Note: we no longer build a separate `created_pools` set here. Newly
+    // created pools are written to `pools_store` by `2_store_pools.rs` in the
+    // same block, so they are reachable via `pools_store.get_last(...)` even
+    // for transfers that happen later in the same block.
+    let _ = &new_pools; // intentionally unused — kept in the signature for the substreams pipeline.
 
     for trx in block.transactions() {
         if trx.status != 1 {
@@ -48,20 +50,28 @@ pub fn map_balance_changes(
                     let from_hex = format!("0x{}", substreams::Hex(from)).to_lowercase();
                     let to_hex = format!("0x{}", substreams::Hex(to)).to_lowercase();
 
-                    // Is the `from` address a pool?
+                    // Is the `from` address a pool, AND is the moving token one of
+                    // its tracked tokens? We require BOTH — it's not enough that the
+                    // address belongs to a known pool. Without the token-membership
+                    // check, an unrelated airdrop landing in the pool's wallet would
+                    // be recorded as a balance delta and corrupt component_balance.
+                    //
+                    // We deliberately do NOT short-circuit on `created_pools` here:
+                    // newly created pools are also written to `pools_store` in this
+                    // same block by `2_store_pools.rs`, so the membership lookup
+                    // already covers them.
                     let pool_match_from = pools_store.get_last(StoreKey::Pool.get_unique_pool_key(&from_hex));
                     let is_from_pool = pool_match_from
                         .as_ref()
                         .map(|pc| pc.tokens.contains(&token_address))
-                        .unwrap_or(false) || created_pools.contains(&from_hex);
+                        .unwrap_or(false);
 
-                    if pool_match_from.is_some() || created_pools.contains(&from_hex) {
+                    if pool_match_from.is_some() {
                          substreams::log::debug!(
-                            "Transfer FROM Pool: pool={} token={} match={} is_created={}",
+                            "Transfer FROM Pool: pool={} token={} match={}",
                             from_hex,
                             format!("{}", substreams::Hex(&token_address)),
                             is_from_pool,
-                            created_pools.contains(&from_hex)
                         );
                     }
 
@@ -73,20 +83,21 @@ pub fn map_balance_changes(
                         *max_ord = std::cmp::max(*max_ord, log.ordinal);
                     }
 
-                    // Is the `to` address a pool?
+                    // Same membership requirement as the FROM branch — see comment
+                    // above. We require both pool-membership in the store AND
+                    // token-membership in the pool's `tokens` list.
                     let pool_match_to = pools_store.get_last(StoreKey::Pool.get_unique_pool_key(&to_hex));
                     let is_to_pool = pool_match_to
                         .as_ref()
                         .map(|pc| pc.tokens.contains(&token_address))
-                        .unwrap_or(false) || created_pools.contains(&to_hex);
+                        .unwrap_or(false);
 
-                    if pool_match_to.is_some() || created_pools.contains(&to_hex) {
+                    if pool_match_to.is_some() {
                          substreams::log::debug!(
-                            "Transfer TO Pool: pool={} token={} match={} is_created={}",
+                            "Transfer TO Pool: pool={} token={} match={}",
                             to_hex,
                             format!("{}", substreams::Hex(&token_address)),
                             is_to_pool,
-                            created_pools.contains(&to_hex)
                         );
                     }
 

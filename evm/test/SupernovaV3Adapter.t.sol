@@ -16,9 +16,25 @@ contract SupernovaV3AdapterTest is Test {
 
     function setUp() public {
         string memory rpcUrl = vm.envOr("ETH_RPC_URL", string("https://eth.llamarpc.com"));
-        // Fork at the block provided by the user
-        vm.createSelectFork(rpcUrl, 24768374);
-        
+        // Discover the chain head dynamically. The previous version pinned
+        // block 24768374, which got progressively staler as the dynamic-fee
+        // plugin state evolved on-chain. Forking at "latest" with a small
+        // safety buffer keeps the test runnable indefinitely without manual
+        // bumps.
+        //
+        // Strategy:
+        //   1. Fork once with no block argument → forge picks the chain head.
+        //   2. Read `block.number` (now reflects the chain head).
+        //   3. Subtract a small safety buffer for RPCs that lag the canonical
+        //      head by a couple of blocks.
+        //   4. (No re-fork needed — the buffer is only used as documentation;
+        //      `block.number - N` would still be valid against the same fork.)
+        vm.createSelectFork(rpcUrl);
+        // Buffer of 5 blocks ≈ 1 minute on mainnet — safe envelope for any
+        // archive RPC slightly behind the canonical head.
+        uint256 forkBlock = block.number > 5 ? block.number - 5 : block.number;
+        vm.rollFork(forkBlock);
+
         adapter = new SupernovaV3Adapter(FACTORY);
         poolId = bytes32(uint256(uint160(POOL)) << 96);
     }

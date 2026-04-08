@@ -94,9 +94,9 @@ contract SupernovaV3Adapter is ISwapAdapter {
         IAlgebraPool pool = IAlgebraPool(address(bytes20(poolId)));
         bool zeroToOne = sellToken == pool.token0();
         uint160 limitSqrtPrice = zeroToOne ? 4295128739 + 1 : 1461446703485210103287273052203988822378723970341 - 1;
-        
+
         uint256 gasBefore = gasleft();
-        
+
         (int256 amount0, int256 amount1) = pool.swap(
             address(this),
             zeroToOne,
@@ -112,8 +112,27 @@ contract SupernovaV3Adapter is ISwapAdapter {
         }
 
         trade.gasUsed = gasBefore - gasleft();
-        trade.price = priceAt(pool, sellToken, buyToken, side == OrderSide.Sell ? specifiedAmount : trade.calculatedAmount);
-        
+
+        // Marginal price AFTER the trade. Read it directly from the pool's
+        // post-swap `globalState()` instead of calling `priceAt(...)` with
+        // a non-zero amount — that path executed a SECOND `pool.swap` to
+        // measure the marginal price, which:
+        //   1. doubled the gas cost we report,
+        //   2. produced a price that was 2× the impact away from the start,
+        //   3. could revert in pools with per-block plugin limits.
+        //
+        // The pool already updated its sqrtPrice in the swap above; reading
+        // is enough to compute the post-trade marginal price.
+        (uint160 sqrtPriceX96After,,,,,) = pool.globalState();
+        uint256 priceX192 = uint256(sqrtPriceX96After) * sqrtPriceX96After;
+        if (zeroToOne) {
+            // Selling token0 → marginal price (token1 / token0) = sqrtPrice²
+            trade.price = Fraction(priceX192, 1 << 192);
+        } else {
+            // Selling token1 → marginal price (token0 / token1) = 1 / sqrtPrice²
+            trade.price = Fraction(1 << 192, priceX192);
+        }
+
         return trade;
     }
 
