@@ -6,6 +6,7 @@ PACKAGES=(
   ethereum-balancer-v3
   ethereum-cowamm
   ethereum-curve
+  ethereum-ekubo-v3
   ethereum-erc4626
   ethereum-maverick-v2
   ethereum-pancakeswap-v3

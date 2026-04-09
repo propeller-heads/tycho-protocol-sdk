@@ -4,11 +4,11 @@ use substreams::{
 };
 use substreams_helper::hex::Hexable;
 
-use crate::{pb::ekubo::SaleRateChanges, store::store_method_from_change_type};
+use crate::{details_store::store_method_from_change_type, pb::ekubo::ActiveRateChanges};
 
 #[substreams::handlers::store]
-pub fn store_active_sale_rates(sale_rate_changes: SaleRateChanges, store: StoreSetSumBigInt) {
-    sale_rate_changes
+pub fn store_active_rates(active_rate_changes: ActiveRateChanges, store: StoreSetSumBigInt) {
+    active_rate_changes
         .changes
         .into_iter()
         .for_each(|changes| {
@@ -19,13 +19,13 @@ pub fn store_active_sale_rates(sale_rate_changes: SaleRateChanges, store: StoreS
             store_method(
                 &store,
                 changes.ordinal,
-                format!("pool:{pool_id}:token0"),
+                format!("{pool_id}:0"),
                 BigInt::from_signed_bytes_be(&changes.token0_value),
             );
             store_method(
                 &store,
                 changes.ordinal,
-                format!("pool:{pool_id}:token1"),
+                format!("{pool_id}:1"),
                 BigInt::from_signed_bytes_be(&changes.token1_value),
             );
         });
