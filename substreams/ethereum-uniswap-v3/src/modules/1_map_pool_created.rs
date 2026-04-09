@@ -9,15 +9,27 @@ use substreams_helper::{event_handler::EventHandler, hex::Hexable};
 use crate::abi::factory::events::PoolCreated;
 use tycho_substreams::prelude::*;
 
+/// Parse comma-separated factory addresses from the params string.
+/// Supports both single address (`"abcdef..."`) and multiple (`"addr1,addr2,addr3"`).
+fn parse_factory_addresses(params: &str) -> Vec<Address> {
+    params
+        .split(',')
+        .map(|s| {
+            let s = s.trim();
+            Address::from_str(s).unwrap_or_else(|_| panic!("invalid factory address '{s}'"))
+        })
+        .collect()
+}
+
 #[substreams::handlers::map]
 pub fn map_pools_created(
     params: String,
     block: eth::Block,
 ) -> Result<BlockChanges, substreams::errors::Error> {
     let mut new_pools: Vec<TransactionChanges> = vec![];
-    let factory_address = params.as_str();
+    let factory_addresses = parse_factory_addresses(params.as_str());
 
-    get_new_pools(&block, &mut new_pools, factory_address);
+    get_new_pools(&block, &mut new_pools, &factory_addresses);
 
     Ok(BlockChanges { block: Some((&block).into()), changes: new_pools, ..Default::default() })
 }
@@ -26,73 +38,71 @@ pub fn map_pools_created(
 fn get_new_pools(
     block: &eth::Block,
     new_pools: &mut Vec<TransactionChanges>,
-    factory_address: &str,
+    factory_addresses: &[Address],
 ) {
-    // Extract new pools from PoolCreated events
-    let mut on_pool_created = |event: PoolCreated, _tx: &eth::TransactionTrace, _log: &eth::Log| {
-        let tycho_tx: Transaction = _tx.into();
+    let mut on_pool_created =
+        |event: PoolCreated, _tx: &eth::TransactionTrace, _log: &eth::Log| {
+            let tycho_tx: Transaction = _tx.into();
 
-        new_pools.push(TransactionChanges {
-            tx: Some(tycho_tx.clone()),
-            contract_changes: vec![],
-            entity_changes: vec![EntityChanges {
-                component_id: event.pool.to_hex(),
-                attributes: vec![
-                    Attribute {
-                        name: "liquidity".to_string(),
-                        value: BigInt::from(0).to_signed_bytes_be(),
-                        change: ChangeType::Creation.into(),
-                    },
-                    Attribute {
-                        name: "tick".to_string(),
-                        value: BigInt::from(0).to_signed_bytes_be(),
-                        change: ChangeType::Creation.into(),
-                    },
-                    Attribute {
-                        name: "sqrt_price_x96".to_string(),
-                        value: BigInt::from(0).to_signed_bytes_be(),
-                        change: ChangeType::Creation.into(),
-                    },
-                ],
-            }],
-            component_changes: vec![ProtocolComponent {
-                id: event.pool.to_hex(),
-                tokens: vec![event.token0, event.token1],
-                contracts: vec![],
-                static_att: vec![
-                    Attribute {
-                        name: "fee".to_string(),
-                        value: event.fee.to_signed_bytes_be(),
-                        change: ChangeType::Creation.into(),
-                    },
-                    Attribute {
-                        name: "tick_spacing".to_string(),
-                        value: event.tick_spacing.to_signed_bytes_be(),
-                        change: ChangeType::Creation.into(),
-                    },
-                    Attribute {
-                        name: "pool_address".to_string(),
-                        value: event.pool,
-                        change: ChangeType::Creation.into(),
-                    },
-                ],
-                change: i32::from(ChangeType::Creation),
-                protocol_type: Option::from(ProtocolType {
-                    name: "uniswap_v3_pool".to_string(),
-                    financial_type: FinancialType::Swap.into(),
-                    attribute_schema: vec![],
-                    implementation_type: ImplementationType::Custom.into(),
-                }),
-            }],
-            balance_changes: vec![],
-            ..Default::default()
-        })
-    };
+            new_pools.push(TransactionChanges {
+                tx: Some(tycho_tx.clone()),
+                contract_changes: vec![],
+                entity_changes: vec![EntityChanges {
+                    component_id: event.pool.to_hex(),
+                    attributes: vec![
+                        Attribute {
+                            name: "liquidity".to_string(),
+                            value: BigInt::from(0).to_signed_bytes_be(),
+                            change: ChangeType::Creation.into(),
+                        },
+                        Attribute {
+                            name: "tick".to_string(),
+                            value: BigInt::from(0).to_signed_bytes_be(),
+                            change: ChangeType::Creation.into(),
+                        },
+                        Attribute {
+                            name: "sqrt_price_x96".to_string(),
+                            value: BigInt::from(0).to_signed_bytes_be(),
+                            change: ChangeType::Creation.into(),
+                        },
+                    ],
+                }],
+                component_changes: vec![ProtocolComponent {
+                    id: event.pool.to_hex(),
+                    tokens: vec![event.token0, event.token1],
+                    contracts: vec![],
+                    static_att: vec![
+                        Attribute {
+                            name: "fee".to_string(),
+                            value: event.fee.to_signed_bytes_be(),
+                            change: ChangeType::Creation.into(),
+                        },
+                        Attribute {
+                            name: "tick_spacing".to_string(),
+                            value: event.tick_spacing.to_signed_bytes_be(),
+                            change: ChangeType::Creation.into(),
+                        },
+                        Attribute {
+                            name: "pool_address".to_string(),
+                            value: event.pool,
+                            change: ChangeType::Creation.into(),
+                        },
+                    ],
+                    change: i32::from(ChangeType::Creation),
+                    protocol_type: Option::from(ProtocolType {
+                        name: "uniswap_v3_pool".to_string(),
+                        financial_type: FinancialType::Swap.into(),
+                        attribute_schema: vec![],
+                        implementation_type: ImplementationType::Custom.into(),
+                    }),
+                }],
+                balance_changes: vec![],
+                ..Default::default()
+            })
+        };
 
     let mut eh = EventHandler::new(block);
-
-    eh.filter_by_address(vec![Address::from_str(factory_address).unwrap()]);
-
+    eh.filter_by_address(factory_addresses.to_vec());
     eh.on::<PoolCreated, _>(&mut on_pool_created);
     eh.handle_events();
 }
