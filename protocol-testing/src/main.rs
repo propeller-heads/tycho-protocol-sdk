@@ -118,10 +118,6 @@ struct CommonArgs {
     #[arg(long, default_value_t = false)]
     vm_simulation_traces: bool,
 
-    /// Enable tracing during execution simulations
-    #[arg(long, default_value_t = false)]
-    execution_traces: bool,
-
     /// If false (default), clears the DB and re-syncs from start. If true:
     ///   - for the ranged test, it skips indexing and uses the current state
     ///   - for the full test, it starts syncing from the last block in the db

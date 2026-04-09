@@ -6,7 +6,6 @@ package:
 
 protobuf:
   files:
-    - tycho/evm/v1/entity.proto
     - tycho/evm/v1/common.proto
     - tycho/evm/v1/utils.proto
     - uniswap.proto
@@ -27,7 +26,7 @@ modules:
       - params: string
       - source: sf.ethereum.type.v2.Block
     output:
-      type: proto:tycho.evm.v1.BlockEntityChanges
+      type: proto:tycho.evm.v1.BlockChanges
 
   - name: store_pools
     kind: store

@@ -4,13 +4,6 @@ use substreams_ethereum::pb::eth::v2::{self as sf, StorageChange};
 // re-export the protobuf types here.
 pub use crate::pb::tycho::evm::v1::*;
 
-impl TransactionContractChanges {
-    /// Creates a new empty `TransactionContractChanges` instance.
-    pub fn new(tx: &Transaction) -> Self {
-        Self { tx: Some(tx.clone()), ..Default::default() }
-    }
-}
-
 impl TransactionChanges {
     /// Creates a new empty `TransactionChanges` instance.
     pub fn new(tx: &Transaction) -> Self {

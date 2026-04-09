@@ -1,9 +1,12 @@
 name: Foundry CI
 
 on:
-  pull_request:
+  pull_request_target:
     paths:
       - "evm/**"
+
+permissions:
+  contents: read
 
 env:
   FOUNDRY_PROFILE: ci
@@ -22,6 +25,7 @@ jobs:
       - uses: actions/checkout@v3
         with:
           submodules: recursive
+          ref: ${{ github.event.pull_request.head.sha }}
 
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1

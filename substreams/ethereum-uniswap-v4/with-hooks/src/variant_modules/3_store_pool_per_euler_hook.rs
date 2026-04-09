@@ -6,7 +6,7 @@ use tycho_substreams::prelude::*;
 
 #[substreams::handlers::store]
 pub fn store_pool_per_euler_hook(
-    pools_created: BlockEntityChanges,
+    pools_created: BlockChanges,
     euler_hooks_store: StoreGetInt64,
     output: StoreSetIfNotExistsString,
 ) {
@@ -19,7 +19,7 @@ pub fn store_pool_per_euler_hook(
 
 // Extracted core logic for easier testing
 pub fn _track_uniswap_pools_by_hook<T: StoreGet<i64>>(
-    pools_created: BlockEntityChanges,
+    pools_created: BlockChanges,
     euler_hooks_store: &T,
 ) -> Vec<(String, String)> {
     let mut pool_hook_mappings = Vec::new();

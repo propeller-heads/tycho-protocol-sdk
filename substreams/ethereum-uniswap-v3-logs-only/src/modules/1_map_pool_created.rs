@@ -14,26 +14,26 @@ use tycho_substreams::prelude::*;
 pub fn map_pools_created(
     params: String,
     block: eth::Block,
-) -> Result<BlockEntityChanges, substreams::errors::Error> {
-    let mut new_pools: Vec<TransactionEntityChanges> = vec![];
+) -> Result<BlockChanges, substreams::errors::Error> {
+    let mut new_pools: Vec<TransactionChanges> = vec![];
     let factory_address = params.as_str();
 
     get_new_pools(&block, &mut new_pools, factory_address);
 
-    Ok(BlockEntityChanges { block: None, changes: new_pools })
+    Ok(BlockChanges { block: None, changes: new_pools, storage_changes: vec![] })
 }
 
 // Extract new pools from PoolCreated events
 fn get_new_pools(
     block: &eth::Block,
-    new_pools: &mut Vec<TransactionEntityChanges>,
+    new_pools: &mut Vec<TransactionChanges>,
     factory_address: &str,
 ) {
     // Extract new pools from PoolCreated events
     let mut on_pool_created = |event: PoolCreated, _tx: &eth::TransactionTrace, _log: &eth::Log| {
         let tycho_tx: Transaction = _tx.into();
 
-        new_pools.push(TransactionEntityChanges {
+        new_pools.push(TransactionChanges {
             tx: Some(tycho_tx.clone()),
             entity_changes: vec![EntityChanges {
                 component_id: event.pool.clone().to_hex(),
@@ -101,6 +101,9 @@ fn get_new_pools(
                     component_id: event.pool.to_hex().as_bytes().to_vec(),
                 },
             ],
+            contract_changes: vec![],
+            entrypoints: vec![],
+            entrypoint_params: vec![],
         })
     };
 

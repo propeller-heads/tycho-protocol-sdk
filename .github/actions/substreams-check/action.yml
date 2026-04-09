@@ -19,7 +19,7 @@ runs:
       shell: bash
       run: |
         # Convert space-separated list to newline-separated list and process
-        echo '${{ inputs.changed-files }}' | tr ' ' '\n' | grep '^substreams/' | grep -v 'Cargo.lock$' > changed_files.txt
+        echo '${{ inputs.changed-files }}' | tr ' ' '\n' | grep '^substreams/' | grep -v 'Cargo.lock$' > changed_files.txt || true
         
         # Initialize empty array for package names
         PACKAGE_NAMES=()

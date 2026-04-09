@@ -2,14 +2,13 @@
 members = [
     "ethereum-balancer-v2",
     "ethereum-curve",
+    "ethereum-cowamm",
     "crates/tycho-substreams",
     "crates/substreams-helper",
     "ethereum-ambient",
     "ethereum-uniswap-v2",
     "ethereum-uniswap-v3",
     "ethereum-pancakeswap-v3",
-    "ethereum-sfrax",
-    "ethereum-sfraxeth",
     "ethereum-uniswap-v3-logs-only",
     "ethereum-template-factory",
     "ethereum-template-singleton",
@@ -17,11 +16,14 @@ members = [
     "ethereum-uniswap-v4/no-hooks",
     "ethereum-uniswap-v4/with-hooks",
     "ethereum-ekubo-v2",
+    "ethereum-ekubo-v3",
     "ethereum-maverick-v2",
-    "ethereum-lido",
     "ethereum-balancer-v3",
     "base-aerodrome-slipstreams",
+    "ethereum-rocketpool",
     "ethereum-erc4626",
+    "unichain-velodrome",
+    "ethereum-liquidityparty",
 ]
 resolver = "2"
 

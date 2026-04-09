@@ -111,7 +111,7 @@ mod tests {
     use super::*;
 
     fn create_test_data() -> Value {
-        let file_path = Path::new("src/assets/substreams_example.yaml");
+        let file_path = Path::new("protocol-testing/src/assets/substreams_example.yaml");
         let figment = Figment::new().merge(Yaml::file(file_path));
 
         figment

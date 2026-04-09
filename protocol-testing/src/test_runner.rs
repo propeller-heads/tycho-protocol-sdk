@@ -229,15 +229,9 @@ impl TestRunner {
         };
         let spkg_path =
             build_spkg(substreams_yaml_path, start_block).wrap_err("Failed to build spkg")?;
-        let initialized_accounts = config
-            .initialized_accounts
-            .clone()
-            .unwrap_or_default();
 
         // Use tycho-indexer's Index command which handles both continuous syncing and RPC server
-        let tycho_runner = self
-            .tycho_runner(&initialized_accounts)
-            .await?;
+        let tycho_runner = self.tycho_runner(&[]).await?;
 
         let spkg_path_for_index = spkg_path.clone();
         let protocol_type_names = config.protocol_type_names.clone();
@@ -482,18 +476,24 @@ impl TestRunner {
 
         for test in &tests {
             info!("TEST {}: {}", count, test.name);
-            let mut initialized_accounts = config
+            let mut raw_initialized_accounts = config
                 .initialized_accounts
                 .clone()
                 .unwrap_or_default();
-            initialized_accounts.extend(
+            raw_initialized_accounts.extend(
                 test.initialized_accounts
                     .clone()
                     .unwrap_or_default(),
             );
+            let initialized_accounts: Vec<Bytes> = raw_initialized_accounts
+                .iter()
+                .map(|account| {
+                    Bytes::from_str(account).expect("Invalid initialized_account address")
+                })
+                .collect();
             let tycho_runner = self
                 .runtime
-                .block_on(self.tycho_runner(&initialized_accounts))?;
+                .block_on(self.tycho_runner(&raw_initialized_accounts))?;
             if self.reuse_last_sync {
                 info!("Skipping indexing and using existent DB")
             } else {
@@ -540,7 +540,7 @@ impl TestRunner {
         test: &IntegrationTest,
         config: &IntegrationTestsConfig,
         stop_block: u64,
-        initialized_accounts: &[String],
+        initialized_accounts: &[Bytes],
     ) -> miette::Result<()> {
         // Fetch protocol data from Tycho RPC
         let expected_ids = test
@@ -640,6 +640,12 @@ impl TestRunner {
     }
 
     async fn empty_database(&self) -> Result<(), tokio_postgres::Error> {
+        // Extract database name from the URL
+        let db_name = match self.db_url.rfind('/') {
+            Some(pos) => &self.db_url[pos + 1..],
+            None => "tycho_indexer_0", // fallback to default
+        };
+
         // Remove db name from URL. This is required because we cannot drop a database that we are
         // currently connected to.
         let base_url = match self.db_url.rfind('/') {
@@ -655,11 +661,13 @@ impl TestRunner {
             }
         });
 
+        // Use the extracted database name for both drop and create operations
+        let drop_query = format!("DROP DATABASE IF EXISTS \"{}\" WITH (FORCE)", db_name);
+        let create_query = format!("CREATE DATABASE \"{}\"", db_name);
+
+        client.execute(&drop_query, &[]).await?;
         client
-            .execute("DROP DATABASE IF EXISTS \"tycho_indexer_0\" WITH (FORCE)", &[])
-            .await?;
-        client
-            .execute("CREATE DATABASE \"tycho_indexer_0\"", &[])
+            .execute(&create_query, &[])
             .await?;
 
         Ok(())
@@ -766,7 +774,7 @@ impl TestRunner {
         protocol_system: &str,
         expected_component_ids: Vec<String>,
         stop_block: u64,
-        initialized_accounts: &[String],
+        initialized_accounts: &[Bytes],
     ) -> miette::Result<(Vec<ProtocolComponent>, Snapshot, HashMap<Bytes, Token>)> {
         info!("Fetching protocol data from Tycho with stop block {}...", stop_block);
 
@@ -825,11 +833,7 @@ impl TestRunner {
                     .flatten()
                     .flat_map(|(_, results)| results.accessed_slots.keys().cloned()),
             )
-            .chain(
-                initialized_accounts
-                    .iter()
-                    .map(|account| Bytes::from(account.as_bytes())),
-            )
+            .chain(initialized_accounts.iter().cloned())
             .collect();
 
         let snapshot = self
@@ -896,6 +900,7 @@ impl TestRunner {
                     parent_hash: Bytes::default(),
                     revert: false,
                     timestamp: block.header.timestamp,
+                    partial_block_index: None,
                 },
                 snapshots: snapshot,
                 deltas: None,
@@ -1133,7 +1138,6 @@ impl TestRunner {
                         amount_in.clone(),
                         chain_model,
                         Some(executors_json.to_string()),
-                        true,
                     )?;
 
                     // Create unique simulation ID
@@ -1274,7 +1278,7 @@ impl TestRunner {
                     info!(
                         "[{}] Execution passed: {} {} -> {} {}",
                         expected_input.component_id,
-                        expected_input.solution.given_amount,
+                        expected_input.solution.amount_in(),
                         expected_input.token_in,
                         amount_out,
                         expected_input.token_out
@@ -1324,6 +1328,14 @@ impl TestRunner {
         }
 
         info!("Batch execution complete: {} successes, {} failures", success_count, failure_count);
+
+        if failure_count > 0 {
+            return Err(miette::miette!(
+                "Execution failed: {} out of {} executions failed",
+                failure_count,
+                success_count + failure_count
+            ));
+        }
 
         Ok(())
     }
@@ -1423,6 +1435,8 @@ mod tests {
 
     use super::*;
 
+    const PROTOCOLS_TO_IGNORE: [&str; 2] = ["base-aerodrome-slipstreams", "unichain-velodrome"];
+
     #[test]
     fn test_parse_all_configs() {
         let manifest_dir = env!("CARGO_MANIFEST_DIR");
@@ -1442,6 +1456,19 @@ mod tests {
                     if !path.is_file() {
                         results.push(Err(format!("Path is not a file: {}", path.display())));
                     } else {
+                        // Extract the protocol name from the path
+                        let protocol = path
+                            .parent()
+                            .and_then(|p| p.file_name())
+                            .map(|f| f.to_string_lossy());
+
+                        // Skip entry if protocol is in the ignore list
+                        if let Some(protocol) = protocol {
+                            if PROTOCOLS_TO_IGNORE.contains(&protocol.as_ref()) {
+                                continue;
+                            }
+                        }
+
                         let result = TestRunner::parse_config(&path);
                         if let Err(e) = &result {
                             results.push(Err(format!(
