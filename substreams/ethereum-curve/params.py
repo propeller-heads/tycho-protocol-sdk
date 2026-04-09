@@ -8,7 +8,14 @@ def encode_protocol_params(protocol: dict[str, Any]) -> list[str]:
     """
     protocol_params[key]=value
     """
-    return [f"protocol_params[{k}]={v}" for k, v in protocol.items()]
+    parts: list[str] = []
+    for k, v in protocol.items():
+        if isinstance(v, list):
+            for item in v:
+                parts.append(f"protocol_params[{k}][]={item}")
+        else:
+            parts.append(f"protocol_params[{k}]={v}")
+    return parts
 
 
 def encode_pool(pool: dict[str, Any], index: int) -> list[str]:

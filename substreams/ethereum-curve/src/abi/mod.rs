@@ -9,3 +9,4 @@ pub mod set_oracle_implementation;
 pub mod stableswap_factory;
 pub mod tricrypto_factory;
 pub mod twocrypto_factory;
+pub mod twocrypto_pool;

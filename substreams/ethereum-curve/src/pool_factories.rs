@@ -1,4 +1,3 @@
-use std::str::FromStr;
 use substreams_ethereum::{
     pb::eth::v2::{Call, Log, TransactionTrace},
     Event, Function,
@@ -1236,19 +1235,53 @@ pub fn address_map(
                 if let Some(deploy_pool) =
                     abi::twocrypto_factory::functions::DeployPool::match_and_decode(call)
                 {
-                    if deploy_pool.implementation_id == BigInt::from_str("110827960954786879070795645317684308345156454977361180728234664032152099907574").unwrap(){
+                    let impl_id = deploy_pool
+                        .implementation_id
+                        .to_string();
+                    if curve_params
+                        .protocol_params
+                        .twocrypto_custom_implementation_ids
+                        .contains(&impl_id)
+                    {
                         attributes.push(Attribute {
                             name: "stateless_contract_addr_2".into(),
-                            value: address_to_bytes_with_0x(&curve_params.protocol_params.twocrypto_custom_view),
+                            value: address_to_bytes_with_0x(
+                                &curve_params
+                                    .protocol_params
+                                    .twocrypto_custom_view,
+                            ),
                             change: ChangeType::Creation.into(),
                         });
                         attributes.push(Attribute {
                             name: "stateless_contract_addr_3".into(),
-                            value: address_to_bytes_with_0x(&curve_params.protocol_params.twocrypto_custom_math),
+                            value: address_to_bytes_with_0x(
+                                &curve_params
+                                    .protocol_params
+                                    .twocrypto_custom_math,
+                            ),
                             change: ChangeType::Creation.into(),
                         });
+                    } else {
+                        let view_addr =
+                            (abi::twocrypto_pool::functions::View {}).call(pool_added.pool.clone());
+                        let math_addr =
+                            (abi::twocrypto_pool::functions::Math {}).call(pool_added.pool.clone());
+                        if let (Some(view), Some(math)) = (view_addr, math_addr) {
+                            let view: [u8; 20] = view.try_into().unwrap_or([1u8; 20]);
+                            let math: [u8; 20] = math.try_into().unwrap_or([1u8; 20]);
+                            attributes.push(Attribute {
+                                name: "stateless_contract_addr_2".into(),
+                                value: address_to_bytes_with_0x(&view),
+                                change: ChangeType::Creation.into(),
+                            });
+                            attributes.push(Attribute {
+                                name: "stateless_contract_addr_3".into(),
+                                value: address_to_bytes_with_0x(&math),
+                                change: ChangeType::Creation.into(),
+                            });
+                        }
                     }
-                };
+                }
                 let id = hex::encode(&pool_added.pool);
 
                 Some((
