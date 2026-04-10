@@ -10,6 +10,8 @@ constants:
     - SellSide
     - BuySide
     - PriceFunction
+    - HardLimits
+    - MarginalPrice
 
 # The file containing the adapter contract
 contract: SupernovaV3Adapter.sol

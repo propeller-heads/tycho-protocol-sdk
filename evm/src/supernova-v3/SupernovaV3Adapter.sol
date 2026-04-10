@@ -177,10 +177,12 @@ contract SupernovaV3Adapter is ISwapAdapter {
         override
         returns (Capability[] memory capabilities)
     {
-        capabilities = new Capability[](3);
+        capabilities = new Capability[](5);
         capabilities[0] = Capability.SellOrder;
         capabilities[1] = Capability.BuyOrder;
         capabilities[2] = Capability.PriceFunction;
+        capabilities[3] = Capability.HardLimits;     // getLimits() is implemented
+        capabilities[4] = Capability.MarginalPrice;   // swap() returns post-trade marginal price
     }
 
     /// @inheritdoc ISwapAdapter
