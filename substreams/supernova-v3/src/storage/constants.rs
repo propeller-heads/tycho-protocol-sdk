@@ -331,3 +331,193 @@ pub const TRACKED_SLOTS: [StorageLocation; 22] = [
     RESERVE_0_SLOT,
     RESERVE_1_SLOT,
 ];
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::HashSet;
+
+    /// Every `StorageLocation` must fit inside its 32-byte slot:
+    ///   offset + number_of_bytes <= 32
+    /// A bug here would cause `read_bytes` to panic at runtime on a real
+    /// pool — this test catches it at build time.
+    #[test]
+    fn every_tracked_location_fits_within_slot() {
+        for loc in TRACKED_SLOTS.iter() {
+            assert!(
+                loc.offset + loc.number_of_bytes <= 32,
+                "{} has offset={} length={} → reads past end of slot",
+                loc.name,
+                loc.offset,
+                loc.number_of_bytes
+            );
+        }
+    }
+
+    /// `number_of_bytes == 0` is meaningless and would cause silent
+    /// no-op reads. Disallow it.
+    #[test]
+    fn every_tracked_location_has_nonzero_length() {
+        for loc in TRACKED_SLOTS.iter() {
+            assert!(
+                loc.number_of_bytes > 0,
+                "{} has length 0",
+                loc.name
+            );
+        }
+    }
+
+    /// All location names must be unique. A duplicate would cause
+    /// downstream consumers to overwrite values silently.
+    #[test]
+    fn every_tracked_location_has_unique_name() {
+        let mut seen = HashSet::new();
+        for loc in TRACKED_SLOTS.iter() {
+            assert!(
+                seen.insert(loc.name),
+                "duplicate location name: {}",
+                loc.name
+            );
+        }
+    }
+
+    /// Pin the exact slot 2 (globalState) packing arithmetic. The
+    /// six fields must cover bytes [0..29) without overlap and within
+    /// the slot. (Bytes [29..32) are intentionally unused padding in
+    /// Algebra Integral's GlobalState struct.)
+    #[test]
+    fn slot2_globalstate_fields_are_non_overlapping() {
+        let slot2_locs = [
+            ("sqrt_price_x96", SQRT_PRICE_X96_SLOT.offset, SQRT_PRICE_X96_SLOT.number_of_bytes),
+            ("tick", CURRENT_TICK_SLOT.offset, CURRENT_TICK_SLOT.number_of_bytes),
+            ("last_fee", LAST_FEE_SLOT.offset, LAST_FEE_SLOT.number_of_bytes),
+            ("plugin_config", PLUGIN_CONFIG_SLOT.offset, PLUGIN_CONFIG_SLOT.number_of_bytes),
+            ("community_fee", COMMUNITY_FEE_SLOT.offset, COMMUNITY_FEE_SLOT.number_of_bytes),
+            ("unlocked", UNLOCKED_SLOT.offset, UNLOCKED_SLOT.number_of_bytes),
+        ];
+        // Build a 32-byte occupancy bitmap; flag any byte covered twice.
+        let mut occupied = [false; 32];
+        for (name, offset, len) in slot2_locs.iter() {
+            for byte_idx in *offset..(*offset + *len) {
+                assert!(byte_idx < 32, "{name} extends past 32 bytes");
+                assert!(!occupied[byte_idx], "{name} overlaps another field at LSB byte {byte_idx}");
+                occupied[byte_idx] = true;
+            }
+        }
+        // Bytes 0..29 must all be occupied; 29..32 are unused padding.
+        for byte_idx in 0..29 {
+            assert!(occupied[byte_idx], "slot 2 byte {byte_idx} is unaccounted for");
+        }
+    }
+
+    /// Same exhaustiveness check for slot 4 (CommunityFeesPending)
+    /// — bytes [0..30) covered by the three fields, [30..32) unused.
+    #[test]
+    fn slot4_community_fees_fields_are_non_overlapping() {
+        let slot4_locs = [
+            ("community_fee_pending_0", COMMUNITY_FEE_PENDING_0_SLOT.offset, COMMUNITY_FEE_PENDING_0_SLOT.number_of_bytes),
+            ("community_fee_pending_1", COMMUNITY_FEE_PENDING_1_SLOT.offset, COMMUNITY_FEE_PENDING_1_SLOT.number_of_bytes),
+            ("last_fee_transfer_timestamp", LAST_FEE_TRANSFER_TIMESTAMP_SLOT.offset, LAST_FEE_TRANSFER_TIMESTAMP_SLOT.number_of_bytes),
+        ];
+        let mut occupied = [false; 32];
+        for (name, offset, len) in slot4_locs.iter() {
+            for byte_idx in *offset..(*offset + *len) {
+                assert!(byte_idx < 32, "{name} extends past 32 bytes");
+                assert!(!occupied[byte_idx], "{name} overlaps another field at byte {byte_idx}");
+                occupied[byte_idx] = true;
+            }
+        }
+        for byte_idx in 0..30 {
+            assert!(occupied[byte_idx], "slot 4 byte {byte_idx} is unaccounted for");
+        }
+    }
+
+    /// Slot 5 (PluginFeesPending) — bytes [0..26) covered by two
+    /// uint104 fields; [26..32) unused padding.
+    #[test]
+    fn slot5_plugin_fees_fields_are_non_overlapping() {
+        let slot5_locs = [
+            ("plugin_fee_pending_0", PLUGIN_FEE_PENDING_0_SLOT.offset, PLUGIN_FEE_PENDING_0_SLOT.number_of_bytes),
+            ("plugin_fee_pending_1", PLUGIN_FEE_PENDING_1_SLOT.offset, PLUGIN_FEE_PENDING_1_SLOT.number_of_bytes),
+        ];
+        let mut occupied = [false; 32];
+        for (name, offset, len) in slot5_locs.iter() {
+            for byte_idx in *offset..(*offset + *len) {
+                assert!(byte_idx < 32);
+                assert!(!occupied[byte_idx], "{name} overlaps another field");
+                occupied[byte_idx] = true;
+            }
+        }
+        for byte_idx in 0..26 {
+            assert!(occupied[byte_idx], "slot 5 byte {byte_idx} unaccounted for");
+        }
+    }
+
+    /// Slot 9 (packed liquidity + tick pointers + tickTreeRoot) — bytes
+    /// [0..29) covered, [29..32) unused.
+    #[test]
+    fn slot9_packed_fields_are_non_overlapping() {
+        let slot9_locs = [
+            ("next_tick_global", NEXT_TICK_GLOBAL_SLOT.offset, NEXT_TICK_GLOBAL_SLOT.number_of_bytes),
+            ("prev_tick_global", PREV_TICK_GLOBAL_SLOT.offset, PREV_TICK_GLOBAL_SLOT.number_of_bytes),
+            ("liquidity", LIQUIDITY_SLOT.offset, LIQUIDITY_SLOT.number_of_bytes),
+            ("tick_spacing", TICK_SPACING_SLOT.offset, TICK_SPACING_SLOT.number_of_bytes),
+            ("tick_tree_root", TICK_TREE_ROOT_SLOT.offset, TICK_TREE_ROOT_SLOT.number_of_bytes),
+        ];
+        let mut occupied = [false; 32];
+        for (name, offset, len) in slot9_locs.iter() {
+            for byte_idx in *offset..(*offset + *len) {
+                assert!(byte_idx < 32);
+                assert!(!occupied[byte_idx], "{name} overlaps another field at byte {byte_idx}");
+                occupied[byte_idx] = true;
+            }
+        }
+        for byte_idx in 0..29 {
+            assert!(occupied[byte_idx], "slot 9 byte {byte_idx} unaccounted for");
+        }
+    }
+
+    /// Slot 12 (reserves) — exactly 32 bytes covered: two uint128 fields
+    /// back-to-back with no padding.
+    #[test]
+    fn slot12_reserves_are_non_overlapping_and_full() {
+        let slot12_locs = [
+            ("reserve0", RESERVE_0_SLOT.offset, RESERVE_0_SLOT.number_of_bytes),
+            ("reserve1", RESERVE_1_SLOT.offset, RESERVE_1_SLOT.number_of_bytes),
+        ];
+        let mut occupied = [false; 32];
+        for (name, offset, len) in slot12_locs.iter() {
+            for byte_idx in *offset..(*offset + *len) {
+                assert!(byte_idx < 32);
+                assert!(!occupied[byte_idx], "{name} overlaps");
+                occupied[byte_idx] = true;
+            }
+        }
+        // Slot 12 is fully packed — every byte must be occupied.
+        for byte_idx in 0..32 {
+            assert!(occupied[byte_idx], "slot 12 byte {byte_idx} unaccounted for");
+        }
+    }
+
+    /// All slot constants must be the canonical big-endian encoding of
+    /// the slot number with leading zeros.
+    #[test]
+    fn slot_constants_are_canonical_be_uint() {
+        fn slot_be(idx: u8) -> [u8; 32] {
+            let mut k = [0u8; 32];
+            k[31] = idx;
+            k
+        }
+        assert_eq!(SLOT_0, slot_be(0));
+        assert_eq!(SLOT_1, slot_be(1));
+        assert_eq!(SLOT_2, slot_be(2));
+        assert_eq!(TICKS_MAP_SLOT, slot_be(3));
+        assert_eq!(SLOT_4, slot_be(4));
+        assert_eq!(SLOT_5, slot_be(5));
+        assert_eq!(SLOT_6, slot_be(6));
+        assert_eq!(SLOT_7, slot_be(7));
+        assert_eq!(TICK_TABLE_SLOT, slot_be(8));
+        assert_eq!(SLOT_9, slot_be(9));
+        assert_eq!(SLOT_12, slot_be(12));
+    }
+}

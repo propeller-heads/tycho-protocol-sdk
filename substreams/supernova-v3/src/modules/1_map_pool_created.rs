@@ -244,3 +244,226 @@ fn get_pools(block: &eth::Block, new_pools: &mut Vec<TransactionChanges>, query_
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use substreams_ethereum::pb::eth::v2::{Call, StorageChange};
+
+    /// Build a synthetic single-call `TransactionTrace` whose call has
+    /// the given storage changes (each tuple is `(slot_key, old_value,
+    /// new_value)`) and an explicit `state_reverted` flag.
+    fn make_trx(
+        target: &[u8],
+        changes: Vec<(Vec<u8>, Vec<u8>, Vec<u8>)>,
+        reverted: bool,
+    ) -> eth::TransactionTrace {
+        let storage_changes: Vec<StorageChange> = changes
+            .into_iter()
+            .map(|(key, old, new)| StorageChange {
+                address: target.to_vec(),
+                key,
+                old_value: old,
+                new_value: new,
+                ordinal: 0,
+            })
+            .collect();
+        eth::TransactionTrace {
+            calls: vec![Call {
+                state_reverted: reverted,
+                storage_changes,
+                ..Default::default()
+            }],
+            ..Default::default()
+        }
+    }
+
+    /// Build a multi-call transaction where two calls touch a "pool"
+    /// address and one call touches an unrelated address. Returns the
+    /// trace plus the two addresses for assertion convenience.
+    fn make_trx_multi_call() -> (eth::TransactionTrace, Vec<u8>, Vec<u8>) {
+        let pool = vec![0xaau8; 20];
+        let other = vec![0xbbu8; 20];
+        let trx = eth::TransactionTrace {
+            calls: vec![
+                Call {
+                    state_reverted: false,
+                    storage_changes: vec![
+                        StorageChange {
+                            address: pool.clone(),
+                            key: vec![0x01],
+                            old_value: vec![0x00],
+                            new_value: vec![0x42],
+                            ordinal: 0,
+                        },
+                        StorageChange {
+                            address: other.clone(),
+                            key: vec![0x99],
+                            old_value: vec![0x00],
+                            new_value: vec![0xff],
+                            ordinal: 1,
+                        },
+                    ],
+                    ..Default::default()
+                },
+                Call {
+                    state_reverted: false,
+                    storage_changes: vec![StorageChange {
+                        address: pool.clone(),
+                        key: vec![0x02],
+                        old_value: vec![0x00],
+                        new_value: vec![0x43],
+                        ordinal: 2,
+                    }],
+                    ..Default::default()
+                },
+            ],
+            ..Default::default()
+        };
+        (trx, pool, other)
+    }
+
+    /// Across multiple calls, all writes to the target address are
+    /// captured and writes to other addresses are ignored.
+    #[test]
+    fn collect_storage_writes_returns_only_target_address() {
+        let (trx, pool, _other) = make_trx_multi_call();
+        let slots = collect_storage_writes_for(&trx, &pool);
+        assert_eq!(slots.len(), 2, "should pick up both writes to the pool");
+        assert_eq!(slots[0].slot, vec![0x01]);
+        assert_eq!(slots[0].value, vec![0x42]);
+        assert_eq!(slots[1].slot, vec![0x02]);
+        assert_eq!(slots[1].value, vec![0x43]);
+    }
+
+    /// Mirror of the above for the unrelated address — only the one
+    /// write that targets it should come back.
+    #[test]
+    fn collect_storage_writes_other_address_isolated() {
+        let (trx, _pool, other) = make_trx_multi_call();
+        let slots = collect_storage_writes_for(&trx, &other);
+        assert_eq!(slots.len(), 1);
+        assert_eq!(slots[0].slot, vec![0x99]);
+        assert_eq!(slots[0].value, vec![0xff]);
+    }
+
+    /// Reverted calls must contribute zero storage writes — those state
+    /// changes never landed on chain and including them would corrupt
+    /// the substream output.
+    #[test]
+    fn collect_storage_writes_skips_reverted_calls() {
+        let target = vec![0xccu8; 20];
+        let trx = make_trx(
+            &target,
+            vec![(vec![0x05], vec![0x00], vec![0x42])],
+            true, // reverted
+        );
+        let slots = collect_storage_writes_for(&trx, &target);
+        assert!(slots.is_empty(), "reverted calls must not contribute slots");
+    }
+
+    /// Both old and new values must round-trip into the emitted
+    /// `ContractSlot`. The indexer relies on `previous_value` to do
+    /// efficient deduplication.
+    #[test]
+    fn collect_storage_writes_preserves_old_and_new_values() {
+        let target = vec![0xddu8; 20];
+        let trx = make_trx(
+            &target,
+            vec![(vec![0x07], vec![0xaa, 0xbb], vec![0xcc, 0xdd])],
+            false,
+        );
+        let slots = collect_storage_writes_for(&trx, &target);
+        assert_eq!(slots.len(), 1);
+        assert_eq!(slots[0].slot, vec![0x07]);
+        assert_eq!(slots[0].previous_value, vec![0xaa, 0xbb]);
+        assert_eq!(slots[0].value, vec![0xcc, 0xdd]);
+    }
+
+    /// An empty transaction is the trivial input — must not panic and
+    /// must produce zero slots.
+    #[test]
+    fn collect_storage_writes_empty_transaction() {
+        let trx = eth::TransactionTrace::default();
+        let slots = collect_storage_writes_for(&trx, &[0u8; 20]);
+        assert!(slots.is_empty());
+    }
+
+    /// Address comparison must be byte-exact. Two addresses that
+    /// differ in only the last byte must NOT match.
+    #[test]
+    fn collect_storage_writes_byte_exact_address_match() {
+        let target = [0x10u8; 20];
+        let mut almost = target.to_vec();
+        almost[19] = 0x11; // last byte differs
+        let trx = make_trx(
+            &almost,
+            vec![(vec![0x01], vec![0x00], vec![0x42])],
+            false,
+        );
+        let slots = collect_storage_writes_for(&trx, &target);
+        assert!(
+            slots.is_empty(),
+            "address that differs by even one byte must not be considered a match"
+        );
+    }
+
+    /// A constructor that writes the same slot twice (e.g. once to
+    /// initialise, then to update) is a real pattern. We do NOT
+    /// dedupe in the substream — the indexer-side merger handles
+    /// last-write-wins. Verify both entries are emitted in order.
+    #[test]
+    fn collect_storage_writes_multiple_writes_same_slot_preserved() {
+        let target = vec![0xeeu8; 20];
+        let trx = make_trx(
+            &target,
+            vec![
+                (vec![0x01], vec![0x00], vec![0x10]),
+                (vec![0x01], vec![0x10], vec![0x20]),
+            ],
+            false,
+        );
+        let slots = collect_storage_writes_for(&trx, &target);
+        assert_eq!(slots.len(), 2);
+        assert_eq!(slots[0].value, vec![0x10]);
+        assert_eq!(slots[1].value, vec![0x20]);
+    }
+
+    /// One call has reverted writes, another has succeeded writes.
+    /// Only the latter should be captured.
+    #[test]
+    fn collect_storage_writes_mixed_reverted_and_successful_calls() {
+        let target = vec![0x33u8; 20];
+        let trx = eth::TransactionTrace {
+            calls: vec![
+                Call {
+                    state_reverted: true,
+                    storage_changes: vec![StorageChange {
+                        address: target.clone(),
+                        key: vec![0x01],
+                        old_value: vec![],
+                        new_value: vec![0xaa],
+                        ordinal: 0,
+                    }],
+                    ..Default::default()
+                },
+                Call {
+                    state_reverted: false,
+                    storage_changes: vec![StorageChange {
+                        address: target.clone(),
+                        key: vec![0x02],
+                        old_value: vec![],
+                        new_value: vec![0xbb],
+                        ordinal: 1,
+                    }],
+                    ..Default::default()
+                },
+            ],
+            ..Default::default()
+        };
+        let slots = collect_storage_writes_for(&trx, &target);
+        assert_eq!(slots.len(), 1, "only the successful call's writes should land");
+        assert_eq!(slots[0].slot, vec![0x02]);
+        assert_eq!(slots[0].value, vec![0xbb]);
+    }
+}
