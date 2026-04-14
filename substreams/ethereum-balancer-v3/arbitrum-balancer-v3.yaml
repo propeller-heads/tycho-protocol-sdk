@@ -1,6 +1,6 @@
 specVersion: v0.1.0
 package:
-  name: "ethereum_balancer_v3"
+  name: "arbitrum_balancer_v3"
   version: v0.4.0
 
 protobuf:
@@ -18,7 +18,7 @@ binaries:
 modules:
   - name: map_components
     kind: map
-    initialBlock: 21332121
+    initialBlock: 297810187
     inputs:
       - params: string
       - source: sf.ethereum.type.v2.Block
@@ -27,7 +27,7 @@ modules:
 
   - name: store_components
     kind: store
-    initialBlock: 21332121
+    initialBlock: 297810187
     updatePolicy: set_if_not_exists
     valueType: proto:tycho.evm.v1.ProtocolComponents
     inputs:
@@ -35,7 +35,7 @@ modules:
 
   - name: store_token_set
     kind: store
-    initialBlock: 21332121
+    initialBlock: 297810187
     updatePolicy: set_if_not_exists
     valueType: int64
     inputs:
@@ -43,7 +43,7 @@ modules:
 
   - name: map_relative_balances
     kind: map
-    initialBlock: 21332121
+    initialBlock: 297810187
     inputs:
       - params: string
       - source: sf.ethereum.type.v2.Block
@@ -53,7 +53,7 @@ modules:
 
   - name: store_balances
     kind: store
-    initialBlock: 21332121
+    initialBlock: 297810187
     updatePolicy: add
     valueType: bigint
     inputs:
@@ -61,7 +61,7 @@ modules:
 
   - name: map_protocol_changes
     kind: map
-    initialBlock: 21332121
+    initialBlock: 297810187
     inputs:
       - params: string
       - source: sf.ethereum.type.v2.Block
@@ -70,13 +70,13 @@ modules:
       - store: store_components
       - store: store_token_set
       - store: store_balances
-        mode: deltas # This is the key property that simplifies `BalanceChange` handling
+        mode: deltas
     output:
       type: proto:tycho.evm.v1.BlockChanges
 
 network: mainnet
 
 params:
-  map_components: vault=ba1333333333a1ba1108e8412f11850a5c319ba9&vault_extension=0e8b07657d719b86e06bf0806d6729e3d528c9a9&batch_router=136f1efcc3f8f88516b9e94110d56fdbfb1778d1&permit2=000000000022d473030f116ddee9f6b43ac78ba3&weighted_factory=201efd508c8dfe9de1a13c2452863a78cb2a86cc&stable_factory=b9d01ca61b9c181da1051bfdd28e1097e920ab14
-  map_relative_balances: vault=ba1333333333a1ba1108e8412f11850a5c319ba9&vault_extension=0e8b07657d719b86e06bf0806d6729e3d528c9a9&batch_router=136f1efcc3f8f88516b9e94110d56fdbfb1778d1&permit2=000000000022d473030f116ddee9f6b43ac78ba3&weighted_factory=201efd508c8dfe9de1a13c2452863a78cb2a86cc&stable_factory=b9d01ca61b9c181da1051bfdd28e1097e920ab14
-  map_protocol_changes: vault=ba1333333333a1ba1108e8412f11850a5c319ba9&vault_extension=0e8b07657d719b86e06bf0806d6729e3d528c9a9&batch_router=136f1efcc3f8f88516b9e94110d56fdbfb1778d1&permit2=000000000022d473030f116ddee9f6b43ac78ba3&weighted_factory=201efd508c8dfe9de1a13c2452863a78cb2a86cc&stable_factory=b9d01ca61b9c181da1051bfdd28e1097e920ab14
+  map_components: vault=ba1333333333a1ba1108e8412f11850a5c319ba9&vault_extension=0e8b07657d719b86e06bf0806d6729e3d528c9a9&batch_router=ad89051bed8d96f045e8912ae1672c6c0bf8a85e&permit2=000000000022d473030f116ddee9f6b43ac78ba3&weighted_factory=83bf399fa3dc49af8fb5c34031a50c7c93f56129&stable_factory=1fc7f1f84cfe61a04224ac8d3f87f56214fec08c
+  map_relative_balances: vault=ba1333333333a1ba1108e8412f11850a5c319ba9&vault_extension=0e8b07657d719b86e06bf0806d6729e3d528c9a9&batch_router=ad89051bed8d96f045e8912ae1672c6c0bf8a85e&permit2=000000000022d473030f116ddee9f6b43ac78ba3&weighted_factory=83bf399fa3dc49af8fb5c34031a50c7c93f56129&stable_factory=1fc7f1f84cfe61a04224ac8d3f87f56214fec08c
+  map_protocol_changes: vault=ba1333333333a1ba1108e8412f11850a5c319ba9&vault_extension=0e8b07657d719b86e06bf0806d6729e3d528c9a9&batch_router=ad89051bed8d96f045e8912ae1672c6c0bf8a85e&permit2=000000000022d473030f116ddee9f6b43ac78ba3&weighted_factory=83bf399fa3dc49af8fb5c34031a50c7c93f56129&stable_factory=1fc7f1f84cfe61a04224ac8d3f87f56214fec08c
