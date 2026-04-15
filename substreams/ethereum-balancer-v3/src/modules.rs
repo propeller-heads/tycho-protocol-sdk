@@ -5,12 +5,13 @@ use crate::{
     },
     pool_factories,
 };
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use itertools::Itertools;
 use keccak_hash::keccak;
+use serde::Deserialize;
 use std::collections::HashMap;
 use substreams::{
-    hex, log,
+    log,
     pb::substreams::StoreDeltas,
     store::{
         StoreAddBigInt, StoreGet, StoreGetInt64, StoreGetProto, StoreNew, StoreSetIfNotExists,
@@ -27,19 +28,69 @@ use tycho_substreams::{
     entrypoint::create_entrypoint, models::entry_point_params::TraceData, prelude::*,
 };
 
-pub const VAULT_ADDRESS: &[u8] = &hex!("bA1333333333a1BA1108E8412f11850A5C319bA9");
-pub const VAULT_EXTENSION_ADDRESS: &[u8; 20] = &hex!("0E8B07657D719B86e06bF0806D6729e3D528C9A9");
-pub const BATCH_ROUTER_ADDRESS: &[u8; 20] = &hex!("136f1efcc3f8f88516b9e94110d56fdbfb1778d1");
-pub const PERMIT_2_ADDRESS: &[u8; 20] = &hex!("000000000022D473030F116dDEE9F6B43aC78BA3");
+#[derive(Debug, Deserialize)]
+pub struct BalancerV3Config {
+    pub vault: String,
+    pub vault_extension: String,
+    pub batch_router: String,
+    pub permit2: String,
+    pub weighted_factory: String,
+    pub stable_factory: String,
+}
+
+impl BalancerV3Config {
+    pub fn parse_from_query(input: &str) -> Result<Self> {
+        serde_qs::from_str(input).map_err(|e| anyhow!("Failed to parse query params: {e}"))
+    }
+
+    fn decode_address(value: &str, name: &str) -> Result<[u8; 20]> {
+        let address = hex::decode(value).map_err(|e| anyhow!("Invalid {name} hex: {e}"))?;
+        if address.len() != 20 {
+            return Err(anyhow!("{name} must be 20 bytes long"));
+        }
+
+        Ok(address
+            .try_into()
+            .expect("validated that address has 20 bytes"))
+    }
+
+    pub fn vault_address(&self) -> Result<[u8; 20]> {
+        Self::decode_address(&self.vault, "vault")
+    }
+
+    pub fn vault_extension_address(&self) -> Result<[u8; 20]> {
+        Self::decode_address(&self.vault_extension, "vault_extension")
+    }
+
+    pub fn batch_router_address(&self) -> Result<[u8; 20]> {
+        Self::decode_address(&self.batch_router, "batch_router")
+    }
+
+    pub fn permit2_address(&self) -> Result<[u8; 20]> {
+        Self::decode_address(&self.permit2, "permit2")
+    }
+
+    pub fn weighted_factory_address(&self) -> Result<[u8; 20]> {
+        Self::decode_address(&self.weighted_factory, "weighted_factory")
+    }
+
+    pub fn stable_factory_address(&self) -> Result<[u8; 20]> {
+        Self::decode_address(&self.stable_factory, "stable_factory")
+    }
+}
 
 #[substreams::handlers::map]
-pub fn map_components(block: eth::v2::Block) -> Result<BlockTransactionProtocolComponents> {
+pub fn map_components(
+    params: String,
+    block: eth::v2::Block,
+) -> Result<BlockTransactionProtocolComponents> {
+    let config = BalancerV3Config::parse_from_query(&params)?;
     let mut tx_components = Vec::new();
     for tx in block.transactions() {
         let mut components = Vec::new();
         for (log, call) in tx.logs_with_calls() {
             if let Some(component) =
-                pool_factories::address_map(log.address.as_slice(), log, call.call)
+                pool_factories::address_map(&config, log.address.as_slice(), log, call.call)
             {
                 components.push(component);
             }
@@ -87,12 +138,15 @@ pub fn store_token_set(map: BlockTransactionProtocolComponents, store: StoreSetI
 
 #[substreams::handlers::map]
 pub fn map_relative_balances(
+    params: String,
     block: eth::v2::Block,
     store: StoreGetProto<ProtocolComponent>,
 ) -> Result<BlockBalanceDeltas, anyhow::Error> {
+    let config = BalancerV3Config::parse_from_query(&params)?;
+    let vault_address = config.vault_address()?;
     let balance_deltas = block
         .logs()
-        .filter(|log| log.address() == VAULT_ADDRESS)
+        .filter(|log| log.address() == vault_address)
         .flat_map(|vault_log| {
             let mut deltas = Vec::new();
 
@@ -210,6 +264,7 @@ pub fn store_balances(deltas: BlockBalanceDeltas, store: StoreAddBigInt) {
 /// `BlockChanges`  is ordered by transactions properly.
 #[substreams::handlers::map]
 pub fn map_protocol_changes(
+    params: String,
     block: eth::v2::Block,
     grouped_components: BlockTransactionProtocolComponents,
     deltas: BlockBalanceDeltas,
@@ -217,6 +272,11 @@ pub fn map_protocol_changes(
     tokens_store: StoreGetInt64,
     balance_store: StoreDeltas, // Note, this map module is using the `deltas` mode for the store.
 ) -> Result<BlockChanges> {
+    let config = BalancerV3Config::parse_from_query(&params)?;
+    let vault_address = config.vault_address()?;
+    let vault_extension_address = config.vault_extension_address()?;
+    let batch_router_address = config.batch_router_address()?;
+    let permit2_address = config.permit2_address()?;
     // We merge contract changes by transaction (identified by transaction index) making it easy to
     //  sort them at the very end.
     let mut transaction_changes: HashMap<_, TransactionChangesBuilder> = HashMap::new();
@@ -224,7 +284,7 @@ pub fn map_protocol_changes(
     // Handle pool pause state changes
     block
         .logs()
-        .filter(|log| log.address() == VAULT_ADDRESS)
+        .filter(|log| log.address() == vault_address)
         .for_each(|log| {
             if let Some(PoolPausedStateChanged { pool, paused }) =
                 PoolPausedStateChanged::match_and_decode(log)
@@ -262,22 +322,22 @@ pub fn map_protocol_changes(
         Attribute {
             // TODO: remove this and track account_balances instead
             name: "balance_owner".to_string(),
-            value: VAULT_ADDRESS.to_vec(),
+            value: vault_address.to_vec(),
             change: ChangeType::Creation.into(),
         },
         Attribute {
             name: "stateless_contract_addr_0".into(),
-            value: address_to_bytes_with_0x(VAULT_EXTENSION_ADDRESS),
+            value: address_to_bytes_with_0x(&vault_extension_address),
             change: ChangeType::Creation.into(),
         },
         Attribute {
             name: "stateless_contract_addr_1".into(),
-            value: address_to_bytes_with_0x(BATCH_ROUTER_ADDRESS),
+            value: address_to_bytes_with_0x(&batch_router_address),
             change: ChangeType::Creation.into(),
         },
         Attribute {
             name: "stateless_contract_addr_2".into(),
-            value: address_to_bytes_with_0x(PERMIT_2_ADDRESS),
+            value: address_to_bytes_with_0x(&permit2_address),
             change: ChangeType::Creation.into(),
         },
         Attribute {
@@ -360,7 +420,7 @@ pub fn map_protocol_changes(
             components_store
                 .get_last(format!("pool:0x{0}", hex::encode(addr)))
                 .is_some() ||
-                addr.eq(VAULT_ADDRESS)
+                addr.eq(&vault_address)
         },
         &mut transaction_changes,
     );
@@ -371,7 +431,7 @@ pub fn map_protocol_changes(
         .iter()
         .for_each(|tx| {
             let vault_balance_change_per_tx =
-                get_vault_reserves(tx, &components_store, &tokens_store);
+                get_vault_reserves(tx, &vault_address, &components_store, &tokens_store);
 
             if !vault_balance_change_per_tx.is_empty() {
                 let tycho_tx = Transaction::from(tx);
@@ -380,7 +440,7 @@ pub fn map_protocol_changes(
                     .or_insert_with(|| TransactionChangesBuilder::new(&tycho_tx));
 
                 let mut vault_contract_tlv_changes =
-                    InterimContractChange::new(VAULT_ADDRESS, false);
+                    InterimContractChange::new(&vault_address, false);
                 for (token_addr, reserve_value) in vault_balance_change_per_tx {
                     vault_contract_tlv_changes.upsert_token_balance(
                         token_addr.as_slice(),
@@ -403,7 +463,7 @@ pub fn map_protocol_changes(
             addresses
                 .into_iter()
                 .for_each(|address| {
-                    if address != VAULT_ADDRESS {
+                    if address != vault_address {
                         // We reconstruct the component_id from the address here
                         let id = components_store
                             .get_last(format!("pool:0x{}", hex::encode(address)))
@@ -444,6 +504,7 @@ fn address_to_string_with_0x(address: &[u8]) -> String {
 // they should always be equal to the `token.balanceOf(this)` except during unlock
 fn get_vault_reserves(
     transaction: &eth::v2::TransactionTrace,
+    vault_address: &[u8; 20],
     store: &StoreGetProto<ProtocolComponent>,
     token_store: &StoreGetInt64,
 ) -> HashMap<Vec<u8>, ReserveValue> {
@@ -453,7 +514,7 @@ fn get_vault_reserves(
         .calls
         .iter()
         .filter(|call| !call.state_reverted)
-        .filter(|call| call.address == VAULT_ADDRESS)
+        .filter(|call| call.address == *vault_address)
         .for_each(|call| {
             if let Some(Settle { token, .. }) = Settle::match_and_decode(call) {
                 for change in &call.storage_changes {
