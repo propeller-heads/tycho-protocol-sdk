@@ -27,4 +27,5 @@ ignore = [
     "base-aerodrome-slipstreams/src/abi",
     "ethereum-erc4626/src/abi",
     "unichain-velodrome/src/abi",
+    "base-aerodrome-v1/src/abi",
 ]
