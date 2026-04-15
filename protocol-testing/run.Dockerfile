@@ -1,3 +1,4 @@
+# trigger-ci
 # =========== Third Party ===========
 # Get substreams CLI
 FROM ghcr.io/streamingfast/substreams:v1.16.4 AS substreams-cli
