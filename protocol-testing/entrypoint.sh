@@ -59,6 +59,7 @@ for test in "${args[@]}"; do
 	filter="${test#*=}"
 	chain=$(infer_chain "$protocol")
 	rpc_url=$(get_rpc_url "$protocol")
+	export RPC_URL="$rpc_url"
 	echo "Running tests for protocol: $protocol (chain: $chain)"
 	if [[ "$test" == *"="* ]]; then
 		tycho-protocol-sdk range --package "$protocol" --chain "$chain" --rpc-url "$rpc_url" \
