@@ -4734,7 +4734,6 @@ name = "protocol-testing"
 version = "0.1.0"
 dependencies = [
  "alloy",
- "async-trait",
  "clap",
  "colored",
  "dotenv",
@@ -4758,7 +4757,6 @@ dependencies = [
  "termsize",
  "tokio",
  "tokio-postgres",
- "tokio-retry2",
  "tracing",
  "tracing-subscriber 0.3.22",
  "tycho-execution",

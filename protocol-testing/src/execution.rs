@@ -32,6 +32,7 @@ const ROCKETPOOL_BYTECODE_JSON: &str =
     include_str!("../../evm/test/executors/Rocketpool.runtime.json");
 const LIQUIDITYPARTY_BYTECODE_JSON: &str =
     include_str!("../../evm/test/executors/LiquidityParty.runtime.json");
+const FLUIDV1_BYTECODE_JSON: &str = include_str!("../../evm/test/executors/FluidV1.runtime.json");
 
 /// Mapping from protocol component patterns to executor bytecode JSON strings
 static EXECUTOR_MAPPING: LazyLock<HashMap<&'static str, &'static str>> = LazyLock::new(|| {
@@ -50,6 +51,7 @@ static EXECUTOR_MAPPING: LazyLock<HashMap<&'static str, &'static str>> = LazyLoc
     map.insert("ekubo_v3", EKUBO_V3_BYTECODE_JSON);
     map.insert("rocketpool", ROCKETPOOL_BYTECODE_JSON);
     map.insert("vm:liquidityparty", LIQUIDITYPARTY_BYTECODE_JSON);
+    map.insert("fluid_v1", FLUIDV1_BYTECODE_JSON);
     map
 });
 
