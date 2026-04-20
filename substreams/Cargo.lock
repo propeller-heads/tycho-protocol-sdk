@@ -279,7 +279,7 @@ dependencies = [
  "num-bigint",
  "prost 0.11.9",
  "serde",
- "serde_qs",
+ "serde_qs 0.13.0",
  "substreams 0.5.22",
  "substreams-ethereum 0.9.13",
  "substreams-helper 0.0.2 (git+https://github.com/propeller-heads/tycho-protocol-sdk.git?tag=0.4.0)",
@@ -297,7 +297,7 @@ dependencies = [
  "itertools 0.12.1",
  "num-bigint",
  "serde",
- "serde_qs",
+ "serde_qs 0.13.0",
  "substreams 0.5.22",
  "substreams-ethereum 0.9.13",
  "substreams-helper 0.0.2 (git+https://github.com/propeller-heads/tycho-protocol-sdk.git?rev=b8aeaa3)",
@@ -772,7 +772,7 @@ dependencies = [
  "prost-types 0.12.6",
  "regex",
  "serde",
- "serde_qs",
+ "serde_qs 0.13.0",
  "substreams 0.5.22",
  "substreams-ethereum 0.9.13",
  "tycho-substreams 0.2.1 (git+https://github.com/propeller-heads/tycho-protocol-sdk.git?rev=51995f9)",
@@ -792,7 +792,7 @@ dependencies = [
  "serde",
  "serde-sibor",
  "serde_json",
- "serde_qs",
+ "serde_qs 0.13.0",
  "substreams 0.5.22",
  "substreams-ethereum 0.9.13",
  "substreams-helper 0.0.2 (git+https://github.com/propeller-heads/tycho-protocol-sdk.git?rev=b8aeaa3)",
@@ -815,7 +815,7 @@ dependencies = [
  "prost-types 0.12.6",
  "serde",
  "serde_json",
- "serde_qs",
+ "serde_qs 0.13.0",
  "substreams 0.5.22",
  "substreams-ethereum 0.9.13",
  "tycho-substreams 0.5.0",
@@ -832,7 +832,7 @@ dependencies = [
  "num-bigint",
  "prost 0.11.9",
  "serde",
- "serde_qs",
+ "serde_qs 0.13.0",
  "substreams 0.5.22",
  "substreams-ethereum 0.9.13",
  "substreams-helper 0.0.2 (git+https://github.com/propeller-heads/tycho-protocol-sdk.git?tag=0.4.0)",
@@ -853,7 +853,7 @@ dependencies = [
  "num-bigint",
  "prost 0.11.9",
  "serde",
- "serde_qs",
+ "serde_qs 0.13.0",
  "substreams 0.5.22",
  "substreams-ethereum 0.10.6",
  "substreams-ethereum 0.9.13",
@@ -874,11 +874,29 @@ dependencies = [
  "prost 0.11.9",
  "serde",
  "serde-sibor",
- "serde_qs",
+ "serde_qs 0.13.0",
  "substreams 0.5.22",
  "substreams-ethereum 0.9.13",
  "substreams-helper 0.0.2 (git+https://github.com/propeller-heads/tycho-protocol-sdk.git?tag=0.5.0)",
  "tycho-substreams 0.8.0",
+]
+
+[[package]]
+name = "ethereum-fluid_v1"
+version = "0.2.0"
+dependencies = [
+ "anyhow",
+ "ethabi 18.0.0",
+ "hex",
+ "itertools 0.10.5",
+ "num-bigint",
+ "prost 0.11.9",
+ "serde",
+ "serde_qs 0.15.0",
+ "substreams 0.5.22",
+ "substreams-ethereum 0.9.13",
+ "substreams-helper 0.0.2 (git+https://github.com/propeller-heads/tycho-protocol-sdk.git?rev=b8aeaa3)",
+ "tycho-substreams 0.5.1",
 ]
 
 [[package]]
@@ -894,7 +912,7 @@ dependencies = [
  "prost 0.11.9",
  "serde",
  "serde-sibor",
- "serde_qs",
+ "serde_qs 0.13.0",
  "substreams 0.5.22",
  "substreams-ethereum 0.9.13",
  "tycho-substreams 0.6.0",
@@ -912,7 +930,7 @@ dependencies = [
  "prost 0.11.9",
  "serde",
  "serde-sibor",
- "serde_qs",
+ "serde_qs 0.13.0",
  "substreams 0.5.22",
  "substreams-ethereum 0.9.13",
  "substreams-helper 0.0.2 (git+https://github.com/propeller-heads/tycho-protocol-sdk.git?rev=52d5021)",
@@ -985,7 +1003,7 @@ dependencies = [
  "prost 0.11.9",
  "serde",
  "serde-sibor",
- "serde_qs",
+ "serde_qs 0.13.0",
  "substreams 0.5.22",
  "substreams-ethereum 0.9.13",
  "tycho-substreams 0.2.1 (git+https://github.com/propeller-heads/tycho-protocol-sdk.git?rev=52d5021)",
@@ -1031,7 +1049,7 @@ dependencies = [
  "num-bigint",
  "prost 0.11.9",
  "serde",
- "serde_qs",
+ "serde_qs 0.13.0",
  "substreams 0.5.22",
  "substreams-ethereum 0.9.13",
  "substreams-helper 0.0.2 (git+https://github.com/propeller-heads/tycho-protocol-sdk.git?rev=b8aeaa3)",
@@ -1135,7 +1153,7 @@ dependencies = [
  "prost 0.11.9",
  "rstest",
  "serde",
- "serde_qs",
+ "serde_qs 0.13.0",
  "substreams 0.5.22",
  "substreams-entity-change",
  "substreams-ethereum 0.9.13",
@@ -2392,6 +2410,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "serde_qs"
+version = "0.15.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f3faaf9e727533a19351a43cc5a8de957372163c7d35cc48c90b75cdda13c352"
+dependencies = [
+ "percent-encoding",
+ "serde",
+ "thiserror 2.0.7",
+]
+
+[[package]]
 name = "sha2"
 version = "0.10.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3134,7 +3163,7 @@ dependencies = [
  "num-bigint",
  "prost 0.11.9",
  "serde",
- "serde_qs",
+ "serde_qs 0.13.0",
  "substreams 0.5.22",
  "substreams-ethereum 0.9.13",
  "substreams-helper 0.0.2 (git+https://github.com/propeller-heads/tycho-protocol-sdk.git?tag=0.4.0)",
