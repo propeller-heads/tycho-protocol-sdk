@@ -30,20 +30,19 @@ contract AngleAdapter is ISwapAdapter {
     }
 
     /// @inheritdoc ISwapAdapter
-    /**
-     * @dev It is not possible to reproduce the swap in a view mode (like
-     * Bancor, Uniswap v2, etc..) as the swap produce a change of storage in
-     * the Angle protocol, that impacts the price post trade. Due to the
-     * architecture of Angle, it's not possible to calculate the storage
-     * modifications of Angle inside the adapter.
-     */
-    function price(bytes32, address, address, uint256[] memory)
-        external
-        pure
-        override
-        returns (Fraction[] memory)
-    {
-        revert NotImplemented("AngleAdapter.price");
+    function price(
+        bytes32,
+        address sellToken,
+        address buyToken,
+        uint256[] memory specifiedAmounts
+    ) external view override returns (Fraction[] memory prices) {
+        prices = new Fraction[](specifiedAmounts.length);
+        uint8 decimals = IERC20Metadata(sellToken).decimals();
+
+        for (uint256 i = 0; i < specifiedAmounts.length; i++) {
+            prices[i] =
+                getPriceAt(sellToken, buyToken, OrderSide.Sell, decimals);
+        }
     }
 
     /// @inheritdoc ISwapAdapter
@@ -147,10 +146,10 @@ contract AngleAdapter is ISwapAdapter {
     {
         address[] memory collateralsAddresses = transmuter.getCollateralList();
         tokens = new address[](collateralsAddresses.length + 1);
+        tokens[0] = transmuter.agToken();
         for (uint256 i = 0; i < collateralsAddresses.length; i++) {
-            tokens[i] = address(collateralsAddresses[i]);
+            tokens[i + 1] = address(collateralsAddresses[i]);
         }
-        tokens[collateralsAddresses.length] = transmuter.agToken();
     }
 
     function getPoolIds(uint256, uint256)
@@ -162,7 +161,7 @@ contract AngleAdapter is ISwapAdapter {
         revert NotImplemented("AngleAdapter.getPoolIds");
     }
 
-    /// @notice Calculates pool prices for specified amounts
+    /// @notice Calculates pool prices after swap
     /// @param tokenIn The token being sold
     /// @param tokenOut The token being bought
     /// @param side Order side
@@ -184,6 +183,23 @@ contract AngleAdapter is ISwapAdapter {
             amountIn = transmuter.quoteOut(amountOut, tokenIn, tokenOut);
         }
         return Fraction(amountOut, amountIn);
+    }
+
+    /// @notice Calculates pool prices for specified amounts (for price
+    /// function)
+    /// @param tokenIn The token being sold
+    /// @param tokenOut The token being bought
+    /// @param specifiedAmount Decimals of the sell token
+    /// @return The price as a fraction corresponding to the provided amount.
+    function getPriceAt(
+        address tokenIn,
+        address tokenOut,
+        uint256 specifiedAmount
+    ) internal view returns (Fraction memory) {
+        return Fraction(
+            transmuter.quoteIn(specifiedAmount, tokenIn, tokenOut),
+            specifiedAmount
+        );
     }
 
     /// @notice Executes a sell order on the contract.
