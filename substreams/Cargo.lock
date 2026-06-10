@@ -882,6 +882,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "ethereum-lido-v3"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "hex",
+ "itertools 0.10.5",
+ "num-bigint",
+ "serde",
+ "serde_json",
+ "substreams 0.5.22",
+ "substreams-ethereum 0.9.13",
+ "tycho-substreams 0.8.0",
+]
+
+[[package]]
 name = "ethereum-liquidityparty"
 version = "0.1.0"
 dependencies = [
