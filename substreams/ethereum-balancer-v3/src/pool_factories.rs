@@ -1,4 +1,4 @@
-use crate::{abi, modules::VAULT_ADDRESS};
+use crate::{abi, modules::BalancerV3Config};
 use abi::{
     stable_pool_factory_contract::{
         events::PoolCreated as StablePoolCreated, functions::Create as StablePoolCreate,
@@ -7,7 +7,7 @@ use abi::{
         events::PoolCreated as WeightedPoolCreated, functions::Create as WeightedPoolCreate,
     },
 };
-use substreams::{hex, scalar::BigInt};
+use substreams::scalar::BigInt;
 use substreams_ethereum::{
     pb::eth::v2::{Call, Log},
     Event, Function,
@@ -29,12 +29,22 @@ pub fn collect_rate_providers(tokens: &TokenConfig) -> Vec<Vec<u8>> {
 }
 
 pub fn address_map(
+    config: &BalancerV3Config,
     pool_factory_address: &[u8],
     log: &Log,
     call: &Call,
 ) -> Option<ProtocolComponent> {
-    match *pool_factory_address {
-        hex!("201efd508c8DfE9DE1a13c2452863A78CB2a86Cc") => {
+    let weighted_factory = config
+        .weighted_factory_address()
+        .expect("weighted_factory should always be a valid 20-byte hex address");
+    let stable_factory = config
+        .stable_factory_address()
+        .expect("stable_factory should always be a valid 20-byte hex address");
+    let vault_address =
+        config.vault_address().expect("vault should always be a valid 20-byte hex address");
+
+    match pool_factory_address {
+        addr if addr == weighted_factory => {
             let WeightedPoolCreate {
                 tokens: token_config,
                 normalized_weights,
@@ -71,13 +81,13 @@ pub fn address_map(
 
             Some(
                 ProtocolComponent::new(&format!("0x{}", hex::encode(&pool)))
-                    .with_contracts(&[pool, VAULT_ADDRESS.to_vec()])
+                    .with_contracts(&[pool, vault_address.to_vec()])
                     .with_tokens(tokens.as_slice())
                     .with_attributes(&attributes)
                     .as_swap_type("balancer_v3_pool", ImplementationType::Vm),
             )
         }
-        hex!("B9d01CA61b9C181dA1051bFDd28e1097e920AB14") => {
+        addr if addr == stable_factory => {
             let StablePoolCreate { tokens: token_config, swap_fee_percentage, .. } =
                 StablePoolCreate::match_and_decode(call)?;
             let StablePoolCreated { pool } = StablePoolCreated::match_and_decode(log)?;
@@ -108,7 +118,7 @@ pub fn address_map(
 
             Some(
                 ProtocolComponent::new(&format!("0x{}", hex::encode(&pool)))
-                    .with_contracts(&[pool.to_owned(), VAULT_ADDRESS.to_vec()])
+                    .with_contracts(&[pool.to_owned(), vault_address.to_vec()])
                     .with_tokens(tokens.as_slice())
                     .with_attributes(&attributes)
                     .as_swap_type("balancer_v3_pool", ImplementationType::Vm),
