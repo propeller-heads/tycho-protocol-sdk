@@ -1,0 +1,84 @@
+specVersion: v0.1.0
+package:
+    name: "ethereum_peapods"
+    version: v0.1.0
+
+protobuf:
+    files:
+        - tycho/evm/v1/vm.proto
+        - tycho/evm/v1/common.proto
+        - tycho/evm/v1/utils.proto
+        - adapter.proto
+    importPaths:
+        - ./proto/v1
+        - ../../proto
+
+binaries:
+    default:
+        type: wasm/rust-v1
+        file: ../target/wasm32-unknown-unknown/release/ethereum_peapods.wasm
+
+network: base
+networks:
+    base:
+        initialBlock:
+            map_function_calls: 26505480
+            store_exchange_price: 26505480
+            map_token_pairs: 26505480
+            store_token_pairs: 26505480
+            map_protocol_changes: 26505480
+        params:
+            map_function_calls: "adapter_address=b42807182b64e80C72B154EF6E2997ecf8084eD8"
+            map_token_pairs: "adapter_address=b42807182b64e80C72B154EF6E2997ecf8084eD8"
+
+params:
+    map_function_calls: "adapter_address=b42807182b64e80C72B154EF6E2997ecf8084eD8"
+    map_token_pairs: "adapter_address=b42807182b64e80C72B154EF6E2997ecf8084eD8"
+
+modules:
+    - name: map_function_calls
+      kind: map
+      initialBlock: 26505480
+      inputs:
+          - params: string
+          - source: sf.ethereum.type.v2.Block
+      output:
+          type: proto:adapter.v1.FunctionCalls
+
+    - name: store_exchange_price
+      kind: store
+      initialBlock: 26505480
+      updatePolicy: set
+      valueType: proto:adapter.v1.Fraction
+      inputs:
+          - map: map_function_calls
+
+    - name: map_token_pairs
+      kind: map
+      initialBlock: 26505480
+      inputs:
+          - params: string
+          - source: sf.ethereum.type.v2.Block
+      output:
+          type: proto:tycho.evm.v1.BlockTransactionProtocolComponents
+
+    - name: store_token_pairs
+      kind: store
+      initialBlock: 26505480
+      updatePolicy: set
+      valueType: proto:tycho.evm.v1.ProtocolComponent
+      inputs:
+          - map: map_token_pairs
+
+    - name: map_protocol_changes
+      kind: map
+      initialBlock: 26505480
+      inputs:
+          - source: sf.ethereum.type.v2.Block
+          - map: map_function_calls
+          - map: map_token_pairs
+          - store: store_exchange_price
+            mode: deltas
+      output:
+          type: proto:tycho.evm.v1.BlockChanges
+
