@@ -1,0 +1,23 @@
+syntax = "proto3";
+
+package ampleforth;
+
+message RebaseEvent {
+  uint64 ordinal = 1;
+  string epoch = 2;
+  string total_supply = 3;
+}
+
+message AmplRebases {
+  repeated RebaseEvent rebase_events = 1;
+}
+
+message AmplGonBalanceDelta {
+  uint64 ordinal = 1;
+  string delta = 2;
+  bytes component_id = 3;
+}
+
+message AmplGonBalanceDeltas {
+  repeated AmplGonBalanceDelta balance_deltas = 1;
+}
