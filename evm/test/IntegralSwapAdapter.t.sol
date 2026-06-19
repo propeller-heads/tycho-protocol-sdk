@@ -1,13 +1,14 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 pragma solidity ^0.8.13;
 
+import "./AdapterTest.sol";
 import "forge-std/Test.sol";
 import "openzeppelin-contracts/contracts/interfaces/IERC20.sol";
 import "src/interfaces/ISwapAdapterTypes.sol";
 import "src/libraries/FractionMath.sol";
 import "src/integral/IntegralSwapAdapter.sol";
 
-contract IntegralSwapAdapterTest is Test, ISwapAdapterTypes {
+contract IntegralSwapAdapterTest is Test, ISwapAdapterTypes, AdapterTest {
     using FractionMath for Fraction;
 
     IntegralSwapAdapter adapter;
@@ -184,5 +185,11 @@ contract IntegralSwapAdapterTest is Test, ISwapAdapterTypes {
         limits = new uint256[](2);
         limits[0] = limitMin0;
         limits[1] = limitMin1;
+    }
+
+    function testPoolBehaviourIntegral() public {
+        bytes32[] memory poolIds = new bytes32[](1);
+        poolIds[0] = bytes32(bytes20(USDC_WETH_PAIR));
+        runPoolBehaviourTest(adapter, poolIds);
     }
 }
